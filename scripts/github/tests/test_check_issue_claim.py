@@ -14,6 +14,8 @@ Couverture :
   - main : end-to-end bloqué / clear / reprise, issue fermée
 """
 
+import contextlib
+import io
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -24,11 +26,15 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from check_issue_claim import (
+    DEFAULT_REPO,
+    SUBMODULE_REPO,
     classify,
+    classify_number,
     extract_machine,
     main,
     parse_iso_utc,
     reduce_claims,
+    resolve_repo,
     scan_comment_events,
 )
 
@@ -252,20 +258,20 @@ class TestMain(unittest.TestCase):
         issue = self._issue([comment("[CLAIMED] myia-po-2025 -- on it", T0)])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
             with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
-                rc = main(["123", "--agent", "myia-po-2026"])
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 1)
 
     def test_clear_exit_0(self):
         issue = self._issue([])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
-            rc = main(["123", "--agent", "myia-po-2026"])
+            rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 0)
 
     def test_resuming_exit_0(self):
         issue = self._issue([comment("[CLAIMED] myia-po-2026 -- mine", T0)])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
             with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
-                rc = main(["123", "--agent", "myia-po-2026"])
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 0)
 
     def test_result_releases_block_end_to_end(self):
@@ -277,13 +283,13 @@ class TestMain(unittest.TestCase):
         ])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
             with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=2)):
-                rc = main(["123", "--agent", "myia-po-2026"])
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 0)
 
     def test_closed_issue_blocked_exit_1(self):
         issue = self._issue([], state="CLOSED")
         with patch("check_issue_claim.fetch_issue", return_value=issue):
-            rc = main(["123", "--agent", "myia-po-2026"])
+            rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 1)
 
     def test_gh_failure_exit_2(self):
@@ -291,8 +297,171 @@ class TestMain(unittest.TestCase):
             "check_issue_claim.fetch_issue",
             side_effect=RuntimeError("gh failed: no network"),
         ):
-            rc = main(["123", "--agent", "myia-po-2026"])
+            rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 2)
+
+
+def gh_stub(per_repo):
+    """Fake `_gh_exec` driven by a {repo: (returncode, stdout, stderr)} table.
+
+    Patching the single gh seam keeps these tests OFF the network. The previous
+    revision of this suite patched `fetch_issue` only, so the repo resolution
+    added for #3768 reached out to GitHub for real -- green locally with an
+    authenticated gh, red in CI, and 1000x slower either way.
+    """
+
+    def _exec(args):
+        for repo, outcome in per_repo.items():
+            if any(f"repos/{repo}/issues/" in a for a in args):
+                return outcome
+        raise AssertionError(f"unexpected gh call: {args}")
+
+    return _exec
+
+
+OK_ISSUE = (0, "issue\n", "")
+OK_PR = (0, "pr\n", "")
+NOT_FOUND = (1, "", "gh: Not Found (HTTP 404)")
+RATE_LIMITED = (1, "", "gh: API rate limit exceeded for user ID 3159389 (HTTP 403)")
+
+
+class TestClassifyNumber(unittest.TestCase):
+    """A failed lookup must never be reported as an absence (#3768 follow-up)."""
+
+    def _kind(self, outcome):
+        with patch("check_issue_claim._gh_exec", gh_stub({DEFAULT_REPO: outcome})):
+            return classify_number("123", DEFAULT_REPO)
+
+    def test_issue(self):
+        self.assertEqual(self._kind(OK_ISSUE), "issue")
+
+    def test_pull_request(self):
+        self.assertEqual(self._kind(OK_PR), "pr")
+
+    def test_real_404_is_absent(self):
+        self.assertEqual(self._kind(NOT_FOUND), "absent")
+
+    def test_rate_limit_is_error_not_absent(self):
+        # Le coeur du correctif : un 403 de limite secondaire n'est PAS un 404.
+        self.assertEqual(self._kind(RATE_LIMITED), "error")
+
+    def test_empty_stdout_is_error_not_absent(self):
+        self.assertEqual(self._kind((0, "   \n", "")), "error")
+
+    def test_non_404_mentioning_not_found_is_not_absent(self):
+        # Regression : la regex matchait la PROSE en insensible a la casse, donc
+        # n'importe quel message contenant "not found" -- y compris celui que ce
+        # module produit lui-meme quand gh n'est pas lancable -- passait pour un
+        # 404. Le code HTTP seul fait foi.
+        self.assertEqual(
+            self._kind((1, "", "gh: repository index not found (HTTP 500)")), "error"
+        )
+
+    def test_404_is_recognised_by_status_code_only(self):
+        self.assertEqual(self._kind((1, "", "gh: quelque chose (HTTP 404)")), "absent")
+
+
+class TestResolveRepo(unittest.TestCase):
+    def _resolve(self, parent, submod):
+        stub = gh_stub({DEFAULT_REPO: parent, SUBMODULE_REPO: submod})
+        with patch("check_issue_claim._gh_exec", stub):
+            return resolve_repo("123")
+
+    def test_issue_in_parent_only(self):
+        repo, note, code = self._resolve(OK_ISSUE, NOT_FOUND)
+        self.assertEqual((repo, code), (DEFAULT_REPO, 0))
+        self.assertEqual(note, "")
+
+    def test_pr_in_parent_issue_in_submodule_is_the_3768_trap(self):
+        repo, note, code = self._resolve(OK_PR, OK_ISSUE)
+        self.assertEqual((repo, code), (SUBMODULE_REPO, 0))
+        self.assertIn("PULL REQUEST", note)
+
+    def test_issue_in_both_is_ambiguous_exit_3(self):
+        repo, message, code = self._resolve(OK_ISSUE, OK_ISSUE)
+        self.assertIsNone(repo)
+        self.assertEqual(code, 3)
+        self.assertIn("AMBIGUOUS", message)
+
+    def test_absent_from_both_is_exit_2(self):
+        repo, message, code = self._resolve(NOT_FOUND, NOT_FOUND)
+        self.assertIsNone(repo)
+        self.assertEqual(code, 2)
+
+    def test_partial_failure_refuses_instead_of_guessing(self):
+        # La regression que cette suite existe pour empecher : le parent repond
+        # "issue", le submodule est en 403. Resoudre vers le parent ferait ecrire
+        # le verrou sur le mauvais ticket -- exactement le degat de #3768.
+        repo, message, code = self._resolve(OK_ISSUE, RATE_LIMITED)
+        self.assertIsNone(repo)
+        self.assertEqual(code, 2)
+        self.assertIn(SUBMODULE_REPO, message)
+        self.assertIn("not an absence", message)
+
+    def test_partial_failure_on_the_other_side_too(self):
+        repo, _message, code = self._resolve(RATE_LIMITED, OK_ISSUE)
+        self.assertIsNone(repo)
+        self.assertEqual(code, 2)
+
+
+class TestUnrunnableGh(unittest.TestCase):
+    """An environment failure must never borrow a measured verdict's exit code.
+
+    `gh` absent from PATH used to raise OSError out of _gh_exec: traceback, and
+    exit 1 -- which this tool's contract defines as "another machine holds the
+    claim". A cron worker would read a broken PATH as a concurrent lock.
+    """
+
+    def test_classify_number_reports_error_not_absent(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            self.assertEqual(classify_number("123", DEFAULT_REPO), "error")
+
+    def test_resolution_path_exits_2(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            self.assertEqual(main(["123", "--agent", "myia-po-2026"]), 2)
+
+    def test_explicit_repo_path_also_exits_2(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 2)
+
+
+class TestMainRepoResolution(unittest.TestCase):
+    """main() must surface resolve_repo's exit code, not a fixed one."""
+
+    def test_mutation_under_auto_repo_says_which_ticket_it_targets(self):
+        stub = gh_stub({DEFAULT_REPO: OK_PR, SUBMODULE_REPO: OK_ISSUE})
+        err = io.StringIO()
+        with patch("check_issue_claim._gh_exec", stub):
+            with patch("check_issue_claim.post_comment") as post:
+                with contextlib.redirect_stderr(err):
+                    rc = main(["980", "--claim", "on it", "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 0)
+        self.assertIn("this MUTATION targets", err.getvalue())
+        self.assertIn(SUBMODULE_REPO, err.getvalue())
+        self.assertEqual(post.call_args.args[1], SUBMODULE_REPO)
+
+    def test_ambiguous_number_exits_3(self):
+        stub = gh_stub({DEFAULT_REPO: OK_ISSUE, SUBMODULE_REPO: OK_ISSUE})
+        with patch("check_issue_claim._gh_exec", stub):
+            self.assertEqual(main(["123", "--agent", "myia-po-2026"]), 3)
+
+    def test_unreadable_repo_exits_2_not_3(self):
+        # Une panne gh rapportee en "3" enverrait l'operateur chercher une
+        # collision de numerotation qui n'existe pas.
+        stub = gh_stub({DEFAULT_REPO: OK_ISSUE, SUBMODULE_REPO: RATE_LIMITED})
+        with patch("check_issue_claim._gh_exec", stub):
+            self.assertEqual(main(["123", "--agent", "myia-po-2026"]), 2)
+
+    def test_explicit_repo_makes_no_lookup_at_all(self):
+        def explode(args):
+            raise AssertionError("--repo was given; no resolution call expected")
+
+        issue = {"number": 123, "state": "OPEN", "comments": []}
+        with patch("check_issue_claim._gh_exec", explode):
+            with patch("check_issue_claim.fetch_issue", return_value=issue):
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 0)
 
 
 if __name__ == "__main__":
