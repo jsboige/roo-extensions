@@ -60,7 +60,8 @@ comment-based. A merged PR referencing the issue is not auto-detected as a
 release -- post `--release` (or `[DONE]`) when the PR lands.
 
 Exit codes: 0 ok / 1 blocked (other machine holds active claim, unowned claim,
-or issue closed) / 2 io-or-gh error.
+or issue closed) / 2 io-or-gh error / 3 repo ambiguity (#3768: the number is an
+issue in BOTH repos and --repo was not given -- the guard refuses to guess).
 """
 from __future__ import annotations
 
@@ -73,6 +74,8 @@ import sys
 from datetime import datetime, timezone
 
 DEFAULT_REPO = "jsboige/roo-extensions"
+SUBMODULE_REPO = "jsboige/jsboige-mcp-servers"
+KNOWN_REPOS = (DEFAULT_REPO, SUBMODULE_REPO)
 
 # --- markers -----------------------------------------------------------------
 
@@ -217,6 +220,67 @@ def run_gh(args, check=True):
     return proc.stdout
 
 
+def classify_number(number: str, repo: str) -> str:
+    """Is `number` an ISSUE, a PULL REQUEST, or absent in `repo`?
+
+    Issues and PRs share ONE numbering space per repo, and `gh issue view` renders
+    a PR without complaint. The discriminant is the `pull_request` key of the REST
+    payload (#3768): #980 was a MERGED PR in the parent and an OPEN issue in the
+    submodule, so reading the parent produced a sincere -- and false --
+    "BLOCKED: issue #980 is MERGED", skipping a grain nobody had claimed.
+    """
+    proc = subprocess.run(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/issues/{number}",
+            "--jq",
+            'if .pull_request then "pr" else "issue" end',
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if proc.returncode != 0:
+        return "absent"
+    return proc.stdout.strip() or "absent"
+
+
+def resolve_repo(number: str):
+    """Pick the repo carrying issue `number` when --repo was NOT given.
+
+    Returns `(repo, note)` on a unique match, or `(None, message)` when the number
+    is ambiguous or is an issue nowhere. Fail-closed by construction: the guard
+    never picks between two candidates -- a wrong guess does not merely skip a
+    grain, it makes `--claim` write the lock on the WRONG repo's issue, leaving
+    the real grain unlocked while polluting an unrelated one.
+    """
+    kinds = {repo: classify_number(number, repo) for repo in KNOWN_REPOS}
+    candidates = [repo for repo, kind in kinds.items() if kind == "issue"]
+    if len(candidates) == 1:
+        other = next(r for r in KNOWN_REPOS if r != candidates[0])
+        note = ""
+        if kinds[other] == "pr":
+            note = (
+                f"note: #{number} is a PULL REQUEST in {other}; resolved to "
+                f"{candidates[0]} (the #3768 trap)"
+            )
+        return candidates[0], note
+    if not candidates:
+        detail = ", ".join(f"{r}={k}" for r, k in kinds.items())
+        return None, (
+            f"error: #{number} is an issue in neither known repo ({detail}).\n"
+            "       Pass --repo explicitly if it lives somewhere else."
+        )
+    return None, (
+        f"AMBIGUOUS: #{number} is an OPEN numbering collision -- it is an issue in\n"
+        "           BOTH repos, and guessing would lock the wrong one. Re-run with:\n"
+        f"             --repo {DEFAULT_REPO}\n"
+        f"             --repo {SUBMODULE_REPO}"
+    )
+
+
 def fetch_issue(issue_number: str, repo: str):
     """Fetch issue state + comments as a dict. Raises RuntimeError on gh failure."""
     raw = run_gh(
@@ -264,7 +328,12 @@ def main(argv=None) -> int:
         "lock living on the GitHub issue (ADR 017, #3676)."
     )
     parser.add_argument("issue", help="issue number")
-    parser.add_argument("--repo", default=DEFAULT_REPO, help=f"default: {DEFAULT_REPO}")
+    parser.add_argument(
+        "--repo",
+        default=None,
+        help=f"default: auto-detected between {DEFAULT_REPO} and {SUBMODULE_REPO}; "
+        "pass it explicitly on submodule grains to skip detection (#3768)",
+    )
     parser.add_argument(
         "--agent",
         default=default_agent(),
@@ -292,6 +361,15 @@ def main(argv=None) -> int:
         "--note", default="", help="optional note appended to --release body"
     )
     args = parser.parse_args(argv)
+
+    if args.repo is None:
+        resolved, message = resolve_repo(args.issue)
+        if resolved is None:
+            print(message, file=sys.stderr)
+            return 3
+        args.repo = resolved
+        if message:
+            print(message, file=sys.stderr)
 
     if args.claim or args.release:
         if not args.agent:
