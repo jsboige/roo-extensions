@@ -23,7 +23,7 @@
 
 | MCP | Outils | Role |
 |-----|--------|------|
-| playwright | 23 | Automation web |
+| playwright | 25 | Automation web |
 | sk-agent | 9 outils + agents dynamiques | Vision/multi-agent (`call_agent` dynamic descriptions). Outils = `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`, `list_conversations`, `list_tools`, `review_pr`, `run_conversation` |
 | **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
 

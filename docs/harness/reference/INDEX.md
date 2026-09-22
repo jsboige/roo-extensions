@@ -76,6 +76,7 @@
 | **roo-schedulable** | Seulement taches subalternes | `roo-schedulable-criteria.md` |
 | **Bash fallback** | Outils natifs > MCP win-cli > degradation gracieuse | `bash-fallback.md` |
 | **MCP discoverability** | Tests decouverte en 3 phases | `mcp-discoverability.md` |
+| **MCP surface & profils (#2224)** | Empreinte canonique (53 outils / ~16,4k tok, 2026-09-22), trajectoire, matrice d'usage, pacte d'extension (différé #3657 > profils-retrait rejetés) | `mcp-profiles.md` |
 | **Stub Detection** | CI gate pour stub exports | `stub-detection.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `../machine-specific/myia-web1-constraints.md` |
 | **VPS-4 2027 provisioning** | Runbook migration web1 → VPS-4 (Épic #3188, Phase 0) : extracteur web1, IIS/ARR/runtimes/certs, bindings par domaine, fenêtre ACME, inventaire IP po-2023 | `../machine-specific/vps4-2027-provisioning-runbook.md` |
