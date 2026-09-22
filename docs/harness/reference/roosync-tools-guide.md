@@ -48,7 +48,9 @@ The coordinator and meta-analyst use a subset of roo-state-manager tools for fle
   },
   drift: {
     checked: boolean,                            // false if GDrive offline
-    baselineSource: string,                      // e.g. "myia-po-2023 (via GDrive inventory)"
+    driftSource: string,                         // #1161 - machine whose config is measured (diff SUBJECT)
+    driftTarget: string,                         // #1161 - the peer it is diffed against (renamed from baselineSource)
+    driftTargetSelection: "explicit" | "registry-default",  // #1188 - was the target given, or picked from the registry?
     critical: number, important: number,
     warning: number, info: number,
     items: Array<{ category, severity, path, description, action? }>
