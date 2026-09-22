@@ -48,6 +48,23 @@ $ErrorActionPreference = 'Continue'
 $script:repairs = @()
 $script:alerts  = @()
 
+# ---------- run budget (#3205) ----------
+# The schtask stops this run at 2 min (ExecutionTimeLimit in
+# install-watchdog-schtask.ps1), and the probe path alone can outlast it:
+# 20 s + 60 s (E2E retry) + 20 s + 60 s (LAN retry) = 160 s. Measured on
+# 22/09/2026 in watchdog-20260922.log: six runs were cut during the LAN
+# retry, so the "unresponsive is not dead" branch below never ran; and the
+# repair started at 23:07:37 (local) was cut before it recorded
+# lastRepairAt. The next tick found sparfenyuk's port DOWN and ran a second
+# full repair two minutes later, despite the 15-min cooldown.
+# A step that cannot finish inside the run is not started.
+$TaskTimeLimitSec = 120
+$RunClock = [System.Diagnostics.Stopwatch]::StartNew()
+function Get-RunSecondsLeft { ($TaskTimeLimitSec - 5) - $RunClock.Elapsed.TotalSeconds }
+# Stop + 3 s + Start + 10 s + docker restart + 15 s + the 20 s E2E check that
+# follows. docker restart has no budget of its own; 20 s is assumed for it.
+$RepairWorstCaseSec = 75
+
 # ---------- logging ----------
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -514,8 +531,12 @@ if ($result.Ok) {
     # exists for (a dead RSM instance inside a live sparfenyuk) answers in under
     # 100 ms with isError:true, so it can NEVER present as a timeout.
     if (-not $lanResult.Ok -and $lanResult.TimedOut) {
-        Write-Log 'WARN' "LAN probe spent its full 20s budget (latency=$($lanResult.LatencyMs)ms) — retrying once with ${SlowRetryTimeoutSec}s before deciding anything destructive."
-        $lanResult = Invoke-McpProbe -Url $lanUrl -TimeoutSec $SlowRetryTimeoutSec
+        if ((Get-RunSecondsLeft) -ge $SlowRetryTimeoutSec) {
+            Write-Log 'WARN' "LAN probe spent its full 20s budget (latency=$($lanResult.LatencyMs)ms) — retrying once with ${SlowRetryTimeoutSec}s before deciding anything destructive."
+            $lanResult = Invoke-McpProbe -Url $lanUrl -TimeoutSec $SlowRetryTimeoutSec
+        } else {
+            Write-Log 'WARN' "LAN probe spent its full 20s budget (latency=$($lanResult.LatencyMs)ms); the ${SlowRetryTimeoutSec}s retry does not fit in the $([int](Get-RunSecondsLeft))s left before the task's time limit — not retrying."
+        }
     }
 
     if ($lanResult.Ok -and $probesAreDistinctHops) {
@@ -532,11 +553,19 @@ if ($result.Ok) {
         # of the fault this repair treats. Restarting here trades a stall that
         # may clear itself (00:48 -> healthy at 00:52) for a certainty: every
         # live bot session dropped. Report it and let the next tick decide.
-        Write-Log 'WARN' "LAN probe STILL timing out after the ${SlowRetryTimeoutSec}s retry (latency=$($lanResult.LatencyMs)ms) — unresponsive is not dead. Deferring repair to the next tick."
+        Write-Log 'WARN' "LAN probe still timing out (latency=$($lanResult.LatencyMs)ms) — unresponsive is not dead. Deferring repair to the next tick."
         $script:alerts += "chain-unresponsive-repair-deferred: e2e-and-lan-both-timed-out"
     } elseif ($repairOnCooldown) {
         Write-Log 'WARN' "chain still down but repair is on cooldown (last repair $([math]::Round(((Get-Date) - $lastRepairAt).TotalMinutes,0)) min ago < $RepairCooldownMin) — waiting, not restarting"
         $script:alerts += "chain-down-repair-on-cooldown"
+    } elseif ((Get-RunSecondsLeft) -lt $RepairWorstCaseSec) {
+        # A repair cut by the task limit between Stop and Start leaves
+        # sparfenyuk stopped; cut before the state write, it leaves the
+        # cooldown unarmed (22/09: two repairs two minutes apart). A dead
+        # instance answers fast, so the next tick reaches this point early
+        # and repairs with the time it needs.
+        Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)), but a full repair needs ${RepairWorstCaseSec}s and $([int](Get-RunSecondsLeft))s are left before the task's time limit — deferring to the next tick."
+        $script:alerts += 'chain-down-repair-deferred: not enough run time left for a full repair'
     } else {
         Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)) — running full repair sequence."
 
