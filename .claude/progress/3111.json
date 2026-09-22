@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-09-17T05:00:00Z",
+  "updated_at": "2026-09-23T00:00:00Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -30,7 +30,7 @@
       "completed_at": "2026-09-16T15:13:57Z",
       "metric_before": null,
       "metric_after": null,
-      "notes": "PR #3684 MERGED 16/09 15:13:57Z (squash 1fb91fe7) — ADR 015 + plans-progress-schema.md + regle plans-progress-usage.md + pilote Epic 3111 sur main."
+      "notes": "PR #3684 MERGED 16/09 15:13:57Z (squash 1fb91fe7) — ADR 015 + plans-progress-schema.md + regle plans-progress-usage.md + pilote Epic 3111 sur main. Issue #3674 reste OPEN par design : le pilote expire a la fermeture de l'Epic."
     },
     "phase-2-candidat-2": {
       "status": "completed",
@@ -43,64 +43,64 @@
       "notes": "PR #3681 MERGED 16/09 23:06:04Z (squash d2bae9ea, rework 6d60e903 APPROVED ai-01 15:45Z) — picker 3 urnes + test cycle-end + ADR 016 sur main. Issue #3675 fermee par po-2026 17/09 01:24Z (stable >5 min)."
     },
     "phase-2-candidat-3": {
-      "status": "pending",
-      "title": "Candidat #3 — claim cross-lane sur issue",
-      "path": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "title": "Candidat #3 — claim sur issue GitHub (résilience outage incluse)",
+      "path": "https://github.com/jsboige/roo-extensions/pull/3680",
+      "started_at": "2026-09-17T00:00:00Z",
+      "completed_at": "2026-09-20T11:37:46Z",
       "metric_before": null,
       "metric_after": null,
-      "notes": "À arbitrer en phase 2."
+      "notes": "PR #3680 MERGED 20/09 11:37:46Z — ADR 017 : le locus du claim demenage sur l'issue GitHub (check_issue_claim.py v2.0, depot ambigu #3768 en follow-up). Issue #3676 fermee 20/09 11:37:47Z (merge portant le fix)."
     },
     "phase-2-candidat-4": {
-      "status": "pending",
-      "title": "Candidat #4 — pre-commit + gates CI sur mcps/internal",
-      "path": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "title": "Candidat #4 — pre-commit + gates CI sur mcps/internal (priorité time-bomb)",
+      "path": "https://github.com/jsboige/roo-extensions/pull/3685",
+      "started_at": "2026-09-15T10:00:00Z",
+      "completed_at": "2026-09-16T23:06:08Z",
       "metric_before": null,
       "metric_after": null,
-      "notes": "À arbitrer en phase 2."
+      "notes": "PR #3685 MERGED 16/09 23:06:08Z — port gitleaks + parité pre-commit ; + PR #3682 (deploy fixture freshness guard) MERGED 15/09 23:27:09Z. Issue #3673 fermee 16/09 23:06:09Z. NB : fermé AVANT la mise à jour du 17/09 qui l'avait laissé pending (drift corrigé)."
     },
     "phase-2-candidat-5": {
       "status": "pending",
-      "title": "Candidat #5 — format « En attente d'arbitrage user » re-parcouru",
-      "path": "https://github.com/jsboige/roo-extensions/issues/3656",
+      "title": "Candidat #5 — registre d'arbitrages re-parcouru (CoursIA ← roo-ext)",
+      "path": "https://github.com/jsboige/roo-extensions/issues/3677",
       "started_at": null,
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "Cross-link avec registre open-questions #3656 (registre persistant, pas dans le fil)."
+      "notes": "Issue #3677 OPEN. Cross-link registre open-questions #3656."
     },
     "phase-2-candidat-6": {
-      "status": "in_progress",
+      "status": "pending",
       "title": "Candidat #6 — porteur schtask pour crons CoursIA",
       "path": null,
-      "started_at": "2026-08-17T00:00:00Z",
+      "started_at": null,
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "Transposition #3141/#3152/#3153 (déjà déployé roo-ext, à proposer côté CoursIA). Incident fondateur 2026-07-28 (60 h muette ×2 lanes)."
+      "notes": "EN ATTENTE d'arbitrage (conflit) : l'arbitrage user roo-ext du 18/08 (revert #3141) a interdit la schtask executor-cron au profit du cron interactif — transposition à CoursIA non tranchée. Aucun travail actif."
     },
     "phase-2-candidat-7": {
       "status": "pending",
-      "title": "Candidat #7 — méta-doc + harness-hygiene 3-tiers",
+      "title": "Candidat #7 — workspace blueprint (différé)",
       "path": null,
       "started_at": null,
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "Requalifié passe 3 : défaut bilatéral (298 fichiers CoursIA vs 71 roo-ext, like-for-like). Patron commun à abstraire."
+      "notes": "Différé par l'arbitrage user 15/09 (dépend de #1-#6). L'audit initial le numérota candidat #8 et portait aussi un 'méta-doc harness-hygiene 3-tiers' (audit #7) non repris dans les GO de l'arbitrage."
     },
     "phase-2-candidat-8": {
-      "status": "pending",
-      "title": "Candidat #8 — workspace blueprint",
-      "path": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "completed",
+      "title": "Candidat #8 — résilience du canal de coordination (alerte survivante, #2875)",
+      "path": "https://github.com/jsboige/roo-extensions/pull/3679",
+      "started_at": "2026-09-16T02:00:00Z",
+      "completed_at": "2026-09-16T15:14:15Z",
       "metric_before": null,
       "metric_after": null,
-      "notes": "Abstraction des #1-#7 + porteur schtask. À arbitrer une fois les autres candidats livrés."
+      "notes": "PR #3679 MERGED 16/09 15:14:15Z — design proposal alert-survivante. Issue #3678 fermee 20/09 13:23:47Z (preuves post-merge)."
     },
     "phase-3-integration": {
       "status": "pending",
@@ -115,9 +115,9 @@
   },
   "statistics": {
     "total": 10,
-    "completed": 3,
-    "in_progress": 1,
-    "pending": 6,
+    "completed": 6,
+    "in_progress": 0,
+    "pending": 4,
     "failed": 0,
     "skipped": 0
   },
@@ -142,6 +142,27 @@
       "action": "completed",
       "actor": "myia-web1:claude-interactive",
       "note": "Consigne post-merge : PR #3681 MERGED 2026-09-16T23:06:04Z (squash d2bae9ea). Drift signale par po-2024 (23:14Z) et po-2026 (01:31Z)."
+    },
+    {
+      "timestamp": "2026-09-23T00:00:00Z",
+      "item_id": "phase-2-candidat-4",
+      "action": "completed",
+      "actor": "myia-po-2027:claude-interactive",
+      "note": "Réalign 23/09 : #3673 fermée 16/09 23:06:09Z (PR #3685 merged 23:06:08Z) — était déjà fermée au realign du 17/09 qui l'avait laissée pending (drift)."
+    },
+    {
+      "timestamp": "2026-09-23T00:00:00Z",
+      "item_id": "phase-2-candidat-3",
+      "action": "completed",
+      "actor": "myia-po-2027:claude-interactive",
+      "note": "Réalign 23/09 : #3676 fermée 20/09 11:37:47Z (PR #3680 merged 11:37:46Z, ADR 017 claim-locus)."
+    },
+    {
+      "timestamp": "2026-09-23T00:00:00Z",
+      "item_id": "phase-2-candidat-8",
+      "action": "completed",
+      "actor": "myia-po-2027:claude-interactive",
+      "note": "Réalign 23/09 : #3678 fermée 20/09 13:23:47Z (PR #3679 merged 16/09 15:14:15Z) + renumérotation alignée sur l'arbitrage user 15/09 (#8 = résilience canal, le blueprint devient #7 différé)."
     }
   ]
 }
