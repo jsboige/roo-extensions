@@ -48,6 +48,13 @@ Un verdict unique parmi :
 | `SUBMODULE_DIRTY` | Un submodule est au bon gitlink mais a des modifs internes. |
 | `NOT_REPOSITORY` | Le chemin n'est pas un depot Git. |
 
+> **Submodule non peuple ≠ drift (review #3778).** Un submodule sans checkout —
+> repertoire absent, ou present mais vide (auquel cas `git -C` remonte au parent,
+> piege #3454) — est l'etat normal d'un clone partiel sans `--recurse-submodules`.
+> Il est classe `unpopulated`, n'emet AUCUN verdict, et apparait seulement en
+> ligne d'information du rendu `[PASS]`. Le peupler reste un choix machine :
+> `git submodule update --init --recursive` (etape 6).
+
 ### Garanties
 
 1. **Read-only.** L'organe n'invoque JAMAIS :
