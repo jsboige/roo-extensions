@@ -14,6 +14,8 @@ Couverture :
   - main : end-to-end bloqué / clear / reprise, issue fermée
 """
 
+import contextlib
+import io
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -346,6 +348,18 @@ class TestClassifyNumber(unittest.TestCase):
     def test_empty_stdout_is_error_not_absent(self):
         self.assertEqual(self._kind((0, "   \n", "")), "error")
 
+    def test_non_404_mentioning_not_found_is_not_absent(self):
+        # Regression : la regex matchait la PROSE en insensible a la casse, donc
+        # n'importe quel message contenant "not found" -- y compris celui que ce
+        # module produit lui-meme quand gh n'est pas lancable -- passait pour un
+        # 404. Le code HTTP seul fait foi.
+        self.assertEqual(
+            self._kind((1, "", "gh: repository index not found (HTTP 500)")), "error"
+        )
+
+    def test_404_is_recognised_by_status_code_only(self):
+        self.assertEqual(self._kind((1, "", "gh: quelque chose (HTTP 404)")), "absent")
+
 
 class TestResolveRepo(unittest.TestCase):
     def _resolve(self, parent, submod):
@@ -390,8 +404,42 @@ class TestResolveRepo(unittest.TestCase):
         self.assertEqual(code, 2)
 
 
+class TestUnrunnableGh(unittest.TestCase):
+    """An environment failure must never borrow a measured verdict's exit code.
+
+    `gh` absent from PATH used to raise OSError out of _gh_exec: traceback, and
+    exit 1 -- which this tool's contract defines as "another machine holds the
+    claim". A cron worker would read a broken PATH as a concurrent lock.
+    """
+
+    def test_classify_number_reports_error_not_absent(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            self.assertEqual(classify_number("123", DEFAULT_REPO), "error")
+
+    def test_resolution_path_exits_2(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            self.assertEqual(main(["123", "--agent", "myia-po-2026"]), 2)
+
+    def test_explicit_repo_path_also_exits_2(self):
+        with patch("check_issue_claim.subprocess.run", side_effect=OSError(2, "not found")):
+            rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 2)
+
+
 class TestMainRepoResolution(unittest.TestCase):
     """main() must surface resolve_repo's exit code, not a fixed one."""
+
+    def test_mutation_under_auto_repo_says_which_ticket_it_targets(self):
+        stub = gh_stub({DEFAULT_REPO: OK_PR, SUBMODULE_REPO: OK_ISSUE})
+        err = io.StringIO()
+        with patch("check_issue_claim._gh_exec", stub):
+            with patch("check_issue_claim.post_comment") as post:
+                with contextlib.redirect_stderr(err):
+                    rc = main(["980", "--claim", "on it", "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 0)
+        self.assertIn("this MUTATION targets", err.getvalue())
+        self.assertIn(SUBMODULE_REPO, err.getvalue())
+        self.assertEqual(post.call_args.args[1], SUBMODULE_REPO)
 
     def test_ambiguous_number_exits_3(self):
         stub = gh_stub({DEFAULT_REPO: OK_ISSUE, SUBMODULE_REPO: OK_ISSUE})

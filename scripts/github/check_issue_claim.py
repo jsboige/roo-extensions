@@ -87,7 +87,17 @@ KNOWN_REPOS = (DEFAULT_REPO, SUBMODULE_REPO)
 # The ONE failure `gh api` reports that actually means "this number is not here".
 # Every other non-zero exit (403 secondary limit, auth, network) means the lookup
 # did not happen -- see classify_number.
-NOT_FOUND_RE = re.compile(r"HTTP 404|Not Found", re.IGNORECASE)
+#
+# Matched on the HTTP code alone, never on the prose: `gh api` always renders an
+# API error as "... (HTTP NNN)", while "not found" appears in plenty of messages
+# that are NOT a 404 -- including this module's own "gh could not be launched"
+# when the OS strerror happens to contain it. Sniffing prose for a status code
+# re-opens the fail-open this guard exists to close.
+NOT_FOUND_RE = re.compile(r"HTTP 404")
+
+# `_gh_exec` returncode when gh could not be launched at all. Distinct from any
+# exit code gh itself can return, so it never has to be recognised from prose.
+GH_UNRUNNABLE = -1
 
 # --- markers -----------------------------------------------------------------
 
@@ -220,14 +230,25 @@ def _gh_exec(args):
 
     Returns `(returncode, stdout, stderr)` instead of raising, so a caller can
     tell a PROVEN 404 from a lookup that never happened. Tests patch this.
+
+    An unrunnable `gh` (absent from PATH, not executable) is reported the same
+    way rather than raised: letting OSError escape produced a traceback and
+    exit 1 -- which this tool's contract defines as "another machine holds the
+    claim". A cron worker with a broken PATH would read an environment failure
+    as a concurrent lock and quietly route elsewhere. Same shape as the exit-3
+    confusion this organ was just fixed for: never let a failure to measure
+    borrow the exit code of a measured verdict.
     """
-    proc = subprocess.run(
-        ["gh", *args],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        proc = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except OSError as err:
+        return GH_UNRUNNABLE, "", f"gh could not be launched: {err}"
     return proc.returncode, proc.stdout, proc.stderr
 
 
@@ -270,6 +291,8 @@ def classify_number(number: str, repo: str) -> str:
     if code == 0:
         kind = out.strip()
         return kind if kind in ("issue", "pr") else "error"
+    if code == GH_UNRUNNABLE:
+        return "error"
     return "absent" if NOT_FOUND_RE.search(f"{err}\n{out}") else "error"
 
 
@@ -288,6 +311,13 @@ def resolve_repo(number: str):
     unlocked while polluting an unrelated one. Since the fleet meets GitHub's
     secondary rate limit at active hours, "one repo did not answer" is an
     ordinary condition here, not an exotic one.
+
+    PRECONDITION: the caller's token must reach BOTH repos. GitHub answers 404
+    -- not 403 -- for a private repo the token cannot see, so a seat without
+    submodule access reads every submodule issue as genuinely absent and
+    resolves to the parent. That is indistinguishable from a real absence at
+    the protocol level; it is a fleet-configuration invariant, not something
+    this function can detect. Pass --repo explicitly from such a seat.
     """
     kinds = {repo: classify_number(number, repo) for repo in KNOWN_REPOS}
 
