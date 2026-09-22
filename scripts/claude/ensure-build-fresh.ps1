@@ -13,11 +13,34 @@
 # source is newer than the build (or build/ is absent), runs `npm run build` (clean + tsc).
 # Idempotent: a no-op when the build is already fresh -- and, since the content-key guard below,
 # also when the mtimes merely LOOK stale while `build-info.json` proves the build came from the
-# source currently checked out. A rebuild owes a restart, so a redundant one costs an operator
-# interruption, not just CPU. Legacy callers remain non-fatal on
+# source currently checked out. Legacy callers remain non-fatal on
 # skips/build failures; `-RequireFresh` makes those conditions block an executor pre-flight.
 #
-# ARM GUARD (#3489, revised by the #3489 FRICTION arbitration): rebuilding `build/` while a
+# WHICH PATH RUNS, AND WHY IT DECIDES EVERYTHING BELOW (#3713)
+# ------------------------------------------------------------------------------------------
+# Read this before the ARM GUARD section: on any checkout that has a `build-current` marker --
+# which is every post-#3713 checkout, i.e. the normal case today -- the ARM GUARD prose below
+# DOES NOT APPLY, and a rebuild OWES NO RESTART.
+#
+#   vintage path (#3713, default today)  -> `npm run build` republishes a CONTENT-ADDRESSED
+#                                           vintage next to the frozen `build/` shim and flips
+#                                           the `build-current` marker. Live v5 wrappers
+#                                           hot-swap on their own; v4 hosts take it at their
+#                                           next session spawn. Nothing is armed, nothing is
+#                                           owed, however many hosts are alive.
+#   legacy mtime path (marker absent)    -> pre-#3713 checkout only. THAT is what the ARM
+#                                           GUARD below describes.
+#
+# Stated explicitly because the cost is asymmetric and falls on the operator. An agent that
+# reads the ARM GUARD prose without reaching the vintage code concludes "a rebuild owes a
+# restart", and then either refuses a rebuild that was free, or announces a restart the user
+# does not owe -- on a machine where restart frequency is precisely the standing complaint.
+# The runtime already says the right thing (`SKIP ... vintage rebuild arms nothing ... no
+# restart owed (#3713)`); only this header lagged.
+#
+# ARM GUARD (#3489, revised by the #3489 FRICTION arbitration) -- LEGACY MTIME PATH ONLY,
+# superseded by the vintage path above on any checkout carrying a `build-current` marker.
+# Rebuilding `build/` while a
 # live RSM host process runs produces mixed ESM graphs -> the `assertSharedStoreAccessible`
 # crash on the next dynamic import, which makes `roosync_messages` (inbox) unreadable until a
 # VS Code restart. Any live host is armed by a rebuild, fresh or stale (proven 2026-09-06).
@@ -36,7 +59,8 @@
 #
 # NOTE: This ensures the ON-DISK build is current. In strict mode it also detects the distinct
 # failure mode where live MCP hosts predate that fresh build and returns 10, requiring a VS Code
-# restart before the executor continues ([INTERACTIVE-ONLY]).
+# restart before the executor continues ([INTERACTIVE-ONLY]). Legacy path only -- under the
+# vintage pipeline the marker flip is what makes a build current, and no restart is owed.
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$RepoRoot,
