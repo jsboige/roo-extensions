@@ -17,7 +17,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 ---
 
-## Sous-répertoires (46)
+## Sous-répertoires (47)
 
 > **Recompte vérifié firsthand le 2026-08-31** (`git ls-files scripts/ | awk -F/'{print $2}' | sort -u`). Item #3319 audit Haiku po-2026 — voir [issue #3319](https://github.com/jsboige/roo-extensions/issues/3319) pour les sources.
 
@@ -41,6 +41,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `mcp-watchdog/` | 7 | Surveillance et redémarrage automatique des MCP (+ vérificateur de déploiement #3394) |
 | `qdrant/` | 6 | Gestion Qdrant (backup, restore, diagnostics) |
 | `postgres/` | 3 | Sauvegarde Postgres (backup dump, schtask install) |
+| `pg/` | 1 | Sonde divergence dashboards GDrive↔PG (#3230/RX14 — read-only, plancher `--expect-files` miroir chaud) |
 | `copilot/` | 1 | Configuration VS Code Copilot MCP |
 | `deployment/` | 15 | Déploiement des configurations (install-mcps, migrate-roo-to-zoo) |
 | `roo-settings/` | 3 | Gestion des paramètres Roo Code |
