@@ -151,6 +151,10 @@ Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avan
 
 Heuristique : « un cluster produit-il du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** role coord/worker -> re-armer.
 
+**Armement et verification des crons/wakeups : par l'agent PRINCIPAL, jamais delegues.** Un sub-agent n'a pas les tools de scheduling, et un timer cree dans sa session mourrait avec lui (#3722).
+
+**Un sub-agent a qui il manque un tool s'arrete apres une ou deux tentatives et rapporte** — il ne cherche pas de substituts (#3722).
+
 ```
 # coordinateur — cadence portee par cron (economie tokens) :
 CronCreate(cron: "<minute off-:00> */<N> * * *", prompt: "/coordinate", recurring: true)
