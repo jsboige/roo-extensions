@@ -104,7 +104,7 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 | `install/` | 1 | Installation initiale |
 | `setup/` | 6 | Configuration environnement (Git hooks, auto-login, VS Code) |
 | `windows/` | 3 | Spécifique Windows (WSL, startup, Docker) |
-| `zoo-scheduler/` | 6 | Migration et gestion du scheduler Zoo Code (globalState migration, health check) |
+| `zoo-scheduler/` | 7 | Migration et gestion du scheduler Zoo Code (globalState migration, health check, inventaire mcp#490) |
 
 ### Diagnostic & Monitoring
 
