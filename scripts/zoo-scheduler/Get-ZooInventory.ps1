@@ -67,28 +67,30 @@ Add-Line ""
 
 # Workspace folders VS Code has opened (workspaceStorage/*/workspace.json).
 $folders = @{}
+$skipped = 0   # WSL, containers, other remotes, missing folders, multi-root .code-workspace
 $wsRoot = Join-Path $env:APPDATA "Code\User\workspaceStorage"
 if (Test-Path $wsRoot) {
     foreach ($f in Get-ChildItem $wsRoot -Directory -ErrorAction SilentlyContinue) {
         $wj = Join-Path $f.FullName "workspace.json"
         if (-not (Test-Path $wj)) { continue }
-        try { $uri = (Get-Content $wj -Raw | ConvertFrom-Json).folder } catch { continue }
-        if (-not $uri -or $uri -notlike 'file:///*') { continue }
+        try { $uri = (Get-Content -LiteralPath $wj -Raw | ConvertFrom-Json).folder } catch { $skipped++; continue }
+        if (-not $uri -or $uri -notlike 'file:///*') { $skipped++; continue }
         # [uri]::LocalPath keeps "/d:/x" for "file:///d%3A/x": decode by hand.
         $path = [uri]::UnescapeDataString($uri.Substring(8)).Replace('/', [IO.Path]::DirectorySeparatorChar)
-        if ((Test-Path $path) -and -not $folders.ContainsKey($path.ToLower())) { $folders[$path.ToLower()] = $path }
+        if (-not (Test-Path -LiteralPath $path)) { $skipped++; continue }
+        if (-not $folders.ContainsKey($path.ToLower())) { $folders[$path.ToLower()] = $path }
     }
 }
 $workspaces = @($folders.Values | Sort-Object)
 
 # --- 2. Schedules -----------------------------------------------------------
-Add-Line "**2. Schedules** (``.roo/schedules.json`` in the $($workspaces.Count) workspace folders VS Code has opened)"
+Add-Line "**2. Schedules** (``.roo/schedules.json`` in the $($workspaces.Count) local workspace folders VS Code has opened; $skipped entries not scanned: WSL, containers, remotes, multi-root or deleted folders)"
 $found = 0
 foreach ($ws in $workspaces) {
     $sj = Join-Path $ws ".roo\schedules.json"
-    if (-not (Test-Path $sj)) { continue }
+    if (-not (Test-Path -LiteralPath $sj)) { continue }
     $found++
-    try { $sched = @((Get-Content $sj -Raw | ConvertFrom-Json).schedules) } catch { Add-Line "- ``$ws``: unreadable ($($_.Exception.Message))"; continue }
+    try { $sched = @((Get-Content -LiteralPath $sj -Raw | ConvertFrom-Json).schedules) } catch { Add-Line "- ``$ws``: unreadable ($($_.Exception.Message))"; continue }
     foreach ($s in $sched) {
         Add-Line "- ``$ws``: **$($s.name)**, active=$($s.active), mode=$($s.mode), every $($s.timeInterval) $($s.timeUnit), last=$(Format-When $s.lastExecutionTime), next=$(Format-When $s.nextExecutionTime)"
     }
@@ -144,12 +146,12 @@ $cm = Join-Path (Get-GlobalStoragePath -Extension $active) "settings\custom_mode
 if (Test-Path $cm) { Add-Line "- Global ``custom_modes.yaml``: $(@(Select-String -Path $cm -Pattern '^\s*-\s*slug:').Count) modes" }
 foreach ($ws in $workspaces) {
     $rm = Join-Path $ws ".roomodes"
-    $rulesDirs = @(Get-ChildItem $ws -Directory -Filter ".roo" -Force -ErrorAction SilentlyContinue | ForEach-Object { Get-ChildItem $_.FullName -Directory -Filter "rules*" -ErrorAction SilentlyContinue })
-    if (-not (Test-Path $rm) -and -not $rulesDirs.Count) { continue }
-    $modes = if (Test-Path $rm) { @(Select-String -Path $rm -Pattern '"slug"\s*:|^\s*-\s*slug:').Count } else { 0 }
-    $cfg = if (Test-Path $rm) { @(Select-String -Path $rm -Pattern 'apiConfigId').Count } else { 0 }
-    $rules = @($rulesDirs | ForEach-Object { Get-ChildItem $_.FullName -File -Recurse -ErrorAction SilentlyContinue }).Count
-    Add-Line "- ``$ws``: .roomodes $(if (Test-Path $rm) { "$modes modes, $cfg apiConfigId" } else { 'absent' }); .roo/rules* $rules files"
+    $rulesDirs = @(Get-ChildItem -LiteralPath $ws -Directory -Filter ".roo" -Force -ErrorAction SilentlyContinue | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -Directory -Filter "rules*" -ErrorAction SilentlyContinue })
+    if (-not (Test-Path -LiteralPath $rm) -and -not $rulesDirs.Count) { continue }
+    $modes = if (Test-Path -LiteralPath $rm) { @(Select-String -LiteralPath $rm -Pattern '"slug"\s*:|^\s*-\s*slug:').Count } else { 0 }
+    $cfg = if (Test-Path -LiteralPath $rm) { @(Select-String -LiteralPath $rm -Pattern 'apiConfigId').Count } else { 0 }
+    $rules = @($rulesDirs | ForEach-Object { Get-ChildItem -LiteralPath $_.FullName -File -Recurse -ErrorAction SilentlyContinue }).Count
+    Add-Line "- ``$ws``: .roomodes $(if (Test-Path -LiteralPath $rm) { "$modes modes, $cfg apiConfigId" } else { 'absent' }); .roo/rules* $rules files"
 }
 Add-Line ""
 
