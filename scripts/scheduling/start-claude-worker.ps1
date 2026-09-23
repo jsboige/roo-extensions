@@ -4413,8 +4413,10 @@ try {
     try {
         $CleanupScript = Join-Path $PSScriptRoot '..\maintenance\cleanup-orphan-worktrees.ps1'
         if (Test-Path $CleanupScript) {
-            Write-Log "Running defensive worktree cleanup (orphans > 0 days)..." "INFO"
-            $CleanupOutput = @(& $CleanupScript -RepoRoot $RepoRoot -Execute -DaysThreshold 0 2>&1)
+            # -DryRun must stay dry: the cleanup only lists what it would remove (measured 23/09
+            # on ai-01: a -DryRun probe deleted unregistered worktree dirs in EXECUTE mode).
+            Write-Log "Running defensive worktree cleanup (orphans > 0 days, $(if ($DryRun) { 'report only' } else { 'execute' }))..." "INFO"
+            $CleanupOutput = @(& $CleanupScript -RepoRoot $RepoRoot -Execute:(-not $DryRun) -DaysThreshold 0 2>&1)
             if ($CleanupOutput) {
                 $CleanupOutput | Select-Object -Last 5 | ForEach-Object {
                     if ($null -ne $_) { Write-Log "$_" "INFO" }
@@ -5031,7 +5033,8 @@ finally {
         $BranchCleanupScript = Join-Path $PSScriptRoot 'cleanup-orphan-branches.ps1'
         if (Test-Path $BranchCleanupScript) {
             Write-Log "Running orphan branch cleanup (no-LLM)..." "INFO"
-            $BranchCleanupOutput = @(& $BranchCleanupScript -RepoRoot $RepoRoot -DryRun:$false 2>&1)
+            # Follows the worker's own -DryRun (was hardcoded -DryRun:$false, so a probe deleted branches).
+            $BranchCleanupOutput = @(& $BranchCleanupScript -RepoRoot $RepoRoot -DryRun:$DryRun 2>&1)
             if ($BranchCleanupOutput) {
                 $BranchCleanupOutput | Select-Object -Last 5 | ForEach-Object {
                     if ($null -ne $_) { Write-Log "$_" "INFO" }
