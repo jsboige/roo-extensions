@@ -194,7 +194,7 @@ Memory collection: `research-memory`.
 {
   "id": "researcher",
   "description": "Investigative researcher with web search and memory",
-  "model": "glm-5.1",
+  "model": "glm-5.3",
   "system_prompt": "You are a meticulous investigator. Decompose queries, search each independently, cross-reference sources. Cite URLs.",
   "mcps": ["searxng", "playwright", "markitdown"],
   "memory": { "enabled": true, "collection": "research-memory" }
@@ -233,13 +233,13 @@ Define inline agents in the conversation itself — no top-level pollution.
     {
       "id": "optimistic-reviewer",
       "description": "Looks for strengths first",
-      "model": "glm-5.1-fast",
+      "model": "glm-5.3-flash",
       "system_prompt": "You find strengths. Acknowledge what works."
     },
     {
       "id": "critical-reviewer",
       "description": "Then identifies risks",
-      "model": "glm-5.1-fast",
+      "model": "glm-5.3-flash",
       "system_prompt": "You find flaws, gaps, and risks."
     }
   ]

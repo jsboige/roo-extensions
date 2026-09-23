@@ -118,7 +118,7 @@ if (-not $settings.env) {
 # Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
 # Les cles ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL* (+ *_NAME/_DESCRIPTION) ne se
 # surchargent PAS non plus : ce sont des choix machine/provider poses par Switch-Provider.ps1 a
-# partir des templates provider.claudish/zai (ex. sonnet -> glm-5.1 sur un executor). Les ecraser
+# partir des templates provider.claudish/zai (ex. sonnet -> glm-5.3 sur un executor). Les ecraser
 # avec un ID Anthropic natif (claude-sonnet-5[1m]) fait router le role par la table * du hub vers
 # un fournisseur non provisionne (Mistral -> HTTP 402) — issue #3361.
 $OnlyIfAbsent = @(

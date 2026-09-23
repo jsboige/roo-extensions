@@ -17,7 +17,7 @@ services:
 
     # Environment variables
     environment:
-      # LLM Provider (z.ai GLM-5.1)
+      # LLM Provider (z.ai GLM, model glm-5-turbo)
       - ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
       - ANTHROPIC_API_KEY=${Z_AI_API_KEY}
       - MODEL=glm-5-turbo

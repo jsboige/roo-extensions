@@ -1,4 +1,4 @@
-# Test GLM-5.1 actual context window size via z.ai API
+# Test GLM actual context window size via the configured provider API
 # Methodology: Send prompts of increasing size with a secret code at the start,
 # then check if the model can recall it (detecting silent truncation)
 

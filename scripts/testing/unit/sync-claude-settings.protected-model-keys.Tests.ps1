@@ -6,10 +6,10 @@
     sync-claude-settings.ps1 harmonizes ~/.claude/settings.json across the fleet. The
     ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL* keys (and their *_NAME/_DESCRIPTION
     metadata) are MACHINE/PROVIDER choices set by Switch-Provider.ps1 from the
-    provider.claudish/zai templates (e.g. sonnet -> glm-5.1 on an executor).
+    provider.claudish/zai templates (e.g. sonnet -> glm-5.3 on an executor).
 
     Before #3361 these keys were NOT in $OnlyIfAbsent, so the harmonizer overwrote a correct
-    provider mapping (glm-5.1) with a native-Anthropic model ID (claude-sonnet-5[1m]). The hub
+    provider mapping (glm-5.3) with a native-Anthropic model ID (claude-sonnet-5[1m]). The hub
     then routed that ID via its '*' rule to an unprovisioned provider (Mistral) -> HTTP 402,
     breaking every Agent(..., model="sonnet") fan-out on the machine.
 

@@ -94,7 +94,7 @@ The `review_pr` MCP tool provides automated multi-tier PR review. It automatical
 // Tier 1: Fast diff-only (<30s, glm-4.7-flash) — for PRs ≤50 LOC
 review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 1)
 
-// Tier 2: Diff + context exploration (2-5min, glm-5.1) — DEFAULT, for PRs 50-500 LOC
+// Tier 2: Diff + context exploration (2-5min, glm-5.3) — DEFAULT, for PRs 50-500 LOC
 review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 2)
 
 // Tier 3: Diff + context + execution (5-15min) — FUTURE, for critical PRs >500 LOC
@@ -106,7 +106,7 @@ review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 2)
 | Tier | Agent | Conversation | Model | Use Case |
 |------|-------|--------------|-------|----------|
 | 1 | `fast-reviewer` | `pr-review-tier1` (sequential) | glm-4.7-flash | PRs ≤50 LOC, pointer bumps, tests-only |
-| 2 | `integration-reviewer` + `context-explorer` | `pr-review-tier2` (group_chat) | glm-5.1 | Default for PRs 50-500 LOC |
+| 2 | `integration-reviewer` + `context-explorer` | `pr-review-tier2` (group_chat) | glm-5.3 | Default for PRs 50-500 LOC |
 | 3 | (aliases Tier 2) | (aliases Tier 2) | — | Future: execution + sandbox |
 
 **Output format (all tiers):** JSON with `verdict`, `confidence`, `summary`, `blocking_issues`, `suggestions`.
@@ -608,8 +608,8 @@ gh pr merge {N} --squash --delete-branch
 
 | Agent/Conversation | Use Case | Model |
 |-------------------|----------|-------|
-| `commit-reviewer` | Quick structured diff review | GLM-5.1 |
-| `critic` | Stress-test findings for gaps | GLM-5.1 |
+| `commit-reviewer` | Quick structured diff review | GLM-5.3 |
+| `critic` | Stress-test findings for gaps | GLM-5.3 |
 | `commit-review` conversation | Multi-perspective (3 rounds) | commit-reviewer → devils-advocate → synthesizer |
 | `code-review` conversation | Security+perf+maintainability (6 rounds) | security/perf/maintainability reviewers |
 | `deep-think` conversation | Complex architectural decisions | optimist → devils-advocate → pragmatist → mediator |

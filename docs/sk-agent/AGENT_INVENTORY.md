@@ -67,9 +67,9 @@
 | `owui-vision` | `owui-qwen3.6-35b` | — | N | Vision analysis via OWUI Qwen3.6 35B MoE proxy (vision+thinking, enriched system prompt) |
 | `fast-reviewer` | `glm-5.3-flash` | — | N | Tier 1 fast diff-only reviewer. GLM-5.3-Flash via fleet hub for speed + reliability (glm-4.7-flash had 60% rate-limit failures in benchmark). |
 | `integration-reviewer` | `glm-5.3` | — | N | Tier 2 context-aware reviewer with GitHub tools for PR analysis. GLM-5.3 via fleet hub for thorough reviews (historical benchmark: 3062 chars vs 1827 for glm-5.1). |
-| `context-explorer` | `glm-5.3` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.1. |
-| `regression-hunter` | `glm-5.3` | — | N | Hunts for regression risks by analyzing git history, past incidents, and similar changes that caused issues. GLM-5.1 with GitHub tools. |
-| `security-executor` | `glm-5.3` | — | N | Deep security analysis with code execution — dependency audit, OWASP scan, secret detection. GLM-5.1 with GitHub + terminal tools. |
+| `context-explorer` | `glm-5.3` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.3. |
+| `regression-hunter` | `glm-5.3` | — | N | Hunts for regression risks by analyzing git history, past incidents, and similar changes that caused issues. GLM-5.3 with GitHub tools. |
+| `security-executor` | `glm-5.3` | — | N | Deep security analysis with code execution — dependency audit, OWASP scan, secret detection. GLM-5.3 with GitHub + terminal tools. |
 
 ## Inline Agents (conversation-scoped)
 
