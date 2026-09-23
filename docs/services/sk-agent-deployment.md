@@ -49,7 +49,7 @@ Verified by `test_inventory_validation.py::test_template_counts_match_expected_b
 
 | Metric | Count | Notes |
 |--------|-------|-------|
-| **Models** | 17 | 13 enabled, 4 disabled (z.ai cloud 7, vLLM direct 3, OWUI proxy 4, OWUI custom 3) |
+| **Models** | 8 | 8 enabled, 0 disabled (GLM via fleet hub 2, vLLM direct 2, OWUI 4) — dead entries purged by submod #1197 |
 | **Top-level agents** | 32 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI) |
 | **Inline agents** (conversation-scoped) | 15 | Defined inside `code-review`, `research-debate`, `config-harmonization`, `pr-review-tier1/2/3` |
 | **Memory-enabled agents** | 5 | `analyst`, `analyst-glm5`, `researcher`, `guardian-sentinel`, `owui-analyst` |
