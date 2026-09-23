@@ -199,7 +199,7 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 **Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred -label:epic' --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred -label:epic -label:frozen' --limit 40 --json number,title,labels")
 ```
 
 > ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
@@ -231,6 +231,10 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 >   filtre rend l'invariant independant de cette coincidence. Meme terme, meme motif que
 >   `start-claude-worker.ps1` l.681 (#3592 — ou l'exposition etait, elle, bien reelle : **13 epics**
 >   passaient cette forme de requete) et que `/executor` SKILL.md l.99.
+>
+> - **`-label:frozen`** (#3381, decision user du 23/09) — l'issue est **gelee par decision** jusqu'a
+>   ce qu'on retire le label. Le gel ne depend plus d'un agent qui lit un commentaire `[FROZEN]` :
+>   la requete l'ecarte, comme `deferred`. Meme filtre que `start-claude-worker.ps1` et `/executor`.
 
 **Etape B — Selectionner une issue (priorité) :**
 

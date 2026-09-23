@@ -229,7 +229,7 @@ execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchr
 > ⚠️ **LIMITE OBLIGATOIRE** : Traiter **MAXIMUM 5 issues** par cycle. Au-delà, le volume d'appels d'outils explose le contexte (80-200 messages, saturation GLM).
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic' --limit 5 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic -label:frozen' --limit 5 --json number,title,labels")
 ```
 
 **Note :** `--limit 5` remplace l'ancien `--limit 40`. Le round-robin se fait sur plusieurs cycles, pas dans un seul.
