@@ -12,7 +12,7 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total models** | 17 (13 enabled, 4 disabled) |
+| **Total models** | 8 (8 enabled, 0 disabled) |
 | **Top-level agents** | 32 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
@@ -25,19 +25,10 @@
 
 | ID | Provider / Base URL | Context | Vision | Thinking | Enabled | Description |
 |----|---------------------|---------|--------|----------|---------|-------------|
-| `glm-5.1` | api.z.ai/api/coding/paas/v4 | 200000 | N | Y | Y | GLM-5.1 reasoning via z.ai cloud (200K context, 45.3/113 coding, +28% vs GLM-5) |
-| `glm-5.1-fast` | api.z.ai/api/coding/paas/v4 | 200000 | N | N | Y | GLM-5.1 non-thinking via z.ai — faster responses, lower token usage, same model quality for non-reasoning tasks |
-| `glm-5` | api.z.ai/api/coding/paas/v4 | 200000 | N | Y | Y | GLM-5 reasoning via z.ai cloud (200K context, strong coding and analysis) |
-| `glm-5-fast` | api.z.ai/api/coding/paas/v4 | 200000 | N | N | Y | GLM-5 non-thinking via z.ai — faster responses for straightforward tasks |
-| `glm-4.6v` | api.z.ai/api/coding/paas/v4 | 128000 | Y | N | Y | GLM-4.6V vision via z.ai cloud (128K context). Kept as a vision fallback; primary vision routing now uses glm-5.3-flash (#3389). |
-| `glm-5.3-flash` | api.z.ai/api/coding/paas/v4 | 131072 | Y | Y | Y | GLM-5.3-Flash via z.ai cloud — native multimodal (text+vision), 320B/18B active, 1M model context (context_window deliberately capped at 131072 per fleet cost/freshness policy), MIT. Benchmarked ~2x faster than glm-4.6v at ~2x lower cost (list price; ~3x during the 50% promo ending 2026-09-09) for PDF/document workloads (#3389). |
-| `glm-4.7-flash` | api.z.ai/api/coding/paas/v4 | 131072 | N | N | Y | GLM-4.7-Flash via z.ai cloud — fast responses, no thinking overhead |
-| `omnicoder-9b` | api.mini.text-generation-webui.m... | 131072 | Y | Y | N | OmniCoder-9B — 96-107 tok/s, 131K ctx, thinking+vision, OCR 97.5%, MME 1258.5, tool call 1.09s. GPU 2 (port 5001). qwen3_coder parser. |
-| `qwen3.6-35b-a3b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Qwen3.6 35B MoE AWQ — 86 tok/s, 262K ctx, vision+thinking. Benchmarks: GSM8K 88%, IFEval 88.5%, MME 1294.7, SWE-bench 69.2%. GPU 0+1 |
+| `glm-5.3` | 192.168.0.50:3000/v1 | 200000 | N | Y | Y | GLM-5.3 reasoning via the fleet hub — quality roles. Supersedes glm-5.1/glm-5 (user mandate 22/09: glm-5.1 obsolete). |
+| `glm-5.3-flash` | 192.168.0.50:3000/v1 | 131072 | N | N | Y | GLM-5.3-Flash via the fleet hub — fast/cheap text roles. Supersedes glm-5.1-fast/glm-5-fast/glm-4.7-flash. vision=false on purpose: the hub strips image parts (#794); cloud vision waits for the claudish passthrough fix. 320B/18B active, MIT (#3389). |
+| `qwen3.6-35b-a3b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Qwen3.6 35B MoE AWQ — fleet vLLM (ai-01), 262K ctx, vision+thinking. Benchmarks: GSM8K 88%, IFEval 88.5%, MME 1294.7, SWE-bench 69.2%. Fleet default since 22/09 (user mandate). |
 | `qwen3.6-35b-no-thinking` | api.medium.text-generation-webui... | 262144 | N | N | Y | Qwen3.6 35B MoE AWQ — no-thinking mode. Faster inference for coding tasks that don't need chain-of-thought. Same hardware as qwen3.6-35b-a3b. |
-| `owui-glm-4.7-flash-fast` | open-webui.myia.io/openai | 131072 | N | N | N | GLM-4.7-Flash AWQ via OWUI (no thinking). DISABLED: model deleted upstream (no more local GLM hosting) |
-| `owui-glm-4.7-flash-thinking` | open-webui.myia.io/openai | 131072 | N | Y | N | GLM-4.7-Flash AWQ via OWUI (thinking ON). DISABLED: model deleted upstream. No equivalent thinking local/cloud — use Qwen_think wrappers or direct qwen3.6-35b-a3b |
-| `owui-omnicoder-9b` | open-webui.myia.io/openai | 131072 | Y | Y | N | OmniCoder-9B via OWUI proxy (bénéficie des filters/pipelines OWUI, notamment detoxify). Fallback direct vLLM via id omnicoder-9b. |
 | `owui-qwen3.6-35b` | open-webui.myia.io/openai | 262144 | Y | Y | Y | Qwen3.6 35B MoE via OWUI proxy (bénéficie des filters/pipelines OWUI). Renommé depuis qwen3.5 (OWUI commit 4b8d8d521). Fallback direct vLLM via id qwen3.6-35b-a3b. |
 | `owui-expert-analyste` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Expert Analyste (wrapper qwen3.6-35b-a3b, thinking enabled). |
 | `owui-redacteur-technique` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Rédacteur Technique (wrapper qwen3.6-35b-a3b, thinking enabled). |
@@ -47,58 +38,58 @@
 
 | ID | Model | MCPs | Memory | Description |
 |----|-------|------|--------|-------------|
-| `analyst` | `glm-5.1` | searxng, playwright, markitdown | Y | General analyst with web search, document conversion, and memory. Local: Qwen3.6 35B MoE (86 tok/s, 262K ctx, GSM8K 88%, SWE-bench 69.2%). Cloud: GLM-5.1 (45.3/113 coding) |
-| `vision-analyst` | `glm-5.3-flash` | searxng, playwright, markitdown | N | Image and document analysis specialist with web context and document conversion. Cloud: GLM-5.3-Flash (native multimodal, ~2x faster and ~2x cheaper at list price than glm-4.6v — #3389). Can browse web, search context, and convert PDF/DOCX/XLSX to markdown. |
-| `vision-local` | `qwen3.6-35b-a3b` | searxng, playwright, markitdown | N | Fast local vision+thinking with web context and document conversion (Qwen3.6 35B MoE — 86 tok/s, 262K ctx, vision+thinking, MME 1294.7). Best for OCR, spatial reasoning, detailed analysis |
-| `coder` | `qwen3.6-35b-no-thinking` | open_terminal, searxng | N | Agentic coding assistant with terminal access and web search (Qwen3.6 35B MoE — 86 tok/s, 262K ctx, no-thinking mode). Can execute commands and search documentation |
-| `fast` | `qwen3.6-35b-no-thinking` | — | N | Fast responses via local vLLM Qwen3.6 35B no-thinking (86 tok/s, 262K ctx). No tools, fastest reliable option (glm-4.7-flash deprecated: 60% rate-limit failures in benchmark) |
-| `fast-local` | `qwen3.6-35b-no-thinking` | — | N | Quick local responses via direct vLLM Qwen3.6 35B no-thinking mode (86 tok/s, 262K ctx). No tools, no thinking overhead |
-| `fast-local-thinking` | `qwen3.6-35b-a3b` | — | N | Local responses with thinking mode via direct vLLM Qwen3.6 35B (86 tok/s, 262K ctx, vision+thinking). Better reasoning, slightly slower |
-| `analyst-glm5` | `glm-5` | searxng, playwright, markitdown | Y | General analyst using GLM-5 with web search, document conversion, and memory. Cloud: GLM-5 (200K ctx, thinking mode). Alternative to analyst (GLM-5.1) |
-| `analyst-fast` | `glm-5.1-fast` | searxng | N | Fast analyst using GLM-5.1 non-thinking mode — lower latency for straightforward analysis and classification tasks |
-| `fast-responder` | `glm-5-fast` | — | N | Fast responder using GLM-5 non-thinking mode — quick answers for simple queries and triage |
+| `analyst` | `qwen3.6-35b-a3b` | searxng, playwright, markitdown | Y | General analyst with web search, document conversion, and memory — FLEET DEFAULT, local Qwen3.6 35B MoE (262K ctx, GSM8K 88%, SWE-bench 69.2%) since user mandate 22/09. Cloud twin for heavy tasks: analyst-glm5 (GLM-5.3 via hub). |
+| `vision-analyst` | `qwen3.6-35b-a3b` | searxng, playwright, markitdown | N | Image and document analysis specialist with web context and document conversion — LOCAL vision since 22/09: qwen3.6-35b-a3b (the hub strips image_url parts before they reach z.ai, VERIFIED #794; cloud GLM-5.3-Flash vision returns when claudish fixes passthrough — #3389 pricing). Can browse web, search context, and convert PDF/DOCX/XLSX to markdown. |
+| `vision-local` | `qwen3.6-35b-a3b` | searxng, playwright, markitdown | N | Fast local vision+thinking with web context and document conversion (Qwen3.6 35B MoE — fleet vLLM ai-01, 262K ctx, vision+thinking, MME 1294.7). Best for OCR, spatial reasoning, detailed analysis |
+| `coder` | `qwen3.6-35b-no-thinking` | open_terminal, searxng | N | Agentic coding assistant with terminal access and web search (Qwen3.6 35B MoE — fleet vLLM ai-01, 262K ctx, no-thinking mode). Can execute commands and search documentation |
+| `fast` | `qwen3.6-35b-no-thinking` | — | N | Fast responses via local vLLM Qwen3.6 35B no-thinking (fleet vLLM ai-01, 262K ctx). No tools, fastest reliable option (glm-4.7-flash deprecated: 60% rate-limit failures in benchmark) |
+| `fast-local` | `qwen3.6-35b-no-thinking` | — | N | Quick local responses via direct vLLM Qwen3.6 35B no-thinking mode (fleet vLLM ai-01, 262K ctx). No tools, no thinking overhead |
+| `fast-local-thinking` | `qwen3.6-35b-a3b` | — | N | Local responses with thinking mode via direct vLLM Qwen3.6 35B (fleet vLLM ai-01, 262K ctx, vision+thinking). Better reasoning, slightly slower |
+| `analyst-glm5` | `glm-5.3` | searxng, playwright, markitdown | Y | Cloud twin of analyst for heavy tasks — GLM-5.3 via fleet hub (200K ctx, thinking mode), same tools and memory. Operational fallback when the local endpoint is down; id kept as analyst-glm5 for config compatibility. |
+| `analyst-fast` | `glm-5.3-flash` | searxng | N | Fast analyst using GLM-5.3-Flash via fleet hub — lower latency for straightforward analysis and classification tasks |
+| `fast-responder` | `glm-5.3-flash` | — | N | Fast responder using GLM-5.3-Flash via fleet hub — quick answers for simple queries and triage |
 | `coder-local` | `owui-qwen3.6-35b` | — | N | Local coding via OWUI Qwen3.6 35B MoE proxy — vision+thinking+tool calling through OWUI |
 | `vision-local-owui` | `owui-qwen3.6-35b` | — | N | Local vision via OWUI Qwen3.6 35B MoE proxy — highest quality local vision+thinking model |
-| `qwen-local` | `qwen3.6-35b-a3b` | — | N | Direct vLLM access to Qwen3.6 35B MoE — 86 tok/s, 262K ctx, vision+thinking. Best local quality, no OWUI overhead |
-| `researcher` | `glm-5.1` | searxng, playwright, open_terminal, markitdown | Y | Investigative researcher with web search, terminal access, document conversion, and memory. Local: Qwen3.6 35B MoE (IFEval 88.5%, 262K ctx). Cloud: GLM-5.1 (45.3/113 coding) |
-| `synthesizer` | `glm-5.1-fast` | — | N | Expert at turning complex multi-source findings into clear, structured reports (non-thinking: synthesis = pattern matching, benchmark showed quality-neutral) |
-| `critic` | `glm-5.1` | — | N | Rigorous quality reviewer who stress-tests reports for gaps and weak evidence |
-| `optimist` | `glm-5.1` | — | N | Strategic optimist who identifies opportunities, upside potential, and best-case scenarios |
-| `devils-advocate` | `glm-5.1` | — | N | Relentless contrarian who pressure-tests ideas by finding every flaw and risk |
-| `pragmatist` | `glm-5.1` | — | N | Implementation-focused realist who bridges vision and execution with practical plans |
-| `mediator` | `glm-5-fast` | — | N | Diplomatic synthesizer who builds consensus from competing perspectives (non-thinking: consensus building, benchmark showed quality-neutral) |
-| `config-auditor` | `glm-5.1` | — | N | Audits MCP and Roo configuration for inconsistencies, drift, and security issues |
-| `log-analyzer` | `glm-5.1` | — | N | Analyzes application logs to identify errors, patterns, and root causes |
-| `commit-reviewer` | `glm-5.1` | — | N | Specialized code reviewer for git diffs with structured findings table |
-| `guardian-sentinel` | `glm-5.1` | — | Y | Real-time surveillance agent for multi-machine system health and anomaly detection |
+| `qwen-local` | `qwen3.6-35b-a3b` | — | N | Direct vLLM access to Qwen3.6 35B MoE — fleet vLLM ai-01, 262K ctx, vision+thinking. Best local quality, no OWUI overhead |
+| `researcher` | `glm-5.3` | searxng, playwright, open_terminal, markitdown | Y | Investigative researcher with web search, terminal access, document conversion, and memory. Cloud: GLM-5.3 via fleet hub (supersedes glm-5.1, user mandate 22/09). Local alternative: Qwen3.6 35B MoE (IFEval 88.5%, 262K ctx). |
+| `synthesizer` | `glm-5.3-flash` | — | N | Expert at turning complex multi-source findings into clear, structured reports (non-thinking: synthesis = pattern matching, benchmark showed quality-neutral) |
+| `critic` | `glm-5.3` | — | N | Rigorous quality reviewer who stress-tests reports for gaps and weak evidence |
+| `optimist` | `glm-5.3` | — | N | Strategic optimist who identifies opportunities, upside potential, and best-case scenarios |
+| `devils-advocate` | `glm-5.3` | — | N | Relentless contrarian who pressure-tests ideas by finding every flaw and risk |
+| `pragmatist` | `glm-5.3` | — | N | Implementation-focused realist who bridges vision and execution with practical plans |
+| `mediator` | `glm-5.3-flash` | — | N | Diplomatic synthesizer who builds consensus from competing perspectives (non-thinking: consensus building, benchmark showed quality-neutral) |
+| `config-auditor` | `glm-5.3` | — | N | Audits MCP and Roo configuration for inconsistencies, drift, and security issues |
+| `log-analyzer` | `glm-5.3` | — | N | Analyzes application logs to identify errors, patterns, and root causes |
+| `commit-reviewer` | `glm-5.3` | — | N | Specialized code reviewer for git diffs with structured findings table |
+| `guardian-sentinel` | `glm-5.3` | — | Y | Real-time surveillance agent for multi-machine system health and anomaly detection |
 | `owui-analyst` | `owui-expert-analyste` | searxng | Y | Expert analyst via OWUI (enriched system prompt, structured French output) |
 | `owui-writer` | `owui-redacteur-technique` | — | N | Technical documentation writer via OWUI (enriched system prompt) |
 | `owui-vision` | `owui-qwen3.6-35b` | — | N | Vision analysis via OWUI Qwen3.6 35B MoE proxy (vision+thinking, enriched system prompt) |
-| `fast-reviewer` | `glm-5-fast` | — | N | Tier 1 fast diff-only reviewer. GLM-5 non-thinking for speed + reliability (glm-4.7-flash had 60% rate-limit failures in benchmark). |
-| `integration-reviewer` | `glm-5` | — | N | Tier 2 context-aware reviewer with GitHub tools for PR analysis. GLM-5 for more thorough reviews (benchmark: 3062 chars vs 1827 for glm-5.1). |
-| `context-explorer` | `glm-5.1` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.1. |
-| `regression-hunter` | `glm-5.1` | — | N | Hunts for regression risks by analyzing git history, past incidents, and similar changes that caused issues. GLM-5.1 with GitHub tools. |
-| `security-executor` | `glm-5.1` | — | N | Deep security analysis with code execution — dependency audit, OWASP scan, secret detection. GLM-5.1 with GitHub + terminal tools. |
+| `fast-reviewer` | `glm-5.3-flash` | — | N | Tier 1 fast diff-only reviewer. GLM-5.3-Flash via fleet hub for speed + reliability (glm-4.7-flash had 60% rate-limit failures in benchmark). |
+| `integration-reviewer` | `glm-5.3` | — | N | Tier 2 context-aware reviewer with GitHub tools for PR analysis. GLM-5.3 via fleet hub for thorough reviews (historical benchmark: 3062 chars vs 1827 for glm-5.1). |
+| `context-explorer` | `glm-5.3` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.1. |
+| `regression-hunter` | `glm-5.3` | — | N | Hunts for regression risks by analyzing git history, past incidents, and similar changes that caused issues. GLM-5.1 with GitHub tools. |
+| `security-executor` | `glm-5.3` | — | N | Deep security analysis with code execution — dependency audit, OWASP scan, secret detection. GLM-5.1 with GitHub + terminal tools. |
 
 ## Inline Agents (conversation-scoped)
 
 | Conversation | ID | Model | Description |
 |--------------|----|-------|-------------|
-| `code-review` | `security-reviewer` | `glm-5.1` | Security-focused code reviewer |
-| `code-review` | `perf-reviewer` | `glm-5.1` | Performance-focused code reviewer |
-| `code-review` | `maintainability-reviewer` | `glm-5.1` | Maintainability and readability reviewer |
-| `code-review` | `code-synthesizer` | `glm-5.1` | Synthesizes review findings into actionable summary |
-| `research-debate` | `proponent` | `glm-5.1` | Argues in favor of the proposition |
-| `research-debate` | `opponent` | `glm-5.1` | Argues against the proposition |
-| `research-debate` | `fact-checker` | `glm-5-fast` | Verifies claims from both sides |
-| `research-debate` | `debate-synthesizer` | `glm-5-fast` | Produces balanced conclusion from the debate |
-| `config-harmonization` | `config-detective` | `glm-5.1` | Identifies and classifies configuration differences |
-| `config-harmonization` | `risk-assessor` | `glm-5-fast` | Assesses risk of each configuration difference |
-| `config-harmonization` | `resolution-planner` | `glm-5.1` | Plans concrete resolution steps |
-| `config-harmonization` | `harmonization-synthesizer` | `glm-5-fast` | Produces final harmonization report with decisions |
+| `code-review` | `security-reviewer` | `glm-5.3` | Security-focused code reviewer |
+| `code-review` | `perf-reviewer` | `glm-5.3` | Performance-focused code reviewer |
+| `code-review` | `maintainability-reviewer` | `glm-5.3` | Maintainability and readability reviewer |
+| `code-review` | `code-synthesizer` | `glm-5.3` | Synthesizes review findings into actionable summary |
+| `research-debate` | `proponent` | `glm-5.3` | Argues in favor of the proposition |
+| `research-debate` | `opponent` | `glm-5.3` | Argues against the proposition |
+| `research-debate` | `fact-checker` | `glm-5.3-flash` | Verifies claims from both sides |
+| `research-debate` | `debate-synthesizer` | `glm-5.3-flash` | Produces balanced conclusion from the debate |
+| `config-harmonization` | `config-detective` | `glm-5.3` | Identifies and classifies configuration differences |
+| `config-harmonization` | `risk-assessor` | `glm-5.3-flash` | Assesses risk of each configuration difference |
+| `config-harmonization` | `resolution-planner` | `glm-5.3` | Plans concrete resolution steps |
+| `config-harmonization` | `harmonization-synthesizer` | `glm-5.3-flash` | Produces final harmonization report with decisions |
 | `pr-review-tier1` | `review-synthesizer` | `qwen3.6-35b-no-thinking` | Formats review findings into structured JSON |
-| `pr-review-tier2` | `review-synthesizer-t2` | `glm-5.1` | Aggregates Tier 2 review findings into final structured verdict |
-| `pr-review-tier3` | `review-synthesizer-t3` | `glm-5.1` | Aggregates Tier 3 review findings from all specialists into final structured verdict |
+| `pr-review-tier2` | `review-synthesizer-t2` | `glm-5.3` | Aggregates Tier 2 review findings into final structured verdict |
+| `pr-review-tier3` | `review-synthesizer-t3` | `glm-5.3` | Aggregates Tier 3 review findings from all specialists into final structured verdict |
 
 ## MCP Plugins
 
