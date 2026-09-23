@@ -18,14 +18,22 @@
  *                  PG-read world.
  *
  * Usage (from anywhere, resolves the server dir from this file's location):
- *   node scripts/pg/measure-dashboard-divergence.mjs [--json out.json]
+ *   node scripts/pg/measure-dashboard-divergence.mjs [--json out.json] [--expect-files N]
+ *
+ * --expect-files N : floor on the keyed-file count. A DriveFS mirror that is
+ *   cold or partially hydrated understates the listing and falsifies every
+ *   per-key metric (ghost keys, disk→PG). Below the floor the probe prints a
+ *   warm-mirror banner and exits 1 so gates can fail closed. A present flag
+ *   with no valid integer exits 2 — the floor must never fail open.
  *
  * Requires the RSM server .env (UNIFIED_STORE_PG_URL, ROOSYNC_SHARED_PATH).
- * Strictly read-only: SELECT only, no daemon call, no file mutation.
+ * SQL read-only: SELECT only, no daemon call, no dashboard-file mutation. The
+ * only intentional write is --json <path>. Importing the daemon modules
+ * inherits their Logger housekeeping (log-dir maintenance) as a side effect.
  */
 import { readdir, readFile } from 'node:fs/promises';
 import { writeFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { join, dirname, resolve, basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -39,6 +47,16 @@ const pg = require2('pg');
 
 const jsonOutIdx = process.argv.indexOf('--json');
 const jsonOut = jsonOutIdx >= 0 ? process.argv[jsonOutIdx + 1] : null;
+const expectFilesIdx = process.argv.indexOf('--expect-files');
+let expectFiles = null;
+if (expectFilesIdx >= 0) {
+  const raw = process.argv[expectFilesIdx + 1];
+  if (!/^\d+$/.test(raw ?? '')) {
+    console.error(`--expect-files attend un entier >= 0 (nombre de fichiers keyed), reçu: ${raw === undefined ? '<absent>' : `« ${raw} »`} — plancher fail-closed, exit 2.`);
+    process.exit(2);
+  }
+  expectFiles = parseInt(raw, 10);
+}
 
 // ── server .env (values stay in-process) ──
 const envText = await readFile(join(SERVER_DIR, '.env'), 'utf-8');
@@ -49,11 +67,34 @@ for (const line of envText.split(/\r?\n/)) {
 const dashboardsDir = join(process.env.ROOSYNC_SHARED_PATH, 'dashboards');
 
 // ── build imports (ESM) — same parsers as the daemon ──
-const buildUrl = (p) => pathToFileURL(join(SERVER_DIR, 'build', p)).href;
+// Resolve the directory actually served, like the wrapper (#3713): the
+// content-addressed vintage behind build-current; legacy build/ only when no
+// valid marker exists. Importing the frozen build/ would read a stale vintage
+// on every v5 host (review #3795 ask 1).
+let buildDir = join(SERVER_DIR, 'build');
+try {
+  const { resolveBuildDir } = await import(
+    pathToFileURL(join(SERVER_DIR, 'scripts/lib/resolve-build-dir.mjs')).href
+  );
+  buildDir = resolveBuildDir(SERVER_DIR);
+} catch { /* pre-#3713 checkout: build/ IS the served code there */ }
+const vintage = buildDir === join(SERVER_DIR, 'build') ? 'build (legacy, no marker)' : basename(buildDir);
+console.error(`[measure] code mesuré: ${vintage}`);
+const buildUrl = (p) => pathToFileURL(join(buildDir, p)).href;
 const { extractPersistedMessageIds, parseDashboardMarkdown } = await import(
   buildUrl('tools/roosync/dashboard-markdown.js')
 );
-const FORK_FILE_RE = /\s\(\d+\)\.md$/; // same constant as the daemon (single definition)
+// Fork pattern: use the daemon's own constant when the served build exports
+// it (#1179+). A legacy build/ (no marker) predating the export falls back to
+// the literal and says so.
+let FORK_FILE_RE = /\s\(\d+\)\.md$/; // must stay identical to the daemon's constant
+try {
+  const mod = await import(buildUrl('services/unified-store/roosync-dashboard-reconcile.js'));
+  if (mod.FORK_FILE_RE instanceof RegExp) FORK_FILE_RE = mod.FORK_FILE_RE;
+  else throw new Error('export absent');
+} catch {
+  console.error('WARN: FORK_FILE_RE absent du build RSM (vintage pre-#1179 ?) — constante locale utilisée');
+}
 const isKeyed = (n) =>
   n.endsWith('.md') && (n === 'global.md' || n.startsWith('machine-') || n.startsWith('workspace-'));
 const maxMs = (vals) => {
@@ -152,6 +193,14 @@ for (const [k, v] of pgUniverse) {
   }
 }
 await client.end();
+
+// Warm/cold-mirror floor: an understated listing falsifies everything below.
+if (Number.isFinite(expectFiles) && totals.files < expectFiles) {
+  console.error(`\n⚠️ MIROIR CHAUD/INCOMPLET : ${totals.files} fichiers keyed < plancher --expect-files ${expectFiles}.`);
+  console.error('   Le miroir DriveFS local est probablement froid ou partiel — les clés PG-only et les');
+  console.error('   écarts disque→PG ci-dessous NE SONT PAS FIABLES. Ré-hydrater puis re-mesurer.');
+  process.exitCode = 1;
+}
 
 rows.sort((a, b) => (b.diskToPgGap + b.pgToDisk) - (a.diskToPgGap + a.pgToDisk));
 const out = { measuredAt: new Date().toISOString(), dashboardsDir, totals, pgOnlyKeys, rows };
