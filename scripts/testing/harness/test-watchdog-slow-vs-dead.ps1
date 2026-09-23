@@ -123,8 +123,12 @@ Assert-That 'le verdict amont n''est PLUS branche sur $e2eUrl -ne $lanUrl' `
 # Donc : ancrage sur le code executable (& = operateur d'appel, condition de
 # verdict) et classes horizontales [ \t] qui ne franchissent pas la ligne.
 Assert-That "la sequence de reparation existe encore"    ($Text -match "[ \t]Stop-ScheduledTask[ \t]+-TaskName[ \t]+'MCP-Proxy-RSM'")
-Assert-That "le restart du conteneur est APPELE (pas juste cite en commentaire)" `
-    ($Text -match '&[ \t]+docker[ \t]+restart[ \t]+myia-mcp-proxy')
+# Ancre DANS la sequence pleine, juste apres le Start de la tache (#3205,
+# 23/09) : la branche route-absente appelle aussi docker restart. Sans l'ancre,
+# supprimer le restart de la sequence pleine laisserait cette assertion verte
+# grace a l'autre appel -- mesure par mutation sur cette PR.
+Assert-That "le restart du conteneur est APPELE dans la sequence pleine (pas juste cite en commentaire)" `
+    ($Text -match "Start-ScheduledTask[ \t]+-TaskName[ \t]+'MCP-Proxy-RSM'[^\r\n]*\r?\n(?:[^\r\n]*\r?\n){0,3}?[ \t]*&[ \t]+docker[ \t]+restart[ \t]+myia-mcp-proxy")
 # Les deux marqueurs du verdict "sain" se lisent sur la MEME ligne que le 200 :
 # un 200 ne suffit pas, il faut le marqueur dashboards ET l'absence d'isError.
 Assert-That "isError:true interdit toujours le verdict sain" `
@@ -240,6 +244,53 @@ if ($Text -match '\$RepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
     Assert-That "le pire cas de reparation couvre ses propres attentes (>= 48 s)" ([int]$matches[1] -ge 48)
 } else {
     Assert-That "le pire cas de reparation est ecrit dans le code" $false
+}
+
+# --- 8. Route absente de TBXark : redemarrer TBXark SEUL (#3205, 23/09) -------
+# TBXark n'enregistre ses backends qu'au demarrage et saute celui qui ne repond
+# pas ; la route reste 404 jusqu'a son prochain restart. La reparation pleine
+# relance TBXark 10 s apres sparfenyuk, dont le RSM peut mettre des minutes a
+# repondre quand G: est lent. Mesure watchdog-20260923.log (heure locale) :
+# reparation pleine a 01:51:34 -> STILL DOWN (HTTP 404), puis 404 sur les 5
+# ticks suivants, tous en cooldown ; un restart de TBXark seul a ramene la
+# route. Attendre le cooldown pour refaire la reparation pleine rejoue la meme
+# course.
+Assert-That "Test-SparfenyukRoute existe" ($Text -match 'function\s+Test-SparfenyukRoute\b')
+Assert-That "la sonde de route interroge sparfenyuk directement (:9091), pas TBXark" `
+    ($Text -match "function\s+Test-SparfenyukRoute[\s\S]{0,1500}?-Uri[ \t]+'http://127\.0\.0\.1:9091/servers/roo-state-manager/mcp'")
+$RouteBranchRx = '(?s)\}[ \t]*elseif[ \t]*\([ \t]*\$lanResult\.Status[ \t]+-eq[ \t]+404[ \t]+-and[ \t]+\(Test-SparfenyukRoute\)[ \t]*\)[ \t]*\{(.*?)\r?\n[ \t]*\}[ \t]*elseif[ \t]*\([ \t]*\$lanResult\.TimedOut[ \t]*\)'
+$RouteBranch = if ($Text -match $RouteBranchRx) { $matches[1] } else { '' }
+Assert-That "la branche route-absente exige 404 ET la route servie par sparfenyuk" ($RouteBranch -ne '')
+# Elle doit PRECEDER le cooldown de la reparation pleine : placee apres, elle
+# attendrait 15 min derriere une reparation qu'elle existe pour remplacer.
+$iRoute    = $Text.IndexOf('(Test-SparfenyukRoute))')
+$iCooldown = $Text.IndexOf('elseif ($repairOnCooldown)')
+$iFull     = $Text.IndexOf('running full repair sequence')
+Assert-That "elle precede le cooldown et la reparation pleine" ($iRoute -gt 0 -and $iRoute -lt $iCooldown -and $iCooldown -lt $iFull)
+Assert-That "elle redemarre TBXark (appel reel, pas un commentaire)" ($RouteBranch -match '(?m)^[ \t]*&[ \t]+docker[ \t]+restart[ \t]+myia-mcp-proxy')
+Assert-That "elle ne relance PAS sparfenyuk" (-not ($RouteBranch -match 'Stop-ScheduledTask|Start-ScheduledTask'))
+Assert-That "elle ne touche pas l'etat de la reparation pleine" (-not ($RouteBranch -match '\$repairStateFile\b|\blastRepairAt\b'))
+Assert-That "elle ecrit son propre etat" ($RouteBranch -match 'Set-Content[^\r\n]*\$routeRepairStateFile')
+Assert-That "l'etat est ecrit AVANT l'attente (un run coupe arme quand meme le cooldown)" `
+    ($RouteBranch -match '&[ \t]+docker[ \t]+restart[\s\S]*?Set-Content[^\r\n]*\$routeRepairStateFile[\s\S]*?Start-Sleep')
+Assert-That "son cooldown puis le temps restant sont verifies AVANT le restart" `
+    ($RouteBranch -match '-lt[ \t]+\$RouteRepairCooldownMin[\s\S]*?\(Get-RunSecondsLeft\)[ \t]+-lt[ \t]+\$RouteRepairWorstCaseSec[\s\S]*?&[ \t]+docker[ \t]+restart')
+Assert-That "son etat vit dans un fichier distinct de repair-state.json" `
+    ($Text -match "\`$routeRepairStateFile[ \t]*=[ \t]*Join-Path[ \t]+\`$LogDir[ \t]+'(?!repair-state\.json')[^']+\.json'")
+if ($Text -match '\$RouteRepairCooldownMin[ \t]*=[ \t]*(\d+)') {
+    $routeCooldown = [int]$matches[1]
+    # Meme plancher que la reparation pleine : un restart TBXark coupe aussi
+    # les sessions des autres backends qu'il porte.
+    Assert-That "le cooldown route-absente est un vrai frein (>= 5 min)" ($routeCooldown -ge 5)
+    Assert-That "le cooldown route-absente reste borne (<= 240 min)"     ($routeCooldown -le 240)
+} else {
+    Assert-That "le cooldown route-absente est ecrit dans le code" $false
+}
+if ($Text -match '\$RouteRepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
+    # Plancher : l'attente de 15 s plus le controle E2E de 20 s qui la suit.
+    Assert-That "le pire cas route-absente couvre ses propres attentes (>= 35 s)" ([int]$matches[1] -ge 35)
+} else {
+    Assert-That "le pire cas route-absente est ecrit dans le code" $false
 }
 
 Write-Host ""
