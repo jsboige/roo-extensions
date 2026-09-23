@@ -53,7 +53,7 @@ Lecture du verdict :
 |---|---|---|
 | 0 ligne dans la fenetre | La schtask watchdog n'a PAS tourne pendant l'episode | Reinstaller `install-watchdog-schtask.ps1` (elevation) — cause premiere |
 | Lignes OK uniquement | Watchdog vivant mais sa sonde etait VERTE pendant l'episode | Divergence de chemin sonde (:9090) vs bots (:9091) — instruire |
-| Lignes FAIL/repair | Le watchdog a vu la panne et est intervenu | Verifier pourquoi la reparation n'a pas tenu — distinguer la signature : HTTP 404 (backend vivant / instance morte — GDrive, RSM) vs HTTP 0 ou timeouts (couche proxy/reseau) ; les deux n'appellent pas la meme reparation (mesure ai-01 03/09 : 2 fenetres, 2 signatures) |
+| Lignes FAIL/repair | Le watchdog a vu la panne et est intervenu | Verifier pourquoi la reparation n'a pas tenu — distinguer la signature : HTTP 404 (backend vivant / instance morte — GDrive, RSM) vs HTTP 0 ou timeouts (couche proxy/reseau) ; les deux n'appellent pas la meme reparation (mesure ai-01 03/09 : 2 fenetres, 2 signatures). Un 404 de TBXark (:9090) alors que sparfenyuk sert la route sur :9091 = route jamais enregistree par TBXark, qui n'enregistre ses backends qu'au demarrage : le watchdog redemarre alors TBXark **seul**, cooldown propre 10 min (`route-repair-state.json`, #3205) |
 
 **Modes de panne connus de `MCP-Proxy-RSM`** (pourquoi « rien ne le relance » est possible) :
 

@@ -14,6 +14,11 @@
          avoir une instance RSM morte dedans — ne JAMAIS sauter son restart
          sur "port up") : Stop+Start MCP-Proxy-RSM puis docker restart
          myia-mcp-proxy (stale session TBXark #2023), cooldown 15 min.
+      3b. Si TBXark rend 404 sur la route RSM alors que sparfenyuk la sert
+         lui-même sur :9091 → docker restart myia-mcp-proxy SEUL, avec son
+         propre cooldown (10 min). TBXark n'enregistre ses backends qu'au
+         démarrage : la séquence pleine le relance avant que le RSM réponde
+         quand G: est lent, et la route reste absente (#3205, 23/09).
       4. Si encore KO après réparation → ALERT (event log).
       5. Télémétrie flotte (#3394) : réparations/alertes ET un heartbeat
          périodique sont postés sur le MACHINE dashboard de l'hôte via la
@@ -361,6 +366,24 @@ function Test-TbxarkPort {
     }
 }
 
+# Does sparfenyuk itself serve the RSM route? Asked on :9091 directly, around
+# TBXark. An initialize, not a tool call: it asks whether the route exists, not
+# whether the RSM behind it is healthy -- the E2E and LAN probes answer that.
+# Measured on ai-01 23/09: 200 in 183 ms for roo-state-manager, 404 in 43 ms
+# for an unknown server name on the same port, so the answer tells the route
+# apart, not just the port.
+function Test-SparfenyukRoute {
+    $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog-route","version":"1"}}}'
+    $headers = @{ 'Content-Type' = 'application/json'; 'Accept' = 'application/json, text/event-stream' }
+    try {
+        $r = Invoke-WebRequest -Uri 'http://127.0.0.1:9091/servers/roo-state-manager/mcp' -Method Post -Headers $headers -Body $body `
+                               -UseBasicParsing -TimeoutSec 10 -ErrorAction Stop
+        return ($r.StatusCode -eq 200)
+    } catch {
+        return $false
+    }
+}
+
 # ---------- latency baseline watch (#3404) ----------
 # The 24/08 regression (median 277 ms -> ~4 340 ms, 13x, stable 10 days) was
 # invisible because the ONLY slowness signal was the absolute 20 s budget --
@@ -463,6 +486,25 @@ if (Test-Path $repairStateFile) {
 }
 $repairOnCooldown = ((Get-Date) - $lastRepairAt).TotalMinutes -lt $RepairCooldownMin
 
+# Route-missing repair (#3205): TBXark registers its backends once, at startup,
+# and skips one that does not answer then; that route stays 404 until TBXark
+# restarts. The full repair restarts TBXark 10 s after relaunching sparfenyuk,
+# whose RSM can need minutes while G: is slow (run-proxy.cmd waits up to 300 s
+# for the drive). Measured on ai-01 in watchdog-20260923.log (local time): the
+# full repair at 01:51:34 ended STILL DOWN (HTTP 404), and the LAN probe got
+# 404 on the next 5 ticks, all on cooldown; a TBXark-only restart brought the
+# route back. Waiting out that cooldown to run the full repair again re-runs
+# the same race. Separate state file: this repair must neither arm nor reset
+# the full repair's cooldown.
+$RouteRepairCooldownMin = 10
+# docker restart (20 s assumed, as above) + 15 s + the 20 s E2E check.
+$RouteRepairWorstCaseSec = 55
+$routeRepairStateFile = Join-Path $LogDir 'route-repair-state.json'
+$lastRouteRepairAt = [datetime]::MinValue
+if (Test-Path $routeRepairStateFile) {
+    try { $lastRouteRepairAt = [datetime](Get-Content $routeRepairStateFile -Raw | ConvertFrom-Json).lastRouteRepairAt } catch { }
+}
+
 $result = Test-E2E
 
 # A timed-out probe buys one retry on a generous budget before we are allowed to
@@ -547,6 +589,40 @@ if ($result.Ok) {
         Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of $env:COMPUTERNAME (reverse proxy / network), NOT in this backend. NOT restarting."
         $script:alerts += "upstream-issue: e2e-http-$($result.Status) lan-ok"
         $result = $lanResult  # final result reflects backend health (OK), not E2E
+    } elseif ($lanResult.Status -eq 404 -and (Test-SparfenyukRoute)) {
+        # TBXark answers 404 for a route it never registered (an unknown name
+        # gets the same 404, in 3 ms), while sparfenyuk serves that route: the
+        # backend is up and TBXark skipped it at startup. Only a TBXark restart
+        # registers it again. The full repair does not apply, since it would
+        # restart the sparfenyuk that is fine and re-run the race that produced
+        # the 404, and neither does its cooldown.
+        $minutesSinceRouteRepair = ((Get-Date) - $lastRouteRepairAt).TotalMinutes
+        if ($minutesSinceRouteRepair -lt $RouteRepairCooldownMin) {
+            Write-Log 'WARN' "TBXark has no RSM route (LAN HTTP 404) although sparfenyuk serves it, but TBXark was restarted $([math]::Round($minutesSinceRouteRepair,0)) min ago (< $RouteRepairCooldownMin) — waiting, not restarting"
+            $script:alerts += 'route-missing-restart-on-cooldown'
+        } elseif ((Get-RunSecondsLeft) -lt $RouteRepairWorstCaseSec) {
+            Write-Log 'WARN' "TBXark has no RSM route (LAN HTTP 404) although sparfenyuk serves it, but a TBXark restart needs ${RouteRepairWorstCaseSec}s and $([int](Get-RunSecondsLeft))s are left before the task's time limit — deferring to the next tick."
+            $script:alerts += 'route-missing-restart-deferred: not enough run time left'
+        } else {
+            Write-Log 'WARN' "TBXark has no RSM route (LAN HTTP 404) while sparfenyuk serves it on :9091 — restarting TBXark alone."
+            if ($Mode -eq 'dry-run') {
+                Write-Log 'INFO' 'DRY-RUN: would docker restart myia-mcp-proxy (TBXark only)'
+            } else {
+                & docker restart myia-mcp-proxy 2>&1 | Out-Null
+                $script:repairs += 'tbxark-restart(route-missing)'
+                # Written before the wait: a run cut by the task limit must
+                # still arm the cooldown (22/09, two full repairs 2 min apart).
+                @{ lastRouteRepairAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $routeRepairStateFile -Encoding utf8
+                Start-Sleep -Seconds 15
+            }
+            $result = Test-E2E
+            if ($result.Ok) {
+                Write-Log 'OK' "E2E chain recovered after TBXark-only restart (latency=$($result.LatencyMs)ms)"
+            } else {
+                Write-Log 'ERROR' "E2E chain STILL DOWN after TBXark-only restart (HTTP $($result.Status))"
+                $script:alerts += "e2e-still-down-after-tbxark-restart: http-$($result.Status)"
+            }
+        }
     } elseif ($lanResult.TimedOut) {
         # Both probes ran out of clock, the second one on a 60s budget. That is
         # 100+ seconds of silence, which is a lot -- and still not the signature
