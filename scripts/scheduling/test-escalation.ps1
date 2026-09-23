@@ -448,11 +448,15 @@ Assert-Equal "jqExpr contains no double quote (5.1 strips them)" $false ($JqLine
 $BareQuoteJq = [regex]::Matches($WorkerText, 'contains\("', 'None').Count
 Assert-Equal "no bare-quote jq contains( anywhere in the worker" 0 $BareQuoteJq
 
-# The sibling expression 180 lines down kept the escaped form `\"`, which DOES
-# survive 5.1 (measured: exit 0). #3045 rewrote only $jqExpr and dropped it there.
-# Pin the survivor: "harmonising" it to bare quotes would kill the claim check the
-# same silent way.
-Assert-Equal "jqClaimExpr keeps the 5.1-safe escaped form" $true ($WorkerText -match '\$jqClaimExpr\s*=.*contains\(\\"')
+# The sibling claim expression (step 4 of Claim-GitHubIssue) was rewritten on
+# 2026-09-23 (#2428): it no longer emits a jq `contains(` clause at all — it
+# selects {body, createdAt} objects. The escaped-form pin no longer applies, so
+# it is replaced by the stronger property: that expression must carry NO double
+# quote at all for 5.1 to strip. Pin that — a rewrite back to bare quotes would
+# kill the claim check the same silent way.
+$JqClaimLine = ($WorkerText -split "`n" | Where-Object { $_ -match '^\s*\$jqCommentsExpr\s*=' })
+Assert-Equal "claim-guard jq expression is assigned exactly once" 1 @($JqClaimLine).Count
+Assert-Equal "claim-guard jq expression contains no double quote (5.1 strips them)" $false ($JqClaimLine -join '').Contains('"')
 
 # Pin the DEFECT: the shipped-dead form must be recognised as unsafe by the same
 # checks, otherwise this only asserts that today's file happens to be clean.
