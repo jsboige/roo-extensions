@@ -8,9 +8,10 @@
     pastes the output instead of rebuilding the measurement by hand:
       1. installed extensions (Zoo, Roo, and the scheduler extension that runs
          schedules.json) and the active one
-      2. .roo/ and .zoo/ schedules.json of every workspace folder VS Code has
-         opened; `active` only means something if a scheduler extension is
-         installed, so the section says so when none is
+      2. .roo/schedules.json of every workspace folder VS Code has opened (the
+         only file the scheduler reads), plus any .zoo/ copy an earlier deploy
+         left, flagged as never read; `active` only means something if a
+         scheduler extension is installed, so the section says so when none is
       3. task activity (total, last 7 days, last 30 days per workspace/profile)
       4. model profiles: autoImportSettingsPath (a path) and profile NAMES
       5. modes and rules per workspace
@@ -60,7 +61,7 @@ $extRoot = Join-Path $env:USERPROFILE ".vscode\extensions"
 $registry = $null
 $regPath = Join-Path $extRoot "extensions.json"
 if (Test-Path $regPath) { try { $registry = Get-Content -LiteralPath $regPath -Raw | ConvertFrom-Json } catch { $registry = $null } }
-# Zoo Code has no scheduler of its own: .roo/.zoo schedules.json run only through one of these.
+# Zoo Code has no scheduler of its own: .roo/schedules.json runs only through one of these (the fork reads .roo/ too).
 $schedulerIds = @('jsboige.zoo-scheduler', 'kylehoskins.roo-scheduler')
 $installedSchedulers = @()
 foreach ($id in @($ZooExtensionId, $RooExtensionId) + $schedulerIds) {
@@ -104,7 +105,7 @@ if (Test-Path $wsRoot) {
 $workspaces = @($folders.Values | Sort-Object)
 
 # --- 2. Schedules -----------------------------------------------------------
-Add-Line "**2. Schedules** (``.roo/`` and ``.zoo/`` ``schedules.json`` in the $($workspaces.Count) local workspace folders VS Code has opened; $skipped entries not scanned: WSL, containers, remotes, multi-root or deleted folders)"
+Add-Line "**2. Schedules** (``.roo/schedules.json``, the file the scheduler reads, plus any unread ``.zoo/`` copy, in the $($workspaces.Count) local workspace folders VS Code has opened; $skipped entries not scanned: WSL, containers, remotes, multi-root or deleted folders)"
 if (-not $installedSchedulers.Count) {
     $names = ($schedulerIds | ForEach-Object { '`' + $_ + '`' }) -join ', '
     Add-Line "- **No scheduler extension installed** ($names): nothing runs the schedules below on this machine, whatever their ``active`` flag says."
@@ -116,8 +117,9 @@ foreach ($ws in $workspaces) {
         if (-not (Test-Path -LiteralPath $sj)) { continue }
         $found++
         try { $sched = @((Get-Content -LiteralPath $sj -Raw | ConvertFrom-Json).schedules) } catch { Add-Line "- ``$ws`` ``$dir``: unreadable ($($_.Exception.Message))"; continue }
+        $tag = if ($dir -eq '.zoo') { ' (copy, never read by the scheduler)' } else { '' }
         foreach ($s in $sched) {
-            Add-Line "- ``$ws`` ``$dir``: **$($s.name)**, active=$($s.active), mode=$($s.mode), every $($s.timeInterval) $($s.timeUnit), last=$(Format-When $s.lastExecutionTime), next=$(Format-When $s.nextExecutionTime)"
+            Add-Line "- ``$ws`` ``$dir``$($tag): **$($s.name)**, active=$($s.active), mode=$($s.mode), every $($s.timeInterval) $($s.timeUnit), last=$(Format-When $s.lastExecutionTime), next=$(Format-When $s.nextExecutionTime)"
         }
     }
 }
