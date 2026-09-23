@@ -1,8 +1,8 @@
 {
   "profiles": [
     {
-      "name": "Production (Qwen 3.6 local + GLM-5.1 cloud)",
-      "description": "Configuration de production: Qwen 3.6 35B A3B auto-hébergé pour modes simples (économique) + GLM-5.1 via z.ai pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = z.ai.",
+      "name": "Production (Qwen 3.6 local + GLM-5.3 cloud)",
+      "description": "Configuration de production: Qwen 3.6 35B A3B auto-hébergé pour modes simples (économique) + GLM-5.3 via le hub claudish pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = hub claudish.",
       "modeOverrides": {
         "code-simple": "simple",
         "code-complex": "default",
@@ -37,7 +37,7 @@
       "apiProvider": "openai",
       "openAiBaseUrl": "http://192.168.0.50:3000/v1",
       "openAiApiKey": "{{SECRET:CLAUDISH_PROXY_KEY}}",
-      "openAiModelId": "glm-5.2",
+      "openAiModelId": "glm-5.3",
       "openAiCustomModelInfo": {
         "maxTokens": -1,
         "contextWindow": 200000,
@@ -49,7 +49,7 @@
       },
       "openAiHeaders": {},
       "id": "default",
-      "description": "GLM-5.2 flagship via z.ai coding subscription. Endpoint OpenAI-compatible /api/coding/paas/v4 — PAS /api/anthropic : avec apiProvider:openai, Roo POSTe vers .../chat/completions, et /api/anthropic renvoie 404 → le profil complex échoue silencieusement (#2455). Contexte réel ~131k tokens."
+      "description": "GLM-5.3 via le hub claudish (192.168.0.50:3000/v1) — remplace glm-5.1/glm-5.2 (mandat user 22/09 : 5.3 pour les rôles qualité). Endpoint OpenAI-compatible : avec apiProvider:openai, Roo POSTe vers .../chat/completions ; un endpoint Anthropic-style renvoie 404 et le profil complex échoue silencieusement (#2455). Contexte 200k (catalogue hub)."
     },
     "owui-think": {
       "diffEnabled": true,
@@ -118,9 +118,10 @@
     "default": 80
   },
   "notes": [
-    "Dernière mise à jour: 2026-02-26",
+    "Dernière mise à jour: 2026-09-23",
     "Profil 'simple': Qwen 3.6 35B A3B sur endpoint medium tgwui",
-    "Profil 'default': GLM-5 via z.ai subscription",
+    "Profil 'default': GLM-5.3 via le hub claudish (#3574, #918 — remplace glm-5.1/glm-5.2)",
+    "glm-5.3 appliqué au profil default le 2026-09-23 (#918)",
     "Contexte GLM-5: ~131k tokens réel (200k annoncé inclut output)",
     "Seuil condensation recommandé: 80% pour éviter boucle infinie",
     "Profil 'Production (Qwen 3.5 local + GLM-5 cloud)' appliqué le 2026-03-03",

@@ -17,9 +17,9 @@
     },
     "executor": {
       "name": "executor",
-      "description": "Standard executor — z.ai GLM models (paid plan)",
+      "description": "Standard executor — GLM models via claudish hub (paid plan)",
       "models": {
-        "opus": "gc@glm-5.1",
+        "opus": "gc@glm-5.3",
         "sonnet": "gc@glm-4.7",
         "haiku": "gc@glm-4.7-flash",
         "subagent": "gc@glm-4.5-air"

@@ -1,4 +1,4 @@
-﻿# GLM-5.1 Marker-Based Context Truncation Test
+﻿# GLM Marker-Based Context Truncation Test
 # Places 18 unique markers at ~10K token intervals across ~180K tokens
 # Then asks the model to report all markers found — detecting silent truncation
 
@@ -11,7 +11,7 @@ $apiKey = $settings.env.ANTHROPIC_AUTH_TOKEN
 $baseUrl = $settings.env.ANTHROPIC_BASE_URL
 $model = $settings.env.ANTHROPIC_DEFAULT_OPUS_MODEL
 
-Write-Host "=== GLM-5.1 Marker-Based Context Truncation Test ===" -ForegroundColor Cyan
+Write-Host "=== GLM Marker-Based Context Truncation Test ===" -ForegroundColor Cyan
 Write-Host "Model: $model"
 
 # Generate 18 unique markers
@@ -136,7 +136,7 @@ try {
         }
     } else {
         Write-Host ""
-        Write-Host "ALL 18 MARKERS FOUND — GLM-5.1 can handle at least ~180K tokens!" -ForegroundColor Green
+        Write-Host "ALL 18 MARKERS FOUND — GLM can handle at least ~180K tokens!" -ForegroundColor Green
     }
 } catch {
     Write-Host "ERROR:" -ForegroundColor Red

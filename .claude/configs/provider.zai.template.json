@@ -6,33 +6,33 @@
     "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.3",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "140000",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90"
   },
   "description": "z.ai GLM models via Anthropic-compatible API",
   "modelMapping": {
-    "opus": "GLM-5.1",
+    "opus": "GLM-5.3",
     "sonnet": "GLM-4.7",
     "haiku": "GLM-4.5-Air"
   },
-  "availableModels": ["glm-5.1", "glm-5-turbo", "glm-5", "glm-4.7", "glm-4.6", "glm-4.5-air"],
+  "availableModels": ["glm-5.3", "glm-5.3-flash", "glm-5-turbo", "glm-5", "glm-4.7", "glm-4.6", "glm-4.5-air"],
   "defaultModelDetails": {
-    "name": "GLM-5.1",
+    "name": "GLM-5.3",
     "family": "opus",
-    "description": "Latest flagship model (2026-03-27), scores 45.3/113 coding benchmark (near Opus 4.6 at 47.9)"
+    "description": "Current flagship — supersedes GLM-5.1 (user mandate 22/09: quality roles move to 5.3, 5.1-level work to glm-5.3-flash)"
   },
   "notes": [
     "z.ai provides GLM models through an Anthropic-compatible API",
-    "GLM-5.1 (2026-03-27) is the new flagship, scores 45.3 coding benchmark (near Opus 4.6 at 47.9)",
+    "GLM-5.3 supersedes GLM-5.1 (2026-03-27, 45.3 coding benchmark) — user mandate 22/09: 5.1-level work moves to glm-5.3-flash (same level, cheaper, faster), quality work to glm-5.3",
     "GLM-5-Turbo available for testing as potential Sonnet replacement (see #909)",
     "GLM-4.7 is mapped to sonnet for balanced performance",
     "GLM-4.5-Air is used for haiku (faster, lighter model)",
     "API timeout increased to 3000s for larger requests",
     "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation",
     "PCT=90 (invariant context-window v6.0.0) + window=140k: trigger auto-compact at 126k tokens, sous la reco 130k de la mitigation truncation z.ai (#1152)",
-    "Premium models (5.1, 5-turbo, 5) consume 3x quota peak / 2x off-peak. Promo 1x off-peak until end April 2026."
+    "Premium models (5.3, 5-turbo, 5) consume 3x quota peak / 2x off-peak. Promo 1x off-peak until end April 2026."
   ],
   "warnings": {
     "contextTruncation": {

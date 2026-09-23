@@ -5,7 +5,7 @@
   "env": {
     "ANTHROPIC_BASE_URL": "https://models.myia.io",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.3-flash",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
@@ -35,11 +35,11 @@
           "quality": "Strong reasoning. Free on OpenRouter."
         },
         {
-          "provider": "z.ai",
-          "model": "glm-5.1",
+          "provider": "claudish-hub",
+          "model": "glm-5.3",
           "cost": "paid",
-          "limits": "z.ai coding plan",
-          "quality": "Current paid default"
+          "limits": "fleet hub PAYG (192.168.0.50:3000/v1, #3574)",
+          "quality": "Current paid default (quality roles)"
         }
       ],
       "sonnet": [
@@ -65,11 +65,11 @@
           "quality": "Volume fallback. Fast inference."
         },
         {
-          "provider": "z.ai",
-          "model": "glm-5.1",
+          "provider": "claudish-hub",
+          "model": "glm-5.3-flash",
           "cost": "paid",
-          "limits": "z.ai coding plan",
-          "quality": "Current paid default"
+          "limits": "fleet hub PAYG (192.168.0.50:3000/v1, #3574)",
+          "quality": "Current paid default (same level as glm-5.1, cheaper and faster)"
         }
       ],
       "haiku": [

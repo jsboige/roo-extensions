@@ -11,7 +11,7 @@ Switch the active LLM provider for Claude Code to: **$ARGUMENTS**
 ## Available providers
 
 - **anthropic**: Anthropic's official Claude API (Sonnet 4.5, Opus 4.6, Haiku 4.5)
-- **zai**: z.ai GLM models (GLM-5.1, GLM-5-Turbo, GLM-4.7, GLM-4.5-Air) via user's max subscription
+- **zai**: z.ai GLM models (GLM-5.3, GLM-5.3-Flash, GLM-5-Turbo, GLM-4.7, GLM-4.5-Air) via user's max subscription
 - **claudish**: Claudish hybrid proxy — includes native Anthropic pass-through and requires local Anthropic authentication for that lane
 - **claudish-proxy**: Claudish proxy-only — no Claude Code or Anthropic account required; providers authenticate on the hub
 

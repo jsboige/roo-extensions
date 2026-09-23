@@ -17,7 +17,7 @@ formatted status text to stdout.
 Output detail level: minimal, normal (default), verbose
 
 .EXAMPLE
-echo '{"model":"glm-5.1","cwd":"c:/dev/roo-extensions"}' | pwsh -File roosync-statusline.ps1 -Preset normal
+echo '{"model":"glm-5.3","cwd":"c:/dev/roo-extensions"}' | pwsh -File roosync-statusline.ps1 -Preset normal
 #>
 
 param(
