@@ -69,6 +69,8 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
+# Shared claim lock-window logic (dot-sourced also by claim-lock.Tests.ps1 — fix #2428)
+. (Join-Path $ScriptDir 'claim-lock.ps1')
 # Worker defaults (decoupled from Roo modes-config.json since 2026-03-06)
 # Model/iterations come from Project #67 fields. Escalation uses Agent Status protocol
 # (haiku -> sonnet, capped since #2211), NOT Roo mode hierarchy (simple -> complex).
@@ -898,18 +900,26 @@ function Claim-GitHubIssue {
         # Step 3: Wait for competing claims to settle (GitHub API eventual consistency)
         Start-Sleep -Seconds 5
 
-        # Step 4: Double-check — verify no competing [CLAIMED] from another machine
-        $jqClaimExpr = '[.comments[-5:][] | .body | select(contains(\"[CLAIMED]\"))]'
-        $RecentComments = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq ""$jqClaimExpr"" 2>&1"
-        if ($LASTEXITCODE -eq 0 -and $RecentComments) {
-            $Claims = $RecentComments | ConvertFrom-Json
-            $OtherClaims = @($Claims | Where-Object { $_ -notmatch $MachineId -and $_ -match "\[CLAIMED\]" })
-
-            if ($OtherClaims.Count -gt 0) {
-                # Race condition detected! Another machine also claimed this issue.
-                # Resolution: the FIRST claim wins (chronologically).
-                # Since we can't reliably determine who was first, we yield if we detect competition.
-                Write-Log "⚠️ Race condition détectée sur #$IssueNumber — autre machine a aussi claimé. Yield." "WARN"
+        # Step 4: Double-check — verify no COMPETING [CLAIMED] from another machine
+        # within the lock window (30 min, same as Test-GitHubIssueLock) and still
+        # active (not followed by its [RELEASED]/[DONE]). Fix #2428: counting every
+        # [CLAIMED] of the last 5 comments, however old and already released, made
+        # each worker yield to a phantom competitor forever (5 claim→yield cycles
+        # in 48 h on #2428). Logic shared with claim-lock.Tests.ps1.
+        $jqCommentsExpr = '[.comments[-20:][] | {body: .body, createdAt: .createdAt}]'
+        $RecentCommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq ""$jqCommentsExpr"" 2>&1"
+        if ($LASTEXITCODE -eq 0 -and $RecentCommentsJson) {
+            $RecentComments = @($RecentCommentsJson | ConvertFrom-Json) | ForEach-Object {
+                [PSCustomObject]@{
+                    body      = [string]$_.body
+                    createdAt = ConvertTo-UtcDateTime $_.createdAt
+                }
+            }
+            if (Test-ConcurrentClaimActive -Comments $RecentComments -MachineId $MachineId) {
+                # True race: another machine claimed within the lock window and
+                # has not released. Resolution: the FIRST claim wins; we cannot
+                # reliably tell who was first, so we yield when we detect competition.
+                Write-Log "⚠️ Race condition détectée sur #$IssueNumber — claim concurrent actif (<30 min, non libéré). Yield." "WARN"
                 # Release: remove assignee and post release comment
                 & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
                 & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $MachineId — race condition detected, yielding to other claimer."" 2>&1" | Out-Null

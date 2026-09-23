@@ -21,18 +21,21 @@ BeforeAll {
     $content = Get-Content $workerScript -Raw
 
     # Répliques exactes des expressions du worker (guillemets jq doubles, pas
-    # d'échappement PowerShell) + fixture offline couvrant dispatch, claim,
+    # d'échappement PowerShell) + fixture offline couvrant dispatch, claim-state,
     # fenêtrage [-N:], et caractères spéciaux (pipes, quotes).
     $script:JqExpr = '[.comments[-10:][] | .body | select(contains("[DISPATCH]") or contains("[CLAIMED]") or contains("[RESULT]"))]'
-    $script:JqClaimExpr = '[.comments[-5:][] | .body | select(contains("[CLAIMED]"))]'
+    # Claim-state (step 4 of Claim-GitHubIssue). Since #2428 it selects {body,
+    # createdAt} objects — the lock-window/release logic lives in PowerShell
+    # (Test-ConcurrentClaimActive, claim-lock.ps1), not in the jq filter.
+    $script:JqStateExpr = '[.comments[-20:][] | {body: .body, createdAt: .createdAt}]'
     $script:CommentsJson = @'
 {"comments":[
-  {"body":"[CLAIMED] po-2023 on it"},
-  {"body":"noise: unrelated comment"},
-  {"body":"plain update with | pipes | and \"quotes\""},
-  {"body":"[DISPATCH] run audit on scripts/maintenance"},
-  {"body":"[CLAIMED] taken by web1"},
-  {"body":"[RESULT] success, PR #123 merged"}
+  {"body":"[CLAIMED] po-2023 on it","createdAt":"2026-09-21T08:00:00Z"},
+  {"body":"noise: unrelated comment","createdAt":"2026-09-21T09:00:00Z"},
+  {"body":"plain update with | pipes | and \"quotes\"","createdAt":"2026-09-21T10:00:00Z"},
+  {"body":"[DISPATCH] run audit on scripts/maintenance","createdAt":"2026-09-21T11:00:00Z"},
+  {"body":"[CLAIMED] taken by web1","createdAt":"2026-09-21T12:00:00Z"},
+  {"body":"[RESULT] success, PR #123 merged","createdAt":"2026-09-21T13:00:00Z"}
 ]}
 '@
     $script:JqAvailable = [bool](Get-Command jq -ErrorAction SilentlyContinue)
@@ -51,9 +54,11 @@ Describe "Worker Script - jq Expressions" {
         }
 
         It "Must use variable-based jq expressions for contains()" {
-            # The fix: store jq expression in $jqExpr variable with escaped quotes
+            # The fix: store jq expression in $jqExpr variable with escaped quotes.
+            # The claim-state expression stays variable-based too (#2428 rewrite):
+            # it no longer uses jq contains(), but must remain a stored variable.
             ($content -match '\$jqExpr\s*=') | Should -Be $true
-            ($content -match '\$jqClaimExpr\s*=') | Should -Be $true
+            ($content -match '\$jqCommentsExpr\s*=') | Should -Be $true
         }
     }
 
@@ -90,22 +95,30 @@ Describe "Worker Script - jq Expressions" {
         }
     }
 
-    Context "jq claim parsing (offline fixture)" {
+    Context "jq claim-state parsing (offline fixture, #2428)" {
 
-        It "Claim jq expression executes without error" {
+        It "Claim-state jq expression executes without error" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
-            $out = @($script:CommentsJson | jq -c $script:JqClaimExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqStateExpr)
             $LASTEXITCODE | Should -Be 0
         }
 
-        It "Claim jq result respects the [-5:] window (late claim only, early claim excluded)" {
+        It "Claim-state jq result carries {body, createdAt} objects for the lock-window check" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
-            # comments[-5:] = indices 1..5 → only the late [CLAIMED]@4 is selected;
-            # the early [CLAIMED]@0 proves the window actually truncates.
-            $out = @($script:CommentsJson | jq -c $script:JqClaimExpr)
+            # [-20:] covers the whole 6-comment fixture; each entry must carry the
+            # two fields Test-ConcurrentClaimActive reads (the [CLAIMED] filter
+            # itself moved to PowerShell in #2428).
+            $out = @($script:CommentsJson | jq -c $script:JqStateExpr)
             $parsed = @(($out -join "`n") | ConvertFrom-Json)
-            $parsed.Count | Should -Be 1
-            $parsed | Should -Contain '[CLAIMED] taken by web1'
+            $parsed.Count | Should -Be 6
+            $props = ($parsed[0].PSObject.Properties.Name | Sort-Object) -join ','
+            $props | Should -Be 'body,createdAt'
+            # Edition-independent compare: pwsh 7 ConvertFrom-Json deserializes
+            # ISO dates to [datetime] (ToString = "...:00.0000000Z"), PS 5.1
+            # keeps the raw string. Normalize datetimes back to the wire form.
+            $raw = $parsed[4].createdAt
+            $norm = if ($raw -is [datetime]) { $raw.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { "$raw" }
+            $norm | Should -Be '2026-09-21T12:00:00Z'
         }
     }
 }

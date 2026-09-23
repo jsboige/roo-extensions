@@ -197,6 +197,15 @@ jobs:
         shell: bash
         run: pwsh -File scripts/scheduling/test-escalation.ps1
 
+      # #3798 (ai-01 review follow-up): the claim-lock fixture executes the REAL
+      # Test-ConcurrentClaimActive (dot-sources scripts/scheduling/claim-lock.ps1)
+      # against the #2428 cascade and the release-attribution probes. Pure
+      # in-memory, same profile as test-escalation above — without this step it
+      # would run nowhere in CI and rot silently.
+      - name: Run claim-lock Pester fixture
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/claim-lock.Tests.ps1 -CI
+
       # Same reasoning as above, applied to the worktree cleanup classifier:
       # Get-WorktreeClass decides whether a worktree gets DELETED. It is pure
       # (no git, no gh, no disk), so it runs on this static path. (The Pester
