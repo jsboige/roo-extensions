@@ -97,7 +97,11 @@ Describe 'Executor exit-10 absorbing-form escalation (#3605)' {
         $default = Get-BlockageStatePath
         if ($env:LOCALAPPDATA) {
             # Windows fleet: the machine-local location, exactly.
-            $default | Should -Match [regex]::Escape($env:LOCALAPPDATA)
+            # Parens are REQUIRED: without them Pester 6 passes the literal string
+            # '[regex]::Escape' to Should -Match (argument tokenization, not an
+            # expression), so this branch fails on every Windows workstation and
+            # the failure is invisible in the ubuntu CI, which never runs it.
+            $default | Should -Match ([regex]::Escape($env:LOCALAPPDATA))
         } else {
             # Linux CI runner: LOCALAPPDATA is null; the default must resolve to
             # the temp fallback instead of throwing (review #3653).
