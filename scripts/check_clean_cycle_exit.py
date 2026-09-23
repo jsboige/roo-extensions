@@ -140,6 +140,21 @@ def get_default_branch(toplevel: Path) -> str:
     return "main"
 
 
+def is_submodule_or_descendant(path: str, submodule_paths) -> bool:
+    """True si path EST un submodule ou vit SOUS un submodule (prefixe complet).
+
+    #3776 W2 — l'ancien filtre par premier segment ne dedoublonnait pas un
+    submodule au chemin imbrique (ex. `mcps/internal` : segment `mcps` absent
+    de submodule_paths) : un submodule dirté était signale DEUX fois
+    (submodule_dirty/drift + dirty_tracked/untracked), et le verdict basculait
+    du mauvais cote (DIRTY_TRACKED 40 > SUBMODULE_DIRTY 35).
+    """
+    for s in submodule_paths:
+        if path == s or path.startswith(s + "/"):
+            return True
+    return False
+
+
 def collect_state(path: Path) -> Dict:
     """Collecte l'etat complet. Retourne un dict avec verdict + signaux.
 
@@ -298,8 +313,7 @@ def collect_state(path: Path) -> Dict:
                 continue
             # e = "<XY> <path>" : e[:3] = code+espace, e[3:] = path
             path_part = e[3:]
-            first_segment = path_part.split("/", 1)[0]
-            if first_segment in submodule_paths:
+            if is_submodule_or_descendant(path_part, submodule_paths):
                 continue
             filtered.append(e)
         if filtered:
@@ -321,8 +335,7 @@ def collect_state(path: Path) -> Dict:
                 p = raw[3:]
             else:
                 continue
-            first_segment = p.split("/", 1)[0]
-            if first_segment in submodule_paths:
+            if is_submodule_or_descendant(p, submodule_paths):
                 continue
             untracked.append(p)
         if untracked:

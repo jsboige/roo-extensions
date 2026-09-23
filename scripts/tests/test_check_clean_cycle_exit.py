@@ -412,6 +412,49 @@ class TestSubmodule(unittest.TestCase):
             self.assertTrue(sub_states[0]["dirty"])
             self.assertEqual(state["verdict"], VERDICT_SUBMODULE_DIRTY)
 
+    def test_submodule_nested_path_dirty_not_double_reported(self):
+        """#3776 W2 — submodule au chemin imbrique (ex. `mcps/internal`) :
+        l'ancien filtre premier-segment ne le dedoublonnait pas -> le dirty
+        interne donnait AUSSI un dirty_tracked du parent, et le verdict
+        basculait sur DIRTY_TRACKED (40 > SUBMODULE_DIRTY 35).
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "sub-nested"
+            p.mkdir()
+            init_repo(p, default_branch="main")
+            sub = self._make_submodule(p)
+            git(["-c", "protocol.file.allow=always", "submodule", "add", str(sub), "nested/ext"], cwd=p)
+            git(["commit", "-m", "add nested submodule"], cwd=p)
+            git(["push", "origin", "main"], cwd=p)
+            ext = p / "nested" / "ext"
+            write(ext / "sub.md", "internal edit\n")
+            state = collect_state(p)
+            sub_states = [s for s in state["submodules"] if s["path"] == "nested/ext"]
+            self.assertEqual(len(sub_states), 1, msg=json.dumps(state, indent=2))
+            self.assertTrue(sub_states[0]["dirty"])
+            dirty_signals = [s for s in state["signals"] if s["kind"] == "dirty_tracked"]
+            self.assertEqual(dirty_signals, [], msg=json.dumps(state, indent=2))
+            self.assertEqual(state["verdict"], VERDICT_SUBMODULE_DIRTY)
+
+    def test_submodule_nested_path_untracked_not_exposed(self):
+        """#3776 W2 — untracked DANS un submodule au chemin imbrique : le
+        submodule ne le porte pas (son dirty = suivis uniquement) et le parent
+        ne doit pas l'exposer non plus -> verdict PASS, pas UNTRACKED.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "sub-nested-untracked"
+            p.mkdir()
+            init_repo(p, default_branch="main")
+            sub = self._make_submodule(p)
+            git(["-c", "protocol.file.allow=always", "submodule", "add", str(sub), "nested/ext"], cwd=p)
+            git(["commit", "-m", "add nested submodule"], cwd=p)
+            git(["push", "origin", "main"], cwd=p)
+            write(p / "nested" / "ext" / "new-file.md", "untracked inside\n")
+            state = collect_state(p)
+            untracked_signals = [s for s in state["signals"] if s["kind"] == "untracked"]
+            self.assertEqual(untracked_signals, [], msg=json.dumps(state, indent=2))
+            self.assertEqual(state["verdict"], VERDICTS_PASS)
+
 
 class TestSubmoduleUnpopulated(unittest.TestCase):
     """Review #3778 : un submodule non peuple n'est PAS un drift.
