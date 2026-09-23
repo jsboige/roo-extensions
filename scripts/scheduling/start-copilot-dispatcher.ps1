@@ -694,7 +694,11 @@ function Get-TargetIssue {
         # returns no candidates, and the no-target gate skips fail-closed (zero
         # premium burn). The pinned -IssueNumber path above is unaffected
         # (explicit provisioning beats the pool).
-        $items = & gh issue list --state open --label copilot-target --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        # `-label:frozen` (#3381): an issue frozen by decision leaves the pool even if provisioned.
+        # Both terms live in --search on purpose: when --search is given, `gh issue list` drops
+        # --label silently (measured 23/09: `--label epic --search "-label:epic"` returned 25
+        # issues, not 0), which would turn this pool into every open issue.
+        $items = & gh issue list --state open --search "label:copilot-target -label:frozen" --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
         if ($null -eq $items -or $items.Count -eq 0) {
             return $null
         }

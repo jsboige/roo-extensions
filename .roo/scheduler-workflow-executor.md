@@ -229,7 +229,7 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 >   donc sur une **coincidence d'etiquetage** (les epics du depot se trouvent etre Claude), pas sur
 >   une regle : la premiere epic ouverte sans `claude-only` tombe directement dans ce vivier. Le
 >   filtre rend l'invariant independant de cette coincidence. Meme terme, meme motif que
->   `start-claude-worker.ps1` l.681 (#3592 — ou l'exposition etait, elle, bien reelle : **13 epics**
+>   `start-claude-worker.ps1` l.682 (#3592 — ou l'exposition etait, elle, bien reelle : **13 epics**
 >   passaient cette forme de requete) et que `/executor` SKILL.md l.99.
 >
 > - **`-label:frozen`** (#3381, decision user du 23/09) — l'issue est **gelee par decision** jusqu'a

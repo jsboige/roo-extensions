@@ -41,6 +41,8 @@ DEFAULT_WEIGHTS = {"grain": 7, "umbrella": 2, "delivered": 1}
 # Labels actionnables (grain) - EXCLURE needs-approval/deferred/blocked-on-gate/epic
 GRAIN_LABELS = {"approved", "bug", "investigation"}
 UMBRELLA_LABELS = {"epic"}
+# Gel par decision (#3381) : hors de TOUTE urne, meme avec un label actionnable
+FROZEN_LABELS = {"frozen"}
 
 # Repos a scanner (anti-double-claim #3407 : 2 depots)
 REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
@@ -108,6 +110,8 @@ def bucketize_issues(issues: list) -> dict:
     buckets = {"grain": [], "umbrella": [], "delivered": []}
     for issue in issues:
         labels = {lbl["name"] for lbl in issue.get("labels", [])}
+        if labels & FROZEN_LABELS:
+            continue
         if labels & UMBRELLA_LABELS:
             buckets["umbrella"].append(issue)
         elif labels & GRAIN_LABELS:

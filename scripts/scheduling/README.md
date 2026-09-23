@@ -177,7 +177,7 @@ Rollout helper behavior:
 
 ### GitHub Issue Selection
 
-Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658-682, L.856).
+Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658-685, L.859).
 
 - **Toutes les issues ouvertes sont candidates, pas seulement `roo-schedulable`.** Le worker
   ramasse l'ensemble des issues dispatchées.
