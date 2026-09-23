@@ -99,3 +99,56 @@ Describe 'Test-ConcurrentClaimActive — lock window + released-tracking (#2428)
         Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $true
     }
 }
+
+Describe 'Test-ConcurrentClaimActive — release attribution (ai-01 review on #3798)' {
+    # The pre-review bug: ANY post-claim [RELEASED]/[DONE] freed the claim, no
+    # matter which machine posted it. In a true race the LOSER yields, which
+    # made the WINNER look released to any third worker => duplicate work.
+    # A release only frees the claim of the machine it names.
+
+    It 'race loser yields: winner still holds (ai-01 probe, exact)' {
+        # po-2025 claimed -10 min (never released); po-2024 claimed -9 min then
+        # released -8 min. Old logic returned False (po-2024 release freed
+        # po-2025); the winner po-2025 must still count as an active competitor.
+        $Comments = @(
+            (New-Comment ($Script:Claimed  -f '25', '3', '08:50:00') { -10 }),
+            (New-Comment ($Script:Claimed  -f '24', '3', '08:51:00') { -9 }),
+            (New-Comment ($Script:Released -f '24')                  { -8 })
+        )
+        Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $true
+    }
+
+    It 'a [DONE] from ANOTHER machine does not free a fresh claim either' {
+        $Comments = @(
+            (New-Comment ($Script:Claimed -f '25', '3', '08:50:00') { -10 }),
+            (New-Comment '[DONE] myia-po-2024 — delivered via PR #9999' { -9 })
+        )
+        Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $true
+    }
+
+    It 'the winners OWN release still frees its claim (attribution is a filter, not a blanket block)' {
+        $Comments = @(
+            (New-Comment ($Script:Claimed  -f '25', '3', '08:50:00') { -10 }),
+            (New-Comment ($Script:Claimed  -f '24', '3', '08:51:00') { -9 }),
+            (New-Comment ($Script:Released -f '24')                  { -8 }),
+            (New-Comment ($Script:Released -f '25')                  { -5 })
+        )
+        Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $false
+    }
+
+    It 'ADR-17 comment formats attribute too ([CLAIMED] myia-po-2025 -- / [RELEASED] myia-po-2025)' {
+        $Comments = @(
+            (New-Comment '[CLAIMED] myia-po-2025 -- fixing the jq filter' { -10 }),
+            (New-Comment '[RELEASED] myia-po-2025'                        { -9 })
+        )
+        Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $false
+    }
+
+    It 'unattributable claim body (no machine name) + foreign release -> conservative: still held' {
+        $Comments = @(
+            (New-Comment '[CLAIMED] working on it'                        { -10 }),
+            (New-Comment ($Script:Released -f '24')                       { -9 })
+        )
+        Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $true
+    }
+}
