@@ -158,6 +158,14 @@ if (-not $ExtractionOk) {
                 ($Prompt.Contains('Collecte des traces ' + $Case.Expected + ' (5 dernieres taches)'))
             Assert-That "fixture $($Case.Name): le prompt NE contient PAS le tasks/ de l'autre extension" `
                 (-not ($Prompt.Contains('ls -lt "' + $OtherTasks + '/"')))
+            # Dans une here-string expansible, 3 backticks en rendent UN seul : une cloture
+            # markdown s'y ecrit avec 6 (#3110). Une ligne reduite a un backtick signe la regression.
+            $PromptLines = $Prompt -split "`r?`n"
+            Assert-That "fixture $($Case.Name): aucune cloture de code rendue en backtick isole" `
+                (@($PromptLines | Where-Object { $_ -eq '`' }).Count -eq 0)
+            $FenceCount = @($PromptLines | Where-Object { $_ -eq '```' }).Count
+            Assert-That "fixture $($Case.Name): clotures de code appariees ($FenceCount, attendu pair et >= 6)" `
+                (($FenceCount -ge 6) -and ($FenceCount % 2 -eq 0))
         }
     } finally {
         $env:APPDATA = $OldAppData

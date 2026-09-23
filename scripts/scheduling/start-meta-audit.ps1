@@ -259,9 +259,9 @@ Si aucune des 8 categories ne donne de matiere : rapporter "rien a signaler" sur
 
 Utilise le MCP roo-state-manager pour poster le rapport :
 
-```
+``````
 roosync_dashboard(action: "append", type: "workspace", tags: ["META", "claude-interactive"], content: "...rapport...")
-```
+``````
 
 Format du rapport :
 
@@ -289,9 +289,9 @@ Format du rapport :
 
 **ANALYSE APPROFONDIE (zero-scheduled-opus 2026-05-25) :**
 Pour recommandations architecturales complexes (ex: refactoring majeur, nouveaux patterns), deleguer l'analyse a un sub-agent (herite du modele parent = Sonnet ; AUCUNE escalade Opus en schedule) :
-```
+``````
 Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour identifier [probleme]. Return un plan d'action detaille.")
-```
+``````
 
 ---
 
