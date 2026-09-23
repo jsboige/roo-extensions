@@ -3,14 +3,14 @@
     Deploys Zoo Scheduler VSIX, replacing the original Roo Scheduler.
 .DESCRIPTION
     Builds (if needed) and installs the forked Zoo Scheduler VSIX,
-    uninstalls the original Roo Scheduler, and migrates schedules.json
-    from .roo/ to .zoo/ for the current workspace.
+    uninstalls the original Roo Scheduler, and checks the current workspace's
+    .roo/schedules.json, which the scheduler reads in place.
 
     Issue: #2378 — Deploy Zoo Scheduler VSIX fleet-wide.
 .PARAMETER VsixPath
     Path to the zoo-scheduler VSIX file. If omitted, builds it via patch-scheduler.ps1.
 .PARAMETER WorkspacePath
-    Path to the workspace root (for schedules.json migration).
+    Path to the workspace root (whose .roo/schedules.json is checked).
     Default: git repo root or current directory.
 .PARAMETER SkipBuild
     Skip building the VSIX (use existing file).
@@ -182,8 +182,11 @@ if (-not $WhatIf) {
     Write-Host "[WHATIF] Would verify installation"
 }
 
-# --- Step 6: Migrate schedules.json ---
-Write-Step "Step 6: Migrate schedules.json"
+# --- Step 6: Check schedules.json ---
+# The scheduler, original and fork alike, reads <workspace>/.roo/schedules.json:
+# patch-scheduler.ps1 rewrites extension IDs, never that path. A .zoo/ copy is
+# never read, and an audit trusting its `active` flag would be misled (mcp#490).
+Write-Step "Step 6: Check schedules.json"
 
 if (-not $WorkspacePath) {
     $WorkspacePath = git -C $PSScriptRoot rev-parse --show-toplevel 2>$null
@@ -196,26 +199,12 @@ $rooSchedules = Join-Path (Join-Path $WorkspacePath ".roo") "schedules.json"
 $zooSchedules = Join-Path (Join-Path $WorkspacePath ".zoo") "schedules.json"
 
 if (Test-Path $rooSchedules) {
-    if (Test-Path $zooSchedules) {
-        Write-Host "[SKIP] .zoo/schedules.json already exists (not overwriting)"
-    } else {
-        $zooDir = Join-Path $WorkspacePath ".zoo"
-        if (-not (Test-Path $zooDir)) {
-            if ($WhatIf) {
-                Write-Host "[WHATIF] New-Item -ItemType Directory -Path $zooDir"
-            } else {
-                New-Item -ItemType Directory -Path $zooDir -Force | Out-Null
-            }
-        }
-        if ($WhatIf) {
-            Write-Host "[WHATIF] Copy $rooSchedules -> $zooSchedules"
-        } else {
-            Copy-Item $rooSchedules $zooSchedules -Force
-            Write-Host "[OK] Migrated schedules.json: .roo/ -> .zoo/" -ForegroundColor Green
-        }
-    }
+    Write-Host "[OK] .roo/schedules.json found: the scheduler reads it in place (no copy needed)" -ForegroundColor Green
 } else {
-    Write-Host "[SKIP] No .roo/schedules.json found (nothing to migrate)"
+    Write-Host "[SKIP] No .roo/schedules.json found (no schedule to run in this workspace)"
+}
+if (Test-Path $zooSchedules) {
+    Write-Host "[WARN] .zoo/schedules.json exists (copy left by an earlier deploy): the scheduler never reads it. Edit .roo/schedules.json instead." -ForegroundColor Yellow
 }
 
 # --- Summary ---
@@ -227,7 +216,7 @@ Write-Host @"
 Zoo Code:        $ZooExtId (installed)
 Zoo Scheduler:   $(if ($WhatIf) { 'would install' } else { $VsixPath })
 Roo Scheduler:   $(if ($rooScheduler) { 'uninstalled' } else { 'not present' })
-Schedules:       $(if (Test-Path $rooSchedules) { 'migrated .roo -> .zoo' } else { 'none found' })
+Schedules:       $(if (Test-Path $rooSchedules) { 'read in place from .roo/' } else { 'none found' })
 
 Next: Restart VS Code to activate the new scheduler.
 "@
