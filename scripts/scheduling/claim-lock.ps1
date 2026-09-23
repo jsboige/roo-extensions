@@ -41,6 +41,7 @@ function Get-CommentMachine {
 function Test-ConcurrentClaimActive {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [object[]]$Comments,   # objects with .body (string) and .createdAt (DateTime or $null, UTC)
         [Parameter(Mandatory = $true)]
         [string]$MachineId,

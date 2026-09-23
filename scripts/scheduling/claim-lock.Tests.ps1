@@ -84,6 +84,12 @@ Describe 'Test-ConcurrentClaimActive — lock window + released-tracking (#2428)
         Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $false
     }
 
+    It 'empty comment collection -> no competitor, no binding throw (shared-module caller)' {
+        # AllowEmptyCollection: a future caller reading comments before any exist
+        # must get $false, not a parameter-binding error swallowed as "Erreur claim".
+        Test-ConcurrentClaimActive -Comments @() -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $false
+    }
+
     It 'newer own claim coexists with an OLD other-machine claim -> keeps own lock (the #2428 fix case)' {
         # The exact moment a worker on po-2026 double-checks after claiming:
         # the last 20 comments contain old claims from po-2025/po-2026/web1, all released or stale.

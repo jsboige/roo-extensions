@@ -113,7 +113,12 @@ Describe "Worker Script - jq Expressions" {
             $parsed.Count | Should -Be 6
             $props = ($parsed[0].PSObject.Properties.Name | Sort-Object) -join ','
             $props | Should -Be 'body,createdAt'
-            $parsed[4].createdAt | Should -Be '2026-09-21T12:00:00Z'
+            # Edition-independent compare: pwsh 7 ConvertFrom-Json deserializes
+            # ISO dates to [datetime] (ToString = "...:00.0000000Z"), PS 5.1
+            # keeps the raw string. Normalize datetimes back to the wire form.
+            $raw = $parsed[4].createdAt
+            $norm = if ($raw -is [datetime]) { $raw.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') } else { "$raw" }
+            $norm | Should -Be '2026-09-21T12:00:00Z'
         }
     }
 }
