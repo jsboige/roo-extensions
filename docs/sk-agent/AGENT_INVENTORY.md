@@ -13,7 +13,7 @@
 | Metric | Count |
 |--------|-------|
 | **Total models** | 8 (8 enabled, 0 disabled) |
-| **Top-level agents** | 32 |
+| **Top-level agents** | 35 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
 | **MCP plugins** | 5 |
@@ -28,7 +28,7 @@
 | `glm-5.3` | 192.168.0.50:3000/v1 | 200000 | N | Y | Y | GLM-5.3 reasoning via the fleet hub — quality roles. Supersedes glm-5.1/glm-5 (user mandate 22/09: glm-5.1 obsolete). |
 | `glm-5.3-flash` | 192.168.0.50:3000/v1 | 131072 | N | N | Y | GLM-5.3-Flash via the fleet hub — fast/cheap text roles. Supersedes glm-5.1-fast/glm-5-fast/glm-4.7-flash. vision=false on purpose: the hub strips image parts (#794); cloud vision waits for the claudish passthrough fix. 320B/18B active, MIT (#3389). |
 | `qwen3.6-35b-a3b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Qwen3.6 35B MoE AWQ — fleet vLLM (ai-01), 262K ctx, vision+thinking. Benchmarks: GSM8K 88%, IFEval 88.5%, MME 1294.7, SWE-bench 69.2%. Fleet default since 22/09 (user mandate). |
-| `qwen3.6-35b-no-thinking` | api.medium.text-generation-webui... | 262144 | N | N | Y | Qwen3.6 35B MoE AWQ — no-thinking mode. Faster inference for coding tasks that don't need chain-of-thought. Same hardware as qwen3.6-35b-a3b. |
+| `qwen3.6-35b-no-thinking` | api.medium.text-generation-webui... | 262144 | N | N | Y | Qwen3.6 35B MoE AWQ — no-thinking mode. Faster inference for short/cheap tasks (summaries, classification, formatting). Same hardware as qwen3.6-35b-a3b. enable_thinking=false also declared via extra_body (#3797) so the profile holds on the conversation path, not just call_agent (#2002). |
 | `owui-qwen3.6-35b` | open-webui.myia.io/openai | 262144 | Y | Y | Y | Qwen3.6 35B MoE via OWUI proxy (bénéficie des filters/pipelines OWUI). Renommé depuis qwen3.5 (OWUI commit 4b8d8d521). Fallback direct vLLM via id qwen3.6-35b-a3b. |
 | `owui-expert-analyste` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Expert Analyste (wrapper qwen3.6-35b-a3b, thinking enabled). |
 | `owui-redacteur-technique` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Rédacteur Technique (wrapper qwen3.6-35b-a3b, thinking enabled). |
@@ -44,6 +44,9 @@
 | `coder` | `qwen3.6-35b-no-thinking` | open_terminal, searxng | N | Agentic coding assistant with terminal access and web search (Qwen3.6 35B MoE — fleet vLLM ai-01, 262K ctx, no-thinking mode). Can execute commands and search documentation |
 | `fast` | `qwen3.6-35b-no-thinking` | — | N | Fast responses via local vLLM Qwen3.6 35B no-thinking (fleet vLLM ai-01, 262K ctx). No tools, fastest reliable option (glm-4.7-flash deprecated: 60% rate-limit failures in benchmark) |
 | `fast-local` | `qwen3.6-35b-no-thinking` | — | N | Quick local responses via direct vLLM Qwen3.6 35B no-thinking mode (fleet vLLM ai-01, 262K ctx). No tools, no thinking overhead |
+| `summarizer-local` | `qwen3.6-35b-no-thinking` | — | N | Condenses logs, conversations, dumps and documents into short structured summaries — local Qwen3.6 35B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
+| `classifier-local` | `qwen3.6-35b-no-thinking` | — | N | Classifies items (issues, PRs, alerts, notebooks, log lines) into a caller-provided label set — local Qwen3.6 35B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
+| `formatter-local` | `qwen3.6-35b-no-thinking` | — | N | Normalizes and reformats text (markdown cleanup, dump normalization, consistent formatting) without changing meaning — local Qwen3.6 35B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
 | `fast-local-thinking` | `qwen3.6-35b-a3b` | — | N | Local responses with thinking mode via direct vLLM Qwen3.6 35B (fleet vLLM ai-01, 262K ctx, vision+thinking). Better reasoning, slightly slower |
 | `analyst-glm5` | `glm-5.3` | searxng, playwright, markitdown | Y | Cloud twin of analyst for heavy tasks — GLM-5.3 via fleet hub (200K ctx, thinking mode), same tools and memory. Operational fallback when the local endpoint is down; id kept as analyst-glm5 for config compatibility. |
 | `analyst-fast` | `glm-5.3-flash` | searxng | N | Fast analyst using GLM-5.3-Flash via fleet hub — lower latency for straightforward analysis and classification tasks |
