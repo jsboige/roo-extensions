@@ -6,8 +6,11 @@
 .DESCRIPTION
     Measures the seven points of the mcp#490 format in one run, so each lane
     pastes the output instead of rebuilding the measurement by hand:
-      1. installed extensions and the active one
-      2. .roo/schedules.json of every workspace folder VS Code has opened
+      1. installed extensions (Zoo, Roo, and the scheduler extension that runs
+         schedules.json) and the active one
+      2. .roo/ and .zoo/ schedules.json of every workspace folder VS Code has
+         opened; `active` only means something if a scheduler extension is
+         installed, so the section says so when none is
       3. task activity (total, last 7 days, last 30 days per workspace/profile)
       4. model profiles: autoImportSettingsPath (a path) and profile NAMES
       5. modes and rules per workspace
@@ -53,12 +56,29 @@ Add-Line ""
 # --- 1. Installed -----------------------------------------------------------
 Add-Line "**1. Installed?**"
 $extRoot = Join-Path $env:USERPROFILE ".vscode\extensions"
-foreach ($id in @($ZooExtensionId, $RooExtensionId)) {
-    $dirs = @()
-    if (Test-Path $extRoot) { $dirs = @(Get-ChildItem $extRoot -Directory -Filter "$id-*" -ErrorAction SilentlyContinue) }
-    $versions = @($dirs | ForEach-Object { $_.Name.Substring($id.Length + 1) })
-    $gs = Test-Path (Get-GlobalStoragePath -Extension $(if ($id -eq $ZooExtensionId) { 'ZooCode' } else { 'RooCode' }))
+# extensions.json is VS Code's list of what is installed; a version folder can outlive its uninstall.
+$registry = $null
+$regPath = Join-Path $extRoot "extensions.json"
+if (Test-Path $regPath) { try { $registry = Get-Content -LiteralPath $regPath -Raw | ConvertFrom-Json } catch { $registry = $null } }
+# Zoo Code has no scheduler of its own: .roo/.zoo schedules.json run only through one of these.
+$schedulerIds = @('jsboige.zoo-scheduler', 'kylehoskins.roo-scheduler')
+$installedSchedulers = @()
+foreach ($id in @($ZooExtensionId, $RooExtensionId) + $schedulerIds) {
+    if ($null -ne $registry) {
+        $versions = @($registry | Where-Object { $_.identifier.id -eq $id } | ForEach-Object { $_.version })
+    } else {
+        $dirs = @()
+        if (Test-Path $extRoot) { $dirs = @(Get-ChildItem $extRoot -Directory -Filter "$id-*" -ErrorAction SilentlyContinue) }
+        $versions = @($dirs | ForEach-Object { $_.Name.Substring($id.Length + 1) })
+    }
     $v = if ($versions.Count) { $versions -join ', ' } else { 'not installed' }
+    if ($schedulerIds -contains $id) {
+        if ($versions.Count) { $installedSchedulers += $id }
+        $gs = Test-Path (Join-Path $env:APPDATA "Code\User\globalStorage\$id")
+        Add-Line "- ``$id`` (scheduler): $v; globalStorage present: $gs"
+        continue
+    }
+    $gs = Test-Path (Get-GlobalStoragePath -Extension $(if ($id -eq $ZooExtensionId) { 'ZooCode' } else { 'RooCode' }))
     Add-Line "- ``$id``: $v; globalStorage present: $gs"
 }
 $active = Get-ActiveExtension
@@ -84,18 +104,24 @@ if (Test-Path $wsRoot) {
 $workspaces = @($folders.Values | Sort-Object)
 
 # --- 2. Schedules -----------------------------------------------------------
-Add-Line "**2. Schedules** (``.roo/schedules.json`` in the $($workspaces.Count) local workspace folders VS Code has opened; $skipped entries not scanned: WSL, containers, remotes, multi-root or deleted folders)"
+Add-Line "**2. Schedules** (``.roo/`` and ``.zoo/`` ``schedules.json`` in the $($workspaces.Count) local workspace folders VS Code has opened; $skipped entries not scanned: WSL, containers, remotes, multi-root or deleted folders)"
+if (-not $installedSchedulers.Count) {
+    $names = ($schedulerIds | ForEach-Object { '`' + $_ + '`' }) -join ', '
+    Add-Line "- **No scheduler extension installed** ($names): nothing runs the schedules below on this machine, whatever their ``active`` flag says."
+}
 $found = 0
 foreach ($ws in $workspaces) {
-    $sj = Join-Path $ws ".roo\schedules.json"
-    if (-not (Test-Path -LiteralPath $sj)) { continue }
-    $found++
-    try { $sched = @((Get-Content -LiteralPath $sj -Raw | ConvertFrom-Json).schedules) } catch { Add-Line "- ``$ws``: unreadable ($($_.Exception.Message))"; continue }
-    foreach ($s in $sched) {
-        Add-Line "- ``$ws``: **$($s.name)**, active=$($s.active), mode=$($s.mode), every $($s.timeInterval) $($s.timeUnit), last=$(Format-When $s.lastExecutionTime), next=$(Format-When $s.nextExecutionTime)"
+    foreach ($dir in @('.roo', '.zoo')) {
+        $sj = Join-Path $ws "$dir\schedules.json"
+        if (-not (Test-Path -LiteralPath $sj)) { continue }
+        $found++
+        try { $sched = @((Get-Content -LiteralPath $sj -Raw | ConvertFrom-Json).schedules) } catch { Add-Line "- ``$ws`` ``$dir``: unreadable ($($_.Exception.Message))"; continue }
+        foreach ($s in $sched) {
+            Add-Line "- ``$ws`` ``$dir``: **$($s.name)**, active=$($s.active), mode=$($s.mode), every $($s.timeInterval) $($s.timeUnit), last=$(Format-When $s.lastExecutionTime), next=$(Format-When $s.nextExecutionTime)"
+        }
     }
 }
-if (-not $found) { Add-Line "- No ``.roo/schedules.json`` in any opened workspace: the scheduler is not armed on this machine." }
+if (-not $found) { Add-Line "- No ``schedules.json`` in ``.roo/`` or ``.zoo/`` of any opened workspace." }
 Add-Line ""
 
 # --- 3. Activity ------------------------------------------------------------
