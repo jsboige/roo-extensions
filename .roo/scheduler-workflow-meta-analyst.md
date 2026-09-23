@@ -10,6 +10,10 @@
 Observer, analyser, PROPOSER. Le meta-analyste ne dispatche pas, ne trie pas, ne modifie rien.
 Les propositions sont des issues GitHub `needs-approval` que le coordinateur (#540) ou l'utilisateur traitera.
 
+**Perimetre : la FLOTTE ENTIERE** (7 machines, agents Zoo/Roo ET Claude), pas seulement la machine qui execute ce workflow.
+Un second meta-analyste, schedule sous Claude Code (`start-meta-audit.ps1`), fait la meme analyse de son cote : ce double regard est voulu (decision user 23/09, #3110).
+**Ordre de lecture impose : dashboards et messages D'ABORD, conversations de taches ENSUITE** — ce que la flotte s'est dit decide quelles conversations ouvrir.
+
 ---
 
 ## CRITICAL : Gestion du contexte et troncature (#1608)
@@ -58,14 +62,26 @@ execute_command(shell="powershell", command="echo META-ANALYST-PREFLIGHT-OK")
 Deleguer a `code-complex` via `new_task` :
 
 ```
-Tu es le meta-analyste. Collecte et explore les traces des schedulers locaux.
+Tu es le meta-analyste de la FLOTTE ENTIERE (7 machines, Zoo/Roo et Claude). Collecte et explore les traces.
 UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches que PowerShell brut.
+
+== PARTIE 0 : DASHBOARDS ET MESSAGES D'ABORD (#3110) ==
+
+0. AVANT toute conversation de tache, lire ce que la flotte s'est dit sur 72 h :
+   roosync_dashboard(action: "read_overview")   → les niveaux de dashboard en 1 appel
+   roosync_dashboard(action: "read", type: "global", section: "all")
+   roosync_dashboard(action: "list") puis, pour chaque dashboard machine/workspace modifie dans les 72 h :
+   roosync_dashboard(action: "read", ..., section: "intercom", intercomLimit: 20)
+   roosync_messages(action: "inbox", limit: 20)
+   → Relever : [ERROR]/[BLOCKED]/[ASK] sans reponse, [TASK] sans [CLAIMED]/[DONE], incidents cites sans issue,
+     interventions du user. Ces pistes decident quelles conversations ouvrir en PARTIE A.
 
 == PARTIE A : EXPLORATION VIA MCP (PRIORITAIRE) ==
 
-1. LISTER les taches recentes (POINT D'ENTREE OBLIGATOIRE) :
-   conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
-   → Identifier les IDs des 10 dernieres taches scheduler (orchestrator-simple, code-simple, code-complex)
+1. LISTER les taches recentes de la flotte (POINT D'ENTREE OBLIGATOIRE) :
+   conversation_browser(action: "list", includeArchives: true, waitForArchives: true, limit: 20, sortBy: "lastActivity", sortOrder: "desc")
+   → includeArchives = archives partagees de TOUTES les machines ; machineId: "..." pour isoler une machine designee en PARTIE 0
+   → Identifier d'abord les taches que la PARTIE 0 designe, puis les 10 dernieres taches scheduler
 
 2. ANALYSER les 5 taches les plus recentes :
    Pour chaque ID obtenu ci-dessus :
@@ -109,10 +125,6 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
    → Taux d'explosion de contexte par niveau
    → Escalades -simple → -complex : combien, pourquoi, reussies ou echouees
    → Patterns specifiques -simple : terminal natif au lieu de win-cli, outils indisponibles
-
-9. VUE D'ENSEMBLE DASHBOARDS :
-   roosync_dashboard(action: "read_overview")
-   → Contexte rapide des 4 niveaux de dashboard en 1 appel
 
 == PARTIE B : COMPLEMENTS (seulement si PARTIE A echoue ou incomplete) ==
 

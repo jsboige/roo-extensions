@@ -6,7 +6,7 @@
     Issue #551 - Meta-Analyst tier
 
     Ce script :
-    1. Analyse les traces locales Roo et Claude
+    1. Analyse la flotte entiere : dashboards et messages d'abord, puis conversations (#3110)
     2. Effectue une analyse croisee des deux harnais
     3. Poste les findings sur le dashboard workspace (depuis #1818, INTERCOM deprecated)
     4. Propose des issues GitHub avec label needs-approval si applicable
@@ -190,31 +190,40 @@ $ActiveExtension = Get-ActiveExtension
 $ActiveTasksPath = Get-GlobalStoragePath -Extension $ActiveExtension | Join-Path -ChildPath "tasks"
 
 $Prompt = @"
-Tu es le META-ANALYSTE Claude Code sur la machine $MachineName.
+Tu es le META-ANALYSTE Claude Code, lance depuis la machine $MachineName.
 Date du cycle : $Today
 
 ## TON ROLE
 
-Tu analyses les DEUX schedulers (Roo et Claude) sur cette machine pour identifier des ameliorations.
+Tu analyses la FLOTTE ENTIERE (7 machines, agents Claude ET Zoo/Roo) pour identifier des ameliorations — pas seulement cette machine.
+Un second meta-analyste, schedule sous Zoo, fait la meme analyse de son cote : ce double regard est voulu (decision user 23/09, #3110).
 Tu ne modifies RIEN, tu ne dispatches RIEN. Tu PROPOSES uniquement.
 
 ## ETAPES
 
-### 1. Collecte des traces $ActiveExtension (5 dernieres taches)
+### 0. Dashboards et messages D'ABORD (flotte entiere, #3110)
 
-Utilise Bash pour lister les taches $ActiveExtension recentes :
+AVANT d'ouvrir la moindre conversation de tache, lis ce que la flotte s'est dit sur les 72 dernieres heures :
+- roosync_dashboard(action: "read_overview") : les niveaux de dashboard en 1 appel
+- roosync_dashboard(action: "read", type: "global", section: "all")
+- roosync_dashboard(action: "list"), puis chaque dashboard machine et workspace modifie dans les 72 h : roosync_dashboard(action: "read", ..., section: "intercom", intercomLimit: 20)
+- les messages inter-machines et les archives de dashboards : categorie 8 ci-dessous, lue MAINTENANT et non en dernier
+
+Releve : [ERROR]/[BLOCKED]/[ASK] sans reponse, [TASK] sans [CLAIMED]/[DONE], incidents cites sans issue, interventions du user. Ces pistes decident quelles conversations tu ouvres aux etapes 1-2.
+
+### 1. Conversations de la flotte, guidees par l'etape 0
+
+- conversation_browser(action: "list", includeArchives: true, waitForArchives: true, limit: 30, sortBy: "lastActivity", sortOrder: "desc") : taches de TOUTES les machines (archives partagees), Claude et Zoo/Roo ; filtrer par machineId si une piste de l'etape 0 designe une machine.
+- roosync_search(action: "semantic", ...) sans filtre machine : l'index couvre la flotte.
+- Ouvre d'abord les conversations que l'etape 0 designe, puis les plus recentes : conversation_browser(action: "view", task_id: "...", detail_level: "summary", smart_truncation: true).
+
+### 2. Collecte des traces $ActiveExtension (5 dernieres taches)
+
+Traces locales, en COMPLEMENT seulement, si l'etape 1 n'a pas couvert $MachineName :
 ``````
 ls -lt "$ActiveTasksPath/" 2>/dev/null | head -10
 ``````
-
-Pour chaque tache recente, lire les ui_messages.json (derniers 50 lignes).
-
-### 2. Collecte des traces Claude
-
-Lister les sessions Claude recentes :
-``````
-ls -lt ~/.claude/projects/*/  2>/dev/null | head -10
-``````
+Ne JAMAIS lire un JSONL de session Claude directement (#1785) : passer par conversation_browser.
 
 ### 3. Analyses productives (ordre de priorite — meta-analyst rule v1.8.0)
 
@@ -229,7 +238,7 @@ Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regl
 5. **Escalations -simple -> -complex echouees** : patterns boucle sans escalader
 6. **Bugs production** : mpengine crashes, vmmem freezes, Docker cascade, MCP disconnects
 7. **Frictions agents** : [FRICTION] dashboard + has_errors:true via roosync_search
-8. **Archives RooSync** (#3347) : dashboards archives + messages inter-machines des 7 derniers jours — personne ne les analyse aujourd'hui. Racine : $(if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { 'G:/Mon Drive/Synchronisation/RooSync/.shared-state' }). Dashboards : dashboards/archive/, fichiers workspace-*-YYYY-MM-DDTHH-MM-SS.md — PRIORITE aux *-fallback.md (resume LLM absent = l'archive brute est la SEULE copie). Messages : messages/inbox/ + messages/archive/, fichiers msg-YYYYMMDDTHHMMSS-*. Filtrer par horodatage DU NOM DE FICHIER >= $((Get-Date).AddDays(-7).ToString('yyyy-MM-dd')) — JAMAIS de scan recursif complet du pool (~6700 fichiers dashboards, ~60000 messages). Max 10 fichiers lus par cycle. Chercher : [ERROR]/[BLOCKED]/[ASK] restes sans reponse, incidents non trackes en issue, escalations sans suite.
+8. **Archives RooSync** (#3347) — a lire a l'ETAPE 0, avant les traces (#3110) : dashboards archives + messages inter-machines des 7 derniers jours. Racine : $(if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { 'G:/Mon Drive/Synchronisation/RooSync/.shared-state' }). Dashboards : dashboards/archive/, fichiers workspace-*-YYYY-MM-DDTHH-MM-SS.md — PRIORITE aux *-fallback.md (resume LLM absent = l'archive brute est la SEULE copie). Messages : messages/inbox/ + messages/archive/, fichiers msg-YYYYMMDDTHHMMSS-*. Filtrer par horodatage DU NOM DE FICHIER >= $((Get-Date).AddDays(-7).ToString('yyyy-MM-dd')) — JAMAIS de scan recursif complet du pool (~6700 fichiers dashboards, ~60000 messages). Max 10 fichiers lus par cycle. Chercher : [ERROR]/[BLOCKED]/[ASK] restes sans reponse, incidents non trackes en issue, escalations sans suite.
 
 **HARD REJECT** (rejet immediat, ne PAS creer issue) :
 - Asymetrie version doc Claude/Roo (rythmes differents = normal)
