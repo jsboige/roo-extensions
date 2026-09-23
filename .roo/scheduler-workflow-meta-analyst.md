@@ -134,7 +134,8 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
    execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state all --limit 20 --json number,state,closedAt,createdAt,title --jq '.[] | [.number, .state, .title] | @tsv'")
 
 8. TRACES BRUTES (FALLBACK UNIQUEMENT — si conversation_browser echoue) :
-   execute_command(shell="powershell", command="Get-ChildItem '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { $_.Name + ' - ' + $_.LastWriteTime }")
+   Le dossier `tasks` est celui de l'extension ACTIVE (Zoo sur un hote migre, Roo sinon) : `Get-ActiveExtension` sonde le fichier `mcp_settings.json` (#3006/#3135). Un chemin `rooveterinaryinc.roo-cline` code en dur lit, sur un hote Zoo, une coquille vide ou un historique Roo fige (ai-01, 23/09 : 62 taches Roo anterieures a la migration).
+   execute_command(shell="powershell", command=". 'scripts/common/extension-paths.ps1'; $tasksDir = Join-Path (Get-GlobalStoragePath -Extension (Get-ActiveExtension)) 'tasks'; Get-ChildItem $tasksDir -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { $_.Name + ' - ' + $_.LastWriteTime }")
 
 == RAPPORT ==
 

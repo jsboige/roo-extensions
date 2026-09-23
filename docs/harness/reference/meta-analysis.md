@@ -1,8 +1,8 @@
 # Meta-Analysis Protocol — Continuous Improvement Tier
 
-**Version:** 3.0.0
+**Version:** 3.1.0
 **Created:** 2026-03-04
-**Updated:** 2026-08-16
+**Updated:** 2026-09-23
 **Issues:** #551, #981, #982, #855, #3110 (v3 evidence-based rewrite)
 
 ---
@@ -13,7 +13,7 @@ The meta-analysis tier is part of the **3-tier scheduling architecture** (3 type
 
 | Tier | Frequency | Machines | Role |
 |------|-----------|----------|------|
-| **Meta-Analyst** | 72h | ALL | Observe, analyze, PROPOSE |
+| **Meta-Analyst** | 72h | 2 hosts, each scanning the whole fleet (see Topology) | Observe, analyze, PROPOSE |
 | Coordinator | 6-12h | ai-01 only | Triage, dispatch, track |
 | Executor | 4h | ALL | Execute assigned tasks |
 
@@ -27,17 +27,24 @@ v3 is an **evidence-based rewrite** (audit web1 2026-08-14, étape 1 de #3110 + 
 2. **The roo-centric checklists remain but are no longer the whole picture.** The verified wins of the last cycles were on the Claude/harness side (#3032 gh identity, #3033 issue close, #3068 launcher). The analysis must rebalance toward **fleet activity + archives + GitHub**.
 3. **Anti-fragile-premise guard** : a measure that returns "nothing" from a self-condensing store must first suspect itself (#3097). And the **dead GDrive channel** `docs/meta-analysis/` is removed — verified empty, the archives replaced it de facto.
 
-### Topology (arbitration pending — ai-01/user)
+### Topology — decided (user, 2026-09-23, #3110)
 
-**Current state :** 2 méta-analystes × 6 machines (Roo scheduler + Claude schtask).
+> « On a défini il y a un an 2 meta-analystes, un sur roo (maintenant zoo) et un sur claude-code schedulé. Chacun devait meta-analyser l'ensemble de la flotte. C'était plutôt sain d'avoir un double regard. Je serais pour remettre ça en place. Et les metaanalystes doivent analyser les dashboards et les messages avant de plonger dans les conversations de tâche. »
 
-**Mesure du terrain (web1 2026-08-14) :**
-- Le scheduler Roo est **coupé sur web1** (décision user 08-07) et `active:false` sur ai-01 → le méta-analyste Roo de ces machines analyse des **traces vides**.
-- Le méta-analyste Claude de web1 a produit **0 issue GitHub en 6 cycles** ; ses 2 findings ont été jugés « déjà trackés » / « à confirmer ».
+**Two meta-analysts, each covering the WHOLE fleet** (7 machines, Claude and Zoo/Roo agents alike):
 
-**Direction recommandée :** un **analyste flotte-side unique** (ou 1 pour 2-3 machines) qui lit archives + GitHub centralement. Le prototype po-2026 a démontré le minage flotte entier **depuis une seule machine en une seule session** — l'analyste unique flotte-side est techniquement démontré.
+| Analyst | Host | Prompt |
+|---|---|---|
+| Claude Code | schtask `Claude-MetaAudit` (ai-01, every 3 days) | `scripts/scheduling/start-meta-audit.ps1` |
+| Zoo | Zoo scheduler on the machine the Zoo inventory designates (jsboige/jsboige-mcp-servers#490) | `.roo/scheduler-workflow-meta-analyst.md` |
 
-**Statut :** décision en attente d'arbitrage. Les procédures de ce document sont **topology-agnostic** — elles s'appliquent que l'analyste soit local ou flotte-side.
+The **double view is the point**: the two analysts overlap on purpose, and a finding seen by both is stronger. A per-machine scope, or a single fleet-side analyst (proposed after the web1 audit of 2026-08-14), is **rejected**.
+
+**Reading order, both analysts:**
+1. **Dashboards and RooSync messages first**: `global`, then the `machine` and `workspace` dashboards changed in the last 72 h, then the inter-machine messages and the dashboard archives (§ Archive Mining).
+2. **Task conversations after**, only those that step 1 points to, then the most recent ones: `conversation_browser` across the fleet, never a raw JSONL read.
+
+What the fleet said to itself decides which conversations to open. Reading conversations first spends the context budget before the leads are known.
 
 ---
 
@@ -201,7 +208,7 @@ Le cycle de 72h est conservé pour la production d'issues, mais la condensation 
 
 ## Check-lists obligatoires
 
-Les check-lists historiques restent valides, mais leur périmètre est **roo-centré** : elles servent là où le scheduler Roo tourne (po-2023/25/26 ; coupé web1, inactif ai-01). Le méta-analyste flotte-side ajoute les dimensions archives + GitHub du v3.
+Les check-lists historiques restent valides, mais leur périmètre est **roo-centré** : elles servent là où le scheduler Roo tourne (po-2023/25/26 ; coupé web1, inactif ai-01). Les deux méta-analystes (§ Topology) y ajoutent les dimensions dashboards, messages, archives et GitHub, sur la flotte entière.
 
 ### Santé Outillage (#761)
 
@@ -296,7 +303,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["META-ANALYSIS"], 
 ## Alignement harnais (follow-ups recommandés — hors scope v3)
 
 - **`meta-analyst-rule.md` (v1.7.0)** et le prompt inliné de `start-meta-audit.ps1` : à ré-aligner sur les sections Archive Mining + Anti-Fragile-Premise de ce document (changement du mécanisme schedulé → décision séparée, hors non-buts de #3110).
-- **Topologie flotte-side** : à arbitrer (ai-01/user).
+- **Topologie** : tranchée le 23/09 (§ Topology) : deux analystes, chacun sur la flotte entière. Reste à armer l'hôte Zoo, qui attend l'inventaire Zoo (jsboige/jsboige-mcp-servers#490).
 - **Indexation des résumés d'archives** (digest → Qdrant) : évolution RSM, à arbitrer séparément.
 - **Chantier Zoo→claudish** : lane po-203 — sans lui, les traces zoo échappent à la vue centrale (dépendance frontale de la vue complète).
 
