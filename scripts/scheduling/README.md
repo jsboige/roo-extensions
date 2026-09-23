@@ -177,12 +177,12 @@ Rollout helper behavior:
 
 ### GitHub Issue Selection
 
-Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658-682, L.856).
+Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658-685, L.859).
 
 - **Toutes les issues ouvertes sont candidates, pas seulement `roo-schedulable`.** Le worker
   ramasse l'ensemble des issues dispatchées.
 - **Le filtre `no:assignee` est appliqué côté serveur, et il est obligatoire** (#490 / #3081) :
-  `--search 'is:open no:assignee -label:harness-change -label:deferred -label:epic' --limit 30`. Le `continue`
+  `--search 'is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen' --limit 30`. Le `continue`
   côté client sur `assignees.Count -gt 0` reste, mais il ne suffit pas — mesure du 2026-08-11 :
   **80 des 95 issues ouvertes étaient assignées, dont les 40 premières**. Une fenêtre de 30 filtrée
   seulement côté client rendait donc **zéro candidat**, et affamait les deux flottes en silence.

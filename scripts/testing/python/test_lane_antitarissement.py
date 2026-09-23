@@ -157,6 +157,21 @@ class PickerVerdicts(unittest.TestCase):
         data = json.loads(out)
         self.assertEqual(data["verdict"], "IDLE_REAL")
 
+    def test_frozen_is_in_no_urn_even_with_a_grain_label(self):
+        # #3381 : `frozen` gele l'issue par decision ; un label actionnable
+        # porte en meme temps ne doit pas la remettre dans l'urne grain.
+        seq = [
+            ok_result([issue(11, ["approved", "frozen"]), issue(12, ["epic", "frozen"])]),
+            ok_result([]),
+            ok_result([]),
+            ok_result([]),
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "IDLE_REAL")
+
     def test_subprocess_utf8_replacement_kwargs(self):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
         # text=True decode stdout en cp1252 sous Windows => UnicodeDecodeError

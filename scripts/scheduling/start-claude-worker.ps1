@@ -676,7 +676,10 @@ function Get-GitHubTask {
         # seule ligne, chacune candidate sur chaque machine et relancee a chaque liberation de claim —
         # le mecanisme de re-dispatch de #3463 multiplie par onze (arbitrage ai-01 2026-09-12 : aligner
         # l'implementation sur la regle ecrite est de l'execution, pas une nouvelle decision).
-        $IssuesJson = & cmd /c "gh issue list --repo jsboige/roo-extensions --search ""is:open no:assignee -label:harness-change -label:deferred -label:epic"" --limit 30 --json number,title,body,labels,assignees 2>&1"
+        # `-label:frozen` (#3381, decision user 23/09) : une issue gelee par decision reste hors du
+        # vivier tant qu'on ne retire pas le label. Le gel ne depend plus d'un agent qui lit un
+        # commentaire [FROZEN] : c'est le serveur qui l'ecarte, comme `deferred`.
+        $IssuesJson = & cmd /c "gh issue list --repo jsboige/roo-extensions --search ""is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen"" --limit 30 --json number,title,body,labels,assignees 2>&1"
 
         if ($LASTEXITCODE -ne 0) { return $null }
 

@@ -229,7 +229,7 @@ execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchr
 > ⚠️ **LIMITE OBLIGATOIRE** : Traiter **MAXIMUM 5 issues** par cycle. Au-delà, le volume d'appels d'outils explose le contexte (80-200 messages, saturation GLM).
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic' --limit 5 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic -label:frozen' --limit 5 --json number,title,labels")
 ```
 
 **Note :** `--limit 5` remplace l'ancien `--limit 40`. Le round-robin se fait sur plusieurs cycles, pas dans un seul.
@@ -250,7 +250,7 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 > ligne ne porte aucune exclusion. De quoi saturer entierement une fenetre de 5 et dispatcher zero
 > work item reel, cycle apres cycle, sans qu'aucun signal ne le dise.
 >
-> Meme terme et meme motif que `start-claude-worker.ps1` l.681 (#3592) et que `/executor`
+> Meme terme et meme motif que `start-claude-worker.ps1` l.682 (#3592) et que `/executor`
 > SKILL.md l.99, qui excluent `epic` du vivier actionnable. Ce fichier etait le dernier chemin de
 > dispatch a ne pas s'y conformer.
 
