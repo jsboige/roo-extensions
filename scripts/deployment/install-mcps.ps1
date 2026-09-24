@@ -445,7 +445,7 @@ if ($installedMcps.Count -eq 0) {
                     options       = @{ cwd = ($mcpCwd + "/") }
                     watchPaths    = $watchPaths
                     enabled       = $true
-                    timeout       = 300
+                    timeout       = 900  # #1357 ladder: Zoo client 15 min > TBXark hop 13 min > tool budgets <= 12 min
                 }
             } else {
                 # Logique générale pour les autres MCPs
