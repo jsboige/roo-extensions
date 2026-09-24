@@ -150,7 +150,7 @@ Alternative (clients sans support headers) : token dans l'URL :
 </system.webServer>
 ```
 
-**Important :** Desactiver le buffering de reponse dans ARR (IIS Manager > Server Farms > Proxy > Decocher "Enable buffer"). Timeout minimum : **300 secondes (5 minutes)** — aligne sur la frontiere haute de `mcpServers.*.timeout` cote TBXark container (#1357).
+**Important :** Desactiver le buffering de reponse dans ARR (IIS Manager > Server Farms > Proxy > Decocher "Enable buffer"). Timeout minimum : **900 secondes (15 minutes)** — au-dessus du hop TBXark le plus long (`sk-agent`, 15 min ; `roo-state-manager`, 13 min), echelle #1357.
 
 ## Stack technique
 

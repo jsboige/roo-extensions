@@ -31,7 +31,7 @@
       "headers": {
         "Authorization": "Bearer REPLACE_WITH_HOST_PROXY_TOKEN"
       },
-      "timeout": "5m"
+      "timeout": 780000000000
     }
   }
 }
