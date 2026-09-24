@@ -33,8 +33,9 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 | `setup-copilot-dispatcher.ps1` | Install/remove/list/test Copilot dispatcher scheduled task | Copilot scheduler bridge |
 | `start-copilot-dispatcher.ps1` | Phase B bridge worker (regular cadence + observability) | Copilot transition |
 | `invoke-copilot-rollout-check.ps1` | Controlled rollout helper (preflight + install + validation + evidence report) | Machine-by-machine rollout |
-| `rotate-scheduling-logs.ps1` | Log retention for `outputs/scheduling/logs/` (#3323) — report-only by default, `-Execute` to delete, unknown patterns never touched | Manual or weekly cron (install requires elevation) |
-| `test-rotate-scheduling-logs.ps1` | 17 sandbox tests for the rotation script (no real logs touched) | Validation |
+| `rotate-scheduling-logs.ps1` | Log retention for `outputs/scheduling/logs/` (#3323, #3834) — report-only by default; `-ArchiveTo <dir> -Execute` = 4-step archive-then-remove (7z package + manifest + integrity checks + hash-guarded removal); bare `-Execute` REFUSED (decision user 13/09); Env/Lock/Unknown never archived nor deleted | Manual or weekly cron via installer below |
+| `test-rotate-scheduling-logs.ps1` | Sandbox tests for the rotation script (no real logs touched): buckets, retention, refusal, preview, nominal archive run, mutation guard, corruption stop, 7z refusal, same-day idempotence | Validation |
+| `install-rotate-scheduling-logs-schtask.ps1` | Install/uninstall the weekly `roo-rotate-scheduling-logs` task (#3834) — `-WhatIf` dry-run supported; install requires elevation (fenetre UAC groupee, one pass per lane) | Fleet rollout |
 
 ---
 
