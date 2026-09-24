@@ -193,9 +193,10 @@ Les skills suivants appellent l'organe **avant** un `[DONE]` final ou expliciten
 |---|---|
 | `coordinate` (`.claude/commands/coordinate.md`, § Fin de Session) | Execute l'organe sur le clone principal avant le bilan final ; verdict joint au bilan, ou `[SKIP-CHECK]` motivé si session sans mutation du dépôt. |
 | `executor` (`.claude/skills/executor/SKILL.md`, § Postcondition Git de fin de cycle) | Idem, avant l'append `[DONE]` final de session ; `[SKIP-CHECK]` motivé si session purement informationnelle (lecture seule). |
+| `debrief` (`.claude/configs/commands/debrief.md` + `.claude/configs/skills/debrief/`, source deployee sur toute la flotte) | Phase 5 du skill : organe invoque depuis un checkout roo-extensions avec `--path <depot inspecte>` (le script n'existe que la) ; verdict joint au resume, ou `[SKIP-CHECK]` motive si session lecture seule. |
 
 > **Correction (24/09/2026).** Une version anterieure de cette table citait `coordinate-adjoint` et
-> `continue`, qui **n'existent pas** dans ce depot (commandes reelles : `coordinate`,
+> `continue`, qui **n'existent pas** dans ce depot (commandes reelles : `coordinate`, `executor`,
 > `switch-provider`, `debrief`, `team` ; skills : `executor`, `git-sync`, etc.). La table ci-dessus
 > reflete le wiring reel.
 
@@ -216,8 +217,8 @@ L'organe ne tourne que sur le **clone principal de session**. Les worktrees temp
 
 ## Reference croisee
 
-- Regle succincte : `.claude/configs/user-global-claude.md` (section "Postcondition Git de fin de cycle").
-- Script : `scripts/check_clean_cycle_exit.py`.
+- Regle succincte : `.claude/configs/user-global-claude.md` (puce "Postcondition Git de fin de cycle" de la section `## Git`).
+- Script : `scripts/check_clean_cycle_exit.py` (dans le checkout roo-extensions ; pour inspecter tout autre depot : `--path <depot-inspecte>`).
 - Tests : `scripts/tests/test_check_clean_cycle_exit.py`.
 - Regles connexes : `.claude/rules/no-deletion-without-proof.md`, `.claude/rules/worktree-lifecycle.md`, `.claude/rules/submod-pointer-safety.md`.
 - Issue #3147 : recycle les stashes existants.

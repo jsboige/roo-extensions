@@ -13,7 +13,8 @@ Analyze work done in this session, extract reusable lessons, update persistent m
 2. **Extract Lessons**: Identify reusable patterns (technical, process, tools)
 3. **Update Memory**: Merge learnings into auto-memory and shared project memory
 4. **Coordination**: Update local coordination files if applicable (INTERCOM, etc.)
-5. **Summarize**: Output concise recap with accomplishments, lessons, and next steps
+5. **Git Postcondition**: If the session mutated a repo, run the end-of-cycle Git postcondition (see skill Phase 5) and attach the verdict to the summary
+6. **Summarize**: Output concise recap with accomplishments, lessons, and next steps
 
 ## When to Use
 
@@ -28,4 +29,5 @@ A structured markdown summary including:
 - Tasks accomplished with status
 - 3-5 key lessons learned
 - Files updated (memory, docs)
+- Git postcondition verdict (or motivated `[SKIP-CHECK]` if read-only session)
 - Recommended next steps

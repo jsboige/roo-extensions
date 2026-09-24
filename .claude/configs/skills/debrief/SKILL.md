@@ -72,7 +72,20 @@ If the project uses local coordination files (e.g., INTERCOM):
 - List pending actions
 - Note items to monitor
 
-### Phase 5: User Summary
+### Phase 5: End-of-Cycle Git Postcondition
+
+If this session mutated any repository (commits, branches, worktrees), run the postcondition **before** writing the summary. The check script only exists in a roo-extensions checkout — invoke it from there with `--path` to inspect any other repo:
+
+```bash
+# From any checkout of roo-extensions:
+python <roo-extensions>/scripts/check_clean_cycle_exit.py --path <inspected-repo>
+```
+
+- **PASS**: attach the verdict to the summary.
+- **Non-PASS**: treat each signal before closing — preservation first (archive + manifest + SHA-256 outside the repo), never delete without proof of preservation. Procedure: `docs/harness/reference/clean-cycle-exit.md` (roo-extensions repo).
+- **Not applicable** (read-only session, no repo mutation): state an explicit `[SKIP-CHECK]` in the summary.
+
+### Phase 6: User Summary
 
 **Output format:**
 ```markdown
@@ -86,6 +99,9 @@ If the project uses local coordination files (e.g., INTERCOM):
 
 ## Documentation Updated
 - [Files modified]
+
+## Git Postcondition
+- [Verdict, or [SKIP-CHECK] with motivation]
 
 ## Next Steps
 - [Recommended actions]
