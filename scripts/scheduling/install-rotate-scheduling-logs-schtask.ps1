@@ -39,9 +39,11 @@
     Run time as "HH:mm" (default "04:53", off-:00 / off-peak).
 
 .PARAMETER ArchiveTo
-    Root passed to the rotate script (default: the RooSync scheduling-logs
-    archives root on GDrive). The dated archive goes to
-    <ArchiveTo>\<machine>\<yyyy-MM-dd>\.
+    Root passed to the rotate script. Empty (default) = resolved from the
+    RooSync .shared-state root (ROOSYNC_SHARED_PATH at User level, else the
+    GDrive candidates below), i.e. <shared>\archives\scheduling-logs. The
+    dated archive goes to <ArchiveTo>\<machine>\<yyyy-MM-dd>\. Explicit
+    value bypasses resolution.
 
 .PARAMETER SevenZip
     Optional explicit 7z path passed through to the rotate script.
@@ -67,7 +69,7 @@ param(
     [switch]$Uninstall,
     [string]$TaskDay = 'Sunday',
     [string]$TaskTime = '04:53',
-    [string]$ArchiveTo = 'G:\Mon Drive\RooSync\.shared-state\archives\scheduling-logs',
+    [string]$ArchiveTo = '',
     [string]$SevenZip = ''
 )
 
@@ -140,6 +142,32 @@ if ($SevenZip -and (Test-Path -LiteralPath $SevenZip)) {
 if (-not $sevenZipResolved) {
     Write-Host "ERROR: 7z introuvable (PATH, chocolatey, Docker, 7-Zip, PortableApps) — la tache echouerait a chaque tir. Installer 7z d'abord." -ForegroundColor Red
     exit 1
+}
+
+# Destination par defaut : resolution identique a
+# scripts/dashboard-scheduler/install-dashboard-listener-schtask.ps1 (#3835) —
+# d'abord ROOSYNC_SHARED_PATH (niveau User), sinon les candidats GDrive testes
+# par Test-Path, puis <shared>\archives\scheduling-logs. REFUS (exit 1) si
+# aucun .shared-state n'existe : le tir hebdomadaire ferait New-Item -Force
+# sur une arborescence d'archives parallele que personne ne regarderait.
+if (-not $ArchiveTo) {
+    $sharedRoot = [System.Environment]::GetEnvironmentVariable('ROOSYNC_SHARED_PATH', 'User')
+    if (-not $sharedRoot -or -not (Test-Path -LiteralPath $sharedRoot)) {
+        $sharedRoot = $null
+        foreach ($c in @(
+            'G:\Mon Drive\Synchronisation\RooSync\.shared-state',
+            "$env:USERPROFILE\Google Drive\Mon Drive\Synchronisation\RooSync\.shared-state",
+            'D:\Google Drive\Mon Drive\Synchronisation\RooSync\.shared-state'
+        )) {
+            if ($c -and (Test-Path -LiteralPath $c)) { $sharedRoot = $c; break }
+        }
+    }
+    if (-not $sharedRoot) {
+        Write-Host "ERROR: aucun dossier RooSync .shared-state trouve (ROOSYNC_SHARED_PATH absent du User ou injoignable, candidats GDrive absents) — refus : passer -ArchiveTo explicitement apres creation du dossier. Un tir hebdomadaire sur une destination inexistante creerait une arborescence parallele." -ForegroundColor Red
+        exit 1
+    }
+    $ArchiveTo = Join-Path $sharedRoot 'archives\scheduling-logs'
+    Write-Host "[INFO] ArchiveTo resolu : $ArchiveTo (racine .shared-state : $sharedRoot)"
 }
 
 # Destination GDrive : avertissement si la racine n'est pas montee MAINTENANT

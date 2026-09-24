@@ -360,11 +360,13 @@ try {
 
     # 7z avec listfile relatif (CWD = LogDir). NB : pas de "--" avec @listfile —
     # 7-Zip y lirait la fin de switches comme un nom de fichier litteral.
+    # -scsUTF-8 : le listfile est ecrit UTF-8 sans BOM ; sans le switch, 7z le
+    # relit dans la codepage systeme et un nom non ASCII echouerait au packing.
     $ListFile = Join-Path $Stage 'packlist.txt'
     [System.IO.File]::WriteAllLines($ListFile, @($Eligible | ForEach-Object { $_.Name }), $Utf8NoBom)
     Push-Location -LiteralPath $ResolvedLogDir
     try {
-        & $SevenZipExe a -t7z -mx=7 -mmt=on -bso0 -bsp0 $ArchivePath "@$ListFile" | Out-Null
+        & $SevenZipExe a -t7z -mx=7 -mmt=on -scsUTF-8 -bso0 -bsp0 $ArchivePath "@$ListFile" | Out-Null
         $PackRc = $LASTEXITCODE
     } finally {
         Pop-Location
@@ -448,6 +450,7 @@ try {
     Write-Output ("[ETAPE 3/4] Relecture destination OK : hash archive conforme au sidecar, manifeste identique ({0} lignes)." -f $ManifestLines.Count)
 
     # ---------------- ETAPE 4/4 : retrait local garde par hash ----------------
+    $Step4 = $true
     $Deleted = 0; $Skipped = 0; $Failed = 0
     $FreedBytes = [long]0
     foreach ($f in $Eligible) {
@@ -479,7 +482,11 @@ try {
     exit 0
 } catch {
     Write-Output ("[ERREUR] {0}" -f $_.Exception.Message)
-    Write-Output "[ERREUR] Aucune suppression effectuee hors l'etape 4 terminee."
+    if ($Step4) {
+        Write-Output "[ERREUR] Exception pendant l'etape 4 (retrait) : des suppressions ont pu etre effectuees avant l'arret — l'archive et son manifeste restent la preuve de ce qui a ete retire."
+    } else {
+        Write-Output "[ERREUR] Aucune suppression effectuee (exception survenue avant l'etape 4)."
+    }
     exit 1
 } finally {
     if (Test-Path -LiteralPath $Stage) {
