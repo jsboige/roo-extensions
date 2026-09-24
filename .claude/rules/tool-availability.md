@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.3.0 (note « code supprimé » quickfiles/github-projects-mcp, #3423)
+**Version:** 3.3.1 (searxng : compte d'outils par version — drift cache npx, #2224)
 
 ---
 
@@ -25,9 +25,11 @@
 |-----|--------|------|
 | playwright | 25 | Automation web |
 | sk-agent | 9 outils + agents dynamiques | Vision/multi-agent (`call_agent` dynamic descriptions). Outils = `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`, `list_conversations`, `list_tools`, `review_pr`, `run_conversation` |
-| **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
+| **searxng** | **2 ou 4, par version** (voir note) | **Web canonique**: searxng_web_search + web_url_read ; les versions ≥ 1.5.0 ajoutent searxng_search_suggestions + searxng_instance_info. Markdown: prefix r.jina.ai (#2210) |
 
 **Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
+
+**searxng — verite PAR VERSION (mesure 24/09, tarballs npm inspects)** : `mcp-searxng` ≤ **1.4.0** expose **2** outils (`searxng_web_search`, `web_url_read`) ; ≥ **1.5.0** en expose **4** (+ `searxng_search_suggestions`, `searxng_instance_info`). Derniere publiee : 2.4.0 (22/09). La flotte lance `npx -y mcp-searxng` **sans version epinglee** : chaque machine sert ce que son cache npx (`%LOCALAPPDATA%\npm-cache\_npx`) a resolu a son premier spawn, et ne re-resout pas tout seul. L'ecart mesure le 24/09 — ai-01 : 2 outils, po-2025 : 2, po-2027 : 4 (v2.4.0 en cache) — est donc un **drift de cache npx, pas une difference de config** (meme ligne `npx -y mcp-searxng` partout ; inventaires GDrive `inventories/*.json` sans champ version). Pour converger la flotte : epingler la version dans `~/.claude.json` (`npx -y mcp-searxng@2.4.0`) ou purger le cache npx de la machine. Compte d'outils par lane : mesurer sur la session, pas sur ce tableau.
 
 ## MCP désactivés ≠ absents (#3137)
 
