@@ -99,7 +99,7 @@ Clients concernes : nanoclaw Bot, eventuels scripts Roo/Claude pointant sur l'an
 | **TBXark client HTTP -> upstream** | `mcpServers.*.timeout` (time.Duration) | OUI | RSM `780000000000` (13 min), sk-agent `900000000000` (15 min) — **nombre JSON en nanosecondes** (#1357) | `config.go` `StreamableMCPClientConfig.Timeout` ; `client.go` `transport.WithHTTPTimeout(v.Timeout)` (streamable HTTP only, **pas stdio**) |
 | **sparfenyuk HTTP serveur (:9091)** | uvicorn `timeout_keep_alive`, etc. | **NON** expose en JSON (uvicorn defaults) | `timeout_keep_alive=5s` (uvicorn default) | [`mcp_server.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/mcp_server.py) : `uvicorn.Config(starlette_app, host, port, log_level)` |
 | **sparfenyuk client HTTP -> upstream** | `mcpServers.*.timeout` (number) | OUI mais semantique non documentee | n/a (stdio-only dans notre config) | [`config_loader.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/config_loader.py) ne charge PAS le champ `timeout` — il l'ignore |
-| **IIS / ARR (po-2023, frontend)** | `connectionTimeout`, `activityTimeout` | OUI (IIS Manager + `web.config`) | **≥ 15 min** requis (echelle #1357) ; reglage cote po-2023 | [`docker/README.md` ligne 153](../../../docker/README.md) |
+| **IIS / ARR (po-2023, frontend)** | `connectionTimeout`, `activityTimeout` | OUI (IIS Manager + `web.config`) | **≥ 15 min** requis (echelle #1357) ; `timeout="00:30:00"` pose le 24/09 sur `skagents` et `mcp-tools` (IISManagement, relu par `appcmd`) | [`docker/README.md` ligne 153](../../../docker/README.md) |
 | **roo-state-manager CallTool wrapper** | per-tool Promise.race | OUI | default 120s, 5min pour `roosync_indexing`, 12min pour `roosync_dashboard` | [`mcps/internal/servers/roo-state-manager/src/tools/registry.ts` L52-87](../../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) (#2267) |
 | **mcp-wrapper.cjs parent-PID watchdog** | kill cascade T+5s / T+10s / T+12s | NON (compile) | hardcoded | `mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs` |
 
@@ -112,7 +112,7 @@ Chaque couche coupe **avant** celle qui l'enveloppe, pour que l'erreur remonte d
 | Budgets d'outils RSM (`tool-timeouts.ts`) | ≤ 12 min (`roosync_dashboard` 720 s) |
 | Hop TBXark → `roo-state-manager` | 13 min (`780000000000`) |
 | Hop TBXark → `sk-agent` | 15 min (`900000000000`) |
-| IIS/ARR (po-2023) | ≥ 15 min |
+| IIS/ARR (po-2023) | ≥ 15 min (30 min sur `skagents`/`mcp-tools` depuis le 24/09) |
 | Client Claude Code | 15 min |
 | Client Zoo (RSM, `install-mcps.ps1`) | 900 s |
 
@@ -128,7 +128,7 @@ Le timeout ne s'applique qu'aux upstreams HTTP (streamable/SSE), jamais a stdio.
 ### Limites connues (a traiter en upstream PR si besoin)
 
 - Aucun `readTimeout` / `writeTimeout` configurable cote TBXark ni sparfenyuk. Un upload de fichier ou un long poll SSE tient jusqu'a ce que le client coupe.
-- Si IIS/ARR reste sous 15 min, il coupe avant le hop TBXark et masque son erreur. **Reglage requis cote po-2023**, pas dans ce repo.
+- Si IIS/ARR descend sous 15 min, il coupe avant le hop TBXark et masque son erreur. Le reglage vit cote po-2023 (IISManagement), pas dans ce repo : a relire par `appcmd list config <site> -section:system.webServer/proxy`, la forme enfant `<timeout>120</timeout>` n'etant pas lue par ARR.
 
 ### Verification E2E (>60s slow tool)
 
