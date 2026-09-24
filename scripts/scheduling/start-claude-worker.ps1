@@ -797,6 +797,15 @@ function Get-GitHubTask {
             # Lire les champs Project #67 (Model, Execution, Deadline, etc.)
             $ProjectFields = Get-IssueProjectFields -IssueNumber $Issue.number
 
+            # Skip si le champ Machine designe une AUTRE machine (#3827, #3832). Le champ etait lu
+            # ici sans jamais filtrer : seul Execution gatait. Mesure 24/09 : web1 a auto-claime #3832
+            # (stores de po-2027) et po-2025 #3827 (stores d'ai-01), deux travaux physiquement hors
+            # de leur portee. Champ vide, All ou Any : eligible, comme avant. Cf. claim-lock.ps1.
+            if (Test-IssueMachineForeign -FieldMachine $ProjectFields.Machine -MachineId $MachineId) {
+                Write-Log "  Issue #$($Issue.number) : Machine=$($ProjectFields.Machine), pas $MachineId, skip" "INFO"
+                continue
+            }
+
             # Skip si Execution = interactive (réservé aux sessions manuelles)
             if ($ProjectFields.Execution -eq "interactive") {
                 Write-Log "  Issue #$($Issue.number) : Execution=interactive, skip pour worker" "INFO"
