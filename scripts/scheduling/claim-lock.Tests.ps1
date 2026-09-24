@@ -158,3 +158,35 @@ Describe 'Test-ConcurrentClaimActive — release attribution (ai-01 review on #3
         Test-ConcurrentClaimActive -Comments $Comments -MachineId 'myia-po-2026' -Now $Script:Now | Should -Be $true
     }
 }
+
+Describe 'Test-IssueMachineForeign — Project #67 Machine field gate (#3827, #3832)' {
+    It 'the #3827 case: field names ai-01, worker is po-2025 -> foreign (skip)' {
+        Test-IssueMachineForeign -FieldMachine 'myia-ai-01' -MachineId 'myia-po-2025' | Should -Be $true
+    }
+
+    It 'field names the worker itself -> eligible, case-insensitive' {
+        Test-IssueMachineForeign -FieldMachine 'myia-po-2025' -MachineId 'myia-po-2025' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine 'MYIA-PO-2025' -MachineId 'myia-po-2025' | Should -Be $false
+    }
+
+    It 'All / Any -> eligible' {
+        Test-IssueMachineForeign -FieldMachine 'All' -MachineId 'myia-po-2025' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine 'Any' -MachineId 'myia-po-2025' | Should -Be $false
+    }
+
+    It 'no Machine value (null, empty, blank) -> eligible, unchanged fail-open behaviour' {
+        Test-IssueMachineForeign -FieldMachine $null -MachineId 'myia-po-2025' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine ''    -MachineId 'myia-po-2025' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine '  '  -MachineId 'myia-po-2025' | Should -Be $false
+    }
+
+    It 'wired: Get-GitHubTask calls the gate before it claims (a gate nobody calls tests nothing)' {
+        $Worker = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'start-claude-worker.ps1')
+        $Start = $Worker.IndexOf('function Get-GitHubTask')
+        $Start | Should -BeGreaterThan -1
+        $Gate  = $Worker.IndexOf('Test-IssueMachineForeign -FieldMachine $ProjectFields.Machine', $Start)
+        $Claim = $Worker.IndexOf('Claim-GitHubIssue -IssueNumber $Issue.number', $Start)
+        $Gate  | Should -BeGreaterThan $Start
+        $Claim | Should -BeGreaterThan $Gate
+    }
+}

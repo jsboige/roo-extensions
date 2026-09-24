@@ -76,3 +76,27 @@ function Test-ConcurrentClaimActive {
 
     return $false
 }
+
+<#
+.SYNOPSIS
+    Project #67 Machine-field gate for Get-GitHubTask (#3827, #3832).
+
+.DESCRIPTION
+    Returns $true when the issue's Machine field names a specific machine other
+    than $MachineId: the worker must skip it. An issue addressed to one machine
+    (its stores, its services) cannot be done elsewhere, yet the field was read
+    and never used: web1 auto-claimed #3832 (po-2027's stores) and po-2025
+    #3827 (ai-01's stores) on 2026-09-24.
+
+    Empty field, All or Any: not foreign (fail-open, the behaviour of every
+    issue that carries no Machine value). Comparison is case-insensitive:
+    the worker's MachineId is $env:COMPUTERNAME lower-cased.
+#>
+function Test-IssueMachineForeign {
+    param([string]$FieldMachine, [string]$MachineId)
+
+    if ([string]::IsNullOrWhiteSpace($FieldMachine)) { return $false }
+    $Field = $FieldMachine.Trim()
+    if ($Field -in @('All', 'Any')) { return $false }
+    return ($Field -ne $MachineId.Trim())
+}
