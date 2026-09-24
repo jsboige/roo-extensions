@@ -389,6 +389,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
    - Fichiers de regles si drift detecte (CLAUDE.md, .roo/rules/)
 3. **Commit + push** si fichiers partages modifies
 4. **INTERCOM** : Laisser etat courant pour Roo
+5. **Postcondition Git de fin de cycle (#3776)** : executer `python scripts/check_clean_cycle_exit.py` sur le **clone principal** (pas un worktree) et joindre le verdict au bilan final. Tout verdict non-`PASS` = traiter avant de clore (preservation d'abord, cf. `docs/harness/reference/clean-cycle-exit.md`). Si non applicable (session sans mutation du depot), motiver un `[SKIP-CHECK]` explicite dans le bilan. Les worktrees de PR actifs suivent leur propre protocole (`worktree-lifecycle.md`).
 
 **Principe :** La consolidation demande du jugement humain/agent. Les scripts `scripts/memory/` sont des aides au diagnostic, pas des automatismes. L'agent decide quoi consolider et ou.
 

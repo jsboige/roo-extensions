@@ -327,6 +327,19 @@ CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
 - Tout changement de code passe par worktree → PR → review → merge
 - Reference : `.claude/rules/pr-mandatory.md`
 
+### Postcondition Git de fin de cycle (#3776)
+
+Avant l'append `[DONE]` final de la session, executer sur le **clone principal** (pas un worktree) :
+
+```bash
+python scripts/check_clean_cycle_exit.py
+```
+
+- **`PASS`** : joindre le verdict au `[DONE]`.
+- **Non-`PASS`** : traiter chaque signal avant de clore — preservation d'abord (archive + manifeste + SHA-256 hors depot), jamais de suppression sans preuve. Procedure : `docs/harness/reference/clean-cycle-exit.md`.
+- **Non applicable** (session sans mutation du depot, lecture seule) : motiver un `[SKIP-CHECK]` explicite dans le `[DONE]`.
+- Les worktrees de PR actifs suivent leur propre protocole (`.claude/rules/worktree-lifecycle.md`) — la postcondition ne les force pas sur `main`.
+
 ---
 
 ## Outils Utilises

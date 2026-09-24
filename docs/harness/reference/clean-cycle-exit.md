@@ -187,13 +187,17 @@ Si un verdict non-`PASS` persiste, **STOP** et traiter chaque signal avant de co
 
 ## Wiring dans les skills
 
-Les skills suivants appellent l'organe **avant** un `[DONE]` ou explicitent pourquoi il est non applicable :
+Les skills suivants appellent l'organe **avant** un `[DONE]` final ou explicitent pourquoi il est non applicable :
 
-| Skill | Comportement |
+| Skill / commande | Comportement |
 |---|---|
-| `coordinate` | Execute l'organe sur le clone principal avant chaque append `[DONE]`. |
-| `coordinate-adjoint` | Idem. |
-| `continue` | Idem ; explicitera `[SKIP-CHECK]` dans le message si l'agent est dans un contexte purement informationnel (lecture seule). |
+| `coordinate` (`.claude/commands/coordinate.md`, § Fin de Session) | Execute l'organe sur le clone principal avant le bilan final ; verdict joint au bilan, ou `[SKIP-CHECK]` motivé si session sans mutation du dépôt. |
+| `executor` (`.claude/skills/executor/SKILL.md`, § Postcondition Git de fin de cycle) | Idem, avant l'append `[DONE]` final de session ; `[SKIP-CHECK]` motivé si session purement informationnelle (lecture seule). |
+
+> **Correction (24/09/2026).** Une version anterieure de cette table citait `coordinate-adjoint` et
+> `continue`, qui **n'existent pas** dans ce depot (commandes reelles : `coordinate`,
+> `switch-provider`, `debrief`, `team` ; skills : `executor`, `git-sync`, etc.). La table ci-dessus
+> reflete le wiring reel.
 
 L'organe ne tourne que sur le **clone principal de session**. Les worktrees temporaires (PR, recovery) sont gerees par leur propre protocole (cf. `worktree-lifecycle.md`).
 
