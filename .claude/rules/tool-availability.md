@@ -29,7 +29,7 @@
 
 **Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
 
-**searxng — verite PAR VERSION (mesure 24/09, tarballs npm inspects)** : `mcp-searxng` ≤ **1.4.0** expose **2** outils (`searxng_web_search`, `web_url_read`) ; ≥ **1.5.0** en expose **4** (+ `searxng_search_suggestions`, `searxng_instance_info`). Derniere publiee : 2.4.0 (22/09). La flotte lance `npx -y mcp-searxng` **sans version epinglee** : chaque machine sert ce que son cache npx (`%LOCALAPPDATA%\npm-cache\_npx`) a resolu a son premier spawn, et ne re-resout pas tout seul. L'ecart mesure le 24/09 — ai-01 : 2 outils, po-2025 : 2, po-2027 : 4 (v2.4.0 en cache) — est donc un **drift de cache npx, pas une difference de config** (meme ligne `npx -y mcp-searxng` partout ; inventaires GDrive `inventories/*.json` sans champ version). Pour converger la flotte : epingler la version dans `~/.claude.json` (`npx -y mcp-searxng@2.4.0`) ou purger le cache npx de la machine. Compte d'outils par lane : mesurer sur la session, pas sur ce tableau.
+**searxng — drift de version (#2224)** : `npx -y mcp-searxng` non épinglé sert **2 outils (≤ 1.4.0) ou 4 (≥ 1.5.0)** selon ce qui a été résolu au premier spawn — un **install global périmé éclipse même le cache npx** (cas ai-01). Diagnostic et leviers par forme : [`tool-availability-detailed.md`](../../docs/harness/reference/tool-availability-detailed.md) § searxng.
 
 ## MCP désactivés ≠ absents (#3137)
 
