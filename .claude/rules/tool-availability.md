@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.3.0 (note « code supprimé » quickfiles/github-projects-mcp, #3423)
+**Version:** 3.3.1 (searxng : compte d'outils par version — drift cache npx, #2224)
 
 ---
 
@@ -25,9 +25,11 @@
 |-----|--------|------|
 | playwright | 25 | Automation web |
 | sk-agent | 9 outils + agents dynamiques | Vision/multi-agent (`call_agent` dynamic descriptions). Outils = `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`, `list_conversations`, `list_tools`, `review_pr`, `run_conversation` |
-| **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
+| **searxng** | **2 ou 4, par version** (voir note) | **Web canonique**: searxng_web_search + web_url_read ; les versions ≥ 1.5.0 ajoutent searxng_search_suggestions + searxng_instance_info. Markdown: prefix r.jina.ai (#2210) |
 
 **Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
+
+**searxng — drift de version (#2224)** : `npx -y mcp-searxng` non épinglé sert **2 outils (≤ 1.4.0) ou 4 (≥ 1.5.0)** selon ce qui a été résolu au premier spawn — un **install global périmé éclipse même le cache npx** (cas ai-01). Diagnostic et leviers par forme : [`tool-availability-detailed.md`](../../docs/harness/reference/tool-availability-detailed.md) § searxng.
 
 ## MCP désactivés ≠ absents (#3137)
 
