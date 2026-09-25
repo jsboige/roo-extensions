@@ -73,13 +73,15 @@ function Get-RunSecondsLeft { ($TaskTimeLimitSec - 5) - $RunClock.Elapsed.TotalS
 # Stop + 3 s + Start + 10 s + docker restart + the repair-state write: the part
 # of a full repair that must NOT be cut (a run killed between Stop and Start
 # leaves sparfenyuk stopped; killed before the write it leaves the cooldown
-# unarmed -- 22/09, two full repairs 2 min apart). docker restart has no budget
-# of its own; 20 s is assumed for it. Was 75 s while the 15 s settle and the
-# 20 s check sat inside this guard; #3802 moved both into
-# Wait-ForPostRepairRecovery, which is resumable -- a run cut during it costs
-# nothing (state already written, next tick re-probes), so it is not budgeted
-# here.
-$RepairWorstCaseSec = 45
+# unarmed -- 22/09, two full repairs 2 min apart). Bounded by design at 5
+# (Test-Sparfenyuk's own timeout) + 3 + 10 + 20 (docker restart, which has no
+# budget of its own) + the write = 38 s; 50 leaves a real 12 s of slack. Was 75
+# while the 15 s settle and the 20 s check sat inside this guard; #3802 moved
+# both into Wait-ForPostRepairRecovery, which is resumable -- a run cut during
+# it costs nothing (state already written, next tick re-probes) -- so it is not
+# budgeted here. The floor this must clear is the previous design's destructive
+# allowance, 75 - 35 = 40 s (guard: test-watchdog-slow-vs-dead.ps1).
+$RepairWorstCaseSec = 50
 
 # ---------- logging ----------
 if (-not (Test-Path $LogDir)) {
@@ -566,7 +568,8 @@ $repairOnCooldown = ((Get-Date) - $lastRepairAt).TotalMinutes -lt $RepairCooldow
 # the full repair's cooldown.
 $RouteRepairCooldownMin = 10
 # docker restart (20 s assumed, as above) + the route-repair-state write. The
-# verification loop that follows is resumable (#3802) and is not budgeted here.
+# verification loop that follows is resumable (#3802) and is not budgeted here;
+# the floor is the previous design's destructive allowance, 55 - 35 = 20 s.
 $RouteRepairWorstCaseSec = 30
 $routeRepairStateFile = Join-Path $LogDir 'route-repair-state.json'
 $lastRouteRepairAt = [datetime]::MinValue
