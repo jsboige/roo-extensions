@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-09-23T00:00:00Z",
+  "updated_at": "2026-09-25T04:45:00Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -63,14 +63,14 @@
       "notes": "PR #3685 MERGED 16/09 23:06:08Z — port gitleaks + parité pre-commit ; + PR #3682 (deploy fixture freshness guard) MERGED 15/09 23:27:09Z. Issue #3673 fermee 16/09 23:06:09Z. NB : fermé AVANT la mise à jour du 17/09 qui l'avait laissé pending (drift corrigé)."
     },
     "phase-2-candidat-5": {
-      "status": "pending",
+      "status": "completed",
       "title": "Candidat #5 — registre d'arbitrages re-parcouru (CoursIA ← roo-ext)",
       "path": "https://github.com/jsboige/roo-extensions/issues/3677",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-09-24T13:49:44Z",
       "metric_before": null,
       "metric_after": null,
-      "notes": "Issue #3677 OPEN. Cross-link registre open-questions #3656."
+      "notes": "Issue #3677 fermée COMPLETED 24/09 13:49:44Z par ai-01 (bloc Evidence : CoursIA PR #16325 MERGED 2026-09-20T17:22:21Z, merge commit 634de1f3). Les 3 livrables vérifiés côté ai-01 (checkbox 3 mesurée read-only 22/09)."
     },
     "phase-2-candidat-6": {
       "status": "pending",
@@ -115,9 +115,9 @@
   },
   "statistics": {
     "total": 10,
-    "completed": 6,
+    "completed": 7,
     "in_progress": 0,
-    "pending": 4,
+    "pending": 3,
     "failed": 0,
     "skipped": 0
   },
@@ -163,6 +163,13 @@
       "action": "completed",
       "actor": "myia-po-2027:claude-interactive",
       "note": "Réalign 23/09 : #3678 fermée 20/09 13:23:47Z (PR #3679 merged 16/09 15:14:15Z) + renumérotation alignée sur l'arbitrage user 15/09 (#8 = résilience canal, le blueprint devient #7 différé)."
+    },
+    {
+      "timestamp": "2026-09-25T04:45:00Z",
+      "item_id": "phase-2-candidat-5",
+      "action": "completed",
+      "actor": "myia-po-2027:claude-interactive",
+      "note": "Réalign 25/09 (self-initiated) : #3677 fermée COMPLETED 24/09 13:49:44Z par ai-01 — evidence CoursIA PR #16325 MERGED 20/09 17:22:21Z (634de1f3). Phase 2 : 6/8 candidats livrés."
     }
   ]
 }
