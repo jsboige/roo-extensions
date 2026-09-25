@@ -80,6 +80,16 @@ Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est pose
 5. Une entree repondue **sort des ouvertes** (section courte « repondues »).
 6. Un plan demandant validation s'ecrit dans un **scratchpad** (`$TEMP`) ; c'est le **chemin** du scratchpad qui est rendu en fin de session, pas le plan recopie dans le fil.
 
+**Format d'ecriture des questions (escalade user 25/09/2026).** Une question rendue en une ligne de jargon est une question qui n'arrive pas : le user doit relancer pour comprendre, puis arbitrer sur une base fausse. Toute question au user — fil, registre ou dashboard — dit en phrases simples, sans numero d'issue, nom de variable ni code d'erreur non explique :
+
+1. **Ce qui se passe.**
+2. **Ce qui est demande** — oui/non, ou un choix a/b/c.
+3. **Ce qui arrive sans reponse.**
+4. **Ce que la lane recommande.**
+5. **L'echeance**, s'il y en a une.
+
+Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce qui a ete mesure** — un mot excessif fabrique une inquietude que les faits ne portent pas, et le user arbitre alors un probleme qui n'existe pas. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
+
 Cablage au signalement existant : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
 
 ## Windows / PowerShell Gotchas
