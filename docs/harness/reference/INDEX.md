@@ -20,7 +20,7 @@
 | **conversation_browser (detailed)** | detailLevel complet, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
 | **Friction Protocol (detailed)** | Quand/comment signaler, traitement, criteres approbation | `friction-protocol-detailed.md` |
 | **Agent Claim Discipline (detailed)** | Incident classes, worker guards (detached HEAD), sanctions | `agent-claim-discipline-detailed.md` |
-| **Tool Availability (detailed)** | Config win-cli canonique, sk-agent, STOP & REPAIR complet | `tool-availability-detailed.md` |
+| **Tool Availability (detailed)** | Config win-cli canonique, sk-agent, STOP & REPAIR complet, drift searxng (#2224), table 3 emplacements #3137, MCP remote, retires | `tool-availability-detailed.md` |
 | **Issue Closure (detailed)** | Grille marqueurs, test bash, audit /coordinate, historique versions | `issue-closure-detailed.md` |
 | **INTERCOM v3 Mentions** | Mentions structurees, crossPost, messageId v3, worktrees auto-detection | `intercom-v3-mentions.md` |
 | **PR Trivial Merge Policy** | Patterns eligibles, diff constraints, procedure, garde-fous (#1582) | `pr-trivial-merge-policy.md` |
