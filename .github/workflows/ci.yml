@@ -29,6 +29,10 @@ on:
       - 'scripts/testing/unit/**'
       - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
+      # #833: the audit-grader Pester fixture below runs the REAL
+      # grade-test-assertions.cjs against hand-counted fixtures; the grader and
+      # its fixture must re-trigger it on main pushes (same principle as above).
+      - 'scripts/audit/**'
       # #3647: static Pester guards cover these harness carriers. A main push
       # changing a carrier must run the guard that validates it.
       - '.claude/commands/**'
@@ -404,6 +408,15 @@ jobs:
       - name: Run Vibe idle-picker Pester suite
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1 -CI
+
+      # #833: the audit grader's fixture executes the REAL grade-test-assertions.cjs
+      # against hand-counted fixtures (mixed classes + the discriminating
+      # identity-only case). Without this step it would run nowhere in CI and the
+      # reclassification shipped in #3840 could silently regress (claim-lock
+      # precedent, same reasoning as the suites above).
+      - name: Run audit-grader Pester fixture
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/audit/grade-test-assertions.Tests.ps1 -CI
 
   # Inventory drift guard (#3410): docs/sk-agent/AGENT_INVENTORY.md and the
   # deployment guide carry agent/model/MCP counts that are derived from

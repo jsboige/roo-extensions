@@ -60,7 +60,9 @@ it('identity-only', () => {
     Set-Content -Path (Join-Path $Script:FixtureDir 'identity-only.test.ts') -Value $IdentityOnly -Encoding ascii
 
     $Script:OutFile = Join-Path $Script:FixtureDir 'out.json'
-    $Script:Stdout = node "$PSScriptRoot\grade-test-assertions.cjs" --dir $Script:FixtureDir --json --out $Script:OutFile
+    # Join-Path: the fixture runs on ubuntu-latest in CI, where a literal
+    # backslash in "$PSScriptRoot\..." is not a path separator.
+    $Script:Stdout = node (Join-Path $PSScriptRoot 'grade-test-assertions.cjs') --dir $Script:FixtureDir --json --out $Script:OutFile
     $Script:Summary = $Script:Stdout | ConvertFrom-Json
 }
 
