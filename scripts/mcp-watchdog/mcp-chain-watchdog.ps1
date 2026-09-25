@@ -52,6 +52,10 @@ param(
 $ErrorActionPreference = 'Continue'
 $script:repairs = @()
 $script:alerts  = @()
+# #3802: repairs whose post-repair verification ran out of run budget before the
+# chain answered. Distinct from alerts on purpose — "unverified" is not "down",
+# and calling it down is the false alarm this list exists to remove.
+$script:deferredVerifications = @()
 
 # ---------- run budget (#3205) ----------
 # The schtask stops this run at 2 min (ExecutionTimeLimit in
@@ -66,9 +70,16 @@ $script:alerts  = @()
 $TaskTimeLimitSec = 120
 $RunClock = [System.Diagnostics.Stopwatch]::StartNew()
 function Get-RunSecondsLeft { ($TaskTimeLimitSec - 5) - $RunClock.Elapsed.TotalSeconds }
-# Stop + 3 s + Start + 10 s + docker restart + 15 s + the 20 s E2E check that
-# follows. docker restart has no budget of its own; 20 s is assumed for it.
-$RepairWorstCaseSec = 75
+# Stop + 3 s + Start + 10 s + docker restart + the repair-state write: the part
+# of a full repair that must NOT be cut (a run killed between Stop and Start
+# leaves sparfenyuk stopped; killed before the write it leaves the cooldown
+# unarmed -- 22/09, two full repairs 2 min apart). docker restart has no budget
+# of its own; 20 s is assumed for it. Was 75 s while the 15 s settle and the
+# 20 s check sat inside this guard; #3802 moved both into
+# Wait-ForPostRepairRecovery, which is resumable -- a run cut during it costs
+# nothing (state already written, next tick re-probes), so it is not budgeted
+# here.
+$RepairWorstCaseSec = 45
 
 # ---------- logging ----------
 if (-not (Test-Path $LogDir)) {
@@ -472,6 +483,63 @@ function Test-LatencyShift {
 
 # ---------- repair actions are inlined in the main flow below ----------
 
+# ---------- post-repair verification (#3802) ----------
+# A repair is followed by a RE-PROBE loop, never a fixed wait. Measured 22/09
+# (nanoclaw 22:24Z + 23/09 04:43Z): the 22:09 full repair held -- BUS-OK at
+# 22:15 after a ~109 s cold start -- yet the runs that repaired at 21:48 and
+# 22:10 re-probed after the fixed 15 s settle and emitted
+# 'e2e-still-down-after-full-repair' on a chain that was merely still booting.
+# Two false alarms per repair window, each one drowning a real outage when it
+# comes.
+#
+# Ceiling 150 s (approved scope, RX37): the loop stops the moment the chain
+# answers, so a fast recovery (TBXark-only restart) costs a single probe.
+#
+# Budget, recomputed against the schtask's 2-min ExecutionTimeLimit:
+#   - the destructive sequence is what must not be cut, and the guards above
+#     now budget exactly that (45 s / 30 s, was 75 s / 55 s);
+#   - each probe costs <= 20 s (Test-E2E's own timeout); the loop never starts
+#     a probe it cannot finish before Get-RunSecondsLeft runs out, keeping a
+#     10 s margin for the log + telemetry tail;
+#   - when the run budget ends the wait early the verdict is DEFERRED, not
+#     'still down': the repair is already recorded (state written before the
+#     wait) and the next tick, 2 min later, re-probes a chain that has had the
+#     time to boot. Alerting on a truncated wait would rebuild the exact false
+#     alarm this change removes.
+# The 150 s ceiling is a bound of last resort, and in a 2-min run it is a bound
+# the RUN BUDGET always reaches first: one probe plus one interval costs ~35 s
+# of the 115 s budget, so a run fits ~2 re-probes (~35 s of uncertainty) and
+# then defers. The cap binds only if the task's ExecutionTimeLimit is raised
+# (installer install-watchdog-schtask.ps1, out of this issue's scope); its job
+# is to keep a longer limit from turning one probe into an unbounded wait.
+# What this changes, measured against the 22/09 runs: two probes ~35 s apart
+# instead of a single one at 15 s, and -- the decisive part -- a DEFERRED
+# verdict instead of a DOWN verdict on a chain that has not finished booting.
+# A chain that needs the ~100 s cold start is confirmed by the NEXT tick (2 min
+# later, repair on cooldown, whole budget in the wait), never declared down.
+$PostRepairProbeCapSec = 150
+$PostRepairProbeIntervalSec = 15
+$PostRepairProbeCostSec = 20
+function Wait-ForPostRepairRecovery {
+    # Returns @{ Result = <probe result, $null when no probe could fit>;
+    #            Deferred = $true when the RUN BUDGET, not the chain, ended the
+    #            wait; WaitedSec = wall seconds spent here }.
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        if ((Get-RunSecondsLeft) -lt ($PostRepairProbeCostSec + 10)) {
+            return @{ Result = $null; Deferred = $true; WaitedSec = [int]$sw.Elapsed.TotalSeconds }
+        }
+        $r = Test-E2E
+        if ($r.Ok) {
+            return @{ Result = $r; Deferred = $false; WaitedSec = [int]$sw.Elapsed.TotalSeconds }
+        }
+        if ($sw.Elapsed.TotalSeconds -ge $PostRepairProbeCapSec) {
+            return @{ Result = $r; Deferred = $false; WaitedSec = [int]$sw.Elapsed.TotalSeconds }
+        }
+        Start-Sleep -Seconds $PostRepairProbeIntervalSec
+    }
+}
+
 # ---------- main ----------
 Write-Log 'INFO' "Watchdog start (mode=$Mode, e2e=$e2eUrl)"
 
@@ -497,8 +565,9 @@ $repairOnCooldown = ((Get-Date) - $lastRepairAt).TotalMinutes -lt $RepairCooldow
 # the same race. Separate state file: this repair must neither arm nor reset
 # the full repair's cooldown.
 $RouteRepairCooldownMin = 10
-# docker restart (20 s assumed, as above) + 15 s + the 20 s E2E check.
-$RouteRepairWorstCaseSec = 55
+# docker restart (20 s assumed, as above) + the route-repair-state write. The
+# verification loop that follows is resumable (#3802) and is not budgeted here.
+$RouteRepairWorstCaseSec = 30
 $routeRepairStateFile = Join-Path $LogDir 'route-repair-state.json'
 $lastRouteRepairAt = [datetime]::MinValue
 if (Test-Path $routeRepairStateFile) {
@@ -605,19 +674,24 @@ if ($result.Ok) {
             $script:alerts += 'route-missing-restart-deferred: not enough run time left'
         } else {
             Write-Log 'WARN' "TBXark has no RSM route (LAN HTTP 404) while sparfenyuk serves it on :9091 — restarting TBXark alone."
+            $w = $null
             if ($Mode -eq 'dry-run') {
                 Write-Log 'INFO' 'DRY-RUN: would docker restart myia-mcp-proxy (TBXark only)'
+                $result = Test-E2E
             } else {
                 & docker restart myia-mcp-proxy 2>&1 | Out-Null
                 $script:repairs += 'tbxark-restart(route-missing)'
                 # Written before the wait: a run cut by the task limit must
                 # still arm the cooldown (22/09, two full repairs 2 min apart).
                 @{ lastRouteRepairAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $routeRepairStateFile -Encoding utf8
-                Start-Sleep -Seconds 15
+                $w = Wait-ForPostRepairRecovery
+                $result = $w.Result
             }
-            $result = Test-E2E
             if ($result.Ok) {
                 Write-Log 'OK' "E2E chain recovered after TBXark-only restart (latency=$($result.LatencyMs)ms)"
+            } elseif ($w -and $w.Deferred) {
+                $script:deferredVerifications += 'route-repair-unverified: run budget ended before the chain answered — next tick re-probes (repair recorded)'
+                Write-Log 'WARN' "TBXark-only restart done but the chain has not answered yet$(if ($result) { " (last probe HTTP $($result.Status))" } else { ' (no probe fitted in the run budget)' }) — verdict deferred to the next tick."
             } else {
                 Write-Log 'ERROR' "E2E chain STILL DOWN after TBXark-only restart (HTTP $($result.Status))"
                 $script:alerts += "e2e-still-down-after-tbxark-restart: http-$($result.Status)"
@@ -652,8 +726,10 @@ if ($result.Ok) {
         # proven end-to-end that night: stop+start the task (fresh sparfenyuk
         # AND fresh RSM child), then restart TBXark (stale-session cache #2023).
         try {
+            $w = $null
             if ($Mode -eq 'dry-run') {
                 Write-Log 'INFO' 'DRY-RUN: would Stop+Start MCP-Proxy-RSM then docker restart myia-mcp-proxy'
+                $result = Test-E2E
             } else {
                 $sparfenyukPortUp = Test-Sparfenyuk
                 Stop-ScheduledTask -TaskName 'MCP-Proxy-RSM' -ErrorAction SilentlyContinue
@@ -663,17 +739,25 @@ if ($result.Ok) {
                 Start-Sleep -Seconds 10
                 & docker restart myia-mcp-proxy 2>&1 | Out-Null
                 $script:repairs += 'tbxark-restart'
-                Start-Sleep -Seconds 15
+                # Written BEFORE the verification wait (22/09 lesson): a run cut
+                # during the wait must still arm the cooldown. What must not be
+                # cut is the destructive part above — that is exactly what
+                # $RepairWorstCaseSec budgets, and nothing more.
                 @{ lastRepairAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $repairStateFile -Encoding utf8
+                $w = Wait-ForPostRepairRecovery
+                $result = $w.Result
             }
         } catch {
             Write-Log 'ERROR' "Repair sequence failed: $($_.Exception.Message)"
             $script:alerts += "repair-failed: $($_.Exception.Message)"
+            $result = Test-E2E
         }
 
-        $result = Test-E2E
         if ($result.Ok) {
             Write-Log 'OK' "E2E chain recovered after full repair sequence (latency=$($result.LatencyMs)ms)"
+        } elseif ($w -and $w.Deferred) {
+            $script:deferredVerifications += 'full-repair-unverified: run budget ended before the chain answered — next tick re-probes (repair recorded)'
+            Write-Log 'WARN' "Full repair done but the chain has not answered yet$(if ($result) { " (last probe HTTP $($result.Status))" } else { ' (no probe fitted in the run budget)' }) — verdict deferred to the next tick, no alert emitted."
         } else {
             Write-Log 'ERROR' "E2E chain STILL DOWN after full repair sequence (HTTP $($result.Status)) — needs human eyes (GDrive? RSM code?)"
             $script:alerts += "e2e-still-down-after-full-repair: http-$($result.Status)"
@@ -683,7 +767,9 @@ if ($result.Ok) {
 
 # ---------- summary + event log ----------
 if ($script:repairs.Count -gt 0) {
-    $summary = "Watchdog repaired MCP chain: $($script:repairs -join ', '); final=$(if($result.Ok){'OK'}else{"FAIL HTTP $($result.Status)"})"
+    # The event log carries the same three-state verdict as the fleet note: a
+    # deferred repair must not be written down as a failure there either.
+    $summary = "Watchdog repaired MCP chain: $($script:repairs -join ', '); final=$(if($result.Ok){'OK'}elseif($script:deferredVerifications.Count -gt 0){'UNVERIFIED (chain had not answered when the run budget ended)'}else{"FAIL HTTP $($result.Status)"})"
     Write-Log 'INFO' $summary
     # Event log (EventLog "Application" - source must exist; use fallback if not registered)
     try {
@@ -714,11 +800,15 @@ if ($script:alerts.Count -gt 0) {
 # 4 lines/day. On a chain that stays healthy, silence beyond ~2x this interval
 # means the watchdog itself is dead — see verify-watchdog-deployment.ps1.
 $HeartbeatIntervalHours = 6
-if ($script:repairs.Count -gt 0 -or $script:alerts.Count -gt 0) {
+if ($script:repairs.Count -gt 0 -or $script:alerts.Count -gt 0 -or $script:deferredVerifications.Count -gt 0) {
     $parts = @()
     if ($script:repairs.Count -gt 0) { $parts += "repaired: $($script:repairs -join ', ')" }
     if ($script:alerts.Count -gt 0)  { $parts += "alerts: $($script:alerts -join '; ')" }
-    $parts += "final=$(if ($result.Ok) { 'OK' } else { 'DOWN' })"
+    if ($script:deferredVerifications.Count -gt 0) { $parts += "deferred: $($script:deferredVerifications -join '; ')" }
+    # UNVERIFIED is a distinct final state, not a cosmetic third value: it means
+    # "the repair was performed and the chain has not answered yet". Folding it
+    # into DOWN is exactly the 22/09 false alert this change removes.
+    $parts += "final=$(if ($result.Ok) { 'OK' } elseif ($script:deferredVerifications.Count -gt 0) { 'UNVERIFIED' } else { 'DOWN' })"
     $note = (($parts -join ' | ') -replace '\s+', ' ')
     if ($note.Length -gt 300) { $note = $note.Substring(0, 300) }
     $null = Publish-FleetNote -Level 'WARN' -Text $note
@@ -742,5 +832,10 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue
 } catch {}
 
-# Exit code : 0 if final state OK, 1 if repair failed
+# Exit code : 0 if final state OK, 1 if repair failed OR the verdict was deferred
+# (a deferred verdict is not a failure — it is an unfinished observation, and
+# exiting 1 keeps it visible to the task scheduler, whose restart-on-failure
+# re-runs this script with a fresh 2-min budget ~1 min later. That re-run finds
+# the repair on cooldown and only re-probes, which is precisely the "next tick
+# re-probes" contract. A run that ended OK still exits 0.)
 if ($result.Ok) { exit 0 } else { exit 1 }
