@@ -499,7 +499,7 @@ function Test-LatencyShift {
 #
 # Budget, recomputed against the schtask's 2-min ExecutionTimeLimit:
 #   - the destructive sequence is what must not be cut, and the guards above
-#     now budget exactly that (45 s / 30 s, was 75 s / 55 s);
+#     now budget exactly that (50 s / 30 s, was 75 s / 55 s);
 #   - each probe costs <= 20 s (Test-E2E's own timeout); the loop never starts
 #     a probe it cannot finish before Get-RunSecondsLeft runs out, keeping a
 #     10 s margin for the log + telemetry tail;
