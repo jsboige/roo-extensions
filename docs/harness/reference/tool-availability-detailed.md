@@ -52,6 +52,9 @@ cd mcps/external/win-cli/server && npm run build   # tsc → dist/
 
 Verifie firsthand sur po-2025 (2026-05-25) : config derive 500→neutralise, dist rebuild, effectif 600, override env 900 OK.
 
+**Timeout guard opérationnel :** `scripts/infra/harmonize-win-cli-timeouts.ps1` vérifie les 2 niveaux
+(interne + transport). Intégré au pre-flight executor (v3.2.3+, #2333). Peut aussi être lancé en cron.
+
 ## Config MCP sk-agent
 
 **sk-agent DOIT etre dans `~/.claude.json` (global), JAMAIS dans `.mcp.json` (project root).**
@@ -59,9 +62,15 @@ Verifie firsthand sur po-2025 (2026-05-25) : config derive 500→neutralise, dis
 Cause regression #1557 : `.mcp.json` project-level surcharge silencieusement la config globale.
 **Verification :** `cat .mcp.json` a la racine ne doit PAS contenir `sk-agent`.
 
+**9 outils :** `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`,
+`list_conversations`, `list_tools`, `review_pr`, `run_conversation` — vision/multi-agent (descriptions
+dynamiques portées par `call_agent`).
+
 ## searxng — drift de version par machine (#2224)
 
 **Fait de version (tarballs npm inspectes le 24/09) :** `mcp-searxng` ≤ **1.4.0** expose **2** outils (`searxng_web_search`, `web_url_read`) ; ≥ **1.5.0** en expose **4** (+ `searxng_search_suggestions`, `searxng_instance_info`). Versions verifiees : 1.3.0 = 2, 1.4.0 = 2, 1.5.0 = 4, 1.16.0 = 4, 2.4.0 = 4 (derniere publiee au 24/09).
+
+**Sortie Markdown :** préfixer l'URL avec `r.jina.ai` (#2210).
 
 La flotte lance `npx -y mcp-searxng` **sans version epinglee** — l'ecart mesure le 24/09 (ai-01 : 2 outils, po-2025 : 2, po-2027 : 4) vient de **deux formes distinctes**, pas d'une difference de config (meme ligne partout ; les inventaires GDrive `inventories/*.json` ne portent pas de champ version) :
 
