@@ -135,8 +135,16 @@ function Prepare-Worktree {
     $branch = $Grain.branch
     $base = $Grain.baseSha
     if (-not (Test-Path $runtimeDir)) { Write-FeederLog -Level 'ERROR' -Text "runtime absent: $runtimeDir"; return $false }
-    # `worktree list` ecrit sur stdout ; pas de 2>&1 (fini de pipe stderr = throw sous Stop)
-    $exists = (git -C $runtimeDir worktree list) 2>$null | Select-String -Pattern ([regex]::Escape($wt))
+    # `worktree list` ecrit sur stdout ; pas de 2>&1 (fini de pipe stderr = throw sous Stop).
+    # Correspondance ANCRÉE sur le chemin (1er champ), pas une sous-chaine : un
+    # Select-String de sous-chaine faisait matcher le voisin `...-petits-domaines-b`
+    # pour le grain `...-petits-domaines`, le worktree etait declare "deja present"
+    # alors qu'il n'existait pas, et le worker recevait un cwd inexistant
+    # (mesure 25/09 : grain #16472 g2 bloque, tick sans dispatch).
+    # -match est insensible a la casse (Windows), la frontiere \s|$ evite le prefixe.
+    $wtNorm = [regex]::Escape(($wt -replace '\\', '/'))
+    $exists = (git -C $runtimeDir worktree list) 2>$null |
+              Where-Object { ("$_" -replace '\\', '/') -match "^$wtNorm(\s|$)" }
     if ($exists) { Write-FeederLog -Level 'INFO' -Text "worktree deja present: $wt"; return $true }
     $parent = Split-Path $wt -Parent
     if ($parent -and -not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
