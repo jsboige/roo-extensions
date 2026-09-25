@@ -68,6 +68,9 @@ yarn-error.log*
 # Fichiers de configuration locaux (secrets — jamais committer, cf .claude/rules/security.md)
 .env
 .env.*
+# DriveFS collision copies (".env (1)", ".env (1).example") escape both globs
+# above; a real .env renamed this way leaked fleet secrets (Maintenance #47).
+.env (*
 !.env.example
 config/mcp_settings.json
 
