@@ -213,6 +213,19 @@ class TestContracts(unittest.TestCase):
         for marker in ("#15719", "scan_md_table_syntax.py", "NOOP"):
             self.assertIn(marker, p)
 
+    def test_only_density_contract_uses_the_frozen_branch_prefix(self):
+        """L'organe de merge CoursIA (scripts/coordination/merge_ready.py:119,
+        FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}) range tout `wt/vibe-*`
+        dans la famille gelee #13410, quelle que soit son issue reelle. Un grain
+        non-densite nomme ainsi produit donc un livrable que rien ne mergera
+        (mesure 25/09 : grain #16472 parti sur `wt/vibe-g2-...`). Seul #13410,
+        qui EST cette famille, garde le prefixe."""
+        self.assertTrue(rvq.CONTRACTS[13410]["branch_prefix"].startswith("wt/vibe-"))
+        for i in (15719, 16472):
+            self.assertFalse(
+                rvq.CONTRACTS[i]["branch_prefix"].startswith("wt/vibe-"),
+                "contrat #%d : un prefixe wt/vibe- le gele en #13410" % i)
+
 
 if __name__ == "__main__":
     unittest.main()

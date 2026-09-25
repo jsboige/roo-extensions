@@ -299,10 +299,21 @@ def scan_pedagogy_density(wt):
 # grains vides ou monstrueux") : grain = 1-2 notebooks, conforme au
 # 1,67 fichier/PR mesure sur les 61 PRs ouvertes.
 CONTRACTS = {
-    15719: {"scan": scan_md_table, "payload": PAYLOAD, "group": 1},
-    16472: {"scan": scan_md_hierarchy, "payload": PAYLOAD_HINT, "group": 2},
+    # `branch_prefix` : le prefixe `wt/vibe-` est lu par l'organe de merge
+    # automatique (CoursIA, scripts/coordination/merge_ready.py:119,
+    # FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}) et range la PR dans la
+    # famille gelee #13410 QUELLE QUE SOIT son issue reelle. Un grain non-densite
+    # nomme `wt/vibe-*` produit donc un livrable que rien ne mergera (mesure
+    # 25/09 : grain #16472 g2 parti sur `wt/vibe-g2-residu-petits-domaines`).
+    # Le defaut est non-gele pour qu'un contrat ajoute sans prefixe reste
+    # mergeable ; seul #13410, qui EST la famille gelee, garde `wt/vibe-`.
+    15719: {"scan": scan_md_table, "payload": PAYLOAD, "group": 1,
+            "branch_prefix": "wt/mistral-table-"},
+    16472: {"scan": scan_md_hierarchy, "payload": PAYLOAD_HINT, "group": 2,
+            "branch_prefix": "wt/mistral-hint-"},
     13410: {"scan": scan_pedagogy_density, "payload": PAYLOAD_DENSITY,
-            "group": 1, "floor": 1, "max_files": 2},
+            "group": 1, "floor": 1, "max_files": 2,
+            "branch_prefix": "wt/vibe-"},
 }
 
 
@@ -594,9 +605,24 @@ def main():
         for name, ch in sorted(planned, key=lambda x: x[0]):
             n_planned += 1
             i = len(grains) + 1
-            gid = "g%d-%s" % (i, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:38])
+            slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:38]
+            prefix = contract.get("branch_prefix", "wt/mistral-")
+            # Un nom deja porte par une PR ouverte ou livree rend le grain
+            # INDISPATCHABLE : Prepare-Worktree rattache la branche existante
+            # seulement si elle n'a RIEN d'avance, sinon le tick le SKIP a chaque
+            # passage (mesure 25/09 : `g2-residu-petits-domaines` portait la
+            # branche d'une PR du 15/09, deja mergee -> grain neuf jamais parti).
+            # Le generateur connait deja les noms pris : il decale la generation
+            # au lieu d'emettre un nom brule.
+            gid = "g%d-%s" % (i, slug)
+            branch = "%s%s" % (prefix, gid)
+            bump = 2
+            while branch in delivered:
+                gid = "g%d-%s-%d" % (i, slug, bump)
+                branch = "%s%s" % (prefix, gid)
+                bump += 1
+            delivered.add(branch)
             wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
-            branch = "wt/vibe-%s" % gid
             targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
             # Discriminant de generation (#3755) : on capture la SHA de tete du
             # worktree au moment ou le grain est pose en file. Le feeder
