@@ -97,11 +97,24 @@ C'est le point qui distingue ce dispositif de celui qu'il remplace. La couvertur
 d'un coup, depuis n'importe quelle machine, dans les manifestes :
 
 ```powershell
-Get-ChildItem 'G:\Mon Drive\Backups-Cloud\claude-transcripts' -Directory | ForEach-Object {
-  $m = Join-Path $_.FullName 'manifest.json'
-  if (Test-Path $m) { Get-Content $m -Raw | ConvertFrom-Json } else { [pscustomobject]@{ machine = $_.Name; retention = 'AUCUN MANIFESTE' } }
+$root = 'G:\Mon Drive\Backups-Cloud\claude-transcripts'
+$sh = New-Object -ComObject WScript.Shell
+$dirs = @(Get-ChildItem $root -Directory) + @(Get-ChildItem $root -Filter *.lnk -File | ForEach-Object {
+  $t = $sh.CreateShortcut($_.FullName).TargetPath
+  if ($t -and (Test-Path $t -PathType Container)) { Get-Item $t } else { [pscustomobject]@{ Name = $_.BaseName; FullName = $null } }
+})
+$dirs | ForEach-Object {
+  $m = if ($_.FullName) { Join-Path $_.FullName 'manifest.json' }
+  if ($m -and (Test-Path $m)) { Get-Content $m -Raw | ConvertFrom-Json } else { [pscustomobject]@{ machine = $_.Name; retention = 'AUCUN MANIFESTE' } }
 } | Format-Table machine, retention, transcriptsTracked, oldestTranscript, newestTranscript, shippedOffsite
 ```
+
+**Les raccourcis `.lnk` comptent.** web1 tourne sur un autre compte Google : son dossier est
+partagé avec le compte de la flotte, et Google Drive pour ordinateur rend un raccourci Drive sous
+forme d'un fichier `myia-web1.lnk`, dont la cible vit sous `G:\.shortcut-targets-by-id\<id>\`.
+Un `Get-ChildItem -Directory` seul le saute, et web1 paraît alors **absent** : c'est le signal le
+plus grave du tableau ci-dessous, déclenché à tort (mesuré le 25/09 : 4/7 sans les raccourcis,
+5/7 avec, web1 à `ok-36500`).
 
 **Quatre signaux qui doivent déclencher une action :**
 
