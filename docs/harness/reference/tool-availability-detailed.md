@@ -105,3 +105,56 @@ Si critique absent : signaler [CRITICAL], terminer proprement.
 1. Lister 6 machines
 2. Verifier Claude (roo-state-manager 17 tools) + Roo (win-cli fork local) + pas de MCP retire
 3. Si divergence → directive corrective URGENTE
+
+## MCP désactivés ≠ absents (#3137) — déporté de la règle (#2368)
+
+Des MCP dédiés sont **désactivés** pour réduire la surface exposée — pas désinstallés. Leur config
+reste sur disque. L'état se lit à **TROIS emplacements** (finding ai-01 23/08 + vérif live
+po-2024 24/08, #3137) :
+
+| # | Emplacement | Champ | Portée |
+|---|---|---|---|
+| 1 | `~/.claude.json` → `mcpServers` | `disabled` bool par serveur | machine |
+| 2 | `<workspace>/.mcp.json` | `disabled` bool par serveur | workspace |
+| 3 | `~/.claude.json` → `projects[<workspace>].disabledMcpServers` | **liste de noms** de serveurs | workspace, **prime sur l'activation user-scope** |
+
+**Priorité vérifiée en session** : une entrée dans `disabledMcpServers` (emplacement 3) désactive
+le serveur dans CE workspace **même s'il est `disabled:false` en user-scope** — piège mesuré sur
+ai-01 et po-2024 : lire les emplacements 1-2 seul conclut « activé » à tort. L'instrument qui ne
+ment pas : la **présence effective des outils `mcp__<serveur>__*` en session**.
+
+**Avant de proposer d'installer un nouveau client** (playwright, sk-agent, jupyter-papermill…),
+vérifier si le MCP dédié n'est pas simplement désactivé :
+
+1. Lire les **3 emplacements** ci-dessus pour le workspace courant.
+2. Si désactivé → réactiver : `"disabled": false` (emplacements 1-2) **ou retirer le nom du
+   tableau** `disabledMcpServers` (emplacement 3) ; puis **redémarrer la session** du workspace
+   (scope MCP chargé au démarrage).
+3. Vérifier que les outils `mcp__<serveur>__*` apparaissent.
+4. Re-désactiver après usage si la réduction de surface doit être restaurée.
+
+**Recensement flotte par machine/workspace :** issue #3137. Un MCP désactivé n'est PAS un MCP
+retiré (cf. § Retires ci-dessous) — la réactivation est locale et réversible, zéro installation.
+
+## MCP Remote Claude.ai (injectés, pas dans config locale) — déporté de la règle (#2368)
+
+Certains MCP apparaissent dans les sessions sans être dans `~/.claude.json` ni `.mcp.json`. Ils
+sont injectés par le **routeur Claudish distant** (`ANTHROPIC_BASE_URL`) ou par le hub Claude.ai
+(`claudeAiMcpEverConnected` dans `~/.claude.json`). Ne PAS les traiter comme des anomalies de
+config locale :
+
+| MCP | Outil | Source | Note |
+|-----|-------|--------|------|
+| `4_5v_mcp` | `analyze_image` | Routeur Claudish / Claude.ai remote | Vision, non critique |
+| `web_reader` | `webReader` | Routeur Claudish / Claude.ai remote | Retiré du fork claudish (#2210, commit `24ec4da`), peut encore être injecté par le routeur |
+
+**Action si détecté dans un audit :** Documenter la source (remote MCP), NE PAS chercher dans
+les configs locales.
+
+## Retires — note détaillée (déportée de la règle, #2368)
+
+**quickfiles + github-projects-mcp : code supprimé (2026-09)** — Epic #2639 tâche C (#3423, PR
+submod #1093) : les serveurs sont retirés de `servers/` du submod (quickfiles remplacé par les
+capacités natives Claude Code, github-projects-mcp par `gh` CLI). Les **noms** restent dans la
+garde `RETIRED_MCP_NAMES` du RSM — les tests qui les référencent testent le validateur, pas les
+serveurs. `desktop-commander` : retiré des configs, non concerné par la suppression de code.
