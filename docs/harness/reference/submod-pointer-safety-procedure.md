@@ -119,6 +119,31 @@ pas — **comparée sur le préfixe, elle ne rattrape rien.** Ne jamais recopier
 SHA à la main : la lire en entier dans une variable, comparer la valeur **écrite** à la valeur
 **voulue** sur les 40 caractères.
 
+**Bloc complet (déporté de la règle v2.2.0, #2368) :**
+
+```bash
+SHA=$(git -C <submod> rev-parse origin/main)          # 40 car., jamais une abréviation
+[ ${#SHA} -eq 40 ] || { echo "pas un SHA complet — STOP"; exit 1; }
+git -C <submod> cat-file -e "$SHA^{commit}" || exit 1
+git -C <submod> merge-base --is-ancestor "$SHA" origin/main || exit 1
+git update-index --cacheinfo 160000,$SHA,mcps/internal
+[ "$(git ls-files -s mcps/internal | awk '{print $2}')" = "$SHA" ] || { echo "DIVERGENCE — STOP"; exit 1; }
+```
+
+## Rattrapage de second ordre — lire ce que la SHA porte (#3454)
+
+En toutes circonstances, vérifier le **sujet du commit** que la SHA désigne, pas seulement qu'elle
+existe :
+
+```bash
+git -C <submod> log -1 --format=%s "$SHA"
+```
+
+Un titre de PR de roo-extensions là où on attend un commit `jsboige-mcp-servers` signe le mauvais
+dépôt, même quand chaque garde isolée est verte. **C'est ce contrôle qui a rattrapé l'incident du
+2026-09-05 (retarget #3454) — aucune des trois gardes formelles ne l'a fait** (cf. § Corroboration
+croisée : trois contrôles qui partagent le même instrument n'en font qu'un).
+
 ## Post-mortem — pointeur orphelin détecté sur `main`
 
 1. **NE PAS force-push** sur `main` (interdit, et risque de perte de travail utilisateur).

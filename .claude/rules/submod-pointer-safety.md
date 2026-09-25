@@ -1,7 +1,7 @@
 # Submodule Pointer Safety
 
-**Version:** 2.2.0 (+ garde d'identité de dépôt — incident 2026-09-05, retarget #3454)
-**Issue :** #2089 follow-up (incident 2026-05-11, commit `67514ec1`)
+**Version:** 2.3.0 (slim — blocs bash et narratives déportés vers la procédure, #2368)
+**Issue :** #2089 follow-up (incident 2026-05-11, `67514ec1`) ; garde dépôt #3454 (2026-09-05) ; SHA 40 car. #3056
 
 ---
 
@@ -10,78 +10,41 @@
 **Avant tout commit modifiant un pointeur submodule** (`mcps/internal`,
 `mcps/external/win-cli/server`, `roo-code`) : **asserter que l'instrument vise le bon dépôt,
 puis `git fetch` le submodule, puis vérifier que la SHA cible est atteignable depuis son
-upstream.**
+upstream** (`merge-base --is-ancestor`). Non atteignable → **STOP** : pousser d'abord le commit
+submod sur son upstream, ou `reset --hard origin/main`. Un pointeur orphelin casse `git pull`
+**sur toute la flotte** (`upload-pack: not our ref`). Le worker schedulé et la CI ne couvrent pas
+les sessions interactives OWNER — c'est le trou que cette règle ferme.
 
-```bash
-git -C <submod> fetch origin main
-git -C <submod> merge-base --is-ancestor $(git -C <submod> rev-parse HEAD) origin/main \
-  && echo OK || echo "ORPHAN — STOP"
-```
+## Garde 0 — le BON dépôt, avant toute lecture `git -C` (#3454)
 
-**Si la SHA n'est pas atteignable → STOP.** Pousser d'abord le commit submodule sur son upstream,
-ou `reset --hard origin/main`. Un pointeur orphelin casse `git pull` **sur toute la flotte**
-(`upload-pack: not our ref`), pas seulement chez soi.
-
-## Asserter que l'instrument vise le BON dépôt avant de croire sa réponse (incident 2026-09-05, retarget #3454)
-
-Dans un worktree neuf, un submodule non peuplé est un répertoire **vide** : `git -C <submod> …` ne
-rend alors **pas** d'erreur, il remonte au dépôt **parent** et répond en son nom. Les trois gardes
-de cette règle (existence de l'objet, ancêtre commun, relecture 40 caractères) vérifient alors une
-propriété **réelle du mauvais dépôt** — toutes trois ont passé sur `b141dc32`, le squash d'une PR
-de roo-extensions, écrit dans le gitlink du submodule. **Trois contrôles qui partagent le même
-instrument n'en font qu'un.**
-
-Le garde va **AVANT toute lecture** `git -C <submod>` (c'est la lecture qui est empoisonnée). Il
-teste le **mécanisme** — `git -C` a remonté au parent — et non l'une de ses conséquences : il vaut
-pour les trois submodules sans adaptation, et ne périme pas si un quatrième arrive :
+Un submodule non peuplé (worktree neuf) est un répertoire **vide** : `git -C <submod> …` remonte
+alors au dépôt **parent** et répond en son nom — les autres gardes vérifient une propriété réelle
+du **mauvais** dépôt. Le garde teste le **mécanisme**, avant toute lecture :
 
 ```bash
 [ "$(git -C <submod> rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] \
   || { echo "git -C a remonté au PARENT (submodule non peuplé) — STOP"; exit 1; }
 ```
 
-Rattrapage de second ordre, en toutes circonstances : **lire ce que la SHA porte** — le sujet du
-commit qu'elle désigne (`git -C <submod> log -1 --format=%s "$SHA"`), pas seulement qu'elle existe.
-Un titre de PR de roo-extensions là où on attend un commit `jsboige-mcp-servers` signe le mauvais
-dépôt, même quand chaque garde isolé est vert. **C'est ce contrôle qui a rattrapé l'incident, aucune
-des trois gardes.**
+**Rattrapage de second ordre :** lire **ce que la SHA porte** (`git -C <submod> log -1
+--format=%s "$SHA"`) — un titre de PR du parent là où on attend un commit submod signe le mauvais
+dépôt, même toutes gardes vertes. C'est ce contrôle qui a rattrapé #3454, aucune des trois gardes.
 
-## Pourquoi cette règle existe pour les sessions **interactives**
+## SHA complète à 40 caractères, jamais une abréviation (#3056)
 
-Le worker schedulé a son propre garde (`Reset-PhantomSubmodulePointers`), et la CI bloque les PRs.
-Ni l'un ni l'autre ne couvre une session Claude Code interactive qui pousse sur `main` avec un token
-OWNER — c'est exactement ce qui a produit l'incident du 2026-05-11.
-
-## Vérifier la chaîne **exacte** qu'on écrit, jamais son préfixe (incident 2026-08-07, PR #3056)
-
-`git update-index --cacheinfo` prend un SHA **complet à 40 caractères** et ne valide rien, alors que
-les trois gardes ci-dessus acceptent une **abréviation** que git résout correctement. On peut donc
-vérifier `45388458` avec succès pendant que le gitlink stocke une SHA dont seuls les 8 premiers
-caractères sont vrais — c'est arrivé (`45388458d0e05e02…` écrit pour `45388458191dec35…` attendu,
-CI rouge `upload-pack: not our ref`).
-
-**Ne jamais recopier une SHA à la main ni la reconstituer** : la lire en entier dans une variable,
-et comparer la valeur **écrite** à la valeur **voulue** sur les 40 caractères.
-
-```bash
-SHA=$(git -C <submod> rev-parse origin/main)          # 40 car., jamais une abréviation
-[ ${#SHA} -eq 40 ] || { echo "pas un SHA complet — STOP"; exit 1; }
-git -C <submod> cat-file -e "$SHA^{commit}" || exit 1
-git -C <submod> merge-base --is-ancestor "$SHA" origin/main || exit 1
-git update-index --cacheinfo 160000,$SHA,mcps/internal
-[ "$(git ls-files -s mcps/internal | awk '{print $2}')" = "$SHA" ] || { echo "DIVERGENCE — STOP"; exit 1; }
-```
-
-La relecture de `ls-files -s` existe précisément pour rattraper ce que `--cacheinfo` ne valide pas :
-comparée sur le préfixe, elle ne rattrape rien.
+`git update-index --cacheinfo` ne valide rien et exige 40 caractères ; les autres gardes acceptent
+une abréviation — on peut « vérifier » `45388458` pendant que le gitlink stocke une autre SHA aux
+8 premiers caractères près. **Ne jamais recopier ni reconstituer une SHA** : la lire en entier
+dans une variable, comparer la valeur **écrite** à la valeur **voulue** sur les 40 caractères.
+**Bloc bash complet :** [`submod-pointer-safety-procedure.md`](../../docs/harness/reference/submod-pointer-safety-procedure.md)
 
 ## Les trois pièges
 
 - `git submodule update --init --recursive` puis `git add` → checkout arbitraire = pointeur arbitraire.
 - « Résoudre le conflit submod » par `checkout --theirs` / `checkout HEAD --` sans regarder la cible.
-- Bumper le pointeur parent **avant** que la PR submod soit mergée (voir `pr-mandatory.md`).
+- Bumper le pointeur parent **avant** merge de la PR submod (voir [`pr-mandatory.md`](pr-mandatory.md)).
 
 ---
 
-**Procédure complète, incident fondateur, cas légitimes, post-mortem :**
-[`docs/harness/reference/submod-pointer-safety-procedure.md`](../../docs/harness/reference/submod-pointer-safety-procedure.md)
+**Procédure complète (blocs bash, boucle multi-submodules), incident fondateur, cas légitimes,
+post-mortem :** [`docs/harness/reference/submod-pointer-safety-procedure.md`](../../docs/harness/reference/submod-pointer-safety-procedure.md)
