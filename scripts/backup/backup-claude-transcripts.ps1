@@ -94,7 +94,11 @@ function Resolve-SevenZip([string]$hint) {
   $cands = @(
     "D:\Apps\PortableApps\7-ZipPortable\App\7-Zip64\7z.exe",
     (Join-Path $env:ProgramFiles "7-Zip\7z.exe"),
-    (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"))
+    (Join-Path ${env:ProgramFiles(x86)} "7-Zip\7z.exe"),
+    # chocolatey's 7z package ships tools\7z.exe and installs no bin\ shim, so
+    # PATH resolution misses it even though the bin dir is on PATH (measured on
+    # myia-po-2025, 2026-09-25: the only 7z on that machine lives here).
+    (Join-Path $env:ProgramData "chocolatey\tools\7z.exe"))
   foreach ($c in $cands) { if ($c -and (Test-Path -LiteralPath $c)) { return $c } }
   return $null
 }
@@ -103,7 +107,7 @@ function Resolve-SevenZip([string]$hint) {
 if (-not (Test-Path -LiteralPath $ProjectsDir)) { Write-Host "FATAL: projects dir not found: $ProjectsDir"; exit 2 }
 if (-not (Test-Path -LiteralPath $ArchiveDir))  { New-Item -ItemType Directory -Path $ArchiveDir -Force | Out-Null }
 $SevenZip = Resolve-SevenZip $SevenZip
-if (-not $SevenZip) { Log "FATAL: 7z.exe not found (PATH, D:\Apps\PortableApps, Program Files)"; exit 2 }
+if (-not $SevenZip) { Log "FATAL: 7z.exe not found (PATH, D:\Apps\PortableApps, Program Files, chocolatey\tools) - pass -SevenZip <path> to point at one"; exit 2 }
 $offsiteUnreachable = $false
 if ($GDriveDir) {
   # Une destination hors-site injoignable ne se voit PAS a distance : la machine
