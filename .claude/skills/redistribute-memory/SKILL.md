@@ -1,6 +1,6 @@
 ---
 name: redistribute-memory
-description: Audite et redistribue les connaissances entre 5 niveaux de hiérarchie. Détecte les antipatterns, propose un plan de redistribution, et exécute après validation. Utilisable sur tout workspace. Phrase déclencheur : "/redistribute-memory", "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md".
+description: Audite et redistribue les connaissances entre 5 niveaux de hiérarchie. Détecte les antipatterns, propose un plan de redistribution, et exécute après validation. Utilisable sur tout workspace. DISTINCT de `debrief` (qui prépare le démarrage d'une nouvelle tâche) — ce skill reconstruit les harnais et place chaque insight au bon niveau de la hiérarchie. Phrase déclencheur : "/redistribute-memory", "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md".
 triggers:
   keywords:
     - "redistribue mémoire"
@@ -30,6 +30,11 @@ metadata:
 **Version:** 3.2.0 (2026-09-01)
 **Issue:** #2223
 **Usage:** `/redistribute-memory` ou "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md"
+
+**Distinction avec `debrief` (ruling user 23/09/2026, #2884)** : `redistribute-memory` reconstruit les
+**harnais** des differents niveaux et les memoires — il partage les insights et place chaque element au
+bon niveau de la hierarchie (toujours charge ou differe). `debrief` prepare le **demarrage d'une nouvelle
+tache** (bilan de fin de session). Les deux skills restent separes — ne pas re-proposer leur fusion.
 
 ---
 

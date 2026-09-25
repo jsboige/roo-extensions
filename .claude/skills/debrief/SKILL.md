@@ -1,6 +1,6 @@
 ---
 name: debrief
-description: Analyse et documente la session courante avec triple grounding SDDD. Utilise ce skill à la fin d'une session de travail, quand l'utilisateur tape /debrief, pour capturer les leçons apprises, consolider la mémoire (MEMORY.md) et préparer la transition vers la session suivante. Phrase déclencheur : "/debrief", "débrief", "fin de session", "documente ce qu'on a fait".
+description: Analyse et documente la session courante avec triple grounding SDDD. Utilise ce skill à la fin d'une session de travail, quand l'utilisateur tape /debrief, pour capturer les leçons apprises, consolider la mémoire (MEMORY.md) et préparer le démarrage d'une nouvelle tâche. DISTINCT de `redistribute-memory` (qui reconstruit les harnais et la mémoire) — ne pas proposer de fusion. Phrase déclencheur : "/debrief", "débrief", "fin de session", "documente ce qu'on a fait".
 triggers:
   keywords:
     - "débrief"
@@ -37,6 +37,12 @@ metadata:
 ## Objectif
 
 Analyser le travail effectue dans la session courante, documenter les lecons apprises, et preparer un resume structure pour transition vers une nouvelle session ou vers l'assistant Roo.
+
+**Distinction avec `redistribute-memory` (ruling user 23/09/2026, #2884)** : `debrief` prepare le
+**demarrage d'une nouvelle tache** (bilan de fin de session, transition). `redistribute-memory`
+**reconstruit les harnais** des differents niveaux et les memoires, en partageant les insights et en
+placant chaque element au bon niveau de la hierarchie (toujours charge ou differe). Les deux skills
+restent separes — ne pas re-proposer leur fusion.
 
 ---
 
