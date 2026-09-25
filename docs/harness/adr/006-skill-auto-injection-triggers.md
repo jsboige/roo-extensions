@@ -145,7 +145,7 @@ Multiple matches:
 |-------|-------|--------|
 | **Phase 1** | Design + prototype 1 skill + detector script | Done (PR #1890) |
 | **Phase 2** | Extended trigger types (exact/patterns/context) + all 9 skills + refactored parser | Done (this update) |
-| Phase 3 | `/learner` pattern extraction from conversations | Done (PR #1906) |
+| Phase 3 | `/learner` pattern extraction from conversations | Done (PR #1906; skill since removed by #2884 — never invoked) |
 
 ### 6. Skills Coverage (Phase 2)
 
