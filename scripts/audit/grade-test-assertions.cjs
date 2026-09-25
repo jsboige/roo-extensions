@@ -13,9 +13,12 @@
  * hand for the D/F files before any corrective PR.
  *
  * Usage:
- *   node scripts/audit/grade-test-assertions.cjs [--dir <path>] [--top N] [--json]
+ *   node scripts/audit/grade-test-assertions.cjs [--dir <path>] [--top N] [--json] [--out <file>]
  *
  * Output: console table (worst N by weak%) + outputs/audits/test-quality/phase2-grading.json
+ * (or the --out path). Identity matchers (toBeNull/toBeUndefined) NON-negated grade MEDIUM
+ * (strict === one value = exact contract); their .not. forms grade WEAK (presence ≈ toBeDefined)
+ * — #833 arbitration 2026-09-24, measured on 59 hand-qualified files (~47% false positives).
  */
 
 const fs = require('fs');
@@ -29,9 +32,10 @@ const EXCLUDE_DIRS = new Set(['node_modules', 'build', 'dist', '.git', 'coverage
 
 // ─── Assertion taxonomy ───
 // WEAK: passes when the value merely exists / is truthy — no content check.
+// Also .not.toBeNull/.not.toBeUndefined: presence assertions ≈ toBeDefined.
 const WEAK = [
-  'toBeDefined', 'toBeUndefined', 'toBeTruthy', 'toBeFalsy',
-  'toBeNull', 'toBeNaN',
+  'toBeDefined', 'toBeTruthy', 'toBeFalsy',
+  'toBeNaN',
 ];
 // STRONG: compares actual content / exact value / call arguments.
 const STRONG = [
@@ -42,14 +46,21 @@ const STRONG = [
   'toBeGreaterThanOrEqual', 'toBeLessThanOrEqual', 'toBeCloseTo',
 ];
 // MEDIUM: more than existence, less than a content comparison.
+// toBeNull/toBeUndefined NON-negated: strict === single value = exact contract (#833).
 const MEDIUM = [
   'toBeInstanceOf', 'toHaveBeenCalled', 'toHaveProperty', 'toThrow',
   'toMatchSnapshot', 'toMatchInlineSnapshot', 'toThrowErrorMatchingSnapshot',
+  'toBeNull', 'toBeUndefined',
 ];
+// Negated identity matchers: presence assertions — the ancre adjacente carries the force.
+const NEGATED_IDENTITY = new Set(['toBeNull', 'toBeUndefined']);
 
-const MATCHER_RE = /\.([A-Za-z]+)\s*\(/g;
+// Alt 1 captures `.not.matcher(`, alt 2 plain `.matcher(` — alt 1 first so the
+// negated form consumes the whole chain and never double-counts via alt 2.
+const MATCHER_RE = /\.\s*not\s*\.\s*([A-Za-z]+)\s*\(|\.([A-Za-z]+)\s*\(/g;
 
-function classifyMatcher(name) {
+function classifyMatcher(name, negated) {
+  if (negated && NEGATED_IDENTITY.has(name)) return 'weak';
   if (WEAK.includes(name)) return 'weak';
   if (STRONG.includes(name)) return 'strong';
   if (MEDIUM.includes(name)) return 'medium';
@@ -73,12 +84,14 @@ function analyzeFile(filePath) {
   let m;
   MATCHER_RE.lastIndex = 0;
   while ((m = MATCHER_RE.exec(source)) !== null) {
-    const klass = classifyMatcher(m[1]);
+    const negated = m[1] !== undefined;
+    const name = negated ? m[1] : m[2];
+    const klass = classifyMatcher(name, negated);
     if (klass) {
       counts[klass]++;
       if (klass === 'weak' && weakSamples.length < 5) {
         const line = source.slice(0, m.index).split('\n').length;
-        weakSamples.push(`L${line}: .${m[1]}`);
+        weakSamples.push(`L${line}: .${negated ? 'not.' : ''}${name}`);
       }
     } else {
       counts.other++;
@@ -148,8 +161,8 @@ const summary = {
   results: results.sort((a, b) => b.weakPct - a.weakPct || b.assertions - a.assertions),
 };
 
-fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-const outFile = path.join(OUTPUT_DIR, 'phase2-grading.json');
+const outFile = argValue('--out') || path.join(OUTPUT_DIR, 'phase2-grading.json');
+fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, JSON.stringify(summary, null, 2), 'utf8');
 
 if (asJson) {
