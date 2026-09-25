@@ -30,6 +30,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 - **Submodules** : commiter DEDANS d'abord, push, puis bump le pointeur parent.
 - **Force push** : interdit sur branches partagees. Rejete -> fetch, merge, retry.
 - **Checkout safety** : `git checkout -- <fichier>` restaure depuis l'INDEX — sur une branche de travail il efface TOUT le non-commite du fichier, pas seulement la derniere manipulation. Pour reverter une mutation de verification : `cp` backup/restore, JAMAIS `git checkout --`. [Detail](../../docs/harness/global-rules-detail.md#git--checkout-safety)
+- **Postcondition Git de fin de cycle** : une session qui a travaille dans un depot ne termine pas tant que son clone principal n'est pas revenu sur la branche par defaut, synchronise en fast-forward avec son upstream, avec index/worktree propres et sous-modules aux gitlinks epingles. Tout contenu utile doit auparavant etre committe et pousse sur une branche avec PR, ou sauvegarde hors depot avec manifeste et empreintes. Jamais de suppression sans preuve de preservation. Organe : `python scripts/check_clean_cycle_exit.py` **depuis un checkout roo-extensions** (le script n'y existe que la ; pour tout autre depot : `python <roo-extensions>/scripts/check_clean_cycle_exit.py --path <depot-inspecte>`). [Detail](../../docs/harness/reference/clean-cycle-exit.md)
 
 ## Read Body Before Any Action (HARD, aucune exception)
 
