@@ -238,10 +238,15 @@ Assert-That "la retente LAN n'est lancee que si elle tient dans le temps restant
 Assert-That "une reparation qui ne tient pas dans le temps restant est differee" `
     ($Text -match 'elseif[ \t]*\([ \t]*\(Get-RunSecondsLeft\)[ \t]+-lt[ \t]+\$RepairWorstCaseSec[ \t]*\)[\s\S]{0,1200}?\}[ \t]*else[ \t]*\{[ \t]*\r?\n[^\r\n]*running full repair sequence')
 if ($Text -match '\$RepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
-    # Plancher : les trois Start-Sleep de la reparation (3 + 10 + 15 s) plus le
-    # controle E2E de 20 s qui la suit. En dessous, le garde laisserait
-    # demarrer une reparation qui ne peut pas finir.
-    Assert-That "le pire cas de reparation couvre ses propres attentes (>= 48 s)" ([int]$matches[1] -ge 48)
+    # Plancher : la partie DESTRUCTIVE seule, qui est la seule qui ne peut pas
+    # etre coupee. Jusqu'a #3802 la formule comptait aussi le settle de 15 s et
+    # le controle E2E de 20 s qui le suivaient (3 + 10 + 15 + 20 = 48) ; ces deux
+    # attentes vivent maintenant dans Wait-ForPostRepairRecovery, qui est
+    # resumable (etat ecrit avant l'attente, tick suivant re-sonde) et n'a donc
+    # plus a etre budgeree ici. Le plancher retenu est l'allowance destructive
+    # que l'ancien design accordait deja : 75 - 35 = 40 s. Abaisser SOUS ce
+    # niveau retirerait a la partie non-resumable un budget qu'elle avait.
+    Assert-That "le pire cas de reparation couvre sa partie destructive (>= 40 s)" ([int]$matches[1] -ge 40)
 } else {
     Assert-That "le pire cas de reparation est ecrit dans le code" $false
 }
@@ -271,8 +276,11 @@ Assert-That "elle redemarre TBXark (appel reel, pas un commentaire)" ($RouteBran
 Assert-That "elle ne relance PAS sparfenyuk" (-not ($RouteBranch -match 'Stop-ScheduledTask|Start-ScheduledTask'))
 Assert-That "elle ne touche pas l'etat de la reparation pleine" (-not ($RouteBranch -match '\$repairStateFile\b|\blastRepairAt\b'))
 Assert-That "elle ecrit son propre etat" ($RouteBranch -match 'Set-Content[^\r\n]*\$routeRepairStateFile')
+# L'attente post-reparation est un Start-Sleep jusqu'a #3802, puis la boucle de
+# re-sonde ; le controle porte sur l'ORDRE (etat ecrit AVANT l'attente), pas sur
+# la forme de l'attente, sinon il mordrait sur le seul renommage de l'appel.
 Assert-That "l'etat est ecrit AVANT l'attente (un run coupe arme quand meme le cooldown)" `
-    ($RouteBranch -match '&[ \t]+docker[ \t]+restart[\s\S]*?Set-Content[^\r\n]*\$routeRepairStateFile[\s\S]*?Start-Sleep')
+    ($RouteBranch -match '&[ \t]+docker[ \t]+restart[\s\S]*?Set-Content[^\r\n]*\$routeRepairStateFile[\s\S]*?(Start-Sleep|Wait-ForPostRepairRecovery)')
 Assert-That "son cooldown puis le temps restant sont verifies AVANT le restart" `
     ($RouteBranch -match '-lt[ \t]+\$RouteRepairCooldownMin[\s\S]*?\(Get-RunSecondsLeft\)[ \t]+-lt[ \t]+\$RouteRepairWorstCaseSec[\s\S]*?&[ \t]+docker[ \t]+restart')
 Assert-That "son etat vit dans un fichier distinct de repair-state.json" `
@@ -287,8 +295,11 @@ if ($Text -match '\$RouteRepairCooldownMin[ \t]*=[ \t]*(\d+)') {
     Assert-That "le cooldown route-absente est ecrit dans le code" $false
 }
 if ($Text -match '\$RouteRepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
-    # Plancher : l'attente de 15 s plus le controle E2E de 20 s qui la suit.
-    Assert-That "le pire cas route-absente couvre ses propres attentes (>= 35 s)" ([int]$matches[1] -ge 35)
+    # Meme raisonnement que pour la reparation pleine (#3802) : l'attente de 15 s
+    # et le controle de 20 s qui la suivaient sont sortis du budget, la boucle de
+    # re-sonde etant resumable. Plancher = l'allowance destructive de l'ancien
+    # design, 55 - 35 = 20 s, soit le docker restart assume.
+    Assert-That "le pire cas route-absente couvre son restart (>= 20 s)" ([int]$matches[1] -ge 20)
 } else {
     Assert-That "le pire cas route-absente est ecrit dans le code" $false
 }
