@@ -184,6 +184,19 @@ Où la règle `user-blocker-signaling.md` existe, elle doit renvoyer vers ce reg
 
 Un plan demandant validation s'écrit dans un scratchpad sous `$TEMP` (jamais dans `.claude/` — sanctuaire, fichiers temporaires → `$TEMP`). Seul le **chemin** est rendu en fin de session. Si la validation est toujours en attente au cycle suivant, l'entrée de registre porte le chemin — le plan n'est jamais recopié dans le fil.
 
+### Clarté — le format d'écriture d'une question (escalade user 25/09/2026)
+
+Le user a rejeté les questions rendues en une ligne de jargon — les 5 de `po-2025:claudish`, prises comme exemple pour toute la flotte :
+
+> « Q6 ça veut dire quoi ? Stp escalade sur le dashboard global. J'en ai marre de vous faire préciser ce qui n'est pas clair. Le reste est aussi obscur. »
+
+Deux conséquences, et c'est la seconde qui coûte le plus cher :
+
+- le user doit relancer pour comprendre : la question n'arrive pas du premier coup ;
+- **un mot plus fort que les faits fait arbitrer un problème inexistant.** « Rotation de la clé du proxy, qui a été exposée » s'est lu comme une fuite publique. Mesure du 25/09 : 0 occurrence dans le dépôt GitHub public (historique de toutes les branches, issues et commentaires). Le mot « exposée » ne portait rien de mesuré ; il a produit une inquiétude, pas une information.
+
+Le format — **ce qui se passe / ce qui est demandé (oui-non ou a-b-c) / ce qui arrive sans réponse / ce que la lane recommande / l'échéance** — vit dans le porteur [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md), section « User Arbitration ». Il s'applique aux **trois** canaux : fil de session, entrée de registre, message de dashboard. Des chiffres seulement s'ils aident à décider.
+
 ### Outils d'interactivité retirés par le user (déjà fait, côté user)
 
 | Outil retiré | Substitut |
