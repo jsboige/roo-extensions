@@ -274,7 +274,7 @@ This creates a feedback loop: skills define when they should be suggested, and t
 | Regex patterns | `triggers.patterns` field in frontmatter | YAML parser upgrade |
 | Context triggers | `PostToolUse` hook on Bash tool | Claude Code hooks API |
 | Statusline triggers | `conditions` evaluated against `hudData` | #1855 Phase 2 complete |
-| `/learner` skill | Pattern extraction from sessions | LLM integration |
+| `/learner` skill | Pattern extraction from sessions | **Withdrawn** — skill removed by #2884 (never invoked, re-measured 2026-09-25) |
 
 **Estimated effort:** 4-6 hours
 
