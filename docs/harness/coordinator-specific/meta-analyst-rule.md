@@ -2,8 +2,8 @@
 
 > **Note relocalisation (2026-05-19)** : Ce document définit le comportement du meta-analyste Claude. Il n'est PLUS auto-chargé comme rule (déplacé hors de `.claude/rules/` pour réduire le footprint contexte des autres agents). Loaded désormais par `scripts/scheduling/start-meta-audit.ps1` au lancement de l'agent scheduled (contenu déjà inliné dans le prompt). Workflow détaillé : [`./meta-analyst-detailed.md`](./meta-analyst-detailed.md).
 
-**Version:** 1.8.0 (catégorie 8 archives RooSync + devoir d'issue par verdict, #3347)
-**Issues :** #1375, #1455, #1527, #1584, #1621, #1818, #1608, #2079, #2080, #2081, #2083, #1285, #3347
+**Version:** 1.9.0 (RX46 : archive copy-only autorisée, garde #1621 levée, #1747)
+**Issues :** #1375, #1455, #1527, #1584, #1621, #1818, #1608, #2079, #2080, #2081, #2083, #1285, #3347, #1747
 
 ---
 
@@ -101,10 +101,11 @@ Ces sujets sont interdits **même si l'analyse les détecte**. Si ton instinct t
 INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`) = **DEPRECATED** depuis 2026-04-10, fallback UNIQUEMENT si MCP indisponible.
 Toute analyse ou rapport va sur le dashboard workspace, JAMAIS dans INTERCOM.
 
-## SESSIONS SANCTUARISEES (#1621)
+## SESSIONS SANCTUARISEES (#1621, amendé RX46 24/09)
 
-**INTERDIT :** Archiver, supprimer, compresser ou modifier des sessions Claude/Roo.
-`roosync_indexing(action: "archive", claude_code_sessions: true)` = BLOQUE sans approbation utilisateur.
+**INTERDIT :** Supprimer, compresser ou modifier des sessions Claude/Roo — la source ne se mute jamais.
+
+**AUTORISÉ (copy-only) :** `roosync_indexing(action: "archive", claude_code_sessions: true)` — copie gzip vers GDrive, opt-in explicite, sans toucher aux JSONL sources. Ruling user RX46 (24/09) : « Sanctuariser c'est s'assurer qu'on a bien accès aux sessions. La copie dans le cloud est la forme voulue. » Garde levée par submod #1222.
 
 ## Budget Contexte OBLIGATOIRE (#1608)
 

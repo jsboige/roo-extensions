@@ -1,9 +1,9 @@
 # Meta-Analysis Protocol — Continuous Improvement Tier
 
-**Version:** 3.1.0
+**Version:** 3.1.1
 **Created:** 2026-03-04
-**Updated:** 2026-09-23
-**Issues:** #551, #981, #982, #855, #3110 (v3 evidence-based rewrite)
+**Updated:** 2026-09-25
+**Issues:** #551, #981, #982, #855, #3110 (v3 evidence-based rewrite), #1747 (RX46 Guard Rails)
 
 ---
 
@@ -267,7 +267,7 @@ Comparer les performances -simple vs -complex : taux de succès, escalades, inte
 - Force-push, rebase, opérations git destructives
 - Créer une issue SANS label `needs-approval`
 - Créer des fichiers rapport dans le dépôt (#1179)
-- Archiver/supprimer/compresser des sessions (sanctuarisées, #1621)
+- Supprimer/compresser/modifier des sessions (sanctuarisées, #1621) — la copie d'archive copy-only vers GDrive est autorisée depuis RX46 (24/09, submod #1222)
 
 ### Meta-analysts CAN:
 - Lire les traces locales (Roo tasks, Claude sessions) via `conversation_browser`/MCP — jamais de Read brut sur fichiers de traces >256KB (#1670)
