@@ -300,9 +300,11 @@ def scan_pedagogy_density(wt):
 # 1,67 fichier/PR mesure sur les 61 PRs ouvertes.
 CONTRACTS = {
     # `branch_prefix` : le prefixe `wt/vibe-` est lu par l'organe de merge
-    # automatique (CoursIA, scripts/coordination/merge_ready.py:119,
-    # FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}) et range la PR dans la
-    # famille gelee #13410 QUELLE QUE SOIT son issue reelle. Un grain non-densite
+    # automatique de CoursIA -- `FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}`
+    # dans `scripts/coordination/frozen_campaigns.py`, importe par
+    # `merge_ready.py` -- et range la PR dans la famille gelee #13410 QUELLE QUE
+    # SOIT son issue reelle (le test porte sur `head_ref.startswith(prefix)`, sans
+    # exemption). Un grain non-densite
     # nomme `wt/vibe-*` produit donc un livrable que rien ne mergera (mesure
     # 25/09 : grain #16472 g2 parti sur `wt/vibe-g2-residu-petits-domaines`).
     # Le defaut est non-gele pour qu'un contrat ajoute sans prefixe reste
