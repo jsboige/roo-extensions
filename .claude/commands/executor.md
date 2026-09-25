@@ -88,6 +88,7 @@ Puis (en parallele) :
    - **FALLBACK :** Si le MCP dashboard echoue (GDrive offline), utiliser `.claude/local/INTERCOM-{MACHINE}.md` comme fichier local de LAST RESORT.
 3. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 100 --json number,title,labels`
+   - **Skill applicable :** `github-status` quand la collecte PR/Project est necessaire (args cibles, economise le budget GraphQL). Refs #2884.
    - ⚠️ **`--limit 100`, jamais 15** (bug #2509) : `--limit 15` rend les **15 issues les PLUS RECENTES**, pas un echantillon representatif. Si ces 15 sont toutes `needs-approval`/meta, tu conclus « pool draine » alors que des dizaines d'actionnables existent plus bas. Le backlog reel tourne autour de 80-90 ouvertes.
    - **Filtrage actionnable cote agent, apres recuperation** : exclure `needs-approval`, `deferred`, `blocked-on-gate`, `epic`, `frozen` (gel par decision, #3381). Ce chemin filtre **cote agent** et non dans la requete, a dessein — contrairement aux pools autonomes (`start-claude-worker.ps1` l.682, workflows Roo), un executeur interactif doit **voir** qu'une issue est gatee plutot qu'en etre aveugle.
    - **Source de verite** : `.claude/skills/executor/SKILL.md` l.97-100. Ne pas laisser les deux diverger.
@@ -583,6 +584,8 @@ npm run build    # Build TypeScript
 npx vitest run   # Tests unitaires (JAMAIS npm test)
 ```bash
 
+**Skills applicables (Refs #2884) :** `validate` (checklist avant/apres consolidation, refeaturementation) ; `git-sync` pour la synchro conservative pre-PR (preserve modifications locales et fichiers non suivis, ne rebuild/reset pas le submodule).
+
 ### 3d. Commit + Push (si validation OK)
 ```bashbash
 git add {fichiers_modifies}
@@ -714,6 +717,7 @@ Un redémarrage = fermer puis relancer la session Claude Code (VS Code) ; le `[W
 - Mettre a jour MEMORY.md (prive) avec etat courant
 - Mettre a jour PROJECT_MEMORY.md (partage) si apprentissages universels
 - Commit + push si fichiers partages modifies
+- **Skill applicable :** `debrief` (analyse de session, lecons capturees) en fin de session **interactive uniquement** — pas dans un cycle cron. Refs #2884.
 
 ### Protocole de friction (OBLIGATOIRE)
 Tout probleme avec les outils, skills, ou processus doit etre signale au collectif :
