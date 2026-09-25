@@ -112,6 +112,8 @@ gh pr list --repo jsboige/jsboige-mcp-servers --state open \
   --jq '.[]|"submod #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE")\(if .isDraft then " DRAFT" else "" end) maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
 ```
 
+**Skill applicable :** `github-status` quand la collecte PR/Project est necessaire (args cibles, economise le budget GraphQL). Refs #2884.
+
 `review=AUCUNE` sur la PR **d'un autre** = dette d'approbation. `review=CHANGES_REQUESTED` sur **la
 mienne** = dette de reparation. **`DRAFT` = ni l'un ni l'autre** : un brouillon est bloque
 sur son AUTEUR, pas sur moi — mais `reviewDecision` y vaut `REVIEW_REQUIRED` exactement comme sur
@@ -390,6 +392,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
 3. **Commit + push** si fichiers partages modifies
 4. **INTERCOM** : Laisser etat courant pour Roo
 5. **Postcondition Git de fin de cycle (#3776)** : executer `python scripts/check_clean_cycle_exit.py` sur le **clone principal** (pas un worktree) et joindre le verdict au bilan final. Tout verdict non-`PASS` = traiter avant de clore (preservation d'abord, cf. `docs/harness/reference/clean-cycle-exit.md`). Si non applicable (session sans mutation du depot), motiver un `[SKIP-CHECK]` explicite dans le bilan. Les worktrees de PR actifs suivent leur propre protocole (`worktree-lifecycle.md`).
+6. **Skill applicable :** `debrief` (analyse de session, lecons capturees) en fin de session **interactive uniquement** — pas dans un cycle cron. Refs #2884.
 
 **Principe :** La consolidation demande du jugement humain/agent. Les scripts `scripts/memory/` sont des aides au diagnostic, pas des automatismes. L'agent decide quoi consolider et ou.
 
@@ -584,6 +587,8 @@ puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`
 ### Review de Code via sk-agent (avant merge PR)
 
 **Quand :** Avant d'approuver et merger tout PR avec >50 lignes de code changées.
+
+**Skills applicables (Refs #2884) :** `validate` (checklist avant/apres consolidation) sur les PRs de refactoring/consolidation ; `git-sync` pour la synchro conservative pre-merge du clone principal (preserve modifications locales, ne rebuild/reset pas le submodule).
 
 **Procedure :**
 
