@@ -105,7 +105,7 @@ Toute analyse ou rapport va sur le dashboard workspace, JAMAIS dans INTERCOM.
 
 **INTERDIT :** Supprimer, compresser ou modifier des sessions Claude/Roo — la source ne se mute jamais.
 
-**AUTORISÉ (copy-only) :** `roosync_indexing(action: "archive", claude_code_sessions: true)` — copie gzip vers GDrive, opt-in explicite, sans toucher aux JSONL sources. Ruling user RX46 (24/09) : « Sanctuariser c'est s'assurer qu'on a bien accès aux sessions. La copie dans le cloud est la forme voulue. » Garde levée par submod #1222.
+**AUTORISÉ (copy-only) :** `roosync_indexing(action: "archive", claude_code_sessions: true)` — copie gzip vers GDrive, opt-in explicite, sans toucher aux JSONL sources. Ruling user RX46 (24/09, verbatim) : « Sanctuariser c'est s'assurer qu'on a bien accès aux sessions. […] La copie entre machines n'est pas un problème, mais il vaut mieux copier dans le cloud. » Garde levée par submod #1222.
 
 ## Budget Contexte OBLIGATOIRE (#1608)
 
