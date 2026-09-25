@@ -368,6 +368,25 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-idle-worktree.ps1
 
+  # #3834 (follow-up deferred from #3835): test-rotate-scheduling-logs.ps1
+  # exercises the REAL rotate script through powershell.exe — Windows
+  # PowerShell 5.1, an explicit acceptance criterion (the fleet runs 5.1,
+  # pwsh is absent on part of it) — and needs a resolvable 7z for the
+  # archive-then-retract steps. ubuntu-latest has neither, so it cannot
+  # live inside scheduling-harness: it gets this dedicated windows-latest
+  # job. Sandbox = $TEMP dirs, no GDrive, no schtask, no network. 7z
+  # resolves via the runner's C:\Program Files\7-Zip\7z.exe (candidate #3
+  # of the script's known-paths list). 64 assertions, ~40 s measured on
+  # po-2025 (2026-09-25).
+  scheduling-rotate-harness:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run rotate-scheduling-logs test suite
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduling/test-rotate-scheduling-logs.ps1
+
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
   # (deploy-modes: its target was archived 2025-12; worktree-husk: retry
