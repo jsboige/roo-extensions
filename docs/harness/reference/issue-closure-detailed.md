@@ -91,9 +91,32 @@ A chaque cycle `/coordinate`, le coordinateur DOIT en phase initiale :
 
 ---
 
+## Bloc Evidence — Gabarit (relocalisé de la rule, #2368 round 2)
+
+```markdown
+## Evidence
+- **PR merge** : URL (merged DATE)
+- **Commit** : SHA (reachable from origin/main)
+- **User approval** : comment by jsboige on DATE
+- **Obsolete** : commit SHA + grep → 0 hits
+- **Duplicate** : #MMM (ouverte, scope identique)
+```
+
+## « Fermer n'est pas fermé » — récits fondateurs (#3033, #3225, relocalisés de la rule)
+
+Le second chemin de fermeture (merge portant `Closes #NNN`) n'a longtemps été couvert par aucune
+règle. Constaté le 2026-08-22 sur **#3216** : fermée à 14:48Z par le merge de #3218, **rouverte à
+14:52Z** par le bot. Personne n'avait fait de `gh issue close` — et personne n'avait coché la
+checklist non plus.
+
+**Pourquoi ce n'est pas cosmétique.** Après trois réouvertures, la boucle du bot s'arrête (#1487).
+Une issue peut donc finir durablement `CLOSED` avec une **checklist vide** — l'état exact que la
+règle existe pour empêcher, atteint sans que personne n'ait rien contourné.
+
 ## Historique
 
 - 2026-04-06 : v1.0.0 — Cree apres incident fermeture prematuree de 3 issues (#829, #850, #855)
 - 2026-04-17 : v1.1.0 — Ajout anti-pattern commentaire generique (incident #1428)
 - 2026-04-24 : v1.2.0 — Hard cap 3/cycle + protection user-originated + bloc Evidence (#1666 Phase A1)
 - 2026-04-25 : v1.3.0 — Grille de marqueurs explicites au lieu de l'identite GitHub `author=jsboige`
+- 2026-09-26 : v1.5.0 — Relocation du gabarit Evidence + récits bot (#3216, #1487) depuis la rule slim 2 (#2368 round 2)
