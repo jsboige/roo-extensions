@@ -92,6 +92,16 @@ Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce 
 
 Cablage au signalement existant : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
 
+### Quand le user engage la conversation — réponses intermédiaires (mandat user 26/09)
+
+Le registre porte les questions **de l'agent vers le user**. Quand c'est **le user** qui ouvre un échange en cours de session (question, remarque, concern), il faut lui donner de quoi partir ou réagir : la **conclusion vérifiée** reste réservée au **message final**.
+
+1. **Tôt, une poignée de messages** disant la tendance et le **niveau de croyance initial** (mesuré / supposé / à vérifier). **Forme** : un bloc de **texte visible**, dans la langue du user, placé avant l'appel d'outil suivant dans le même message, **sans clore le tour** — une réponse restée dans le raisonnement ne lui parvient pas (mesuré le 26/09 : trois réponses d'étape perdues ainsi, le user a cru à un silence).
+2. **Sans insister** : pas de relance si le user ne revient pas ; la boucle agentique reprend. Un résultat intermédiaire significatif (mesure qui renverse l'hypothèse, décision prise) mérite un court message.
+3. **La conclusion vérifiée va au dernier message** ; si le user ne l'a pas vue avant la session suivante, elle se **réitère** au cycle suivant, portée par la mémoire de reprise, puis sort dès qu'il a réagi.
+
+**Anti-patterns** : garder tout pour le message final pendant que le user attend ; relancer un user silencieux ; présenter une croyance initiale comme une conclusion vérifiée.
+
 ## Windows / PowerShell Gotchas
 
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
