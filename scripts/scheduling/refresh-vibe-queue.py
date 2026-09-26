@@ -172,6 +172,35 @@ N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule
 CHECKPOINT-COMMIT obligatoire, puis rapport : densite avant/apres par fichier (seuil 1200, ok attendu), lectures ajoutees (nombre + cellule ancre), git status, liste des fichiers touches."""
 
 
+PAYLOAD_TELLC = """[WAKE-VIBE] {gid} (citations #17712, fournee dimensionnee sur re-scan frais)
+baseSha: {base}
+targetPath:
+{targets}
+worktree: {worktree}
+branch: {branch}
+
+Mission : retirer les citations "Tell c." dans CHAQUE fichier de targetPath,
+UNIQUEMENT dans un commentaire `#` ou une docstring Python. Toute autre
+occurrence est HORS PERIMETRE et reste en place : chaine litterale, regex,
+fixture de test (des tests B.0 emploient le motif comme DONNEE — y toucher
+changerait ce que le test prouve), prose .md, JSON. Chaque occurrence non
+traitable = NOOP JUSTIFIE cite (fichier + ligne + motif) : c'est une REUSSITE,
+pas un echec de grain.
+Regle editoriale : retirer la mention SANS reecrire la phrase — supprimer la
+citation (ex. "(Tell c. #1234)") et l'espace surnumeraire, rien d'autre.
+Aucun mot change, aucun reformatage, aucune ligne deplacee, aucun import
+retrie.
+Tests OBLIGATOIRES avant commit : `python -m pytest <fichiers de test touches>`
+depuis le worktree, vert attendu. Un test ROUGE sur un fichier NON modifie =
+echec preexistant : ne PAS modifier ce fichier, le signaler en NOOP dans le
+rapport.
+INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
+N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
+
+CHECKPOINT-COMMIT obligatoire, puis rapport : occurrences avant/apres par fichier (git grep -n "Tell c\\." <fichier>), retraits effectues (fichier + ligne), NOOP justifies (fichier + ligne + motif), resultat pytest, git status, liste des fichiers touches.
+Livraison (la lane, PAS le worker) : une PR par famille, un claim paths: par PR sur #17712, tag Grain:."""
+
+
 def sh(cmd, cwd=None, check=True):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
@@ -288,6 +317,52 @@ def scan_pedagogy_density(wt):
             for v in (data.get("below_threshold") or [])}
 
 
+def tellc_family(path):
+    """Famille du contrat #17712 : une PR par famille (modalites ai-01 26/09).
+
+    Les quatre familles nommees : notebook_tools, tests, organes B.0/CI, QC.
+    Le reste — fichiers de support .py/.md parsemes sous MyIA.AI.Notebooks/
+    (hors .ipynb, donc dans le perimetre du GO) — forme la famille
+    notebooks-support : meme geste editorial, meme PR.
+    Chemins mesures sur main 55e867960d : le QC vit sous
+    MyIA.AI.Notebooks/QuantConnect/ (pas sous un bare QuantConnect/), et
+    fast_lane_registry.py est un organe scripts/ci/.
+    """
+    if path.startswith("scripts/notebook_tools/"):
+        return "notebook_tools"
+    if path.startswith(("scripts/tests/", "tests/")):
+        return "tests"
+    if path.startswith(("scripts/ci/", "scripts/fallacy_detection/")) \
+            or path in ("scripts/check_unaddressed_nits.py",
+                        "scripts/livecoding_video_pipeline.py"):
+        return "b0-ci-organs"
+    if path.startswith("MyIA.AI.Notebooks/QuantConnect/"):
+        return "qc"
+    return "notebooks-support"
+
+
+def scan_tellc_citations(wt):
+    """{path: [L<n> <ligne>]} pour les citations "Tell c." du contrat #17712.
+
+    Perimetre du GO ai-01 26/09 : TOUT hors .ipynb, hors docs/, hors .claude/
+    (la tranche notebooks .ipynb est tenue par po-2025:CoursIA, #17881).
+    Le scanner ne prejuge pas de l'actionabilite : une occurrence en chaine
+    litterale, regex ou fixture reste un finding — c'est le payload qui en
+    fait un NOOP justifie, la decision restant citee par fichier.
+    """
+    out = sh(["git", "-C", wt, "grep", "-n", "-E", r"Tell c\."], check=False)
+    found = collections.defaultdict(list)
+    for line in out.splitlines():
+        parts = line.split(":", 2)
+        if len(parts) < 3:
+            continue
+        path = parts[0].replace("\\", "/")
+        if path.endswith(".ipynb") or path.startswith(("docs/", ".claude/")):
+            continue
+        found[path].append("L%s %s" % (parts[1], parts[2].strip()))
+    return dict(found)
+
+
 # Un contrat = un detecteur, son payload de mission et son axe de regroupement
 # (index du segment de chemin qui definit le domaine/famille d'une fournee).
 # 15719 : md-table, domaine = parts[1] (GenAI, QuantConnect...) ;
@@ -297,7 +372,11 @@ def scan_pedagogy_density(wt):
 # sous le seuil, la regle de taille est PROPRE au contrat (dispatch ai-01
 # 18/09 : "ne pas forcer #13410 dans le moule findings — ça produirait des
 # grains vides ou monstrueux") : grain = 1-2 notebooks, conforme au
-# 1,67 fichier/PR mesure sur les 61 PRs ouvertes.
+# 1,67 fichier/PR mesure sur les 61 PRs ouvertes ;
+# 17712 : citations "Tell c." hors .ipynb/docs/.claude — l'axe n'est PAS un
+# segment de chemin mais une famille metier (family_fn) : une PR par famille
+# (modalites ai-01 26/09), floor=1 car la famille est l'unite, comme le
+# notebook l'est pour #13410.
 CONTRACTS = {
     # `branch_prefix` : le prefixe `wt/vibe-` est lu par l'organe de merge
     # automatique de CoursIA -- `FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}`
@@ -323,6 +402,13 @@ CONTRACTS = {
             # 13410 explicite reste possible si le veto est leve.
             "frozen": True,
             "branch_prefix": "wt/vibe-"},
+    # Non gele : premier contrat du ruling user (b) 26/09 — automatiser la
+    # source pour que Mistral ne s'arrete plus faute de travail. GO ai-01
+    # 26/09 : hors .ipynb (tranche tenue par po-2025:CoursIA #17881),
+    # hors docs/, hors .claude/.
+    17712: {"scan": scan_tellc_citations, "payload": PAYLOAD_TELLC,
+            "family_fn": tellc_family, "floor": 1,
+            "branch_prefix": "wt/mistral-tellc-"},
 }
 
 
@@ -453,16 +539,20 @@ def split_domain(files, max_files=None):
     return chunks
 
 
-def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None):
+def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None, group_fn=None):
     """Bins that honour the fournee contract, plus the unusable leftover.
 
     `floor`/`max_files` viennent du contrat (CONTRACTS) : le moule findings
     (FLOOR=10) n'exprime pas #13410, dont l'unite est le notebook sous le
-    seuil — grain = 1-2 notebooks.
+    seuil — grain = 1-2 notebooks. `group_fn` (contrat #17712) remplace
+    l'axe par-segment par une famille metier ET borne le versement a la
+    famille : une PR par famille ne se verse jamais chez sa voisine.
     """
     floor = FLOOR if floor is None else floor
     max_files = MAX_FILES if max_files is None else max_files
     def grain_key(p):
+        if group_fn is not None:
+            return group_fn(p)
         parts = p.split("/")
         # parts[group_idx] n'est une famille que s'il existe un segment PLUS
         # PROFOND (le fichier) : un notebook pose directement sous le domaine
@@ -473,6 +563,11 @@ def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None):
         return parts[1] if len(parts) > 1 else "divers"
 
     def pour_key(p):
+        # Avec family_fn (#17712), le versement suit la famille : une poche
+        # sous plancher ne se verse JAMAIS hors de sa famille, sinon la PR
+        # melangerait deux familles — ce que le contrat interdit.
+        if group_fn is not None:
+            return group_fn(p)
         parts = p.split("/")
         return parts[pour_idx] if len(parts) > pour_idx else "divers"
 
@@ -622,9 +717,10 @@ def main():
               % (issue, len(found), len(free)))
         if not free:
             continue
-        planned = plan(free, contract["group"],
+        planned = plan(free, contract.get("group", 1),
                        floor=contract.get("floor"),
-                       max_files=contract.get("max_files"))
+                       max_files=contract.get("max_files"),
+                       group_fn=contract.get("family_fn"))
         for name, ch in sorted(planned, key=lambda x: x[0]):
             n_planned += 1
             i = len(grains) + 1

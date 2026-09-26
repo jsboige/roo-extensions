@@ -177,7 +177,7 @@ class TestDensityScanNormalization(unittest.TestCase):
 
 class TestContracts(unittest.TestCase):
     def test_registry_has_all_active_contracts(self):
-        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472])
+        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472, 17712])
 
     def test_density_contract_carries_its_own_sizing_rule(self):
         """Moule findings inapplicable (dispatch ai-01 18/09) : 13410 definit
@@ -234,8 +234,111 @@ class TestContracts(unittest.TestCase):
         file reconstruite a 121 grains dont 120 de #13410 en une nuit). Le
         defaut doit donc ne servir QUE le non-gele ; un --issue 13410
         explicite reste la voie operatoire pour lever la garde."""
-        self.assertEqual(rvq.default_issues(), [15719, 16472])
-        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472])
+        self.assertEqual(rvq.default_issues(), [15719, 16472, 17712])
+        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472, 17712])
+
+
+class TestTellcContract(unittest.TestCase):
+    """#17712, modalites ai-01 26/09 : citations "Tell c." hors .ipynb,
+    hors docs/, hors .claude/ — une PR par famille, retrait uniquement en
+    commentaire # ou docstring, fixtures/chaines/regex intouchables."""
+
+    def test_tellc_family_classification(self):
+        """Chemins mesures sur main 55e867960d : le QC vit sous
+        MyIA.AI.Notebooks/QuantConnect/ et fast_lane_registry.py sous
+        scripts/ci/ — une classification par segments n'exprime pas ces
+        familles metier."""
+        cases = {
+            "scripts/notebook_tools/detect_morphology.py": "notebook_tools",
+            "scripts/tests/test_fast_lane.py": "tests",
+            "tests/test_something.py": "tests",
+            "scripts/ci/fast_lane_registry.py": "b0-ci-organs",
+            "scripts/ci/check_hr_substitution.py": "b0-ci-organs",
+            "scripts/ci/tests/test_check_hr_substitution.py": "b0-ci-organs",
+            "scripts/check_unaddressed_nits.py": "b0-ci-organs",
+            "scripts/livecoding_video_pipeline.py": "b0-ci-organs",
+            "scripts/fallacy_detection/regenerate_argumentum_snapshot.py": "b0-ci-organs",
+            "MyIA.AI.Notebooks/QuantConnect/projects/FuturesTrend/main_carver13.py": "qc",
+            "MyIA.AI.Notebooks/QuantConnect/ML-Training-Pipeline/scripts/tests/test_hmm_regime_vol.py": "qc",
+            "MyIA.AI.Notebooks/GameTheory/cooperative_games/assistance_games.py": "notebooks-support",
+            "MyIA.AI.Notebooks/IIT/ICT-Series/ict/sae_traces.py": "notebooks-support",
+            "MyIA.AI.Notebooks/GenAI/Audio/04-Applications/v4/prosody_lab/bakeoff_large/SETUP.md": "notebooks-support",
+        }
+        for path, family in cases.items():
+            self.assertEqual(rvq.tellc_family(path), family, path)
+
+    def test_scan_tellc_excludes_ipynb_docs_claude(self):
+        raw = (
+            "scripts/notebook_tools/detect_x.py:12:# Tell c. #123\n"
+            "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb:5:Tell c. #9\n"
+            "docs/foo.md:3:Tell c. #8\n"
+            ".claude/bar.md:2:Tell c. #7\n"
+            "MyIA.AI.Notebooks/QuantConnect/q.py:40:s = \"Tell c. #11\"\n"
+        )
+        orig = rvq.sh
+        rvq.sh = lambda cmd, cwd=None, check=True: raw
+        try:
+            found = rvq.scan_tellc_citations("D:/wt")
+        finally:
+            rvq.sh = orig
+        self.assertEqual(sorted(found),
+                         ["MyIA.AI.Notebooks/QuantConnect/q.py",
+                          "scripts/notebook_tools/detect_x.py"])
+        self.assertEqual(found["scripts/notebook_tools/detect_x.py"],
+                         ["L12 # Tell c. #123"])
+
+    def test_tellc_contract_entry(self):
+        c = rvq.CONTRACTS[17712]
+        self.assertIs(c["scan"], rvq.scan_tellc_citations)
+        self.assertIs(c["family_fn"], rvq.tellc_family)
+        self.assertEqual(c["floor"], 1)
+        self.assertEqual(c["branch_prefix"], "wt/mistral-tellc-")
+        self.assertNotIn("frozen", c)
+        self.assertFalse(c["branch_prefix"].startswith("wt/vibe-"),
+                         "un prefixe wt/vibe- gele #17712 en #13410")
+
+    def test_payload_tellc_carries_contract_essentials(self):
+        p = rvq.CONTRACTS[17712]["payload"]
+        for marker in ("#17712", "docstring", "fixture", "python -m pytest",
+                       "NOOP JUSTIFIE", "CHECKPOINT-COMMIT", "Grain:", "paths:"):
+            self.assertIn(marker, p, "payload 17712 sans %r" % marker)
+        self.assertLessEqual(len(p.encode("utf-8")), 3 * 1024)
+
+    def test_plan_family_fn_groups_by_family_not_segments(self):
+        """La famille qc UNIFIE des fichiers que aucun segment ne rapproche
+        (FuturesTrend vs ML-Training-Pipeline) : si grain_key retombait sur
+        l'axe par segment, le bin se nommerait QuantConnect — pas qc. La poche
+        notebooks-support (2 < floor) reste hors file, jamais versee."""
+        free = {
+            "scripts/notebook_tools/a.py": ["f%d" % i for i in range(12)],
+            "scripts/notebook_tools/b.py": ["g%d" % i for i in range(12)],
+            "MyIA.AI.Notebooks/QuantConnect/projects/FuturesTrend/main.py":
+                ["h%d" % i for i in range(12)],
+            "MyIA.AI.Notebooks/QuantConnect/ML-Training-Pipeline/scripts/tests/test_hmm.py":
+                ["i%d" % i for i in range(12)],
+            "MyIA.AI.Notebooks/GameTheory/support.py": ["j1", "j2"],
+        }
+        bins = rvq.plan(free, floor=10, group_fn=rvq.tellc_family)
+        self.assertEqual([n for n, _ in bins], ["notebook_tools", "qc"])
+        served = {p for _, ch in bins for p in ch}
+        self.assertEqual(served, set(free) - {"MyIA.AI.Notebooks/GameTheory/support.py"})
+
+    def test_plan_group_fn_bounds_pour_to_family(self):
+        """Le versement suit family_fn : une poche sous plancher ne se verse
+        JAMAIS chez une famille voisine, meme quand leurs segments
+        coïncident — sinon la PR melangerait deux familles, interdit par les
+        modalites #17712. Fixture synthetic : a/x.py et b/x.py partagent le
+        segment[1] "x" — c'est precisement la collision que le garde doit
+        fermer."""
+        def fam(p):
+            return "A" if p.startswith("a/") else "B"
+        free = {
+            "a/x.py": ["f%d" % i for i in range(12)],
+            "b/x.py": ["g%d" % i for i in range(2)],
+        }
+        bins = rvq.plan(free, floor=10, group_fn=fam)
+        self.assertEqual([n for n, _ in bins], ["A"])
+        self.assertNotIn("b/x.py", {p for _, ch in bins for p in ch})
 
 
 if __name__ == "__main__":
