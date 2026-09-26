@@ -102,10 +102,12 @@ GH_UNRUNNABLE = -1
 # --- markers -----------------------------------------------------------------
 
 # A comment line is a claim EVENT only if it STARTS with one of these bracketed
-# markers, after optional markdown decoration (header hashes, list dash, bold).
+# markers, after optional markdown decoration (header hashes, list dash, bold,
+# inline-code backticks -- #3826: a release comment whose marker is wrapped in
+# backticks must still close the claim).
 # Line-anchored: a marker mentioned mid-sentence is prose, not an event.
 MARKER_RE = re.compile(
-    r"(?im)^#{0,6}\s*[-*]?\s*\*{0,2}\["
+    r"(?im)^#{0,6}\s*[-*]?\s*[*/`]{0,2}\["
     r"(?P<marker>CLAIMED|RELEASED|RESULT|DONE|CANCELLED|ABANDONED|DELIVERED)"
     r"\]",
 )

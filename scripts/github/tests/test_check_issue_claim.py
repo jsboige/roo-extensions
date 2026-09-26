@@ -104,6 +104,7 @@ class TestScanCommentEvents(unittest.TestCase):
             "## [CLAIMED] myia-po-2023 -- x",
             "- [CLAIMED] myia-po-2023 -- x",
             "[claimed] myia-po-2023 -- x",
+            "`[CLAIMED] myia-po-2023 -- x`",  # inline-code decoration (#3826)
         ):
             events = list(scan_comment_events(decorated))
             self.assertEqual(len(events), 1, decorated)
@@ -177,6 +178,17 @@ class TestReduceClaims(unittest.TestCase):
         state = reduce_claims(comments)
         self.assertEqual(state["myia-po-2023"]["state"], "released")
 
+    def test_backticked_done_releases_claim(self):
+        # #3826: un commentaire de libération dont le marqueur est décoré de
+        # backticks — "`[DONE] myia-po-XXXX …`" — doit fermer le claim. Rouge sur
+        # la regex pré-fix (marqueur non détecté, verrou fantôme jusqu'à --release).
+        comments = [
+            comment("[CLAIMED] myia-po-2023 -- start", T0),
+            comment("`[DONE] myia-po-2023 -- shipped`", T0 + timedelta(hours=2)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2023"]["state"], "released")
+
     def test_result_releases_only_own_machine(self):
         comments = [
             comment("[CLAIMED] myia-po-2023 -- a", T0),
@@ -192,6 +204,7 @@ class TestReduceClaims(unittest.TestCase):
             "[RESULT] myia-po-2023 -- shipped",
             "**[RESULT] myia-po-2023 -- shipped**",
             "## [RESULT] myia-po-2023 -- shipped",
+            "`[RESULT] myia-po-2023 -- shipped`",  # #3826
         ):
             events = list(scan_comment_events(body))
             self.assertEqual([e[0] for e in events], ["RESULT"], body)
