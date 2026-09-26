@@ -322,8 +322,9 @@ WScript.Quit rc
     try {
         # Sauvegarde AVANT modification (rollback exact).
         if (-not (Test-Path $item.Backup)) {
-            @{ Execute = $a.Execute; Arguments = $a.Arguments; WorkingDirectory = $a.WorkingDirectory } |
-                ConvertTo-Json | Set-Content -Path $item.Backup -Encoding utf8NoBOM
+            $backupJson = @{ Execute = $a.Execute; Arguments = $a.Arguments; WorkingDirectory = $a.WorkingDirectory } |
+                ConvertTo-Json
+            Write-Utf8NoBom -Path $item.Backup -Content $backupJson
         }
         Write-Utf8NoBom -Path $vbsPath -Content $vbs
 
