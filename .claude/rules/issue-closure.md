@@ -1,7 +1,7 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 1.4.0 (slim)
-**MAJ:** 2026-08-22
+**Version:** 1.5.0 (slim 2 — gabarit Evidence + narratives bot relocalisés, #2368)
+**MAJ:** 2026-09-26
 
 ---
 
@@ -16,7 +16,7 @@
 - Si "superseded" : remplacement couvre TOUT
 - Si "duplicate" : autre issue OUVERTE, meme scope exact
 - Si "resolved by PR" : PR MERGE (pas juste cree), couvre tout le scope
-- **Bloc Evidence** avec PR URL, commit SHA, ou user approval
+- **Bloc Evidence** avec PR URL, commit SHA, ou user approval — gabarit : doc detaillee
 - **Issue user-originated** : grille de marqueurs → si aucun marqueur agent, presumer user-originated → exiger confirmation humaine
 
 ## Hard Cap
@@ -25,44 +25,24 @@
 
 ## Bloc Evidence (OBLIGATOIRE)
 
-```markdown
-## Evidence
-- **PR merge** : URL (merged DATE)
-- **Commit** : SHA (reachable from origin/main)
-- **User approval** : comment by jsboige on DATE
-- **Obsolete** : commit SHA + grep → 0 hits
-- **Duplicate** : #MMM (ouverte, scope identique)
-```
+Toute fermeture cite sa preuve : **PR merge** (URL + date) · **commit** SHA reachable depuis origin/main · **user approval** (comment + date) · **obsolete** (SHA + grep → 0 hits) · **duplicate** (#MMM ouverte, scope identique).
 
 **Interdits :** "Resolved by recent improvements", "Superseded" sans ref, `[CLAIMED]` d'un agent.
 
 ## Fermer n'est pas fermé (#3033, #3225)
 
-Le bot de checklist **rouvre** l'issue ~4 min plus tard si des cases restent décochées. Une session
-qui rapporte « fermée » sur le retour immédiat de son action rapporte donc régulièrement du faux.
-
-**Ça vaut pour les deux chemins de fermeture — et le second est celui qu'on oublie :**
+Le bot de checklist **rouvre** l'issue ~4 min plus tard si des cases restent décochées — pour les **deux** chemins de fermeture :
 
 | Chemin | Ce qui rend « succès » tout de suite | Le bot statue |
 |---|---|---|
 | `gh issue close N` | le code de retour de la commande | ~4 min après |
 | **un merge portant `Closes #NNN`** | **le merge de la PR** | ~4 min après, pareil |
 
-Le second n'a longtemps été couvert par aucune règle. Constaté le 2026-08-22 sur **#3216** : fermée
-à 14:48Z par le merge de #3218, **rouverte à 14:52Z** par le bot. Personne n'avait fait de
-`gh issue close` — et personne n'avait coché la checklist non plus.
-
-1. **Cocher les cases AVANT** — avant le `gh issue close`, et avant le **merge** de la PR qui porte
-   `Closes #NNN`. Pas après, pas « je cocherai ensuite » : après le merge, le compte à rebours du bot
-   a déjà commencé.
+1. **Cocher les cases AVANT** — avant le `gh issue close`, et avant le **merge** de la PR qui porte `Closes #NNN`. Pas après : au merge, le compte à rebours du bot a déjà commencé.
 2. **Relire l'état ≥ 5 min APRÈS** : `gh issue view N --json state,closedAt`.
 3. Ne citer la fermeture dans un `[DONE]`, un bilan ou un décompte **qu'après** cette relecture.
 
-**Pourquoi ce n'est pas cosmétique.** Après trois réouvertures, la boucle du bot s'arrête (#1487).
-Une issue peut donc finir durablement `CLOSED` avec une **checklist vide** — l'état exact que la
-règle existe pour empêcher, atteint sans que personne n'ait rien contourné.
-
-Vaut aussi pour le décompte du hard cap : une issue rouverte par le bot n'a jamais été fermée.
+Après trois réouvertures la boucle du bot s'arrête (#1487) : une issue peut finir `CLOSED` avec checklist vide. Une issue rouverte par le bot **n'a jamais été fermée** — vaut aussi pour le décompte du hard cap.
 
 ## Interdictions
 
@@ -77,4 +57,4 @@ Vaut aussi pour le décompte du hard cap : une issue rouverte par le bot n'a jam
 
 ---
 
-**Grille marqueurs detaillee, test bash, audit /coordinate, historique :** [`docs/harness/reference/issue-closure-detailed.md`](../../docs/harness/reference/issue-closure-detailed.md)
+**Grille marqueurs, gabarit Evidence, incidents fondateurs (#3216, #1487), test bash, audit /coordinate, historique :** [`docs/harness/reference/issue-closure-detailed.md`](../../docs/harness/reference/issue-closure-detailed.md)
