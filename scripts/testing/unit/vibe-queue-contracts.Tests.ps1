@@ -29,8 +29,10 @@ Describe 'Vibe queue multi-contrats (#16472, #13410)' {
             $refresher | Should -Match '"group": 2'
         }
 
-        It 'le défaut de --issue couvre TOUS les contrats actifs (multi-détecteurs au tick)' {
-            $refresher | Should -Match 'args\.issue or sorted\(CONTRACTS\)'
+        It 'le défaut de --issue couvre les contrats NON gelés (veto #17040, fail-closed)' {
+            $refresher | Should -Match 'args\.issue or default_issues\(\)'
+            $refresher | Should -Match 'if not c\.get\("frozen"\)'
+            $refresher | Should -Not -Match 'args\.issue or sorted\(CONTRACTS\)'
         }
 
         It 'le payload #16472 porte la convention CoursIA (demote + reassessment + rebaseline)' {

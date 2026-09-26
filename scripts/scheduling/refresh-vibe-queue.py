@@ -315,8 +315,28 @@ CONTRACTS = {
             "branch_prefix": "wt/mistral-hint-"},
     13410: {"scan": scan_pedagogy_density, "payload": PAYLOAD_DENSITY,
             "group": 1, "floor": 1, "max_files": 2,
+            # Gele par veto user (#17040, 2026-09-20 ; umbrellas 13410 et
+            # 11601 definis dans CoursIA scripts/coordination/frozen_campaigns.py,
+            # lus par merge_ready et le gate d'entree). Le feeder re-mesurant
+            # la file SANS filtre, ce drapeau est ce qui empeche chaque
+            # epuisement de file de rouvrir le dispatch densite. Un --issue
+            # 13410 explicite reste possible si le veto est leve.
+            "frozen": True,
             "branch_prefix": "wt/vibe-"},
 }
+
+
+def default_issues():
+    """Contrats servis quand l'appelant n'en nomme aucun : les NON geles.
+
+    Fail-closed vis-a-vis du veto : le feeder re-mesure la file SANS filtre
+    (vibe-feeder.ps1, Invoke-QueueRefresh) des qu'elle est vide — si le
+    defaut incluait #13410, chaque epuisement de file rouvrirait
+    mecaniquement le dispatch densite sous veto (mesure 25-26/09 : file
+    reconstruite a 121 grains dont 120 de #13410, dispatches g4-g7 en une
+    nuit). Nommer le contrat explicitement reste la voie operatoire.
+    """
+    return sorted(i for i, c in CONTRACTS.items() if not c.get("frozen"))
 
 
 def open_prs(slug, issues):
@@ -557,14 +577,15 @@ def main():
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--slug", default="jsboige/CoursIA")
     ap.add_argument("--issue", type=int, action="append", default=None,
-                    help="contrat(s) a ravitailler (defaut: tous les contrats actifs)")
+                    help="contrat(s) a ravitailler (defaut: les contrats NON geles ; "
+                         "un contrat gele ne s'obtient qu'en le nommant explicitement)")
     ap.add_argument("--queue", default="outputs/vibe/feeder-queue.json")
     ap.add_argument("--scan-wt", default="D:/dev/CoursIA-vibe/_scan-queue")
     ap.add_argument("--wt-root", default="D:/dev/CoursIA-vibe")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    issues = args.issue or sorted(CONTRACTS)
+    issues = args.issue or default_issues()
 
     base = fresh_base(args.repo, args.base)
     print("base: %s | contrats: %s" % (base, ", ".join("#%d" % i for i in issues)))
