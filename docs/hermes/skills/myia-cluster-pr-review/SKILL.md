@@ -1,8 +1,9 @@
 # MyIA Cluster PR Review (reduced edition)
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Lane:** myia-po-2026:hermes-pr-review
 **Full edition:** lives on po-2026 in `~/skills/github/myia-cluster-pr-review/` — this is the reduced, publishable subset.
+**Update:** 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence).
 
 ---
 
@@ -19,6 +20,36 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 1. **Max 5 PRs per cycle, strictly sequential** (one PR fully finished before the next — no fan-out, no subagents).
 2. **Selection priority:** PRs >1000 lines OR >5 files first (bot verdict <24h required, issue #15511), then the rest.
 3. **Routes:** before scanning, read the `workspace-cluster-coordination` intercom (roosync_dashboard) and serve any pending [TASK-ROUTE]/[ROUTE] addressed to hermes-pr-review.
+
+### TIER ÂGÉ v1.1 — anti-famine par récence (#3869)
+
+**Constat mesuré 2026-09-26** : quand la file se remplit plus vite qu'elle ne se vide (6–10 entrées/15 min au pic), une PR dont l'activité se fige **ne peut structurellement jamais** entrer dans le top-2 par récence. La règle « roule au cycle suivant » suppose une file qui se vide.
+
+**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh pr list --state open --search ... --json number,createdAt --jq 'sort_by(.createdAt) | .[0]'`, sans fetch de reviews — budget scan inchangé).
+
+**Éligibilité tier (toutes conditions) :**
+
+| Condition | Critère |
+|-----------|---------|
+| (a) Âge | ≥ 6 h, mesuré sur `created_at` (**JAMAIS** `updated_at`) |
+| (b) Non couverte | 0 review ET 0 commentaire d'issue d'un non-auteur — **en excluant** les bots (`login` suffixe `[bot]`) et l'auteur de la PR |
+| (c) Hors gels | Pas de HOLD post-tag (#666), pas de dependabot (#1461 et sœurs) — gel ≠ famine |
+
+**Gardes inchangées :**
+- Backstop ≤ 2 fetches (toujours)
+- Cap ≤ 1 deep review par cycle (toujours)
+- **Slot n°1 reste récence pure** (jamais 2/2 en tier)
+- Une promue révélée couverte au fetch = SKIP normal, **pas de re-promotion ce cycle**
+- Intra-tier : la plus ancienne `created_at` d'abord
+
+**Auditabilité STATUS :** le bloc STATUS consigne `tier-âgé: #N (created …, âge …h, slot 2)` quand le slot n°2 est issu du tier.
+
+**Amendements v1.0 → v1.1 (chacun mesuré) :**
+- **(A) Pool = toutes les PRs open, pas la fenêtre 3 h** : une PR affamée sort de la fenêtre par `updated_at` figé exactement quand elle devient éligible.
+- **(B) Exclusion des gels volontaires** : promouvoir une PR gelée par décision brûlerait un slot pour du travail délibérément suspendu.
+- **(C) Exclusion des bots et de l'auteur** : sans (C), toute PR passant CI porte des commentaires `github-actions[bot]` et compte « couverte » → le tier ne peut jamais promouvoir. Mesure post-signoff v1.0 : 0 éligible sur v1.0 stricte vs 3 éligibles avec (C) au même instant.
+
+**Scope d'application host-side :** injecté dans les deux lanes de review (po-2026 cron `:23` hermes-pr-review, ai-01 cycle NanoClaw `:15`/`:45`). **Pas de geste conteneur** (leçon coquille 13/09) — la modification vit dans le prompt de sélection host-side, pas dans une image.
 
 ### Anti-spam dedup (issue #2505) — MANDATORY before any review
 
