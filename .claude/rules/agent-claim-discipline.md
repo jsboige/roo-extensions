@@ -1,6 +1,6 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 2.0.0 (slim) — locus du claim : **issue GitHub** (ADR 017, #3676)
+**Version:** 2.1.0 (slim 2 — récits fondateurs relocalisés, #2368)
 **Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue)
 
 ---
@@ -27,34 +27,21 @@
    python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
    ```
    Le check precede l'**edition**, pas le push. Pas de timestamp dans le corps du claim : le `createdAt` serveur fait foi (défaut local-time-en-Z impossible par construction). Claim sans machine identifiable = fail-closed (bloque). Péremption `--stale-threshold` (défaut 24 h) : un claim étranger périmé avertit sans bloquer, mais le nouveau claimant pose quand même son `[CLAIMED]`.
-   **Depot (#3768) :** `--repo` n'a plus de defaut fige. Absent, le guard classe le numero dans les **deux** depots (cle `pull_request` de l'API REST) : un seul le porte comme issue -> resolu ; les deux -> **`AMBIGUOUS`, exit 3**, desambiguisation exigee ; **un seul depot injoignable -> exit 2**, il refuse au lieu de resoudre vers celui qui a repondu. Il ne devine jamais, **y compris quand la mesure echoue**, parce qu'un mauvais choix ne rate pas en silence : il **pose le verrou sur l'autre depot** et laisse le vrai grain libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien rendu » n'est jamais « il n'y a rien », et la flotte rencontre cette limite aux heures actives. Mesure du 21/09 : `check_issue_claim.py 980` rendait `BLOCKED: MERGED` en lisant la **PR parent** #980 quand l'issue submod #980 etait OPEN.
+   **Depot (#3768) :** `--repo` n'a plus de defaut fige. Absent, le guard classe le numero dans les **deux** depots (cle `pull_request` de l'API REST) : un seul le porte comme issue -> resolu ; les deux -> **`AMBIGUOUS`, exit 3**, desambiguisation exigee ; **un seul depot injoignable -> exit 2**, il refuse au lieu de resoudre vers celui qui a repondu. Il ne devine jamais, **y compris quand la mesure echoue** : un mauvais choix **pose le verrou sur l'autre depot** et laisse le vrai grain libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien rendu » n'est jamais « il n'y a rien ». (Mesures fondatrices : doc detaillee.)
 3. **Narration dashboard (bienvenue, non autoritaire)** : `roosync_dashboard(action: "append", tags: ["CLAIMED"], content: "#NNN — myia-poXXXX commencing work")` — le récit de cycle reste sur le dashboard ; le **registre de verrous** est le commentaire d'issue.
 4. **Tie-break (HARD)** : un claim-issue **prime sur un claim-dashboard, même antérieur** — un seul locus fait foi (incident CoursIA #10169 : 12 min d'avance perdues sur deux locus concurrents).
 5. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` **sur l'issue** (createdAt serveur) prime.
 6. **Levier du verrou** : `--release` ou commentaire `[DONE] <machine>` quand la PR atterrit.
 
-**Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
-
-**Pourquoi le locus a demenage (v2.0, #3676)** : le claim-dashboard est silo par lane, condense a 92 % par auto-condensation, et melange heure locale/UTC ; pendant l'outage GDrive du 16/08 (PR #3155) tout l'organe claim est tombe avec le dashboard (SPOF) tandis que CoursIA (claims sur issue) conservait verrous, pool et merges. Detail : [ADR 017](../../docs/harness/adr/017-issue-claim-locus.md).
-
 ## Pre-Delivery Discipline (#3224) — le claim garde le DEPART, pas la LIVRAISON
 
-La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le reverifie **avant de
-livrer** — or c'est entre les deux que l'etat change.
+La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le reverifie **avant de livrer** — or c'est entre les deux que l'etat change.
 
 **Avant `gh pr create`, relire le dashboard workspace FRAIS** (`action: "read"`, `section: "intercom"`) **et re-checker l'issue** (`python scripts/github/check_issue_claim.py NNN`) :
 
 1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
 2. Une PR concurrente est-elle apparue depuis ? Un claim-issue concurrent a-t-il ete pose depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
-3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja
-   ecrit ». Du travail jete coute moins cher qu'une collision a demeler.
-
-**Incident fondateur (2026-08-22, #1025/#1026)** : web1 a livre #1026 a 15:15Z alors qu'un `[REPLY]`
-STOP avait ete poste a 15:00Z — quinze minutes plus tot, sur le canal qu'elle avait lu au depart et
-plus jamais depuis. En parallele, le claim concurrent de po-2025 citait un etat web1 vieux de 2h30.
-
-**La lecture au depart n'est pas une lecture a la livraison.** Un dashboard lu il y a deux heures est
-une photographie, pas un etat.
+3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler. **La lecture au depart n'est pas une lecture a la livraison** (incident fondateur #1025/#1026 : doc detaillee).
 
 ## Discipline requise — Pour l'agent qui rapporte
 
@@ -74,6 +61,6 @@ une photographie, pas un etat.
 
 ---
 
-**Garde-fous harness (worker scripts, spawn/poll, sanctions) :** [`docs/harness/reference/agent-claim-discipline-detailed.md`](../../docs/harness/reference/agent-claim-discipline-detailed.md)
+**Garde-fous harness (worker scripts, spawn/poll, sanctions), récits fondateurs (coût cycle 22ter, locus v2.0/#3676, incident #1025/#1026, mesure #980 du 21/09), ADR 017 :** [`agent-claim-discipline-detailed.md`](../../docs/harness/reference/agent-claim-discipline-detailed.md) · [`ADR 017`](../../docs/harness/adr/017-issue-claim-locus.md)
 
 **Principe condense** : *"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse."*
