@@ -3,7 +3,7 @@
 **Version:** 1.1.0
 **Lane:** myia-po-2026:hermes-pr-review
 **Full edition:** lives on po-2026 in `~/skills/github/myia-cluster-pr-review/` — this is the reduced, publishable subset.
-**Update:** 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence).
+**Update:** 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence) + pli C-bis (marqueurs de lane sous login auteur = couverture, convergence Hermes+NanoClaw 06:22Z).
 
 ---
 
@@ -32,7 +32,7 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 | Condition | Critère |
 |-----------|---------|
 | (a) Âge | ≥ 6 h, mesuré sur `created_at` (**JAMAIS** `updated_at`) |
-| (b) Non couverte | 0 review ET 0 commentaire d'issue d'un non-auteur — **en excluant** les bots (`login` suffixe `[bot]`) et l'auteur de la PR |
+| (b) Non couverte | 0 review ET 0 commentaire d'issue d'un non-auteur — **en excluant** les bots (`login` suffixe `[bot]`) et l'auteur de la PR, **SAUF** si le corps porte un marqueur de lane (`[adjoint`, `[NanoClaw`, `[Hermes`, `[OVERRIDE]`) = couverture à part entière (C-bis) |
 | (c) Hors gels | Pas de HOLD post-tag (#666), pas de dependabot (#1461 et sœurs) — gel ≠ famine |
 
 **Gardes inchangées :**
@@ -48,6 +48,7 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 - **(A) Pool = toutes les PRs open, pas la fenêtre 3 h** : une PR affamée sort de la fenêtre par `updated_at` figé exactement quand elle devient éligible.
 - **(B) Exclusion des gels volontaires** : promouvoir une PR gelée par décision brûlerait un slot pour du travail délibérément suspendu.
 - **(C) Exclusion des bots et de l'auteur** : sans (C), toute PR passant CI porte des commentaires `github-actions[bot]` et compte « couverte » → le tier ne peut jamais promouvoir. Mesure post-signoff v1.0 : 0 éligible sur v1.0 stricte vs 3 éligibles avec (C) au même instant.
+- **(C-bis, NanoClaw 06:22Z)** Les marqueurs de lane sous le login de l'auteur comptent comme couverture : une review/commentaire portant `[adjoint`, `[NanoClaw`, `[Hermes` ou `[OVERRIDE]` est une passe de lane même si son login est celui de l'auteur (routage token : lanes ≈ `clusterManager-Myia` / `jsboige`). Sans (C-bis), (C) re-déclarerait découvertes des PRs déjà revues par une lane (mesuré : #16029, #16038, #17562).
 
 **Scope d'application host-side :** injecté dans les deux lanes de review (po-2026 cron `:23` hermes-pr-review, ai-01 cycle NanoClaw `:15`/`:45`). **Pas de geste conteneur** (leçon coquille 13/09) — la modification vit dans le prompt de sélection host-side, pas dans une image.
 
