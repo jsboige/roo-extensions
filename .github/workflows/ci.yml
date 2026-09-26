@@ -76,6 +76,12 @@ on:
       # (Scoped to the guarded directory, not scripts/**: widening every push trigger to
       # the whole tree is a CI-budget decision, not a portability fix.)
       - 'scripts/github/**'
+      # #3878 follow-up: the python unit tests in scripts/testing/python/ (43
+      # tests over refresh-vibe-queue.py, #3881) now run in the
+      # scheduling-harness job; without this path a change to them or their
+      # production script's siblings re-runs nothing. scripts/scheduling/**
+      # already covers the production script itself.
+      - 'scripts/testing/python/**'
       # #3410: the sk-agent-inventory job below runs generate_inventory.py --check
       # against these two docs. The counts in them had drifted from the template
       # config for months precisely because no path here matched -- a doc edit
@@ -371,6 +377,23 @@ jobs:
       - name: Run vibe idle-picker worktree harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-idle-worktree.ps1
+
+      # #3878 follow-up (dispatch ai-01 26/09): scripts/github/tests/ -- 53 unit
+      # tests over check_issue_claim.py, the fleet's anti-collision organ -- ran
+      # NOWHERE in CI. Same hole as every harness above, one directory over:
+      # the marker/decoration/reduce logic evolved through #3826 and #3878 with
+      # only local runs as a net. Pure stdlib unittest, fully mocked
+      # (fetch_issue/_gh_exec/subprocess.run all patched), zero network, so it
+      # sits in this static job. scripts/testing/python/ (43 tests over
+      # refresh-vibe-queue.py, delivered #3881) had the identical hole and joins
+      # the same step; its trigger path joins the filter below (scripts/github/**
+      # and scripts/scheduling/** are already triggers, which is why these test
+      # files kept evolving while nothing executed them).
+      - name: Run python unit tests (claim discipline + vibe queue)
+        shell: bash
+        run: |
+          python3 -m unittest discover -s scripts/github/tests
+          python3 -m unittest discover -s scripts/testing/python
 
   # #3834 (follow-up deferred from #3835): test-rotate-scheduling-logs.ps1
   # exercises the REAL rotate script through powershell.exe — Windows

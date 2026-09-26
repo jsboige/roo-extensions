@@ -106,6 +106,16 @@ GH_UNRUNNABLE = -1
 # inline-code backticks -- #3826: a release comment whose marker is wrapped in
 # backticks must still close the claim).
 # Line-anchored: a marker mentioned mid-sentence is prose, not an event.
+#
+# ACCEPTED RESIDUAL (#3878 follow-up): a backticked marker that starts a line
+# of its own inside a QUOTATION (a fenced example block, or a quoted reply
+# where the quote marker was stripped and the line rejoins column 0) is
+# indistinguishable from a real event -- the line anchor cannot see quoting
+# context. Tolerated because the false direction is a RELEASE (cost: one
+# re-claim race, bounded by the pre-claim check), while excluding backticks
+# entirely would drop REAL release comments again (#3826). Mitigation, such
+# as it is: the machine token still has to resolve (extract_machine), so a
+# quote naming no machine stays inert.
 MARKER_RE = re.compile(
     r"(?im)^#{0,6}\s*[-*]?\s*[*/`]{0,2}\["
     r"(?P<marker>CLAIMED|RELEASED|RESULT|DONE|CANCELLED|ABANDONED|DELIVERED)"
