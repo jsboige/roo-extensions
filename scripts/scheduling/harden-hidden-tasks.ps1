@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Rend REELLEMENT invisibles les fenetres des taches planifiees (fin du flash conhost).
 
@@ -50,12 +50,12 @@
     Repertoire des VBS generes et des sauvegardes. Defaut : C:\ProgramData\claude-hidden-launchers
 
 .EXAMPLE
-    pwsh -File scripts\scheduling\harden-hidden-tasks.ps1 -DryRun
+    powershell.exe -ExecutionPolicy Bypass -File scripts\scheduling\harden-hidden-tasks.ps1 -DryRun
     Affiche ce qui serait modifie, sans rien changer -- et audite les lanceurs deja durcis
     (cibles perimees), ce qui en fait le mode de controle a lancer apres une migration de depot.
 
 .EXAMPLE
-    pwsh -File scripts\scheduling\harden-hidden-tasks.ps1
+    powershell.exe -ExecutionPolicy Bypass -File scripts\scheduling\harden-hidden-tasks.ps1
     Applique. Les taches RunLevel=Highest sont ignorees si la session n'est pas elevee
     (elles sont listees en fin de rapport avec la commande a rejouer en admin).
 
@@ -271,8 +271,13 @@ foreach ($item in $plan) {
 
     if ($Rollback) {
         $orig = Get-Content $item.Backup -Raw | ConvertFrom-Json
-        $newAction = New-ScheduledTaskAction -Execute $orig.Execute -Argument $orig.Arguments `
-                        -WorkingDirectory ([string]::IsNullOrWhiteSpace($orig.WorkingDirectory) ? $null : $orig.WorkingDirectory)
+        # Splat : -WorkingDirectory omis quand null/vide (equivalent du ternaire PS7,
+        # inexistant en PS 5.1 — le fichier doit rester parsable par les deux moteurs).
+        $actionSplat = @{ Execute = $orig.Execute; Argument = $orig.Arguments }
+        if (-not [string]::IsNullOrWhiteSpace($orig.WorkingDirectory)) {
+            $actionSplat.WorkingDirectory = $orig.WorkingDirectory
+        }
+        $newAction = New-ScheduledTaskAction @actionSplat
         if ($DryRun) {
             Write-Host ("[DRY] rollback {0} -> {1} {2}" -f $t.TaskName, $orig.Execute, $orig.Arguments)
         } else {
@@ -317,8 +322,9 @@ WScript.Quit rc
     try {
         # Sauvegarde AVANT modification (rollback exact).
         if (-not (Test-Path $item.Backup)) {
-            @{ Execute = $a.Execute; Arguments = $a.Arguments; WorkingDirectory = $a.WorkingDirectory } |
-                ConvertTo-Json | Set-Content -Path $item.Backup -Encoding utf8NoBOM
+            $backupJson = @{ Execute = $a.Execute; Arguments = $a.Arguments; WorkingDirectory = $a.WorkingDirectory } |
+                ConvertTo-Json
+            Write-Utf8NoBom -Path $item.Backup -Content $backupJson
         }
         Write-Utf8NoBom -Path $vbsPath -Content $vbs
 
@@ -354,7 +360,7 @@ if ($needElevation) {
     $needElevation | ForEach-Object { Write-Host ("  - {0}" -f $_) -ForegroundColor Yellow }
     Write-Host ""
     Write-Host "  Rejouer dans un terminal ADMIN :" -ForegroundColor Yellow
-    Write-Host ("  pwsh -File `"{0}`"" -f $PSCommandPath) -ForegroundColor Yellow
+    Write-Host ("  powershell.exe -ExecutionPolicy Bypass -File `"{0}`"" -f $PSCommandPath) -ForegroundColor Yellow
 }
 
 Write-LauncherAudit -Findings $staleLaunchers -Examined $wsTasks.Count -Read $launchersRead
