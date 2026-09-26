@@ -227,6 +227,16 @@ class TestContracts(unittest.TestCase):
                 rvq.CONTRACTS[i]["branch_prefix"].startswith("wt/vibe-"),
                 "contrat #%d : un prefixe wt/vibe- le gele en #13410" % i)
 
+    def test_default_issue_selection_excludes_the_frozen_contract(self):
+        """Le feeder re-mesure la file SANS filtre des qu'elle est vide. Si le
+        defaut incluait le contrat gele, chaque epuisement de file rouvrirait
+        mecaniquement le dispatch densite sous veto #17040 (mesure 25-26/09 :
+        file reconstruite a 121 grains dont 120 de #13410 en une nuit). Le
+        defaut doit donc ne servir QUE le non-gele ; un --issue 13410
+        explicite reste la voie operatoire pour lever la garde."""
+        self.assertEqual(rvq.default_issues(), [15719, 16472])
+        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472])
+
 
 if __name__ == "__main__":
     unittest.main()
