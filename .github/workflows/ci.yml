@@ -55,6 +55,20 @@ on:
       - 'roo-config/scripts/Sync-AlwaysAllow.ps1'
       - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
+      # Plan Marshall (audit 27/09): the marshall-scripts-pester job below runs
+      # five Pester suites that execute the REAL scripts as powershell.exe 5.1
+      # children — each guarded script AND its suite must re-trigger it on main
+      # pushes (same principle as above; #3902/#3903/#3906/#3907).
+      - 'scripts/roosync/migrate-roosync-storage.ps1'
+      - 'scripts/roosync/migrate-roosync-storage.Tests.ps1'
+      - 'scripts/maintenance/maintenance-workflow.ps1'
+      - 'scripts/maintenance/maintenance-workflow.Tests.ps1'
+      - 'scripts/maintenance/cleanup-untitled-tasks.ps1'
+      - 'scripts/maintenance/cleanup-untitled-tasks.Tests.ps1'
+      - 'scripts/maintenance/classify-claude-sessions.py'
+      - 'scripts/gdrive/purge-shared-state-artifacts.ps1'
+      - 'scripts/gdrive/purge-shared-state-artifacts.Tests.ps1'
+      - 'scripts/claude/worktree-cleanup.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
@@ -413,6 +427,40 @@ jobs:
       - name: Run rotate-scheduling-logs test suite
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduling/test-rotate-scheduling-logs.ps1
+
+  # Plan Marshall scripts (audit 27/09, remark Hermes): five Pester suites —
+  # #3902 migrate-roosync-storage, #3903 maintenance-workflow, #3906
+  # worktree-cleanup, #3907 cleanup-untitled-tasks and
+  # purge-shared-state-artifacts — execute the REAL destructive-path scripts
+  # as powershell.exe 5.1 children on disposable fixtures (git sandbox, gh
+  # shims, APPDATA redirection, stdin-driven menu). PS 5.1 is an explicit
+  # acceptance criterion (the fleet runs 5.1, pwsh is absent on part of it),
+  # same reason as scheduling-rotate-harness above, hence windows-latest. No
+  # network, no GDrive, no schtask. #3908's check-disk-free.Tests.ps1 joins
+  # this job at its merge.
+  marshall-scripts-pester:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -Force -Scope CurrentUser
+      - name: Run migrate-roosync-storage suite (#3902)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/roosync/migrate-roosync-storage.Tests.ps1 -CI
+      - name: Run maintenance-workflow suite (#3903)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/maintenance/maintenance-workflow.Tests.ps1 -CI
+      - name: Run worktree-cleanup suite (#3906)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/claude/worktree-cleanup.Tests.ps1 -CI
+      - name: Run cleanup-untitled-tasks suite (#3907)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/maintenance/cleanup-untitled-tasks.Tests.ps1 -CI
+      - name: Run purge-shared-state-artifacts suite (#3907)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/purge-shared-state-artifacts.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
