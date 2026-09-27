@@ -17,6 +17,15 @@
 # Author: Claude Code (myia-po-2025)
 # Issue: #856, #1076, #2772 (submodule deletion guard)
 # Usage: worktree-cleanup.ps1 [-WhatIf] [-Force] [-Remote] [-SkipRemote]
+#
+# Sécurité (audit 27/09, dispatch ai-01 16:05Z — aligné sur worktree-lifecycle.md) :
+#   - `git branch -D` n'est accordé qu'avec preuve de livraison : PR MERGED lue via gh
+#     (le squash-merge casse l'ascendance, -d refuse même un travail livré). Une branche
+#     jamais poussée part par `-d` : git lui-même refuse tout commit non contenu dans HEAD.
+#   - `git gc` tourne SANS `--prune=now` : le reflog garde une fenêtre de récupération.
+#   - Les branches distantes sans PR ne sont plus supprimées (worker-* compris).
+#   - Un dossier orphelin sale (git dirty, état git illisible, ou fichiers sans marqueur)
+#     est REFUSÉ — seul un husk vide part.
 
 [CmdletBinding()]
 param(
@@ -189,6 +198,33 @@ function Remove-OrphanWorktreeDir {
         return
     }
 
+    # Dirty-content guard (worktree-lifecycle.md : « Sale ≠ orphelin »). Un dossier
+    # dé-régistré peut encore porter du travail non commité : on refuse tout ce que git
+    # rapporte sale, tout état git illisible (fail-safe vers la préservation), et tout
+    # dossier sans marqueur qui contient encore des fichiers — la suppression automatique
+    # est réservée aux husks prouvés vides.
+    if (Test-Path (Join-Path $Path ".git")) {
+        $status = git -C $Path status --porcelain 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Err "REFUSED (dirty-guard): git state unreadable for $Path — manual review"
+            Write-Info "  Nothing deleted for this target."
+            return
+        }
+        if ($status) {
+            Write-Err "REFUSED (dirty-guard): $Path has uncommitted changes — manual review"
+            Write-Info "  Nothing deleted for this target."
+            return
+        }
+    }
+    else {
+        $fileCount = @(Get-ChildItem -Path $Path -Recurse -File -Force -ErrorAction SilentlyContinue).Count
+        if ($fileCount -gt 0) {
+            Write-Err "REFUSED (dirty-guard): $Path has no git marker but contains $fileCount file(s) — manual review"
+            Write-Info "  Nothing deleted for this target."
+            return
+        }
+    }
+
     if ($WhatIf) {
         Write-Info "[WHATIF] Would remove: $Path"
         return
@@ -253,26 +289,72 @@ function Remove-OrphanWorktreeDir {
     Write-Info "  Manual cleanup: Close VS Code, then: cmd /c 'rmdir /s /q `"$Path`"'"
 }
 
-# Delete stale branch
+# Delete stale branch — l'état de PR tranche, pas l'ascendance (worktree-lifecycle.md).
+# `-D` (force) n'est accordé QUE sur preuve de livraison : PR MERGED lue via gh — le
+# squash-merge casse l'ascendance, `-d` refuse même un travail livré. Une branche jamais
+# poussée part par `-d` : git lui-même refuse tout commit non contenu dans HEAD/upstream.
+# Tout le reste (OPEN, CLOSED, NO-PR, gh muet) est KEPT — une panne d'instrument doit
+# échouer côté préservation, jamais côté suppression.
 function Remove-StaleBranch {
     param([string]$BranchName, [bool]$WhatIf)
 
     if ($WhatIf) {
-        Write-Info "[WHATIF] Would delete branch: $BranchName"
+        Write-Info "[WHATIF] Would delete branch: $BranchName (after PR-state guard)"
         return
     }
 
-    try {
-        git branch -D $BranchName 2>$null
+    $remoteRef = git branch -r --list "origin/$BranchName" 2>$null | Where-Object { $_ }
+    if (-not $remoteRef) {
+        # try/catch obligatoire (classe #3731, cf. l.366) : sous EAP=Stop, le stderr
+        # d'un refus `-d` (« not fully merged ») devient NativeCommandError TERMINANT
+        # avant le check $LASTEXITCODE — sans le catch, le refus de git tuait le run.
+        try {
+            git branch -d $BranchName 2>$null
+        }
+        catch { }
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "Deleted branch: $BranchName"
+            Write-Success "Deleted branch (never pushed, contained in HEAD): $BranchName"
         }
         else {
-            Write-Warn "Could not delete branch $BranchName (may have unmerged changes)"
+            Write-Warn "KEPT $BranchName — never pushed AND has own commits — manual review"
+        }
+        return
+    }
+
+    $prInfo = $null
+    try {
+        $prInfo = gh pr list --repo jsboige/roo-extensions --head $BranchName --state all --json number,state --limit 1 2>$null
+    }
+    catch { }
+    if ($LASTEXITCODE -ne 0 -or -not $prInfo) {
+        Write-Warn "KEPT $BranchName — gh unavailable or empty answer (fail-safe) — manual review"
+        return
+    }
+    $prState = "NO-PR"
+    $prNumber = ""
+    try {
+        $parsed = $prInfo | ConvertFrom-Json
+        if ($parsed) {
+            $prState = $parsed[0].state
+            $prNumber = $parsed[0].number
         }
     }
-    catch {
-        Write-Err "Failed to delete branch $BranchName : $_"
+    catch { }
+
+    if ($prState -eq "MERGED") {
+        try {
+            git branch -D $BranchName 2>$null
+        }
+        catch { }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Deleted branch (PR #$prNumber MERGED): $BranchName"
+        }
+        else {
+            Write-Warn "Could not delete branch $BranchName despite MERGED proof"
+        }
+    }
+    else {
+        Write-Warn "KEPT $BranchName — pushed, PR state: $prState (only MERGED is deletable)"
     }
 }
 
@@ -311,7 +393,8 @@ function Get-RemoteWtBranches {
     return $branches
 }
 
-# Delete dead remote branches (MERGED, CLOSED, or NO-PR worker artifacts)
+# Delete dead remote branches — uniquement sur preuve de PR terminée (MERGED ou CLOSED).
+# Sans PR : jamais supprimé (manual review), worker-* compris (dispatch 16:05Z).
 function Remove-DeadRemoteBranches {
     param([bool]$WhatIf)
 
@@ -346,15 +429,13 @@ function Remove-DeadRemoteBranches {
                 $shouldDelete = $true
             }
             default {
-                # NO-PR branch — delete if it's a worker artifact (wt/worker-*)
-                if ($branch.Name -match '^worker-') {
-                    $reason = "NO-PR worker artifact"
-                    $shouldDelete = $true
-                }
-                else {
-                    $reason = "NO-PR (manual review)"
-                    $shouldDelete = $false
-                }
+                # NO-PR — jamais de suppression distante sans preuve de PR (dispatch
+                # 16:05Z : si la branche locale a déjà sauté, plus aucune copie ne
+                # subsisterait). L'ancienne règle qui supprimait les artefacts worker
+                # sans PR était de plus du code mort : les noms listés sont
+                # `wt/worker-*`, jamais `worker-*` — ce filtre ne matchait rien.
+                $reason = "NO-PR (manual review)"
+                $shouldDelete = $false
             }
         }
 
@@ -485,11 +566,12 @@ function Invoke-WorktreeCleanup {
     else {
         Write-Success "Cleanup complete: $cleanedOrphans directories, $cleanedBranches branches"
 
-        # Run git gc if cleanup happened
+        # Run git gc if cleanup happened — SANS --prune=now : le reflog garde une
+        # fenêtre de récupération sur ce qui vient d'être supprimé (dispatch 16:05Z).
         if ($cleanedOrphans -gt 0 -or $cleanedBranches -gt 0) {
             Write-Host ""
-            Write-Info "Running git gc --prune=now..."
-            git gc --prune=now 2>$null
+            Write-Info "Running git gc (default prune window kept)..."
+            git gc 2>$null
             if ($LASTEXITCODE -eq 0) {
                 Write-Success "git gc completed"
             }
