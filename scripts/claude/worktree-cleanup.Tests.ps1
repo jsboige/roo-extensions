@@ -196,6 +196,28 @@ Describe 'worktree-cleanup safety guards' {
         $out | Should -Match 'REFUSED \(dirty-guard\): .*stray-files has no git marker but contains 1 file'
     }
 
+    It 'orphelin .git pendant (gitdir disparu) → REFUSED, la suite continue (follow-up #3906)' {
+        $f = New-CleanupFixture
+        $script:Fixtures.Add($f)
+        $pendant = Join-Path $f '.claude\worktrees\pendant-git'
+        New-Item -ItemType Directory -Path $pendant -Force | Out-Null
+        # .git FICHIER pointant vers un gitdir inexistant : git status sort en
+        # fatal 128 — sans try/catch (classe #3731), erreur terminante qui tuait
+        # le script au lieu d'être REFUSED.
+        Set-Content (Join-Path $pendant '.git') ("gitdir: " + (Join-Path $f 'gone-repo' '.git')) -Encoding ASCII
+        # Deuxième cible saine APRÈS la pendante (ordre alpha) : prouve que le
+        # REFUSED n'arrête pas la suite.
+        $husk = Join-Path $f '.claude\worktrees\zz-empty-husk'
+        New-Item -ItemType Directory -Path $husk -Force | Out-Null
+
+        $out = Invoke-CleanupChild -Fixture $f
+
+        Test-Path $pendant | Should -BeTrue
+        $out | Should -Match 'REFUSED \(dirty-guard\): git state unreadable .*pendant-git'
+        Test-Path $husk | Should -BeFalse
+        $out | Should -Match 'Removed orphan directory: .*zz-empty-husk'
+    }
+
     It 'statique : plus de git gc --prune=now ni de règle NO-PR worker dans la source' {
         $src = Get-Content $script:SourceScript -Raw
         # Forme COMMANDE uniquement : les commentaires de rationale citent le littéral

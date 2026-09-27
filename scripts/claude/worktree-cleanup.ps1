@@ -204,8 +204,14 @@ function Remove-OrphanWorktreeDir {
     # dossier sans marqueur qui contient encore des fichiers — la suppression automatique
     # est réservée aux husks prouvés vides.
     if (Test-Path (Join-Path $Path ".git")) {
-        $status = git -C $Path status --porcelain 2>$null
-        if ($LASTEXITCODE -ne 0) {
+        # try/catch (classe #3731, follow-up #3906 review ai-01) : sous EAP=Stop,
+        # un git qui echoue avec 2>$null est une erreur TERMINANTE AVANT le test
+        # de $LASTEXITCODE — un .git pendant (gitdir disparu) tuait le script au
+        # lieu d'etre REFUSED avec la suite qui continue.
+        $status = $null
+        $unreadable = $false
+        try { $status = git -C $Path status --porcelain 2>$null } catch { $unreadable = $true }
+        if ($unreadable -or $LASTEXITCODE -ne 0) {
             Write-Err "REFUSED (dirty-guard): git state unreadable for $Path — manual review"
             Write-Info "  Nothing deleted for this target."
             return

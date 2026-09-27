@@ -119,9 +119,18 @@ if (-not $Execute -or $DryRun) {
             if ($ok) { $moved++ } else { $failed++ }
         }
         # Coque vide prouvee (0 fichier restant) : retrait autorise ; sinon KEPT.
+        # Recomptage a l'instant du geste (follow-up #3907 review ai-01) :
+        # l'enum initiale a pu mentir par omission, ou un fichier est ne entre
+        # les deux — la coquille ne part que sur enumeration reussie ET vide.
         if ($failed -eq 0) {
-            Remove-Item -Path $task -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "  Quarantined ($moved files): $task" -ForegroundColor Green
+            $remaining = -1
+            try { $remaining = @(Get-ChildItem -Path $task -Recurse -File -Force -ErrorAction Stop).Count } catch { }
+            if ($remaining -ne 0) {
+                Write-Host "  PARTIAL ($moved moved, husk not provably empty — $remaining file(s)) : $task — manual review" -ForegroundColor Yellow
+            } else {
+                Remove-Item -Path $task -Recurse -Force -ErrorAction SilentlyContinue
+                Write-Host "  Quarantined ($moved files): $task" -ForegroundColor Green
+            }
         } else {
             Write-Host "  PARTIAL ($moved moved, $failed left in place): $task — manual review" -ForegroundColor Yellow
         }

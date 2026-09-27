@@ -122,4 +122,13 @@ Describe 'cleanup-untitled-tasks — DryRun par défaut + quarantaine (child pow
         Test-Path $fx.Legit | Should -BeTrue
         (Get-ChildItem (Join-Path $fx.Legit '*')).Count | Should -Be 1
     }
+
+    It 'statique : retrait de coquille gate par recomptage (follow-up #3907)' {
+        # La branche TOCTOU (fichier né entre enum et retrait) n'est pas
+        # hookable de l'extérieur — on garde au minimum le verrou statique :
+        # Remove-Item du dossier ne peut plus exister sans le recomptage.
+        $src = Get-Content $script:SourceScript -Raw
+        $src | Should -Match 'husk not provably empty'
+        $src | Should -Match '\$remaining -ne 0'
+    }
 }
