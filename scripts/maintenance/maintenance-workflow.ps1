@@ -1,4 +1,4 @@
-# =========================================================
+﻿# =========================================================
 # Script: maintenance-workflow.ps1
 # =========================================================
 # Description:
@@ -32,7 +32,10 @@ function Write-ColorOutput {
     
     $originalColor = $host.UI.RawUI.ForegroundColor
     $host.UI.RawUI.ForegroundColor = $ForegroundColor
-    Write-Output $Message
+    # Write-Host et non Write-Output : un Write-Output ici pollue le pipeline des fonctions
+    # appelantes (Show-MainMenu etait capture dans $choice = un array de messages + le choix,
+    # le switch iterait dessus et le menu ne s'affichait jamais — bug constate a l'audit 27/09).
+    Write-Host $Message
     $host.UI.RawUI.ForegroundColor = $originalColor
 }
 
@@ -567,7 +570,7 @@ function Manage-Backups {
     # Étape 2: Choisir l'action
     Write-ColorOutput "`nChoisissez une action :" "Yellow"
     Write-ColorOutput "1. Restaurer une sauvegarde" "White"
-    Write-ColorOutput "2. Nettoyer les anciennes sauvegardes" "White"
+    Write-ColorOutput "2. Nettoyer les anciennes sauvegardes (mise en quarantaine)" "White"
     Write-ColorOutput "3. Créer une sauvegarde manuelle" "White"
     Write-ColorOutput "4. Annuler" "White"
     
@@ -601,6 +604,13 @@ function Manage-Backups {
                 $confirm = Read-Host "Êtes-vous sûr de vouloir restaurer cette sauvegarde vers $originalPath ? (O/N)"
                 
                 if ($confirm -eq "O" -or $confirm -eq "o") {
+                    # Quarantaine (audit 27/09) : archiver le fichier COURANT avant l'écrasement —
+                    # une restauration ne doit jamais être le dernier geste sur le contenu en place.
+                    if (Test-Path -LiteralPath $originalPath) {
+                        $preRestore = Join-Path $backupsDir ("{0}.pre-restore-{1}.bak" -f (Split-Path -Leaf $originalPath), (Get-Date -Format 'yyyyMMdd-HHmmss'))
+                        Copy-Item -Path $originalPath -Destination $preRestore -Force
+                        Write-ColorOutput "Fichier courant archivé avant restauration : $preRestore" "Yellow"
+                    }
                     Copy-Item -Path $backupPath -Destination $originalPath -Force
                     Write-ColorOutput "Sauvegarde restaurée avec succès vers $originalPath" "Green"
                 } else {
@@ -638,25 +648,33 @@ function Manage-Backups {
             }
             
             if ($cleanChoice -eq "4") {
-                $confirm = Read-Host "Êtes-vous sûr de vouloir supprimer TOUTES les sauvegardes ? (O/N)"
-                
+                $confirm = Read-Host "Êtes-vous sûr de vouloir mettre TOUTES les sauvegardes en quarantaine ? (O/N)"
+
                 if ($confirm -eq "O" -or $confirm -eq "o") {
-                    Get-ChildItem -Path $backupsDir -Filter "*.bak" | Remove-Item -Force
-                    Write-ColorOutput "Toutes les sauvegardes ont été supprimées." "Green"
+                    # Quarantaine (audit 27/09) : jamais de suppression directe — les .bak partent
+                    # dans backups/_trash-<timestamp>/, suppression définitive = geste manuel explicite.
+                    $trashDir = Join-Path $backupsDir ("_trash-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+                    New-Item -ItemType Directory -Path $trashDir -Force | Out-Null
+                    Get-ChildItem -Path $backupsDir -Filter "*.bak" | Move-Item -Destination $trashDir -Force
+                    Write-ColorOutput "Toutes les sauvegardes ont été déplacées en quarantaine : $trashDir" "Green"
+                    Write-ColorOutput "Pour les supprimer définitivement : inspectez puis supprimez $trashDir" "Yellow"
                 } else {
                     Write-ColorOutput "Nettoyage annulé." "Yellow"
                 }
             } else {
                 $oldBackups = Get-ChildItem -Path $backupsDir -Filter "*.bak" | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$daysToKeep) }
-                
+
                 if ($oldBackups.Count -eq 0) {
                     Write-ColorOutput "Aucune sauvegarde plus ancienne que $daysToKeep jours trouvée." "Yellow"
                 } else {
-                    $confirm = Read-Host "Êtes-vous sûr de vouloir supprimer $($oldBackups.Count) sauvegardes plus anciennes que $daysToKeep jours ? (O/N)"
-                    
+                    $confirm = Read-Host "Êtes-vous sûr de vouloir mettre en quarantaine $($oldBackups.Count) sauvegardes plus anciennes que $daysToKeep jours ? (O/N)"
+
                     if ($confirm -eq "O" -or $confirm -eq "o") {
-                        $oldBackups | Remove-Item -Force
-                        Write-ColorOutput "$($oldBackups.Count) sauvegardes ont été supprimées." "Green"
+                        # Quarantaine (audit 27/09) : déplacement, pas Remove-Item.
+                        $trashDir = Join-Path $backupsDir ("_trash-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+                        New-Item -ItemType Directory -Path $trashDir -Force | Out-Null
+                        $oldBackups | Move-Item -Destination $trashDir -Force
+                        Write-ColorOutput "$($oldBackups.Count) sauvegardes ont été déplacées en quarantaine : $trashDir" "Green"
                     } else {
                         Write-ColorOutput "Nettoyage annulé." "Yellow"
                     }
