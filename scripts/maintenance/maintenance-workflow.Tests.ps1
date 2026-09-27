@@ -7,7 +7,9 @@
 #   3. restore archives the CURRENT file as *.pre-restore-<ts>.bak BEFORE overwriting it;
 #   4. the menu actually renders (pre-existing bug: Write-Output inside Write-ColorOutput
 #      polluted the captured $choice of Show-MainMenu, so the menu never displayed and
-#      every keystroke fell into the switch default).
+#      every keystroke fell into the switch default);
+#   5. post-merge #3903: if the pre-restore archive copy FAILS, the restore is ABORTED —
+#      the current file is left intact instead of being overwritten unarchived.
 #
 # The script is interactive (Read-Host menu); tests drive it via stdin redirection in a
 # child powershell.exe 5.1 (the fleet's engine), CWD = an isolated temp dir holding a
@@ -102,5 +104,25 @@ Describe 'maintenance-workflow.ps1 — option 7 backup management (child powersh
         $r.Exit | Should -Be 0
         $r.Out | Should -Match 'Gestion des sauvegardes'
         $r.Out | Should -Not -Match 'Choix invalide'
+    }
+
+    It 'restore: pre-restore archive FAILURE aborts the restore — current file left intact (post-merge #3903)' {
+        # The CURRENT file (backups\b) is held open by THIS process with FileShare::None,
+        # so the child powershell cannot read it to archive it -> the restore must be
+        # abandoned BEFORE overwriting b with the backup content.
+        $dir = New-MenuCase -CaseDir 'restore-abort' -Fixtures @(
+            [pscustomobject]@{ N = 'a.bak'; C = 'old-a' },
+            [pscustomobject]@{ N = 'b'; C = 'CURRENT-LIVE' },
+            [pscustomobject]@{ N = 'b.bak'; C = 'OLD-BACKUP' })
+        $lock = [System.IO.File]::Open((Join-Path $dir 'backups\b'), 'Open', 'Read', 'None')
+        try {
+            $r = Invoke-WorkflowMenu -Lines @('7', '1', '1', 'O', '', '8', '8') -Dir $dir
+        } finally {
+            $lock.Close()
+        }
+        $r.Exit | Should -Be 0
+        (Get-Content -LiteralPath (Join-Path $r.Dir 'backups\b') -Raw) | Should -Match 'CURRENT-LIVE'
+        $r.Out | Should -Match 'Restauration abandonnée'
+        $r.Out | Should -Not -Match 'restaurée avec succès'
     }
 }

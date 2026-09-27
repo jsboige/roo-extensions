@@ -606,13 +606,28 @@ function Manage-Backups {
                 if ($confirm -eq "O" -or $confirm -eq "o") {
                     # Quarantaine (audit 27/09) : archiver le fichier COURANT avant l'écrasement —
                     # une restauration ne doit jamais être le dernier geste sur le contenu en place.
+                    # Post-merge #3903 : l'archive est bloquante — si elle échoue, la restauration
+                    # est abandonnée plutôt que d'écraser un contenu qui n'est archivé nulle part.
+                    $safeToRestore = $true
                     if (Test-Path -LiteralPath $originalPath) {
                         $preRestore = Join-Path $backupsDir ("{0}.pre-restore-{1}.bak" -f (Split-Path -Leaf $originalPath), (Get-Date -Format 'yyyyMMdd-HHmmss'))
-                        Copy-Item -Path $originalPath -Destination $preRestore -Force
-                        Write-ColorOutput "Fichier courant archivé avant restauration : $preRestore" "Yellow"
+                        try {
+                            Copy-Item -Path $originalPath -Destination $preRestore -Force -ErrorAction Stop
+                            Write-ColorOutput "Fichier courant archivé avant restauration : $preRestore" "Yellow"
+                        } catch {
+                            $safeToRestore = $false
+                            Write-ColorOutput "Échec de l'archive pré-restauration : $($_.Exception.Message)" "Red"
+                            Write-ColorOutput "Restauration abandonnée — le fichier courant est laissé intact." "Yellow"
+                        }
                     }
-                    Copy-Item -Path $backupPath -Destination $originalPath -Force
-                    Write-ColorOutput "Sauvegarde restaurée avec succès vers $originalPath" "Green"
+                    if ($safeToRestore) {
+                        try {
+                            Copy-Item -Path $backupPath -Destination $originalPath -Force -ErrorAction Stop
+                            Write-ColorOutput "Sauvegarde restaurée avec succès vers $originalPath" "Green"
+                        } catch {
+                            Write-ColorOutput "Échec de la restauration : $($_.Exception.Message) — fichier courant inchangé, archive conservée." "Red"
+                        }
+                    }
                 } else {
                     Write-ColorOutput "Restauration annulée." "Yellow"
                 }
