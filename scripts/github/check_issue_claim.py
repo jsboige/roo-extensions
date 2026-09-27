@@ -425,7 +425,8 @@ def fetch_issue(issue_number: str, repo: str):
     comments = [
         json.loads(line) for line in comments_raw.splitlines() if line.strip()
     ]
-    return {"state": state["state"], "comments": comments}
+    # REST serves open/closed in lower case; main() compares "OPEN" (#3909).
+    return {"state": state["state"].upper(), "comments": comments}
 
 
 def post_comment(issue_number: str, repo: str, body: str) -> None:

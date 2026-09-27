@@ -358,7 +358,7 @@ GRAPHQL_OTHER_ERROR = (1, "", "gh: connection reset by peer (HTTP 500)")
 class TestFetchIssueRestFallback(unittest.TestCase):
     """#3899: REST fallback ONLY on an explicitly recognised quota error."""
 
-    def _rest_ok(self, bodies=(), state="OPEN"):
+    def _rest_ok(self, bodies=(), state="open"):  # real REST shape (#3909)
         lines = "".join(
             '{"createdAt":"%s","body":%s}\n'
             % (iso(T0 + timedelta(hours=i)), json.dumps(body))
@@ -406,7 +406,7 @@ class TestFetchIssueRestFallback(unittest.TestCase):
 class TestRestFallbackEndToEnd(unittest.TestCase):
     """main() must reach a MEASURED verdict through the REST leg."""
 
-    def _run(self, bodies, state="OPEN"):
+    def _run(self, bodies, state="open"):  # real REST shape (#3909)
         lines = "".join(
             '{"createdAt":"%s","body":%s}\n'
             % (iso(T0 + timedelta(hours=i)), json.dumps(body))

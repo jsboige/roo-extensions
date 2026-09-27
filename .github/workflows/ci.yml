@@ -378,7 +378,7 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-idle-worktree.ps1
 
-      # #3878 follow-up (dispatch ai-01 26/09): scripts/github/tests/ -- 53 unit
+      # #3878 follow-up (dispatch ai-01 26/09): scripts/github/tests/ -- 59 unit
       # tests over check_issue_claim.py, the fleet's anti-collision organ -- ran
       # NOWHERE in CI. Same hole as every harness above, one directory over:
       # the marker/decoration/reduce logic evolved through #3826 and #3878 with
