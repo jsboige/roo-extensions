@@ -294,6 +294,18 @@ Le propriétaire sait ce que la lane de passage ignore : qui consomme le service
 
 ---
 
+## Harnais serré (15/09, #3657) — compléments relocalisés (#2368 round 2)
+
+**Mesure de référence (#99 du 13/09)** : ~105 k tokens/requête dont ~64 % de **définitions MCP inline pour 0,4 % d'appels**. Le différé `ENABLE_TOOL_SEARCH` est ce qui rend les définitions **non payées** tant qu'elles ne sont pas effectivement appelées — et débloque ce qui était impossible avec un `ANTHROPIC_BASE_URL` custom (les définitions inline étaient figées au démarrage).
+
+**Observation ai-01** : ~70 outils passés en différé. Chaque lane mesure son propre delta (taille de harnais avant/après activation du drapeau) et le consigne — le gain dépend des MCPs effectivement chargés.
+
+**Armement claudish du registre** (jsboige/claudish#111) : Phase 5 consigne, Phase 6 représente. Les autres workspaces suivent le même réflexe (append `[ASK]` sur le dashboard workspace + fichier `open-questions.md` si la question concerne plusieurs sessions).
+
+**Détails de drapeaux** : `disableClaudeAiConnectors` — voir aussi `~/.claude.json` → `claudeAiMcpEverConnected` ; `disableBundledSkills` — skills bundled non présents dans ce projet, proposés en doublon des skills projet sans le drapeau.
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)
