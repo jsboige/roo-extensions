@@ -1,9 +1,9 @@
 # MCP Surface & Profils — empreinte outils MCP
 
-**Version:** 1.0.0
-**Date:** 2026-09-22
+**Version:** 1.1.0
+**Date:** 2026-09-27
 **Issue:** #2224 ([META-HARNESS] Audit & reduce MCP tools footprint)
-**Machine de mesure:** myia-po-2026 (submodule RSM `93b0d02b`, build frais)
+**Machines de mesure:** myia-po-2026 (2026-09-22, submodule RSM `93b0d02b`) · myia-ai-01 (2026-09-27, vintage `ccb14127` — complète la matrice flotte, § ci-dessous)
 
 ---
 
@@ -31,6 +31,69 @@ sur harnais resserré (#3657), **zéro de ces tokens n'est payé au boot** — l
 schémas ne sont chargés qu'à l'appel effectif. Mesure de référence #99 (13/09) :
 ~64 % du prompt en définitions MCP inline pour 0,4 % d'appels.
 
+**Re-mesure 2026-09-27 (ai-01, vintage `ccb14127`)** : RSM 17 outils /
+**40 004 chars** (~10 001 tok) — 38 507 (22/09) → 39 025 (24/09, byte-identique
+sur deux lanes) → 40 004 : **+3,9 % en 5 jours** (tapis roulant, cf. leçon
+ci-dessous). `conversation_browser` 5 253 → 5 565 (+312).
+
+## Matrice flotte — deltas par lane (`ENABLE_TOOL_SEARCH`, sept. 2026)
+
+Chaque lane mesure son propre delta (règle `harnais-tightening` §3) : nombre
+d'outils MCP différés, poids contrefactuel (ce qui serait payé inline **à chaque
+requête** sans le drapeau), et preuve que 0 schéma n'est payé au boot.
+
+| Lane | Date | Outils MCP | Chars sérialisés | ~Tok inline évités/requête | Détail |
+|------|------|-----------:|-----------------:|---------------------------:|--------|
+| po-2026 (matrice canonique) | 22/09 | 53 | 65 467 | ~16 368 | RSM 38 507 · pw 17 407 · sk 7 826 · sx 1 727 |
+| po-2027 | 24/09 | 46 | 66 859 | ~16 715 | RSM 38 507 (build `00b5a038`) · pw 21 143 · sx **4** |
+| web1 | 24/09 | 60 (décompte) | — | ~24 000 (estimé) | 0 inline au boot ; décompte #3137 |
+| po-2025 | 24/09 | 53 | ~78 100 | ~19 500 | RSM 39 025 exact (probe `build-1094fcd1`) · sx 2 |
+| po-2023 | 24/09 | 50 | ~75 600 | ~18 900 | RSM 39 035 (build local) ; 4 RSM hydratés à l'usage |
+| po-2024 | 24/09 | 98 (décompte) | RSM 39 025 (exact) | RSM seul : 9 756 | + google-workspace 45 différés · 4/17 RSM hydratés (−55 %) |
+| **ai-01** | 27/09 | **129** | **179 265** | **~44 816** | voir ci-dessous |
+
+### Datapoint ai-01 (27/09, dernière lane non mesurée)
+
+Lane coordinateur, workspace `roo-extensions`, session worker schedulée. Toutes
+les pesées **EXACTES** (probes JSON-RPC stdio sur le chemin exact que le client
+spawn, 27/09 ~04:55-05:02Z) :
+
+| Serveur | Outils | Chars | ~Tokens | Méthode |
+|---------|-------:|------:|--------:|---------|
+| roo-state-manager (vintage `build-80b4b9a1`, sha `ccb14127`) | 17 | 40 004 | 10 001 | probe `mcp-wrapper.cjs` |
+| google-workspace (`uvx workspace-mcp --tool-tier core`) | 43 | **81 821** | 20 455 | tools/list live |
+| jupyter-papermill | 25 | 27 020 | 6 755 | tools/list live |
+| playwright 1.64.0-alpha | 25 | 20 102 | 5 026 | tools/list live |
+| sk-agent 1.26.0 | 9 | 9 125 | 2 281 | tools/list live |
+| searxng 0.4.5 | 2 | 1 193 | 298 | tools/list live |
+| **Total mesuré (6 serveurs)** | **121** | **179 265** | **~44 816** | |
+| claude.ai Claude Docs (connecteur distant) | 8 | — | — | session-effectif seulement (non spawnable localement) |
+
+**Le delta** : 129 outils MCP différés observés en session (instrument #3137),
+**0 inline au boot**. Contrefactuel sans drapeau : ~179 265 chars ≈ **~44 816
+tok/requête** ≈ 22,4 % d'une fenêtre 200k (4,5 % de [1m]) — la lane la plus
+lourde de la flotte mesurée (2,3-2,7× une lane exécutrice). Ce que la session a
+réellement payé : **3/17 RSM hydratés** (`roosync_dashboard` 6 288 +
+`roosync_messages` 4 442 + `codebase_search` 1 119 = 11 849 chars ≈ 2 962 tok) ;
+**0 appel** playwright/searxng/sk-agent/papermill/google-workspace/Claude Docs
+(les probes sont des spawns manuels, pas des appels MCP) — leurs 139 261 chars
+hors-RSM sont un gain pur.
+
+**Datapoints distinctifs :**
+
+1. **google-workspace est le serveur le plus lourd de la lane** (81 821 chars ≈
+   20 455 tok — **2× RSM**). Porté par `.mcp.json` projet (ai-01, po-2024). En
+   différé, son coût est usage-only — c'est le cas d'école du pacte §1.
+2. **Tapis roulant au niveau serveur** : ~70 outils différés observés sur ai-01
+   au 15/09 (`harnais-tightening` §3) → **129 au 27/09** (+84 % d'outils en
+   12 jours) pendant que le coût de boot restait ≈ 0. La surface croît, la garde
+   tient.
+3. **searxng = 2 outils sur ai-01** (v0.4.5 : `searxng_web_search`,
+   `web_url_read`) — la divergence inter-machines (2 vs 4 chez po-2027) est
+   réelle et persistante.
+4. **sk-agent 1.26.0 : 9 125 chars** vs 7 826 le 22/09 (+16 %) — dérive de
+   version/descriptions hors contrôle du dépôt.
+
 ## Trajectoire 2026-05 → 2026-09
 
 | Date | Événement | Effet surface |
@@ -43,24 +106,32 @@ schémas ne sont chargés qu'à l'appel effectif. Mesure de référence #99 (13/
 | 2026-05-29 | Mesure po-2024 post-#500 | RSM 15 outils / 25 759 chars / ~6 440 tok |
 | 2026-06→09 | Nouveaux outils RSM : `claudish_traffic` (#3591), `roosync_harmonization` (#3545) ; croissance `roosync_messages` (idempotence #1157/#1191, attachments #3256, filtres inbox #3351) | RSM 15 → 17 outils / 38 507 chars (**+49 % chars** vs creux de mai) |
 | 2026-09-15 | #3657 harnais maigre : `ENABLE_TOOL_SEARCH: "true"` | chargement différé — coût de boot MCP ≈ 0 |
+| 2026-09-24 | Datapoints deltas 5 lanes (po-2027, web1, po-2025, po-2023, po-2024) | ~16,7k-24k tok/requête évités selon lane |
+| 2026-09-27 | Datapoint ai-01 (dernière lane) : RSM 40 004 ch (`ccb14127`) ; lane 129 outils / 179 265 ch contrefactuels | matrice flotte complète ; **google-workspace devient le 1ᵉʳ contributeur de la lane coordinateur (2× RSM)** |
 
 **Leçon (tapis roulant).** La réduction de surface est un tapis roulant : les
 gains de consolidation se réinvestissent en nouvelles fonctionnalités (+49 %
-de chars RSM en 3 mois). Ce n'est pas un défaut à corriger une fois — c'est un
+de chars RSM en 3 mois, +3,9 % encore sur les 5 derniers jours mesurés). Ce
+n'est pas un défaut à corriger une fois — c'est un
 rythme à surveiller. La garde qui tient durablement est le chargement différé,
 pas un plafond de chars.
 
-## Décisions per-MCP (état effectif 2026-09-22)
+## Décisions per-MCP (état effectif 2026-09-27)
 
 | MCP | Décision | Justification |
 |-----|----------|---------------|
 | roo-state-manager | **KEEP** (permanent, coordination) | cœur flotte ; 2 outils (dashboard + conversation_browser) = 30 % de sa surface ; déjà fusionné 34 → 17 |
 | playwright | **KEEP** (mandat user 2026-05-24) ; coût réel ≈ 0 en différé | usage réel concentrate : 7/25 outils sur exécuteur (navigate, evaluate, close, screenshot, resize, snapshot, find) |
 | sk-agent | **KEEP** ; aliases dépréciés déjà retirés | ~0 invocation directe depuis Claude sur exécuteur ; sert les agents internes (5/30 agents utilisent playwright via lui) |
-| searxng | **KEEP** (web canonique) | 2 outils, minimal |
+| searxng | **KEEP** (web canonique) | 2-4 outils selon version installée (2 mesuré sur po-2025/po-2023/ai-01, 4 sur po-2027) ; minimal |
+| google-workspace | **KEEP** (ai-01, po-2024 — `.mcp.json` projet, tier core) | 43 outils / 81 821 ch = **1ᵉʳ contributeur de la lane coordinateur** ; en différé, coût usage-only |
+| jupyter-papermill | **KEEP** (ai-01 ; mandataire notebooks #3657 §2) | 25 outils / 27 020 ch ; activation au besoin, différé natif |
+| claude.ai Claude Docs | **KEEP** (connecteur distant, ai-01) | 8 outils, non spawnable localement — présence session-effective uniquement |
 | win-cli | KEEP — **Roo uniquement** (pas dans config Claude) | zéro empreinte Claude Code |
 | markitdown | Roo uniquement (`mcp_settings.json`) | zéro empreinte Claude Code |
 | Google Drive | RETIRED (2026-05-15, antérieur à l'issue) | — |
+
+*(Décisions mises à jour 2026-09-27 avec les serveurs spécifiques aux lanes ai-01/po-2024 ; les mesures correspondantes dans la section Datapoint ai-01.)*
 
 ### Statut des 5 pistes de l'issue
 
