@@ -45,6 +45,10 @@
 .PARAMETER TaskName
     Restreint le traitement aux taches nommees (accepte plusieurs valeurs). Par defaut, toutes
     les taches eligibles hors `\Microsoft\` sont traitees.
+    Sous `-File`, une liste `-TaskName A,B,C` ou `'A','B','C'` arrive en UNE seule chaine
+    (aucun parsing d'expression) : elle est decoupee et dequotee par la normalisation
+    post-param. La forme sans quotes reste la plus sure. Sous
+    `-Command "& ... -TaskName 'A','B','C'"`, la forme quotee construit un vrai tableau.
 
 .PARAMETER LauncherDir
     Repertoire des VBS generes et des sauvegardes. Defaut : C:\ProgramData\claude-hidden-launchers
@@ -76,13 +80,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # `powershell.exe -File` ne fait AUCUN parsing d'expression sur la ligne de commande :
-# `-TaskName 'A','B','C'` y arrive comme UNE seule chaine "A,B,C" (alors que -Command
-# construit un vrai tableau), et `$_.TaskName -in $TaskName` rend alors 0 match
-# SILENCIEUX -- le filtre parait vide sans l'etre. Un tableau a UN element portant des
-# virgules est la signature exacte de la forme -File : on decoupe. Cout assume : un nom
-# de tache contenant une virgule devient inexprimable sous -File -- il l'etait deja.
+# `-TaskName 'A','B','C'` y arrive comme UNE seule chaine, QUOTES SIMPLES RESIDUELLES
+# comprises (mesure 27/09 po-203 : depuis pwsh 7, -File livre `'A','B','C'` verbatim ;
+# seul -Command construit un vrai tableau), et `$_.TaskName -in $TaskName` rend alors
+# 0 match SILENCIEUX -- le filtre parait vide sans l'etre. Un tableau a UN element
+# portant des virgules est la signature exacte de la forme -File : on decoupe, et on
+# trimme les quotes residuelles de chaque morceau. Cout assume : un nom de tache
+# contenant une virgule devient inexprimable sous -File -- il l'etait deja.
 if ($TaskName -and $TaskName.Count -eq 1 -and $TaskName[0].Contains(',')) {
-    $TaskName = @($TaskName[0] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $TaskName = @($TaskName[0] -split ',' | ForEach-Object { $_.Trim().Trim("'").Trim('"') } | Where-Object { $_ })
 }
 
 function Write-Utf8NoBom {
@@ -109,6 +115,11 @@ $consoleHosts = @('powershell.exe', 'pwsh.exe', 'cmd.exe')
 
 $all = Get-ScheduledTask | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }
 if ($TaskName) { $all = $all | Where-Object { $_.TaskName -in $TaskName } }
+# Un -TaskName fourni qui ne matche RIEN etait silencieux (« Rien a faire » se lit comme
+# un etat propre) : le nombre 0 est publie au lieu d'etre confondu avec l'absence de cible.
+if ($TaskName -and -not $all) {
+    Write-Warning ("Aucune tache planifiee ne matche TaskName [{0}] -- noms exacts attendus" -f ($TaskName -join ', '))
+}
 
 # --- Audit des lanceurs deja durcis ---------------------------------------------------------
 # Une tache deja routee via `wscript.exe` est « deja durcie » au sens de la FORME. Mais le VBS

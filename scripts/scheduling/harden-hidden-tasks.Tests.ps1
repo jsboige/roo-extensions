@@ -65,4 +65,24 @@ Describe 'harden-hidden-tasks.ps1 -TaskName comma form' {
         $out | Should -Match ("\[DRY\] {0}" -f [regex]::Escape($names[0]))
         ([regex]::Matches($out, '\[DRY\]')).Count | Should -Be 1
     }
+
+    It '-File with the pwsh-quoted comma form (residual single quotes) still plans ALL named tasks' {
+        if (-not $script:registered) { Set-ItResult -Skipped -Because "task registration failed"; return }
+        # From pwsh 7, -File delivers `-TaskName 'A','B','C'` as ONE string KEEPING the
+        # single quotes (probe 27/09 po-203: COUNT=1, arg="'A','B','C'"). #3892 split the
+        # commas but left quoted names -- 0 match, again silent.
+        $quoted = "'" + ($names -join "','") + "'"
+        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $target -DryRun -TaskName $quoted 2>&1 | Out-String
+        foreach ($n in $names) {
+            $out | Should -Match ("\[DRY\] {0}" -f [regex]::Escape($n))
+        }
+        ([regex]::Matches($out, '\[DRY\]')).Count | Should -Be 3
+    }
+
+    It '-TaskName matching NOTHING emits a warning instead of a silent empty plan' {
+        if (-not $script:registered) { Set-ItResult -Skipped -Because "task registration failed"; return }
+        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $target -DryRun -TaskName 'HHN-NoSuchTask' 2>&1 | Out-String
+        $out | Should -Match 'Aucune tache planifiee ne matche TaskName'
+        $out | Should -Not -Match '\[DRY\]'
+    }
 }
