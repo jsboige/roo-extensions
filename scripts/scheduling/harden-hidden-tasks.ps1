@@ -75,6 +75,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# `powershell.exe -File` ne fait AUCUN parsing d'expression sur la ligne de commande :
+# `-TaskName 'A','B','C'` y arrive comme UNE seule chaine "A,B,C" (alors que -Command
+# construit un vrai tableau), et `$_.TaskName -in $TaskName` rend alors 0 match
+# SILENCIEUX -- le filtre parait vide sans l'etre. Un tableau a UN element portant des
+# virgules est la signature exacte de la forme -File : on decoupe. Cout assume : un nom
+# de tache contenant une virgule devient inexprimable sous -File -- il l'etait deja.
+if ($TaskName -and $TaskName.Count -eq 1 -and $TaskName[0].Contains(',')) {
+    $TaskName = @($TaskName[0] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
 function Write-Utf8NoBom {
     param([string]$Path, [string]$Content)
     [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
