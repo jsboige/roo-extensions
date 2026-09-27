@@ -62,14 +62,17 @@ foreach ($letter in $Drive) {
 
     $freeBytes = [double]$disk.FreeSpace
     $sizeBytes = [double]$disk.Size
-    $freePercent = [math]::Round(($freeBytes / $sizeBytes) * 100, 1)
+    # Decide on the raw value, display rounded: a 4.96% drive must block even
+    # though it renders as "5.0%" (review nit on #3908).
+    $freePercentRaw = ($freeBytes / $sizeBytes) * 100
+    $freePercent = [math]::Round($freePercentRaw, 1)
     $freeGB = [math]::Round($freeBytes / 1GB, 1)
     $sizeGB = [math]::Round($sizeBytes / 1GB, 1)
 
-    if ($freePercent -lt $BlockPercent) {
+    if ($freePercentRaw -lt $BlockPercent) {
         Write-Output ("[BLOCK] {0} {1}% free ({2} GB / {3} GB) - below {4}% : worker must STOP and post [WARN] dashboard (fleet rule 27/09, #3900)" -f $letter, $freePercent, $freeGB, $sizeGB, $BlockPercent)
         if ($worstState -lt 3) { $worstState = 3; $worstDrive = $letter }
-    } elseif ($freePercent -lt $WarnPercent) {
+    } elseif ($freePercentRaw -lt $WarnPercent) {
         Write-Output ("[WARN] {0} {1}% free ({2} GB / {3} GB) - below {4}% : clean own artifacts this cycle (fleet rule 27/09, #3900)" -f $letter, $freePercent, $freeGB, $sizeGB, $WarnPercent)
         if ($worstState -lt 2) { $worstState = 2; $worstDrive = $letter }
     } else {
