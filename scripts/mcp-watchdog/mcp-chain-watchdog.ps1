@@ -19,6 +19,12 @@
          propre cooldown (10 min). TBXark n'enregistre ses backends qu'au
          démarrage : la séquence pleine le relance avant que le RSM réponde
          quand G: est lent, et la route reste absente (#3205, 23/09).
+      3c. Avant tout Stop-ScheduledTask (#3898) : un vrai tools/call envoyé
+         DIRECTEMENT à sparfenyuk sur :9091. Il répond → lent, pas mort :
+         sparfenyuk n'est pas relancé. Il échoue vite (isError, refus, reset)
+         ou le port est fermé → mort : réparation pleine (cas du 15/08
+         couvert). MCP-Proxy-RSM relancé il y a < 3 min, par qui que ce
+         soit → redémarrage déjà en cours : on n'en empile pas un second.
       4. Si encore KO après réparation → ALERT (event log).
       5. Télémétrie flotte (#3394) : réparations/alertes ET un heartbeat
          périodique sont postés sur le MACHINE dashboard de l'hôte via la
@@ -397,6 +403,91 @@ function Test-SparfenyukRoute {
     }
 }
 
+# ---------- dead vs slow, before restarting sparfenyuk (#3898) ----------
+# Measured on ai-01, 23/09 -> 28/09: proxy.log recorded 85 starts of mcp-proxy
+# and 0 "exited with code". sparfenyuk never died on its own; every "death" was
+# a Stop+Start of MCP-Proxy-RSM on a live process, by one of two actors:
+#   - NanoClaw's watchdog-tbxark.ps1 (lane nanoclaw, every 5 min on :x0/:x5),
+#     which restarts the whole stack when its tools/call exceeds 40 s. 73 of
+#     the 91 TBXark -32603 "failed to send request" failures logged here since
+#     14/09 fell within 10 s after one of its restarts: its Stop cuts the
+#     connections TBXark holds to sparfenyuk, under our in-flight probe;
+#   - this watchdog, which read that -32603 as a death and ran a second full
+#     repair right behind it (55 of its 99 full repairs since 14/09).
+# The "port-was-down" label that named the regression was Test-Sparfenyuk's
+# /status within 5 s, sampled on a stack that was busy or already restarting.
+#
+# So before any Stop-ScheduledTask the backend is asked directly on :9091,
+# around TBXark, with a real tool call (Invoke-McpProbe, the E2E probe):
+#   'booting'      MCP-Proxy-RSM started < $RestartInFlightSec ago, by anyone:
+#                  a restart is in flight, a second one would only restart it;
+#   'port-down'    nothing listens on :9091                        -> repair;
+#   'dead'         the call fails fast (isError:true, refused, reset) -> repair.
+#                  This is 15/08: listener up, RSM child dead, init 200, every
+#                  call isError in < 100 ms;
+#   'slow'         the call answers: sparfenyuk is alive, it is NOT restarted;
+#   'unresponsive' the call spends its whole budget: deferred, like the LAN
+#                  timeout below -- unresponsive is not dead;
+#   'no-time'      the direct probe does not fit in the run: deferred.
+$directUrl = 'http://127.0.0.1:9091/servers/roo-state-manager/mcp'
+# The E2E retry budget. The slow-but-alive answers of 27-28/09 took 42-51 s
+# through TBXark.
+$DirectProbeTimeoutSec = 60
+# A restarted stack answers again after ~100-110 s (cold start measured 22/09;
+# NanoClaw's sequence waits up to 100 s for :9091 before restarting TBXark).
+# 180 s covers that, and delays a genuine repair by one tick at most.
+$RestartInFlightSec = 180
+# Another actor's restart is Stop, 2 s, Start: a port found closed inside that
+# gap is re-read once, after this settle, before it is called down.
+$PortDownSettleSec = 5
+
+function Test-SparfenyukListening {
+    # The socket table, not /status: /status is served by the same process as
+    # the tool calls, and times out with them when the backend is only busy.
+    try {
+        return (@(Get-NetTCPConnection -LocalPort 9091 -State Listen -ErrorAction Stop).Count -gt 0)
+    } catch {
+        return $false
+    }
+}
+
+function Get-SparfenyukRestartAgeSec {
+    # Seconds since MCP-Proxy-RSM was last started, whoever started it.
+    # Unreadable -> "no restart in flight", which is the behaviour before #3898.
+    try {
+        $info = Get-ScheduledTaskInfo -TaskName 'MCP-Proxy-RSM' -ErrorAction Stop
+        return ((Get-Date) - $info.LastRunTime).TotalSeconds
+    } catch {
+        return [double]::MaxValue
+    }
+}
+
+function Get-SparfenyukRestartLabel {
+    param([bool]$StatusOk, [bool]$Listening)
+    if ($StatusOk)  { return 'sparfenyuk-restart(port-was-up-instance-dead)' }
+    if ($Listening) { return 'sparfenyuk-restart(status-timeout-port-listening)' }
+    return 'sparfenyuk-restart(port-was-down)'
+}
+
+function Get-SparfenyukVerdict {
+    # Returns @{ Verdict = one of the six above; Probe = the direct probe
+    # result, $null when none ran }. Restarts nothing: the caller decides.
+    if ((Get-SparfenyukRestartAgeSec) -lt $RestartInFlightSec) { return @{ Verdict = 'booting'; Probe = $null } }
+    if (-not (Test-SparfenyukListening)) {
+        Start-Sleep -Seconds $PortDownSettleSec
+        if ((Get-SparfenyukRestartAgeSec) -lt $RestartInFlightSec) { return @{ Verdict = 'booting'; Probe = $null } }
+        if (-not (Test-SparfenyukListening)) { return @{ Verdict = 'port-down'; Probe = $null } }
+    }
+    if ((Get-RunSecondsLeft) -lt ($DirectProbeTimeoutSec + 10)) { return @{ Verdict = 'no-time'; Probe = $null } }
+    $p = Invoke-McpProbe -Url $directUrl -TimeoutSec $DirectProbeTimeoutSec
+    if ($p.Ok)       { return @{ Verdict = 'slow'; Probe = $p } }
+    if ($p.TimedOut) { return @{ Verdict = 'unresponsive'; Probe = $p } }
+    # A restart that starts during the probe kills the port holder under it
+    # (run-proxy.cmd taskkills :9091 before binding): a reset, not a death.
+    if ((Get-SparfenyukRestartAgeSec) -lt $RestartInFlightSec) { return @{ Verdict = 'booting'; Probe = $p } }
+    return @{ Verdict = 'dead'; Probe = $p }
+}
+
 # ---------- latency baseline watch (#3404) ----------
 # The 24/08 regression (median 277 ms -> ~4 340 ms, 13x, stable 10 days) was
 # invisible because the ONLY slowness signal was the absolute 20 s budget --
@@ -711,6 +802,35 @@ if ($result.Ok) {
     } elseif ($repairOnCooldown) {
         Write-Log 'WARN' "chain still down but repair is on cooldown (last repair $([math]::Round(((Get-Date) - $lastRepairAt).TotalMinutes,0)) min ago < $RepairCooldownMin) — waiting, not restarting"
         $script:alerts += "chain-down-repair-on-cooldown"
+    } elseif (($sparfenyuk = Get-SparfenyukVerdict).Verdict -notin @('dead', 'port-down')) {
+        # #3898: only a closed port or a fast failure of a direct tool call
+        # proves sparfenyuk dead; every other verdict leaves it running. The
+        # verdict is taken inside the condition because it can cost a 60 s
+        # probe, and the run-time guard below must be read after that probe.
+        switch ($sparfenyuk.Verdict) {
+            'booting' {
+                Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)), but MCP-Proxy-RSM was started $([int](Get-SparfenyukRestartAgeSec))s ago (< ${RestartInFlightSec}s): a restart is already in flight — not stacking a second one."
+                $script:deferredVerifications += 'restart-in-flight: MCP-Proxy-RSM was started less than 3 min ago by another actor — next tick re-probes'
+            }
+            'slow' {
+                Write-Log 'WARN' "sparfenyuk answered a real tool call directly on :9091 (latency=$($sparfenyuk.Probe.LatencyMs)ms) after the TBXark path failed (LAN HTTP $($lanResult.Status)) — alive, NOT restarting it."
+                $recheck = if ((Get-RunSecondsLeft) -ge 30) { Test-Lan } else { $null }
+                if ($recheck -and $recheck.Ok) {
+                    Write-Log 'OK' "TBXark path answers again (latency=$($recheck.LatencyMs)ms) — transient, nothing repaired."
+                    $result = $recheck
+                } else {
+                    $script:alerts += 'backend-alive-not-restarted: sparfenyuk answers directly, the TBXark path still fails'
+                }
+            }
+            'unresponsive' {
+                Write-Log 'WARN' "sparfenyuk listens on :9091 but a direct tool call got no answer in ${DirectProbeTimeoutSec}s — unresponsive is not dead. Deferring repair to the next tick."
+                $script:alerts += 'chain-unresponsive-repair-deferred: direct-sparfenyuk-timed-out'
+            }
+            'no-time' {
+                Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)), but the ${DirectProbeTimeoutSec}s direct sparfenyuk probe does not fit in the $([int](Get-RunSecondsLeft))s left — deferring to the next tick."
+                $script:alerts += 'chain-down-repair-deferred: not enough run time left for the direct sparfenyuk probe'
+            }
+        }
     } elseif ((Get-RunSecondsLeft) -lt $RepairWorstCaseSec) {
         # A repair cut by the task limit between Stop and Start leaves
         # sparfenyuk stopped; cut before the state write, it leaves the
@@ -720,25 +840,29 @@ if ($result.Ok) {
         Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)), but a full repair needs ${RepairWorstCaseSec}s and $([int](Get-RunSecondsLeft))s are left before the task's time limit — deferring to the next tick."
         $script:alerts += 'chain-down-repair-deferred: not enough run time left for a full repair'
     } else {
-        Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)) — running full repair sequence."
+        Write-Log 'WARN' "Backend DOWN at the tool-call level (LAN HTTP $($lanResult.Status)), sparfenyuk verdict '$($sparfenyuk.Verdict)' — running full repair sequence."
 
         # 2026-08-15 lesson: a listening sparfenyuk is NOT a healthy sparfenyuk.
         # The outage lived 2.5 days precisely because "port 9091 up" skipped
         # the restart while the RSM instance inside was dead (init OK, every
-        # tool call isError). The repair is therefore ALWAYS the full sequence,
-        # proven end-to-end that night: stop+start the task (fresh sparfenyuk
-        # AND fresh RSM child), then restart TBXark (stale-session cache #2023).
+        # tool call isError). Since #3898 the direct tool call above tells that
+        # case ('dead', fast isError) from a live one ('slow'); once a repair
+        # is decided it is still ALWAYS the full sequence, proven end-to-end
+        # that night: stop+start the task (fresh sparfenyuk AND fresh RSM
+        # child), then restart TBXark (stale-session cache #2023).
         try {
             $w = $null
             if ($Mode -eq 'dry-run') {
                 Write-Log 'INFO' 'DRY-RUN: would Stop+Start MCP-Proxy-RSM then docker restart myia-mcp-proxy'
                 $result = Test-E2E
             } else {
-                $sparfenyukPortUp = Test-Sparfenyuk
+                # #3898: a /status timeout on a listening port is not a closed
+                # port -- read both before the Stop, the label says which.
+                $restartLabel = Get-SparfenyukRestartLabel -StatusOk (Test-Sparfenyuk) -Listening (Test-SparfenyukListening)
                 Stop-ScheduledTask -TaskName 'MCP-Proxy-RSM' -ErrorAction SilentlyContinue
                 Start-Sleep -Seconds 3
                 Start-ScheduledTask -TaskName 'MCP-Proxy-RSM' -ErrorAction Stop
-                $script:repairs += if ($sparfenyukPortUp) { 'sparfenyuk-restart(port-was-up-instance-dead)' } else { 'sparfenyuk-restart(port-was-down)' }
+                $script:repairs += $restartLabel
                 Start-Sleep -Seconds 10
                 & docker restart myia-mcp-proxy 2>&1 | Out-Null
                 $script:repairs += 'tbxark-restart'
