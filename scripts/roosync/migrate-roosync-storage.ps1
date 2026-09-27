@@ -17,6 +17,8 @@
       compte de fichiers ET empreinte SHA256 de chaque fichier source == copie.
     - Un .shared-state.bak préexistant est conservé (renommé .shared-state.bak.<timestamp>),
       jamais supprimé.
+    - Refus net si un chemin de la source existe déjà dans la cible (post-merge #3902) :
+      Copy-Item -Force n'écrase jamais une cible peuplée en silence.
 
 .EXAMPLE
     .\scripts\roosync\migrate-roosync-storage.ps1            # dry-run : plan seul
@@ -102,6 +104,30 @@ if (-not (Test-Path $LocalSharedState)) {
 
 $SourceStats = @(Get-ChildItem -LiteralPath $LocalSharedState -Recurse -File)
 $SourceBytes = ($SourceStats | Measure-Object -Property Length -Sum).Sum
+
+# 2bis. Garde anti-collision (post-merge #3902, dispatch ai-01 22:55Z) : si un chemin
+#       de la source existe déjà dans la cible, Copy-Item -Force l'écraserait en silence
+#       et le contrôle d'intégrité (source == copie fraîche) passerait quand même.
+#       Refus net : déplacer ou renommer la cible avant de relancer.
+$srcRoot = (Resolve-Path -LiteralPath $LocalSharedState).ProviderPath.TrimEnd('\')
+$collisions = @()
+if (Test-Path -LiteralPath $TargetSharedPath) {
+    $tgtRoot = (Resolve-Path -LiteralPath $TargetSharedPath).ProviderPath.TrimEnd('\')
+    $tgtRel = @(Get-ChildItem -LiteralPath $TargetSharedPath -Recurse -File | ForEach-Object {
+        $_.FullName.Substring($tgtRoot.Length + 1)
+    })
+    $collisions = @($SourceStats | ForEach-Object { $_.FullName.Substring($srcRoot.Length + 1) } |
+        Where-Object { $tgtRel -contains $_ })
+}
+if ($collisions.Count -gt 0) {
+    $sample = (($collisions | Select-Object -First 5) -join ', ')
+    if ($collisions.Count -gt 5) { $sample += ', ...' }
+    if ($Apply) {
+        Write-Error ("Cible deja peuplee : {0} chemin(s) de la source existent deja dans la cible ({1}) — migration REFUSEE. Deplacez ou renommez la cible avant de relancer." -f $collisions.Count, $sample)
+    }
+    Write-Host ("[DRY] REFUS : {0} chemin(s) de la source existent deja dans la cible ({1}) — avec -Apply, la migration serait refusee." -f $collisions.Count, $sample) -ForegroundColor Red
+    exit 1
+}
 
 # 3. Dry-run par défaut
 if (-not $Apply) {

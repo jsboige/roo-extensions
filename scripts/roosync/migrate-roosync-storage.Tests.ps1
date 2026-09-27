@@ -5,7 +5,11 @@
 #   2. a partially-copied tree aborts BEFORE any rename, .bak preserved;
 #   3. a same-count-but-altered copy aborts too (SHA256 guard, not just count);
 #   4. happy path -Apply: target populated (incl. subdirs), source renamed .bak;
-#   5. a pre-existing .bak is preserved (timestamped), never deleted.
+#   5. a pre-existing .bak is preserved (timestamped), never deleted;
+#   6. post-merge #3902: if a source path ALREADY EXISTS in the target, the migration
+#      is REFUSED (dry-run announces it, -Apply errors out) — Copy-Item -Force never
+#      silently overwrites a populated target (the integrity check compares the source
+#      against the FRESH copy, so it would pass regardless).
 #
 # INJECTED FAULTS (bench-of-fault discipline): tests 2 and 3 mock Copy-Item to
 # simulate a silently-partial / silently-corrupted copy — exactly the audit
@@ -92,6 +96,43 @@ Describe 'migrate-roosync-storage.ps1 — integration (child powershell.exe 5.1)
             (Get-Content (Join-Path $_.FullName 'keepme.txt') -Raw) -match 'marker-previous-backup'
         }
         @($marker).Count | Should -Be 1
+    }
+
+    It 'post-merge #3902: a source path already in the target → -Apply REFUSES, neither side touched' {
+        $src = Join-Path $script:tmp 'src-collide'
+        New-Item -ItemType Directory -Path (Join-Path $src 'sub') -Force | Out-Null
+        'new-a' | Set-Content (Join-Path $src 'a.txt')
+        'new-sub' | Set-Content (Join-Path $src 'sub\s.txt')
+        # Target holds a PRECIOUS file at a colliding path + one unrelated file.
+        $dst = Join-Path $script:tmp 'dst-collide'
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        'PRECIOUS-TARGET' | Set-Content (Join-Path $dst 'a.txt')
+        'unrelated' | Set-Content (Join-Path $dst 'unrelated.log')
+
+        # EAP=Continue around the call: the child's Write-Error travels the redirected
+        # stderr into THIS pipeline, and Pester's Stop preference would throw on it
+        # before the assertions below — the refusal itself is what we assert on.
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $target -Apply -SourcePath $src -TargetPath $dst 2>&1 | Out-String
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        $LASTEXITCODE | Should -Not -Be 0
+        $out | Should -Match 'existent deja dans la cible'
+        # The colliding file is NOT overwritten:
+        (Get-Content -LiteralPath (Join-Path $dst 'a.txt') -Raw) | Should -Match 'PRECIOUS-TARGET'
+        # The unrelated target file survives untouched:
+        Test-Path -LiteralPath (Join-Path $dst 'unrelated.log') | Should -BeTrue
+        # Source intact, not renamed:
+        Test-Path -LiteralPath $src | Should -BeTrue
+        Test-Path -LiteralPath "$src.bak" | Should -BeFalse
+        # Dry-run announces the same refusal before any -Apply attempt:
+        $outDry = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $target -SourcePath $src -TargetPath $dst 2>&1 | Out-String
+        $LASTEXITCODE | Should -Be 1
+        $outDry | Should -Match '\[DRY\] REFUS'
+        (Get-Content -LiteralPath (Join-Path $dst 'a.txt') -Raw) | Should -Match 'PRECIOUS-TARGET'
     }
 }
 
