@@ -1,17 +1,26 @@
-# Cleanup Untitled Tasks — Script de suppression des entrées "Untitled Task"
+# Cleanup Untitled Tasks — Script de nettoyage des entrées "Untitled Task"
 # Issue #1173: MINOR: 6 orphaned task entries detected on myia-ai-01
 #
-# Ce script supprime les entrées "Untitled Task" (tâches orphelines créées par erreur)
-# du stockage local des tâches Roo Code.
+# Ce script met en quarantaine les entrees "Untitled Task" (taches orphelines creees
+# par erreur) du stockage local des taches Roo Code.
 #
-# Usage : .\scripts\maintenance\cleanup-untitled-tasks.ps1 [-DryRun] [-Verbose]
+# SECURITE (audit 27/09, dispatch ai-01 16:05Z) :
+#   - DRY-RUN PAR DEFAUT : sans -Execute, le script liste sans rien toucher.
+#   - Avec -Execute : DEPLACEMENT vers la quarantaine (jamais de suppression) —
+#     chaque fichier est empreinte SHA-256 dans manifest.json avant le move.
+#     Restaurer = copier depuis la quarantaine vers le chemin "original" du manifeste.
+#
+# Usage : .\scripts\maintenance\cleanup-untitled-tasks.ps1 [-Execute] [-QuarantineRoot <dir>] [-Verbose]
 
 param(
     [switch]$DryRun,
+    [switch]$Execute,
+    [string]$QuarantineRoot,
     [switch]$Verbose
 )
 
 . "$PSScriptRoot\..\common\extension-paths.ps1"
+. "$PSScriptRoot\..\common\quarantine.ps1"
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -80,30 +89,47 @@ if ($tasksToDelete.Count -eq 0) {
 }
 
 Write-Host ""
-if ($DryRun) {
-    Write-Host "[DRY RUN] Would delete the following tasks:" -ForegroundColor Cyan
+if (-not $Execute -or $DryRun) {
+    if ($Execute -and $DryRun) {
+        Write-Host "[DRY RUN] -DryRun wins over -Execute (conservative default)." -ForegroundColor Cyan
+    }
+    Write-Host "[DRY RUN] Would quarantine the following tasks (dry-run is the default):" -ForegroundColor Cyan
     foreach ($task in $tasksToDelete) {
         Write-Host "  - $task" -ForegroundColor Yellow
     }
     Write-Host ""
-    Write-Host "[DRY RUN] No files were actually deleted." -ForegroundColor Cyan
+    Write-Host "[DRY RUN] No files were touched. Re-run with -Execute to quarantine." -ForegroundColor Cyan
 } else {
-    Write-Host "Deleting $($tasksToDelete.Count) task(s)..." -ForegroundColor Cyan
-    
+    if (-not $QuarantineRoot) {
+        $QuarantineRoot = Join-Path $env:LOCALAPPDATA "roo-extensions-quarantine\untitled-tasks"
+    }
+    $qDir = New-QuarantineDir -Root $QuarantineRoot
+    $manifest = [System.Collections.Generic.List[object]]::new()
+
+    Write-Host "Quarantining $($tasksToDelete.Count) task(s) to: $qDir" -ForegroundColor Cyan
+
     foreach ($task in $tasksToDelete) {
-        try {
-            Remove-Item -Path $task -Recurse -Force -ErrorAction Stop
-            Write-Host "  Deleted: $task" -ForegroundColor Green
-        } catch {
-            $errorMsg = $Error[0].Exception.Message
-            $msg = "Error deleting $task"
-            $msg = $msg + ": " + $errorMsg
-            Write-Host $msg -ForegroundColor Red
+        $dataPath = Split-Path -Parent $task
+        $files = @(Get-ChildItem -Path $task -Recurse -File -Force -ErrorAction SilentlyContinue)
+        $moved = 0
+        $failed = 0
+        foreach ($file in $files) {
+            $ok = Move-FileToQuarantine -LiteralPath $file.FullName -QuarantineDir $qDir `
+                -RelativeBase $dataPath -Manifest $manifest
+            if ($ok) { $moved++ } else { $failed++ }
+        }
+        # Coque vide prouvee (0 fichier restant) : retrait autorise ; sinon KEPT.
+        if ($failed -eq 0) {
+            Remove-Item -Path $task -Recurse -Force -ErrorAction SilentlyContinue
+            Write-Host "  Quarantined ($moved files): $task" -ForegroundColor Green
+        } else {
+            Write-Host "  PARTIAL ($moved moved, $failed left in place): $task — manual review" -ForegroundColor Yellow
         }
     }
-    
+
+    Write-QuarantineManifest -QuarantineDir $qDir -Manifest $manifest
     Write-Host ""
-    Write-Host "Cleanup complete. Deleted $($tasksToDelete.Count) task(s)." -ForegroundColor Green
+    Write-Host "Quarantine complete. $($manifest.Count) file(s) moved, manifest: $qDir\manifest.json" -ForegroundColor Green
 }
 
 exit 0
