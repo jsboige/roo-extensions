@@ -3,11 +3,13 @@
 classify-claude-sessions.py — Identify thrashing vs legitimate Claude Code sessions.
 
 Usage:
-    python scripts/maintenance/classify-claude-sessions.py [--top N] [--delete-thrashing]
+    python scripts/maintenance/classify-claude-sessions.py [--top N] [--quarantine-thrashing]
 
 Modes:
-    Default   : Analyze all sessions > 100KB, classify, report top N
-    --delete  : Also delete thrashing session files (USE WITH CAUTION)
+    Default     : Analyze all sessions > 100KB, classify, report top N (dry-run)
+    --quarantine: Move matching session files to a timestamped quarantine dir
+                  with a SHA-256 manifest (audit 27/09: a purge script never
+                  deletes directly — restoring = copy back per manifest)
 
 Classification is based on:
     1. Tool call diversity and patterns
@@ -20,6 +22,8 @@ Classification is based on:
 import json
 import sys
 import os
+import hashlib
+import shutil
 import argparse
 from pathlib import Path
 from collections import Counter
@@ -164,6 +168,42 @@ def parse_session(jsonl_path: Path) -> dict | None:
     }
 
 
+def quarantine_sessions(sessions: list[dict], quarantine_root: Path) -> tuple[Path, list[dict]]:
+    """Move session files to <quarantine_root>/<timestamp>/, SHA-256 manifest first.
+
+    Never deletes: a failed move leaves the file in place (fail-safe). Returns
+    (quarantine_dir, manifest_entries)."""
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    qdir = quarantine_root / ts
+    qdir.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for s in sessions:
+        src = Path(s["path"])
+        try:
+            data = src.read_bytes()
+            h = hashlib.sha256(data).hexdigest()
+            dest = qdir / src.name
+            # Collision: never overwrite a quarantined file — keep both apart.
+            if dest.exists():
+                dest = qdir / f"{src.stem}.{h[:8]}{src.suffix}"
+            shutil.move(str(src), str(dest))
+            entries.append({
+                "original": str(src),
+                "quarantined": str(dest),
+                "sha256": h,
+                "bytes": len(data),
+            })
+        except Exception as e:
+            print(f"    ERROR (file left in place): {src}: {e}")
+    manifest_path = qdir / "manifest.json"
+    manifest_path.write_text(json.dumps({
+        "written_at": datetime.now().isoformat(),
+        "host": os.environ.get("COMPUTERNAME", "unknown"),
+        "entries": entries,
+    }, indent=2), encoding="utf-8")
+    return qdir, entries
+
+
 def classify(session: dict) -> tuple[str, list[str]]:
     """Classify a session. Returns (verdict, reasons)."""
     signals = []
@@ -206,15 +246,25 @@ def classify(session: dict) -> tuple[str, list[str]]:
 def main():
     parser = argparse.ArgumentParser(description="Classify Claude Code sessions: thrashing vs legitimate")
     parser.add_argument("--top", type=int, default=30, help="Number of top sessions to detail")
-    parser.add_argument("--delete-thrashing", action="store_true", help="Delete thrashing session files")
-    parser.add_argument("--delete-stuck", action="store_true", help="Delete stuck session files (tools but 0 file edits)")
+    parser.add_argument("--root", type=Path, default=None,
+                        help="Sessions root to scan (default: ~/.claude/projects)")
+    parser.add_argument("--quarantine-thrashing", "--delete-thrashing", dest="quarantine_thrashing",
+                        action="store_true",
+                        help="Quarantine thrashing session files (moved with SHA-256 manifest, never deleted)")
+    parser.add_argument("--quarantine-stuck", "--delete-stuck", dest="quarantine_stuck",
+                        action="store_true",
+                        help="Quarantine stuck session files (moved with SHA-256 manifest, never deleted)")
+    parser.add_argument("--quarantine-root", type=Path, default=None,
+                        help="Quarantine root (default: <root>-quarantine)")
     parser.add_argument("--min-size", type=float, default=0.1, help="Minimum session size in MB to analyze (default: 0.1)")
     args = parser.parse_args()
 
-    claude_projects = Path.home() / ".claude" / "projects"
+    claude_projects = args.root if args.root else Path.home() / ".claude" / "projects"
     if not claude_projects.exists():
         print(f"ERROR: {claude_projects} does not exist")
         sys.exit(1)
+
+    quarantine_root = args.quarantine_root if args.quarantine_root else claude_projects.parent / (claude_projects.name + "-quarantine")
 
     # Scan all sessions
     print("Scanning sessions...")
@@ -286,17 +336,13 @@ def main():
             print(f"  {s['size_mb']:>7.1f} MB | {s['total_tools']:>4} tools | {s['unique_files']} files | {'; '.join(s['reasons'])}")
             print(f"           {rel}")
 
-        if args.delete_thrashing:
-            print(f"\n  DELETING {len(thrashing)} thrashing session files...")
-            for s in thrashing:
-                try:
-                    os.remove(s["path"])
-                    print(f"    DELETED: {s['size_mb']:.1f} MB — {os.path.basename(s['path'])}")
-                except Exception as e:
-                    print(f"    ERROR: {s['path']}: {e}")
-            print(f"  Freed {thrashing_mb:.1f} MB")
+        if args.quarantine_thrashing:
+            print(f"\n  QUARANTINING {len(thrashing)} thrashing session files (never deleted)...")
+            qdir, entries = quarantine_sessions(thrashing, quarantine_root)
+            print(f"  Quarantined {len(entries)} files to {qdir}")
+            print(f"  Manifest: {qdir / 'manifest.json'} — purge manually AFTER verifying it")
         else:
-            print(f"\n  To delete these sessions, re-run with --delete-thrashing")
+            print(f"\n  To quarantine these sessions, re-run with --quarantine-thrashing")
 
     # Stuck sessions detail
     stuck = [s for s in classified if s["verdict"] == "STUCK"]
@@ -310,17 +356,13 @@ def main():
             print(f"  {s['size_mb']:>7.1f} MB | {s['total_tools']:>4} tools | {s['unique_files']} files | {'; '.join(s['reasons'])}")
             print(f"           {rel}")
 
-        if args.delete_stuck:
-            print(f"\n  DELETING {len(stuck)} stuck session files...")
-            for s in stuck:
-                try:
-                    os.remove(s["path"])
-                    print(f"    DELETED: {s['size_mb']:.1f} MB — {os.path.basename(s['path'])}")
-                except Exception as e:
-                    print(f"    ERROR: {s['path']}: {e}")
-            print(f"  Freed {stuck_mb:.1f} MB")
+        if args.quarantine_stuck:
+            print(f"\n  QUARANTINING {len(stuck)} stuck session files (never deleted)...")
+            qdir, entries = quarantine_sessions(stuck, quarantine_root)
+            print(f"  Quarantined {len(entries)} files to {qdir}")
+            print(f"  Manifest: {qdir / 'manifest.json'} — purge manually AFTER verifying it")
         else:
-            print(f"\n  To delete these sessions, re-run with --delete-stuck")
+            print(f"\n  To quarantine these sessions, re-run with --quarantine-stuck")
 
     # Cleanup recommendation
     waste_mb = size_by_verdict.get("THRASHING", 0)
@@ -328,14 +370,14 @@ def main():
     print(f"\n{'=' * 80}")
     print("CLEANUP RECOMMENDATION")
     print(f"{'=' * 80}")
-    print(f"  Thrashing: {waste_mb:.0f} MB ({len(thrashing)} sessions) → DELETE")
-    print(f"  Stuck:     {stuck_mb_val:.0f} MB ({len(stuck)} sessions) → REVIEW / DELETE with --delete-stuck")
+    print(f"  Thrashing: {waste_mb:.0f} MB ({len(thrashing)} sessions) → QUARANTINE (--quarantine-thrashing)")
+    print(f"  Stuck:     {stuck_mb_val:.0f} MB ({len(stuck)} sessions) → REVIEW / quarantine with --quarantine-stuck")
     print(f"  Legitimate: {total_mb - waste_mb - stuck_mb_val:.0f} MB → KEEP (real work with compactions)")
 
-    if not args.delete_thrashing and thrashing:
-        print(f"\n  Run again with --delete-thrashing to clean up {waste_mb:.0f} MB of thrashing sessions.")
-    if not args.delete_stuck and stuck:
-        print(f"  Run again with --delete-stuck to clean up {stuck_mb_val:.0f} MB of stuck sessions.")
+    if not args.quarantine_thrashing and thrashing:
+        print(f"\n  Run again with --quarantine-thrashing to quarantine {waste_mb:.0f} MB of thrashing sessions.")
+    if not args.quarantine_stuck and stuck:
+        print(f"  Run again with --quarantine-stuck to quarantine {stuck_mb_val:.0f} MB of stuck sessions.")
 
 
 if __name__ == "__main__":
