@@ -110,22 +110,31 @@ if (-not (Get-WebBinding -Name $SiteName | Where-Object { $_.protocol -eq 'https
 
 foreach ($domain in $DomainMap.Keys) {
     $bindingInfo = "*:443:$domain"
-    $already = Get-WebBinding -Name $SiteName | Where-Object { $_.bindingInformation -eq $bindingInfo }
-    if ($already) {
-        $actions += "[SKIP binding] $domain : *:443:$domain existe deja"
+    $binding = Get-WebBinding -Name $SiteName | Where-Object { $_.bindingInformation -eq $bindingInfo }
+    # SNI entries live at !443!<host> (no IP). "0.0.0.0!443!<host>" creates the
+    # catch-all ipport 0.0.0.0:443 instead, and fails on the second domain.
+    $sniBound = [bool](Get-Item "IIS:\SslBindings\!443!$domain" -ErrorAction SilentlyContinue)
+    if ($binding -and $sniBound) {
+        $actions += "[SKIP binding] $domain : *:443:$domain et son cert SNI existent deja"
         continue
     }
     if ($Plan) {
         $actions += "[PLAN binding] $domain : *:443:$domain (SNI) + association cert"
         continue
     }
-    New-WebBinding -Name $SiteName -Protocol https -Port 443 -HostHeader $domain -SslFlags 1
+    if (-not $binding) {
+        New-WebBinding -Name $SiteName -Protocol https -Port 443 -HostHeader $domain -SslFlags 1
+        $binding = Get-WebBinding -Name $SiteName | Where-Object { $_.bindingInformation -eq $bindingInfo }
+    }
     $cert = $certByDomain[$domain]
-    $sslPath = "IIS:\SslBindings\0.0.0.0!443!$domain"
-    if ($cert -and -not (Get-Item $sslPath -ErrorAction SilentlyContinue)) {
-        $cert | New-Item $sslPath | Out-Null
+    if ($cert -and -not $sniBound) {
+        $binding.AddSslCertificate($cert.Thumbprint, 'My')
     }
     $actions += "[DONE binding] $domain : *:443:$domain (SNI) -> cert $($cert.Thumbprint)"
+}
+
+if (Get-Item 'IIS:\SslBindings\0.0.0.0!443' -ErrorAction SilentlyContinue) {
+    Write-Warning 'Binding certificat catch-all 0.0.0.0:443 present (interdit par le runbook) : netsh http delete sslcert ipport=0.0.0.0:443'
 }
 
 Write-Host ''
