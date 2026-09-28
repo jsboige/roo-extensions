@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Quarantine helpers — move files aside with a SHA-256 manifest, never delete.
 .DESCRIPTION

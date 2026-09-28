@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Shared extension ID constants and path helpers for Roo/Zoo Code.
 .DESCRIPTION
