@@ -56,10 +56,10 @@ on:
       - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
       # Plan Marshall (audit 27/09): the marshall-scripts-pester job below runs
-      # six Pester suites — five that execute the REAL scripts as powershell.exe
+      # seven Pester suites — six that execute the REAL scripts as powershell.exe
       # 5.1 children, plus the start-claude-worker static suite (#3905) — each
       # guarded script AND its suite must re-trigger it on main
-      # pushes (same principle as above; #3902/#3903/#3906/#3907/#3905).
+      # pushes (same principle as above; #3902/#3903/#3906/#3907/#3908/#3905).
       - 'scripts/roosync/migrate-roosync-storage.ps1'
       - 'scripts/roosync/migrate-roosync-storage.Tests.ps1'
       - 'scripts/maintenance/maintenance-workflow.ps1'
@@ -70,6 +70,8 @@ on:
       - 'scripts/gdrive/purge-shared-state-artifacts.ps1'
       - 'scripts/gdrive/purge-shared-state-artifacts.Tests.ps1'
       - 'scripts/claude/worktree-cleanup.Tests.ps1'
+      - 'scripts/infra/check-disk-free.ps1'
+      - 'scripts/infra/check-disk-free.Tests.ps1'
       - 'scripts/scheduling/start-claude-worker.ps1'
       - 'scripts/scheduling/start-claude-worker.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
@@ -431,16 +433,17 @@ jobs:
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/scheduling/test-rotate-scheduling-logs.ps1
 
-  # Plan Marshall scripts (audit 27/09, remark Hermes): five Pester suites —
+  # Plan Marshall scripts (audit 27/09, remark Hermes): six Pester suites —
   # #3902 migrate-roosync-storage, #3903 maintenance-workflow, #3906
   # worktree-cleanup, #3907 cleanup-untitled-tasks and
-  # purge-shared-state-artifacts — execute the REAL destructive-path scripts
-  # as powershell.exe 5.1 children on disposable fixtures (git sandbox, gh
-  # shims, APPDATA redirection, stdin-driven menu). PS 5.1 is an explicit
+  # purge-shared-state-artifacts, #3908 check-disk-free — execute the REAL
+  # destructive-path scripts as powershell.exe 5.1 children on disposable
+  # fixtures (git sandbox, gh shims, APPDATA redirection, stdin-driven menu;
+  # check-disk-free drives forced 101/102% thresholds instead — same
+  # positive-control spirit, real machine drives). PS 5.1 is an explicit
   # acceptance criterion (the fleet runs 5.1, pwsh is absent on part of it),
   # same reason as scheduling-rotate-harness above, hence windows-latest. No
-  # network, no GDrive, no schtask. #3908's check-disk-free.Tests.ps1 joins
-  # this job at its merge. The #3905 start-claude-worker suite is static
+  # network, no GDrive, no schtask. The #3905 start-claude-worker suite is static
   # (text guards on the 5000-line worker, not drivable from a bench) and
   # joins here too — it ran nowhere before this job took it.
   marshall-scripts-pester:
@@ -466,6 +469,9 @@ jobs:
       - name: Run purge-shared-state-artifacts suite (#3907)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/purge-shared-state-artifacts.Tests.ps1 -CI
+      - name: Run check-disk-free suite (#3908)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/infra/check-disk-free.Tests.ps1 -CI
       - name: Run start-claude-worker suite (#3905, static)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/start-claude-worker.Tests.ps1 -CI
