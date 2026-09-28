@@ -1,4 +1,4 @@
-# cleanup-untitled-tasks.Tests.ps1 — Pester 5 : DryRun par défaut + quarantaine manifestée
+﻿# cleanup-untitled-tasks.Tests.ps1 — Pester 5 : DryRun par défaut + quarantaine manifestée
 #
 # Précédent harden-hidden-tasks.Tests.ps1 : l'hôte est pwsh 7 + Pester 5 ; la CIBLE
 # tourne en process enfant powershell.exe 5.1, sur une COPIE du script dans un

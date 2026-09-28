@@ -1,4 +1,4 @@
-# Cleanup Untitled Tasks — Script de nettoyage des entrées "Untitled Task"
+﻿# Cleanup Untitled Tasks — Script de nettoyage des entrées "Untitled Task"
 # Issue #1173: MINOR: 6 orphaned task entries detected on myia-ai-01
 #
 # Ce script met en quarantaine les entrees "Untitled Task" (taches orphelines creees

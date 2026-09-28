@@ -1,4 +1,4 @@
-# worktree-cleanup.Tests.ps1 — Pester 5 : gardes de sécurité du cleanup (audit 27/09)
+﻿# worktree-cleanup.Tests.ps1 — Pester 5 : gardes de sécurité du cleanup (audit 27/09)
 #
 # Précédent harden-hidden-tasks.Tests.ps1 : l'hôte est pwsh 7 + Pester 5 (non livrés avec
 # 5.1) ; la CIBLE tourne TOUJOURS en process enfant `powershell.exe` 5.1, sur une COPIE du
@@ -204,7 +204,7 @@ Describe 'worktree-cleanup safety guards' {
         # .git FICHIER pointant vers un gitdir inexistant : git status sort en
         # fatal 128 — sans try/catch (classe #3731), erreur terminante qui tuait
         # le script au lieu d'être REFUSED.
-        Set-Content (Join-Path $pendant '.git') ("gitdir: " + (Join-Path $f 'gone-repo' '.git')) -Encoding ASCII
+        Set-Content (Join-Path $pendant '.git') ("gitdir: " + (Join-Path (Join-Path $f 'gone-repo') '.git')) -Encoding ASCII
         # Deuxième cible saine APRÈS la pendante (ordre alpha) : prouve que le
         # REFUSED n'arrête pas la suite.
         $husk = Join-Path $f '.claude\worktrees\zz-empty-husk'
