@@ -61,6 +61,19 @@ Lecture du verdict :
 2. **Session interactive perdue** : trigger `AtLogOn` + `LogonType Interactive` (exige par GDrive). Logoff/reboot sans logon = :9091 down jusqu'a la prochaine session.
 3. **Chien de garde mort** : la schtask `MCP-Chain-Watchdog` elle-meme absente/desactivee/trigger mort — les deux episodes de #3394 ne sont pas distinguishables d'un watchdog mort tant que ses logs n'ont pas ete lus sur l'hote.
 
+**« sparfenyuk meurt ~12x/jour » = redemarrages, pas des morts (#3898)** : `proxy.log` compte des `starting mcp-proxy` mais **0** `exited with code`. Deux redemarreurs agissent sur la meme pile : ce watchdog, et `watchdog-tbxark.ps1` de la lane NanoClaw (toutes les 5 min, redemarre sur un tools/call > 40 s). Un redemarrage NanoClaw fait echouer la sonde en vol du chain watchdog (-32603 `transport error … EOF`), qui en lancait un second. Depuis #3898, avant tout `Stop-ScheduledTask`, un vrai tools/call part **directement** sur :9091 (budget 60 s) :
+
+| Verdict | Condition | Geste |
+|---|---|---|
+| `booting` | `MCP-Proxy-RSM` lance il y a < 3 min, par qui que ce soit | rien — un redemarrage est deja en cours |
+| `slow` | le tools/call direct repond | sparfenyuk n'est **pas** relance ; alerte `backend-alive-not-restarted` si TBXark echoue encore |
+| `unresponsive` | port ouvert, 60 s sans reponse | differe au tick suivant |
+| `no-time` | la sonde de 60 s ne tient pas dans le run | differe au tick suivant |
+| `dead` | echec rapide (isError, refus, reset) — cas du 15/08 | reparation pleine |
+| `port-down` | :9091 ne listen pas (confirme apres 5 s) | reparation pleine |
+
+Le libelle de reparation distingue `port-was-down` (aucun listener) de `status-timeout-port-listening` (le `/status` de 5 s a expire sur un port ouvert).
+
 **Telemetrie flotte (depuis #3394)** : le watchdog poste sur le **machine dashboard** de l'hote (a travers la chaine qu'il surveille, best-effort, budget borne 8 s/requete) :
 - `WARN` + tag `mcp-chain-watchdog` a chaque reparation/alerte (verdict final inclus) ;
 - `INFO` + tag `mcp-chain-watchdog` en heartbeat toutes les 6 h quand tout est sain.
