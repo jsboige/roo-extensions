@@ -3750,6 +3750,21 @@ function Invoke-Claude {
         if ($ApiErrorInOutput) {
             Write-Log "API error in output #2968 — gateway returned subtype=success but body carries an anchored 'API Error' emission (rate-limit / no-credential / upstream). Surfacing as FAILURE (reason already in raw output)." "ERROR"
         }
+        # #3905: surface claude_code_version_too_old as its own failure line. Incident
+        # 27/09: opus tickets failed every tick for 8 months with a 400 whose message
+        # named the cause, yet the worker report carried nothing actionable — the raw
+        # output buried it and the generic #2968 line says "rate limit / credentials /
+        # upstream", never "update the CLI". DETECTION reuses the #2968 EMISSION anchor
+        # (line-start, optional [ERROR] log prefix, literal "API Error" + delimiter —
+        # verified 8/8 firsthand against prose false-positives) and additionally
+        # requires the version token on the SAME line: a body of THIS issue quoting the
+        # code in prose is not an emission and must not trip the flag. The remedy is
+        # machine-side (claude install latest), not task-side — the report must say so
+        # or the ticket gets redispatched into the same wall.
+        $ClaudeCodeVersionTooOld = $JoinedIterationOutput -match '(?im)^\s*(?:\[?ERROR\]?:?\s*)?API Error[:\s].*claude_code_version_too_old'
+        if ($ClaudeCodeVersionTooOld) {
+            Write-Log "CLI trop ancien (#3905) — claude_code_version_too_old dans l'output : le CLI de cette machine ne supporte pas le modèle demandé. Remède : mettre à jour le CLI (claude install latest), PAS re-dispatcher la tâche." "ERROR"
+        }
         if ($EmptyResponseTotal -gt 0) {
             Write-Log "Empty-response total #2578: $EmptyResponseTotal iteration(s) produced no content. Loop broken on 2-consecutive threshold → next scheduled cycle = fresh session (restart-on-saturation, sanctuary-safe)." "WARN"
         }
@@ -3768,6 +3783,7 @@ function Invoke-Claude {
             resultSubtype = $ResultSubtype
             emptyResponseCount = $EmptyResponseTotal
             apiErrorInOutput = $ApiErrorInOutput
+            claudeCodeVersionTooOld = $ClaudeCodeVersionTooOld
         }
     }
     catch {
@@ -4145,6 +4161,7 @@ $(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($
 $(if ($Result.resultSubtype -and $Result.resultSubtype -ne "success") { "**Coupure gateway:** ❌ subtype=$($Result.resultSubtype) (session coupée, output probablement incomplet)" })
 $(if ($Result.emptyResponseCount -and $Result.emptyResponseCount -gt 0) { "**Empty responses:** ⚠️ $($Result.emptyResponseCount) iteration(s) produced no content (#2578 saturation suspected — loop broken, next cycle = fresh session)" })
 $(if ($Result.apiErrorInOutput) { "**Erreur API dans l'output:** ❌ Le gateway a retourné subtype=success mais l'output contient une erreur API (rate limit / credentials manquants / upstream 500). Run interrompu — à refaire, pas un succès (#2968). Raison détaillée dans l'output brut ci-dessous." })
+$(if ($Result.claudeCodeVersionTooOld) { "**CLI trop ancien:** ❌ \`claude_code_version_too_old\` — le CLI Claude Code de cette machine ne supporte pas le modèle demandé (message API : « version X or newer is required », dans l'output brut). Remède machine-side : mettre à jour le CLI (\`claude install latest\`), NE PAS re-dispatcher la tâche (#3905)." })
 $(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
 $(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
 $(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
