@@ -52,7 +52,7 @@ RooSync est configuré pour utiliser un chemin externe pour le stockage des donn
 
 ## 4. Migration et Maintenance
 
-*   **Migration :** Tout déplacement de données vers le stockage externe doit être accompagné d'un script de migration (`scripts/migrate-roosync-storage.ps1`) pour assurer la continuité.
+*   **Migration :** Tout déplacement de données vers le stockage externe doit être accompagné d'un script de migration (`scripts/roosync/migrate-roosync-storage.ps1`) pour assurer la continuité.
 *   **Vérification :** Les processus de CI/CD ou les hooks de pré-commit doivent idéalement vérifier qu'aucun fichier de données volumineux n'est ajouté au dépôt.
 
 ## 5. Exceptions
