@@ -134,6 +134,15 @@ function Prepare-Worktree {
     $wt = $Grain.worktree
     $branch = $Grain.branch
     $base = $Grain.baseSha
+    # Grain mal forme : avec un chemin vide, `worktree add "" -b <br> <sha>` laisse
+    # git deriver le chemin du commit-ish (worktree exotique <runtime>/<sha> ancre
+    # sur un point inattendu) et la session worker retombe sur le cwd du driver —
+    # le checkout principal — ou elle committe en parasite. Refus AVANT tout git
+    # (mesure 28/09 : grain g2 #17636, run 1,02 $ perdudu + commit sur main local).
+    if ([string]::IsNullOrWhiteSpace($wt)) {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: champ worktree vide — grain mal forme, re-semer avec un worktree explicite (refus avant tout git)" -f $Grain.id)
+        return $false
+    }
     if (-not (Test-Path $runtimeDir)) { Write-FeederLog -Level 'ERROR' -Text "runtime absent: $runtimeDir"; return $false }
     # `worktree list` ecrit sur stdout ; pas de 2>&1 (fini de pipe stderr = throw sous Stop).
     # Correspondance ANCRÉE sur le chemin (1er champ), pas une sous-chaine : un
