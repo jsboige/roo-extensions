@@ -1,7 +1,7 @@
 # Architecture Unifiée d'Extraction de Tâches Roo + Claude
 
-**Version:** 1.0.0
-**Date:** 2026-04-15
+**Version:** 1.1.0
+**Date:** 2026-04-15 (création) · 2026-09-28 (MAJ statuts)
 **Issue Parente:** #1360
 **Phases:** #1391, #1392, #1393, #1394, #1395
 **Chemin:** `docs/architecture/unified-task-extraction-architecture.md` (note: issues référencent `docs/roosync/...` mais ce chemin est ignoré par git)
@@ -69,18 +69,18 @@ Cette duplication représente une **dette technique** : lorsque la demande "rend
 - `ui_messages.json` (messages complets)
 - `task_metadata.json` (metadata)
 
-**Code :**
-- `src/services/storage/RooStorageDetector.ts`
-- `src/services/skeletons/ConversationSkeletonService.ts`
+**Code :** *(chemins relatifs à `mcps/internal/servers/roo-state-manager/`)*
+- `src/utils/roo-storage-detector.ts`
+- `src/services/skeleton-cache.service.ts` (cache multi-tier #1244) + `src/services/archive-skeleton-builder.ts`
 
-**Output :** `ConversationSkeleton` (format Roo-spécifique)
+**Output :** `ConversationSkeleton` (format Roo-spécifique, **déprécié J+0 #1395 — 2026-09-28**)
 
 ### Pipeline 2 : Extraction Claude
 
 **Source :** `~/.claude/projects/<hash>/*.jsonl`
 
 **Code :**
-- `src/services/storage/ClaudeStorageDetector.ts`
+- `src/utils/claude-storage-detector.ts`
 - Parsing custom dans divers outils
 
 **Output :** Structures ad-hoc (pas de format unifié)
@@ -381,11 +381,20 @@ $ROOSYNC_SHARED_PATH/.shared-tasks/locks/<taskId>.lock
 
 **Durée :** 1-2 semaines
 
+**Statut (2026-09-28) :** J+0 livré — `@deprecated` JSDoc sur `ConversationSkeleton`,
+avertissements console warn-once (`SkeletonCacheService.getInstance()`,
+`archiveToSkeleton()`), guide de migration
+(`servers/roo-state-manager/docs/MIGRATION-UNIFIED-TASK-EXTRACTION.md`), entrée
+CHANGELOG. **La suppression code mort (J+30) est gated sur la Phase 4 (#1394)** :
+90 fichiers sous `src/tools/` consomment encore `ConversationSkeleton` et le
+dual-write Postgres (`unified-store`, #2191) prend le squelette complet comme
+entrée — un retrait prématuré casserait le store et les outils downstream.
+
 **Livrables :**
-- [ ] Marquer `ConversationSkeleton` deprecated
-- [ ] Supprimer code mort (après 30 jours de grace)
-- [ ] Mise à jour documentation
-- [ ] Post-mortem et retour d'expérience
+- [x] Marquer `ConversationSkeleton` deprecated (J+0, 2026-09-28)
+- [ ] Supprimer code mort (après 30 jours de grace — ≥ 2026-10-28, gated sur #1394)
+- [x] Mise à jour documentation (guide migration + correction chemins fantômes de ce doc)
+- [ ] Post-mortem et retour d'expérience (à la suppression effective)
 
 **Critères d'acceptation :**
 - Aucun code actif n'utilise l'ancien système
@@ -481,12 +490,16 @@ $ROOSYNC_SHARED_PATH/.shared-tasks/locks/<taskId>.lock
 
 ### Code Existant
 
-- `src/services/storage/RooStorageDetector.ts` - À refactorer
-- `src/services/storage/ClaudeStorageDetector.ts` - À refactorer
-- `src/services/skeletons/ConversationSkeletonService.ts` - À déprécier
+*(chemins relatifs à `mcps/internal/servers/roo-state-manager/` — les chemins
+`src/services/storage/*` et `src/services/skeletons/ConversationSkeletonService.ts`
+cités avant le 2026-09-28 n'existaient pas dans le dépôt)*
+
+- `src/utils/roo-storage-detector.ts` - À refactorer
+- `src/utils/claude-storage-detector.ts` - À refactorer
+- `src/services/skeleton-cache.service.ts` + `src/services/archive-skeleton-builder.ts` - Dépréciés J+0 (#1395, 2026-09-28)
 
 ---
 
 **Auteurs :** Claude Sonnet 4.5
-**Dernière MAJ :** 2026-04-15
-**Statut :** Draft v1.0.0 - En attente de review
+**Dernière MAJ :** 2026-09-28 (#1395 Phase 5 J+0 — statuts de phase, chemins corrigés)
+**Statut :** Phases 1-3 livrées (#1391, #1392, #1393) · Phase 4 en cours (#1394) · Phase 5 J+0 livré, suppression gated (#1395)
