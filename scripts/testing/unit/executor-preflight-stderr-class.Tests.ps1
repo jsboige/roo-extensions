@@ -63,8 +63,21 @@ Describe 'Executor pre-flight stderr class, lot 2 (#3731)' {
 
     It 'helper invocation stays ordered after the helper existence guard' {
         $guardIdx = $preflight.IndexOf('Test-Path $helper')
-        $cmdIdx = $preflight.IndexOf('cmd /c "powershell.exe')
         $guardIdx | Should -BeGreaterOrEqual 0
+        # The #3900 disk gate earlier in the file also spawns a child
+        # powershell.exe via cmd /c, BEFORE this guard by design (it must
+        # measure before the pull writes anything). Anchor the search at the
+        # guard so only the HELPER invocation -- the one this drift-guard
+        # protects -- is located.
+        $cmdIdx = $preflight.IndexOf('cmd /c "powershell.exe', $guardIdx)
         $cmdIdx | Should -BeGreaterThan $guardIdx
+    }
+
+    It 'disk gate scopes its measurement to the drives the cycle writes to (#3900 review)' {
+        # ai-01 review: without -Drive the gate measures EVERY fixed drive, so a
+        # nearly-full data drive the worker never touches would stop the lane.
+        $diskGuardIdx = $preflight.IndexOf('Test-Path $diskCheck')
+        $diskGuardIdx | Should -BeGreaterOrEqual 0
+        $preflight.IndexOf('-Drive', $diskGuardIdx) | Should -BeGreaterThan $diskGuardIdx
     }
 }

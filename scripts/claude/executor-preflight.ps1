@@ -93,6 +93,29 @@ try {
         throw "Executor pre-flight must run from main, not '$branch'."
     }
 
+    # #3900: disk gate BEFORE any pull/build write (fleet rule, po-203:Maintenance
+    # 27/09 14:21Z: <5% = stop + [WARN]; <15% = clean own artifacts). The check
+    # is measure-only and never deletes. Absent script = older checkout: skip
+    # silently -- the pull below brings it, the gate arms from the next cycle.
+    # Scope (#3900 review, ai-01): measure ONLY the drives this cycle writes to
+    # (SystemDrive, RepoRoot, TEMP) -- a nearly-full data drive the worker never
+    # touches must not stop the lane (measured F: 3.4% of 7.4 TB on ai-01).
+    # -File cannot pass arrays: comma-joined list, split inside the target.
+    $diskCheck = Join-Path $RepoRoot 'scripts/infra/check-disk-free.ps1'
+    if (Test-Path $diskCheck) {
+        $writeDrives = @($env:SystemDrive, (Split-Path -Qualifier $RepoRoot), (Split-Path -Qualifier $env:TEMP)) |
+            ForEach-Object { $_.Trim().TrimEnd('\').ToUpper() } | Sort-Object -Unique
+        $diskOutput = @(& cmd /c "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$diskCheck"" -Drive ""$($writeDrives -join ',')"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $diskOutput) { Write-Host $line }
+        $diskExit = $LASTEXITCODE
+        if ($diskExit -eq 3) {
+            Write-Host '[executor-preflight][DISK-BLOCK] A fixed drive is under 5% free - STOP per fleet rule (IISManagement 27/09). Post [WARN] on the workspace dashboard and clean own artifacts; free space before re-running. Nothing to repair on the build side.'
+            exit 1
+        } elseif ($diskExit -ne 0) {
+            Write-Host "[executor-preflight][DISK-WARN] disk check exit $diskExit (a drive under 15%, or measurement failure) - relay [WARN] on the workspace dashboard and clean own artifacts this cycle. Continuing."
+        }
+    }
+
     Invoke-GitChecked @('fetch', 'origin')
     Invoke-GitChecked @('pull', 'origin', 'main', '--no-rebase', '--autostash')
 
