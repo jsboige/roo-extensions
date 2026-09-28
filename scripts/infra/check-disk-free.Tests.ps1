@@ -58,4 +58,33 @@ Describe 'check-disk-free.ps1 (#3900)' {
         (@([regex]::Matches($r.Output, '(?m)^\[(OK|WARN|BLOCK)\] [A-Z]:')) | Measure-Object).Count | Should -Be 1
         $r.Output | Should -Match '(?m)^\[(OK|WARN|BLOCK)\] C:'
     }
+
+    It 'accepts one comma-separated -Drive string (arrays cannot cross -File)' {
+        $r = Invoke-Target @('-Drive', 'C:,D:', '-WarnPercent', '0', '-BlockPercent', '0')
+        $r.Exit | Should -BeIn (0, 2, 3)
+        $letters = @([regex]::Matches($r.Output, '(?m)^\[(OK|WARN|BLOCK)\] ([A-Z]):') | ForEach-Object { $_.Groups[2].Value })
+        $letters | Should -Be @('C', 'D')
+    }
+
+    It 'decides on the RAW free percent, never the rounded display (boundary)' {
+        # #3900 review nit: calibrate a threshold strictly between round(raw,1)
+        # and raw on a live drive -- under a rounded comparison the verdict flips.
+        $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+        $raw = ([double]$disk.FreeSpace / [double]$disk.Size) * 100
+        $rounded = [math]::Round($raw, 1)
+        if ($raw -eq $rounded) { Set-ItResult -Skipped -Because 'live C: sits exactly on a tenth of a percent'; return }
+        $t = $rounded + ($raw - $rounded) / 2
+        $r = Invoke-Target @('-Drive', 'C:', '-WarnPercent', '0', '-BlockPercent', "$t")
+        # Exclude the race where free space crossed the threshold mid-run.
+        $disk2 = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+        $raw2 = ([double]$disk2.FreeSpace / [double]$disk2.Size) * 100
+        if (($raw -lt $t) -ne ($raw2 -lt $t)) { Set-ItResult -Skipped -Because 'free space moved across the threshold during the run'; return }
+        if ($raw -gt $t) {
+            $r.Exit | Should -Be 0    # raw above: OK, though rounded < t would BLOCK
+            $r.Output | Should -Match '(?m)^\[OK\] C:'
+        } else {
+            $r.Exit | Should -Be 3    # raw below: BLOCK, though rounded >= t would pass
+            $r.Output | Should -Match '(?m)^\[BLOCK\] C:'
+        }
+    }
 }

@@ -18,8 +18,9 @@
       1 - measurement itself failed (never silent; treated as warn by callers)
 
 .PARAMETER Drive
-    Drive letters to measure, e.g. @('C:','D:'). Default: every DriveType 3
-    logical disk with a letter, minus G:.
+    Drive letters to measure, e.g. 'C:' or @('C:','D:'). A single comma-separated
+    string ('C:,D:') is also accepted (arrays cannot cross -File). Default: every
+    DriveType 3 logical disk with a letter, minus G:.
 
 .PARAMETER WarnPercent
     Percentage of free space under which a drive is in WARN state. Default 15.
@@ -33,11 +34,15 @@
 [CmdletBinding()]
 param(
     [string[]]$Drive,
-    [int]$WarnPercent = 15,
-    [int]$BlockPercent = 5
+    [double]$WarnPercent = 15,
+    [double]$BlockPercent = 5
 )
 
 $ErrorActionPreference = 'Stop'
+
+# -File cannot pass arrays: callers pass one comma-separated string (-Drive "C:,D:"),
+# normalize it to an array here (#3900 review).
+$Drive = @($Drive | ForEach-Object { $_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 if (-not $Drive -or $Drive.Count -eq 0) {
     $Drive = @(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID LIKE '%:'" |
