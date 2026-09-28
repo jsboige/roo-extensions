@@ -16,6 +16,7 @@ Couverture :
 
 import contextlib
 import io
+import json
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -31,6 +32,7 @@ from check_issue_claim import (
     classify,
     classify_number,
     extract_machine,
+    fetch_issue,
     main,
     parse_iso_utc,
     reduce_claims,
@@ -312,6 +314,123 @@ class TestMain(unittest.TestCase):
         ):
             rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 2)
+
+
+def gh_router(graphql, issue_state, comments):
+    """Fake `_gh_exec` routing on the CALL SHAPE (#3899), unlike gh_stub which
+    routes on the repo: the fallback fires several different gh invocations in
+    one fetch, each with its own outcome.
+
+    graphql     : (returncode, stdout, stderr) for `gh issue view --json ...`
+    issue_state : outcome for `gh api repos/<repo>/issues/<n>`
+    comments    : outcome for `gh api repos/<repo>/issues/<n>/comments`
+
+    Records every call in `calls` so a test can prove the REST leg ran (or
+    provably did NOT, for the non-quota error contract).
+    """
+
+    def _exec(args):
+        _exec.calls.append(list(args))
+        if args and args[0] == "issue":
+            return graphql
+        if any(a.endswith("/comments") for a in args):
+            return comments
+        return issue_state
+
+    _exec.calls = []
+    return _exec
+
+
+GRAPHQL_LIMITED = (
+    1,
+    "",
+    "gh: GraphQL: API rate limit exceeded (HTTP 403)",
+)
+GRAPHQL_SECONDARY_LIMITED = (
+    1,
+    "",
+    "gh: You have exceeded a secondary rate limit "
+    "and will be blocked from receiving content (HTTP 403)",
+)
+GRAPHQL_OTHER_ERROR = (1, "", "gh: connection reset by peer (HTTP 500)")
+
+
+class TestFetchIssueRestFallback(unittest.TestCase):
+    """#3899: REST fallback ONLY on an explicitly recognised quota error."""
+
+    def _rest_ok(self, bodies=(), state="open"):  # real REST shape (#3909)
+        lines = "".join(
+            '{"createdAt":"%s","body":%s}\n'
+            % (iso(T0 + timedelta(hours=i)), json.dumps(body))
+            for i, body in enumerate(bodies)
+        )
+        return (0, '{"state":"%s"}' % state, ""), (0, lines, "")
+
+    def test_rate_limit_falls_back_to_rest(self):
+        state_out, comments_out = self._rest_ok(["[CLAIMED] myia-po-2025 -- on it"])
+        stub = gh_router(GRAPHQL_LIMITED, state_out, comments_out)
+        with patch("check_issue_claim._gh_exec", stub):
+            issue = fetch_issue("123", DEFAULT_REPO)
+        self.assertEqual(issue["state"], "OPEN")
+        self.assertEqual(len(issue["comments"]), 1)
+        self.assertEqual(issue["comments"][0]["body"], "[CLAIMED] myia-po-2025 -- on it")
+        self.assertIn("createdAt", issue["comments"][0])  # GraphQL shape preserved
+        # both REST legs actually ran
+        self.assertTrue(any(a[0] == "api" for a in stub.calls))
+        self.assertEqual(sum(1 for a in stub.calls if a and a[0] == "issue"), 1)
+
+    def test_secondary_rate_limit_also_falls_back(self):
+        state_out, comments_out = self._rest_ok([])
+        stub = gh_router(GRAPHQL_SECONDARY_LIMITED, state_out, comments_out)
+        with patch("check_issue_claim._gh_exec", stub):
+            issue = fetch_issue("123", DEFAULT_REPO)
+        self.assertEqual(issue["state"], "OPEN")
+        self.assertEqual(issue["comments"], [])
+
+    def test_non_quota_error_propagates_without_rest_calls(self):
+        # A network/5xx error is NOT a quota condition: no second API is tried,
+        # the failure surfaces as before (fail-closed, exit 2 upstream).
+        stub = gh_router(GRAPHQL_OTHER_ERROR, (0, "{}", ""), (0, "", ""))
+        with patch("check_issue_claim._gh_exec", stub):
+            with self.assertRaises(RuntimeError):
+                fetch_issue("123", DEFAULT_REPO)
+        self.assertEqual(len(stub.calls), 1)  # GraphQL leg only, no REST leg
+
+    def test_rest_also_limited_stays_fail_closed(self):
+        stub = gh_router(GRAPHQL_LIMITED, (1, "", "gh: API rate limit exceeded (HTTP 403)"), (0, "", ""))
+        with patch("check_issue_claim._gh_exec", stub):
+            with self.assertRaises(RuntimeError):
+                fetch_issue("123", DEFAULT_REPO)
+
+
+class TestRestFallbackEndToEnd(unittest.TestCase):
+    """main() must reach a MEASURED verdict through the REST leg."""
+
+    def _run(self, bodies, state="open"):  # real REST shape (#3909)
+        lines = "".join(
+            '{"createdAt":"%s","body":%s}\n'
+            % (iso(T0 + timedelta(hours=i)), json.dumps(body))
+            for i, body in enumerate(bodies)
+        )
+        stub = gh_router(
+            GRAPHQL_LIMITED,
+            (0, '{"state":"%s"}' % state, ""),
+            (0, lines, ""),
+        )
+        with patch("check_issue_claim._gh_exec", stub):
+            with patch(
+                "check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)
+            ):
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        return rc
+
+    def test_blocked_via_rest_data(self):
+        rc = self._run(["[CLAIMED] myia-po-2025 -- on it"])
+        self.assertEqual(rc, 1)
+
+    def test_clear_via_rest_data(self):
+        rc = self._run([])
+        self.assertEqual(rc, 0)
 
 
 def gh_stub(per_repo):
