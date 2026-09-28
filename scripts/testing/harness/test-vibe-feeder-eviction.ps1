@@ -28,6 +28,12 @@
       - case B: worktree at recorded wtHead   -> no eviction (same generation)
       - case C: worktree ahead of wtHead      -> EVICTION, grain removed from queue
       - case D: wtHead field absent           -> no eviction (legacy grains)
+      - case G (28/09): grain with EMPTY worktree field -> Prepare-Worktree
+        REFUSES before any git call (git worktree add "" lets git derive the
+        path from the commit-ish -- exotic <runtime>/<sha> worktree on an
+        unexpected point, and the worker session falls back to the driver's
+        cwd, committing on the main checkout). The grain is SKIPped and STAYS
+        in the queue for manual repair; nothing is created on disk.
 
     Wired into the scheduling-harness job so a change to vibe-feeder.ps1
     landing on main re-runs it.
@@ -101,6 +107,20 @@ $secondForeach = $src.IndexOf('foreach ($g in $grains)', $firstForeach + 1)
 Assert-Equal 'feeder has a single foreach on grains'           $true ($secondForeach -lt 0 -or $secondForeach -eq -1)
 Assert-Equal 'eviction marker inside the grains foreach'        $true ($firstForeach -lt $iEvict)
 Assert-Equal 'post inside the grains foreach'                   $true ($firstForeach -lt $iPost)
+
+# (f) empty-worktree guard (28/09): a grain without an explicit worktree field
+# must be refused BEFORE any git call in Prepare-Worktree -- `worktree add ""`
+# lets git derive the path from the commit-ish and the session falls back to
+# the driver cwd (parasite commit on the main checkout).
+$iEmptyWt = $src.IndexOf('IsNullOrWhiteSpace($wt)')
+$emptyGuardBlock = ''
+if ($iEmptyWt -ge 0) {
+    $iGuardFalse = $src.IndexOf('return $false', $iEmptyWt)
+    if ($iGuardFalse -gt $iEmptyWt) { $emptyGuardBlock = $src.Substring($iEmptyWt, $iGuardFalse - $iEmptyWt + 'return $false'.Length) }
+}
+Assert-Equal 'empty-worktree guard present'                    $true ($emptyGuardBlock.Length -gt 0)
+Assert-Equal 'guard refuses (returns false) before any git'    $true ($emptyGuardBlock -match 'return \$false' -and $emptyGuardBlock -notmatch 'git -C' -and $emptyGuardBlock -notmatch '& git')
+Assert-Equal 'guard sits before the first worktree read'       $true ($iEmptyWt -gt 0 -and $src.IndexOf('worktree list') -gt $iEmptyWt)
 
 # ============================================================================
 # Test 2: refresh-vibe-queue.py now writes the wtHead field on each grain.
@@ -249,6 +269,11 @@ try {
     $queue5 = [ordered]@{
         _comment = 'behavioral stage (test 5)'
         grains = @(
+            # g-D FIRST: empty worktree field (28/09 regression). Must be refused
+            # by the Prepare-Worktree guard -- WARN + SKIP, nothing created -- so
+            # the tick moves on to g-A. Fresh baseSha so Update-StaleGrainBase
+            # stays a no-op and the refusal is attributable to the guard alone.
+            [ordered]@{ id = 'g-D'; issue = 4; baseSha = $rtBase1; branch = 'wt/vibe-gD'; worktree = ''; wtHead = ''; payload = 'payload D' }
             [ordered]@{ id = 'g-A'; issue = 1; baseSha = $rtBase0; branch = 'wt/vibe-gA'; worktree = $wtA5; wtHead = $rtBase0; payload = 'payload A' }
             [ordered]@{ id = 'g-B'; issue = 2; baseSha = $rtBase0; branch = 'wt/vibe-gB'; worktree = $wtB5; wtHead = $rtBase0; payload = 'payload B' }
             [ordered]@{ id = 'g-C'; issue = 3; baseSha = $rtBase1; branch = 'wt/vibe-gC'; worktree = ((Join-Path $root 'wtC5') -replace '\\', '/'); wtHead = $rtBase1; payload = 'payload C' }
@@ -269,13 +294,19 @@ try {
     if (Test-Path $logFile5) { $log5 = Get-Content $logFile5 -Raw -Encoding utf8 }
     Assert-Equal 'test5: feeder child exits 0'             0     $rc5
     Assert-Equal 'test5: log file written by the child'    $true ($null -ne $log5 -and $log5.Length -gt 0)
+    Assert-Equal 'test5: g-D refused by the empty-worktree guard (WARN in log)' $true ($log5 -match 'g-D.*champ worktree vide')
+    Assert-Equal 'test5: g-D SKIPped as unpreparable'      $true ($log5 -match 'SKIP g-D: worktree non preparable')
+    Assert-Equal 'test5: g-D never reaches the DRY-RUN'    $false ($log5 -match 'grain pret: g-D')
+    Assert-Equal 'test5: no exotic worktree derived from the sha' $false (Test-Path (Join-Path $rt $rtBase1))
     Assert-Equal 'test5: g-A evicted (EVICT in feeder log)' $true ($log5 -match 'EVICT g-A')
     Assert-Equal 'test5: g-B reaches the DRY-RUN print'    $true ($log5 -match 'grain pret: g-B')
     Assert-Equal 'test5: g-A never reaches the DRY-RUN'    $false ($log5 -match 'grain pret: g-A')
 
     $q5 = Get-Content $queuePath5 -Raw -Encoding utf8 | ConvertFrom-Json
     $ids5 = (@($q5.grains) | ForEach-Object { $_.id }) -join ','
-    Assert-Equal 'test5 (M2): evicted grain stays out after Update-StaleGrainBase rewrite' 'g-B,g-C' $ids5
+    # g-D STAYS in the queue (SKIP, not eviction): a malformed grain remains
+    # visible for manual repair instead of silently disappearing.
+    Assert-Equal 'test5 (M2): evicted grain stays out after Update-StaleGrainBase rewrite' 'g-D,g-B,g-C' $ids5
     $gB5 = @($q5.grains | Where-Object { $_.id -eq 'g-B' })[0]
     Assert-Equal 'test5 (M3): g-B baseSha recalé to new main' $rtBase1 $gB5.baseSha
     Assert-Equal 'test5 (M3): g-B wtHead recalé to new main'  $rtBase1 $gB5.wtHead
