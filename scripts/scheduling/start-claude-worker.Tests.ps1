@@ -1,4 +1,4 @@
-# Pester tests for start-claude-worker.ps1 — #3905 (claude_code_version_too_old surfacing).
+﻿# Pester tests for start-claude-worker.ps1 — #3905 (claude_code_version_too_old surfacing).
 #
 # The worker is a 5000-line monolith with network side effects: not drivable from a
 # bench. What IS provable without executing it:

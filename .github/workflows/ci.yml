@@ -56,9 +56,10 @@ on:
       - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
       # Plan Marshall (audit 27/09): the marshall-scripts-pester job below runs
-      # five Pester suites that execute the REAL scripts as powershell.exe 5.1
-      # children — each guarded script AND its suite must re-trigger it on main
-      # pushes (same principle as above; #3902/#3903/#3906/#3907).
+      # six Pester suites — five that execute the REAL scripts as powershell.exe
+      # 5.1 children, plus the start-claude-worker static suite (#3905) — each
+      # guarded script AND its suite must re-trigger it on main
+      # pushes (same principle as above; #3902/#3903/#3906/#3907/#3905).
       - 'scripts/roosync/migrate-roosync-storage.ps1'
       - 'scripts/roosync/migrate-roosync-storage.Tests.ps1'
       - 'scripts/maintenance/maintenance-workflow.ps1'
@@ -69,6 +70,8 @@ on:
       - 'scripts/gdrive/purge-shared-state-artifacts.ps1'
       - 'scripts/gdrive/purge-shared-state-artifacts.Tests.ps1'
       - 'scripts/claude/worktree-cleanup.Tests.ps1'
+      - 'scripts/scheduling/start-claude-worker.ps1'
+      - 'scripts/scheduling/start-claude-worker.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
@@ -437,7 +440,9 @@ jobs:
   # acceptance criterion (the fleet runs 5.1, pwsh is absent on part of it),
   # same reason as scheduling-rotate-harness above, hence windows-latest. No
   # network, no GDrive, no schtask. #3908's check-disk-free.Tests.ps1 joins
-  # this job at its merge.
+  # this job at its merge. The #3905 start-claude-worker suite is static
+  # (text guards on the 5000-line worker, not drivable from a bench) and
+  # joins here too — it ran nowhere before this job took it.
   marshall-scripts-pester:
     runs-on: windows-latest
     steps:
@@ -461,6 +466,9 @@ jobs:
       - name: Run purge-shared-state-artifacts suite (#3907)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/purge-shared-state-artifacts.Tests.ps1 -CI
+      - name: Run start-claude-worker suite (#3905, static)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/start-claude-worker.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
