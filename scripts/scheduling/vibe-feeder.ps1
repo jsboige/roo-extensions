@@ -76,7 +76,7 @@ function Write-FeederLog {
 }
 
 # ---------- run-in-flight guard (conservative) ----------
-# -7 min (mandat user 29/09 « Mistral quasi non stop ») : les runs durent 2-4,5 min
+# -2 min (burst 29/09 soir ; mandat « Mistral quasi non stop ») : runs 2-4,5 min
 # (mesure 29/09 : 91-246 s) et le worker lock (exit 75) protege deja du chevauchement
 # reel — la garde 30 min etrangleit la cadence a 1 grain/h avec des ticks 15 min.
 # Burst 3-workers (arbitrage ai-01 29/09 15:32Z sect.1) : les locks PAR-GRAIN
@@ -423,7 +423,7 @@ function Invoke-QueueRefresh {
 Write-FeederLog -Level 'INFO' -Text "Vibe-Feeder tick (DryRun=$DryRun)"
 
 # Burst 3-workers : la saturation se lit sur les locks par-grain VIVANTS. La
-# fenetre 7 min (Test-RunInFlight) ne s'applique qu'en regime mono (0 vivant) —
+# fenetre 2 min (Test-RunInFlight) ne s'applique qu'en regime mono (0 vivant) —
 # en burst elle NOOPerait perpetuellement (un run finit toujours dans les
 # 7 dernieres minutes) etranglant la cadence a 1 worker.
 $MaxParallel = 3
@@ -435,7 +435,7 @@ if ($vivants -ge $MaxParallel) {
 $Budget = $MaxParallel - $vivants
 $dispatched = 0
 if ($vivants -eq 0 -and (Test-RunInFlight)) {
-    Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 30 min"
+    Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 2 min (regime mono)"
     exit 0
 }
 Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} grain(s) ce tick" -f $vivants, $Budget)
