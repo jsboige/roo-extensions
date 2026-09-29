@@ -189,4 +189,27 @@ Describe 'Test-IssueMachineForeign — Project #67 Machine field gate (#3827, #3
         $Gate  | Should -BeGreaterThan $Start
         $Claim | Should -BeGreaterThan $Gate
     }
+
+    It 'fail-closed on unreadable fields (#3896): the null guard sits between the read and the gate' {
+        # 29/09: token without read:project -> GraphQL INSUFFICIENT_SCOPES -> Get-IssueProjectFields
+        # returned @{} -> empty Machine -> gate said "not foreign" -> web1 claimed #3896
+        # (Machine=myia-po-2023). The contract is now: $null = unreadable = skip.
+        $Worker = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'start-claude-worker.ps1')
+        $Read  = $Worker.IndexOf('$ProjectFields = Get-IssueProjectFields -IssueNumber $Issue.number')
+        $Read | Should -BeGreaterThan -1
+        $Guard = $Worker.IndexOf('if ($null -eq $ProjectFields)', $Read)
+        $Gate  = $Worker.IndexOf('Test-IssueMachineForeign -FieldMachine $ProjectFields.Machine', $Read)
+        $Guard | Should -BeGreaterThan $Read
+        $Gate  | Should -BeGreaterThan $Guard
+    }
+
+    It 'contract: Get-IssueProjectFields signals read failure with $null, never an empty hashtable (#3896)' {
+        $Worker = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'start-claude-worker.ps1')
+        $Start = $Worker.IndexOf('function Get-IssueProjectFields')
+        $Start | Should -BeGreaterThan -1
+        $End   = $Worker.IndexOf('function ', $Start + 10)
+        $Body  = $Worker.Substring($Start, $End - $Start)
+        ([regex]::Matches($Body, [regex]::Escape('return $null'))).Count | Should -BeGreaterOrEqual 2
+        $Body.IndexOf('return @{}') | Should -Be -1   # empty-tableau = "lu, sans champs" — réservé au succès
+    }
 }

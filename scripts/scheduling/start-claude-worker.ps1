@@ -571,6 +571,9 @@ function Get-IssueProjectFields {
     .SYNOPSIS
     Reads Project #67 fields for a specific issue via GraphQL.
     Returns Model, Execution, Deadline, Machine, Agent, Status.
+
+    $null on read failure (GraphQL error / exception) — the caller MUST skip,
+    fail-closed (#3896). An EMPTY hashtable = read OK, issue carries no fields.
     #>
     param([int]$IssueNumber)
 
@@ -608,7 +611,7 @@ function Get-IssueProjectFields {
         Remove-Item $TempFile -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  GraphQL error for #$IssueNumber : $ResultJson" "WARN"
-            return @{}
+            return $null   # unreadable, not empty — caller skips (fail-closed, #3896)
         }
 
         $Result = $ResultJson | ConvertFrom-Json
@@ -641,7 +644,7 @@ function Get-IssueProjectFields {
         return $Fields
     } catch {
         Write-Log "Erreur Get-IssueProjectFields #$IssueNumber : $_" "WARN"
-        return @{}
+        return $null   # unreadable, not empty — caller skips (fail-closed, #3896)
     }
 }
 
@@ -796,6 +799,15 @@ function Get-GitHubTask {
 
             # Lire les champs Project #67 (Model, Execution, Deadline, etc.)
             $ProjectFields = Get-IssueProjectFields -IssueNumber $Issue.number
+
+            # Champs ILLISIBLES (erreur GraphQL — ex. token sans read:project, #3896 29/09) :
+            # skip fail-closed. Un champ vide LU = eligible ; un champ NON LU = Machine inconnue,
+            # et « inconnue » ne prouve pas « pas etrangere ». Ce trou a laisse le worker web1
+            # reclamer #3896 (Machine=myia-po-2023) alors que le gate ci-dessous etait vert.
+            if ($null -eq $ProjectFields) {
+                Write-Log "  Issue #$($Issue.number) : Project fields illisibles (GraphQL), skip fail-closed (#3896)" "WARN"
+                continue
+            }
 
             # Skip si le champ Machine designe une AUTRE machine (#3827, #3832). Le champ etait lu
             # ici sans jamais filtrer : seul Execution gatait. Mesure 24/09 : web1 a auto-claime #3832
