@@ -16,14 +16,16 @@
       - Short one-shot run (~1-5s). Not a long-running service -> no
         self-healing repeat trigger needed beyond the 15-min schedule itself.
       - Non-elevated remediation: Stop/Start-ScheduledTask are allowed for the
-        task owner. Registration of THIS watchdog task is what requires
-        elevation ([INTERACTIVE-ONLY], same as the listener install).
+        task owner. Registration also works from a standard session: the task
+        then lands RunLevel Limited and the watchdog still guards the zombie
+        class (measured po-2027, 29/09). Elevation only upgrades to Highest.
       - -StartWhenAvailable: a missed fire (machine off) runs on wake.
       - MultipleInstances IgnoreNew on the watchdog itself: a hung previous run
         never stacks.
 
     Rollout: install on every machine that has Claude-DashboardListener deployed
-    in pwsh-direct mode (#3656). One-time elevated action per machine, then the
+    in pwsh-direct mode (#3656). One-time registration per machine (standard session OK; elevation only
+    upgrades RunLevel), then the
     zombie class self-heals within ~15-30 min instead of ~26h of human latency.
 
 .PARAMETER Uninstall
@@ -46,14 +48,17 @@
 
 .EXAMPLE
     .\install-listener-zombie-watchdog-schtask.ps1
-    # Register the 15-min watchdog (requires elevation).
+    # Register the 15-min watchdog (standard session OK, RunLevel Limited;
+    # elevation upgrades to Highest).
 
 .EXAMPLE
     .\install-listener-zombie-watchdog-schtask.ps1 -Uninstall
 
 .NOTES
-    Requires admin elevation (RunLevel Highest) for schtasks registration.
-    Run from an elevated PowerShell:
+    No hard elevation requirement: from a standard session the task registers
+    with RunLevel Limited and the watchdog runs (measured po-2027, 29/09);
+    an elevated session yields RunLevel Highest.
+    Run from any PowerShell:
     powershell -ExecutionPolicy Bypass -File .\install-listener-zombie-watchdog-schtask.ps1
 
     Related: #3687 (this watchdog), #3686 (po-2026 zombie, ~26h human latency),
@@ -164,13 +169,13 @@ if ($DryRun) {
     Write-Host "Watchdog script exists: $((Test-Path $watchdogScript)) | shell: $pwshPath"
     Write-Host $listenerWarning
     Write-Host ""
-    Write-Host "To register (elevated): re-run without -DryRun"
+    Write-Host "To register: re-run without -DryRun (elevation optional)"
     Write-Host "To test watchdog now  : pwsh -File `"$watchdogScript`" -DryRun"
     exit 0
 }
 
 # ========================================
-# REGISTER (elevated)
+# REGISTER (elevation optional)
 # ========================================
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($existing) {
@@ -183,7 +188,7 @@ Register-ScheduledTask -TaskName $taskName `
     -Settings $settings -Description $description | Out-Null
 
 Write-Host "Installed scheduled task: $taskName" -ForegroundColor Green
-Write-Host "  Trigger      : Every $IntervalMinutes min | Principal: $env:USERNAME (Highest)"
+Write-Host "  Trigger      : Every $IntervalMinutes min | Principal: $env:USERNAME (Highest/Limited per session elevation)"
 Write-Host "  Watchdog     : $watchdogScript (StaleSeconds=$StaleSeconds)"
 Write-Host "  Remediation  : Stop+Start Claude-DashboardListener on zombie detection"
 Write-Host ""
