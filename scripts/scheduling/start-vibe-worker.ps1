@@ -586,7 +586,27 @@ if ($wakeOnly -and
 # bloque aussi la lecture via FileShare.None) → reste de crash → remove + un unique
 # retry. Si la lecture échoue (sharing violation), un worker VIVANT le détient → SKIP.
 
-$LockFile = Join-Path $LogDir "vibe-worker.lock"
+# #17636 burst (arbitrage ai-01 29/09 15:32Z §1) : jusqu'à 3 workers parallèles sur
+# grains disjoints → verrous SÉPARÉS par grain. Le suffixe dérive du worktree lu dans
+# le payload WAKE (ligne "worktree: <path>") ; sans payload, le lock global historique
+# reste (compat listener/scheduler mono-grain, même garde exit 75).
+$LockName = "vibe-worker.lock"
+if (-not [string]::IsNullOrWhiteSpace($MessagePayloadFile) -and (Test-Path $MessagePayloadFile)) {
+    try {
+        $payloadPeek = [System.IO.File]::ReadAllText($MessagePayloadFile)
+        # Le payload WAKE arrive en JSON compact sur UNE ligne : les \n y sont
+        # échappés (2 chars) — `^worktree:` multiline ne matche jamais. On ancre
+        # sur début de ligne OU \n échappé, et on coupe le path au premier
+        # whitespace / backslash / guillemet (le \n échappé suivant).
+        if ($payloadPeek -match '(?m)(?:^|\\n)worktree:\s*([^\s\\"]+)') {
+            $wtLeaf = ($Matches[1] -split '[\\/]')[-1] -replace '[^A-Za-z0-9._-]', ''
+            if (-not [string]::IsNullOrWhiteSpace($wtLeaf)) {
+                $LockName = "vibe-worker-{0}.lock" -f $wtLeaf
+            }
+        }
+    } catch { }
+}
+$LockFile = Join-Path $LogDir $LockName
 $script:LockStream = $null
 
 function Open-WorkerLock {
