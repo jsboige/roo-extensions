@@ -73,7 +73,7 @@ Cette duplication représente une **dette technique** : lorsque la demande "rend
 - `src/utils/roo-storage-detector.ts`
 - `src/services/skeleton-cache.service.ts` (cache multi-tier #1244) + `src/services/archive-skeleton-builder.ts`
 
-**Output :** `ConversationSkeleton` (format Roo-spécifique, **déprécié J+0 #1395 — 2026-09-28**)
+**Output :** `ConversationSkeleton` (format Roo-spécifique, **déprécié J+0 #1395 — livré 2026-09-29, PR submod #1255 `476316c4`**)
 
 ### Pipeline 2 : Extraction Claude
 
@@ -381,14 +381,20 @@ $ROOSYNC_SHARED_PATH/.shared-tasks/locks/<taskId>.lock
 
 **Durée :** 1-2 semaines
 
-**Statut (2026-09-28) :** J+0 livré — `@deprecated` JSDoc sur `ConversationSkeleton`,
-avertissements console warn-once (`SkeletonCacheService.getInstance()`,
-`archiveToSkeleton()`), guide de migration
+**Statut (2026-09-29) :** J+0 livré — **PR submod
+[jsboige-mcp-servers#1255](https://github.com/jsboige/jsboige-mcp-servers/pull/1255)
+MERGÉE, commit `476316c4`** (squash ; pointeur parent suivi sur `main` via #3928) :
+`@deprecated` JSDoc sur `ConversationSkeleton`, avertissements console warn-once
+(`SkeletonCacheService.getInstance()`, `archiveToSkeleton()` — 1/processus, zéro
+changement de comportement), guide de migration
 (`servers/roo-state-manager/docs/MIGRATION-UNIFIED-TASK-EXTRACTION.md`), entrée
-CHANGELOG. **La suppression code mort (J+30) est gated sur la Phase 4 (#1394)** :
-90 fichiers sous `src/tools/` consomment encore `ConversationSkeleton` et le
-dual-write Postgres (`unified-store`, #2191) prend le squelette complet comme
-entrée — un retrait prématuré casserait le store et les outils downstream.
+CHANGELOG `### Deprecated`, 2 tests warn-once (CI 14 245 verts au merge).
+**La suppression code mort (J+30) est gated sur la Phase 4 (#1394)** :
+la migration des consommateurs est complète côté code (PR submod #1257 en
+review, table 6/6 dans `docs/UNIFIED-TASK-CONSUMERS-MIGRATION.md`) mais le
+dual-write Postgres
+(`unified-store`, #2191) prend encore le squelette complet comme entrée — un
+retrait prématuré casserait le store. Grace period inchangée : ≥ 2026-10-28.
 
 **Livrables :**
 - [x] Marquer `ConversationSkeleton` deprecated (J+0, 2026-09-28)
