@@ -1,0 +1,45 @@
+{
+  "__readme__": "Canon flotte ~/.claude/settings.json (mandat user, 4e relance 29/09/2026). Deploy: Deploy-GlobalConfig.ps1 -Target settings. Le marqueur <<preserve-local>> garde la valeur locale (secrets/endpoint machine). Tout ce qui n'est pas listé ici n'est PAS touche par le deploiement (allow-list locale, hooks locaux, effortLevel, cleanupPeriodDays restent a la machine). Tier ids: penses pour durer moins d'un cycle de release modele — re-pinner via PR ici.",
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "<<preserve-local>>",
+    "ANTHROPIC_BASE_URL": "<<preserve-local>>",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Opus",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION": "Rôle Opus — modèle décidé par claudish (Anthropic natif, bascule en cascade si plan épuisé)",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME": "Fable 5.1",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION": "Anthropic Fable 5.1 (SOTA)",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Sonnet",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION": "Rôle Sonnet — modèle décidé par claudish (bascule budget selon les quotas)",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001[1m]",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "Haiku",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION": "Rôle Haiku — modèle décidé par claudish (bascule budget selon les quotas)",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "<<preserve-local>>",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "<<preserve-local>>",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "<<preserve-local>>",
+    "ANTHROPIC_CUSTOM_HEADERS": "<<preserve-local>>",
+    "API_TIMEOUT_MS": "600000",
+    "MCP_TOOL_TIMEOUT": "900000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "95",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "280000",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
+    "ENABLE_TOOL_SEARCH": "true"
+  },
+  "permissions": {
+    "__deny_semantics__": "ENSURE-list: le deploiement AJOUTE les entrees canon absentes, il ne supprime jamais un deny local (ex. ScheduleWakeup sur po-2025 est un choix machine preserve)",
+    "deny": [
+      "EnterPlanMode",
+      "ExitPlanMode",
+      "DesignSync",
+      "NotebookEdit",
+      "AskUserQuestion"
+    ],
+    "mode": "auto-approve"
+  },
+  "model": "sonnet[1m]",
+  "disableBundledSkills": true,
+  "disableClaudeAiConnectors": true,
+  "disableRemoteControl": true,
+  "outputStyle": "Proactive"
+}
