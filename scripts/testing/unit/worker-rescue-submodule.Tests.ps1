@@ -38,6 +38,17 @@ BeforeAll {
     $script:fnRescue = Get-WorkerFnBody -Content $script:content -Name 'Reset-PhantomSubmodulePointers'
     $script:fnMark   = Get-WorkerFnBody -Content $script:content -Name 'Mark-TaskAsComplete'
     $script:fnReport = Get-WorkerFnBody -Content $script:content -Name 'Report-Results'
+
+    # Fenetre etape 8 : bloc de cleanup final du script PRINCIPAL (pas une fonction —
+    # fenetrage par marqueurs). Chaines ASCII uniquement : un fichier sans BOM decode en
+    # CP1252 sous PS 5.1 perd les accents, le worker (BOM) les garde.
+    $step8Pos = $script:content.IndexOf('# 8. Cleanup worktree')
+    $step8End = $script:content.IndexOf('WORKER TERMIN', $step8Pos)
+    if ($step8Pos -ge 0 -and $step8End -gt $step8Pos) {
+        $script:blockStep8 = $script:content.Substring($step8Pos, $step8End - $step8Pos)
+    } else {
+        $script:blockStep8 = ''
+    }
 }
 
 Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944)" {
@@ -123,8 +134,43 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
 
         It "Doit porter le bloc de preservation dans le rapport (Report-Results)" {
             ($script:fnReport -match 'Travail submodule pr') | Should -Be $true
-            ($script:fnReport -match '\(#3944\)') | Should -Be $true
+            ($script:fnReport -match '\(#3944') | Should -Be $true
             ($script:fnReport -match '\$\(\$_\.Branch') | Should -Be $true
+        }
+    }
+
+    Context "La branche refusee ne peut plus etre effacee ni mentie (review #3946)" {
+
+        It "Doit poser le flag PhantomRescueRefused dans le bloc REFUSED, avant le continue" {
+            $refusePos = $script:fnRescue.IndexOf('REFUSED phantom-pointer revert')
+            $refuseBlock = $script:fnRescue.Substring($refusePos)
+            $nextReset = $refuseBlock.IndexOf('reset --hard origin/main')
+            if ($nextReset -gt 0) { $refuseBlock = $refuseBlock.Substring(0, $nextReset) }
+            ($refuseBlock -match '\$script:PhantomRescueRefused = \[pscustomobject\]') | Should -Be $true
+            $flagPos = $refuseBlock.IndexOf('$script:PhantomRescueRefused')
+            $continuePos = $refuseBlock.IndexOf('continue')
+            $flagPos | Should -BeGreaterThan 0
+            $continuePos | Should -BeGreaterThan $flagPos
+        }
+
+        It "Doit verifier le flag AVANT le fallback PASS-no-changes et rendre un verdict BLOCKED nommant chemin et commit" {
+            $condPos = $script:fnMark.IndexOf('elseif ($Success -and $script:PhantomRescueRefused)')
+            $noChangePos = $script:fnMark.IndexOf('no code changes needed')
+            $condPos | Should -BeGreaterThan 0
+            $noChangePos | Should -BeGreaterThan $condPos
+            ($script:fnMark -match 'BLOCKED') | Should -Be $true
+            ($script:fnMark -match 'submodule work NOT preserved remotely') | Should -Be $true
+            ($script:fnMark.IndexOf('($Ref.WorktreePath)')) | Should -BeGreaterThan 0
+            ($script:fnMark.IndexOf('($Ref.Commit.Substring(0, 8))')) | Should -BeGreaterThan 0
+        }
+
+        It "Doit verifier le flag a l'etape 8 avant TOUT appel Remove-Worktree et conserver le worktree" {
+            ($script:blockStep8.Length) | Should -BeGreaterThan 0
+            $flagPos = $script:blockStep8.IndexOf('$script:PhantomRescueRefused')
+            $firstRemove = $script:blockStep8.IndexOf('Remove-Worktree -WorktreePath')
+            $flagPos | Should -BeGreaterThan 0
+            $firstRemove | Should -BeGreaterThan $flagPos
+            ($script:blockStep8 -match 'CONSERV') | Should -Be $true
         }
     }
 }
