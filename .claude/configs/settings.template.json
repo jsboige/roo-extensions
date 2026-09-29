@@ -3,7 +3,7 @@
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "<<preserve-local>>",
     "ANTHROPIC_BASE_URL": "<<preserve-local>>",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1m]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5[1m]",
     "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Opus",
     "ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION": "Rôle Opus — modèle décidé par claudish (Anthropic natif, bascule en cascade si plan épuisé)",
     "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1",
