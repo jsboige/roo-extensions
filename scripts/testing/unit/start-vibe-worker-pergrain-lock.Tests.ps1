@@ -73,10 +73,10 @@ Describe "start-vibe-worker lock par-grain (#17636 burst)" {
         $null = ($Script:PayloadOneLine -match $Script:LockRegex)
         $leaf = ($Matches[1] -split '[\\/]')[-1] -replace '[^A-Za-z0-9._-]', ''
         $leaf | Should -BeExactly 'w3-1-search-f4'
-        # [IO.Path]::GetTempPath() en repli : $env:TEMP est null sur le runner CI
-        # Ubuntu (review ai-01 #3942 — le cycle de mutation 6/6 n'avait tourne que
-        # sous Windows).
-        $tmpRoot = if ($env:TEMP) { $env:TEMP } else { [IO.Path]::GetTempPath() }
-        (Join-Path $tmpRoot ("vibe-worker-{0}.lock" -f $leaf)) | Should -Not -Match '[^A-Za-z0-9._:\\\-]'
+        # L'assertion porte sur le NOM DE FICHIER (ce que le sanitizeur produit),
+        # pas sur le chemin joint : sous Ubuntu [IO.Path]::GetTempPath() rend
+        # '/tmp/...' et le separateur '/' sort de l'allowlist (review ai-01 #3942,
+        # run 36618578955). Le leaf lui-meme est propre (assertion ci-dessus).
+        ("vibe-worker-{0}.lock" -f $leaf) | Should -Not -Match '[^A-Za-z0-9._-]'
     }
 }
