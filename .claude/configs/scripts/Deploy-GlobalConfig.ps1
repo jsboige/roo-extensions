@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Deploy global Claude Code configuration from roo-extensions templates.
 
