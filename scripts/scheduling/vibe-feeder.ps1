@@ -76,8 +76,26 @@ function Write-FeederLog {
 }
 
 # ---------- run-in-flight guard (conservative) ----------
+# -7 min (mandat user 29/09 « Mistral quasi non stop ») : les runs durent 2-4,5 min
+# (mesure 29/09 : 91-246 s) et le worker lock (exit 75) protege deja du chevauchement
+# reel — la garde 30 min etrangleit la cadence a 1 grain/h avec des ticks 15 min.
+# Burst 3-workers (arbitrage ai-01 29/09 15:32Z sect.1) : les locks PAR-GRAIN
+# (start-vibe-worker.ps1, #17636) font la garde vive — un fichier .lock dont la
+# lecture echoue (sharing violation) = un worker VIVANT le detient.
+function Get-LiveWorkerCount {
+    $n = 0
+    foreach ($f in (Get-ChildItem -Path $logDir -Filter 'vibe-worker-*.lock' -ErrorAction SilentlyContinue)) {
+        try { $null = [IO.File]::ReadAllText($f.FullName) } catch { $n++ }
+    }
+    $n
+}
+
 function Test-RunInFlight {
-    $cut = (Get-Date).ToUniversalTime().AddMinutes(-30)
+    # -2 min (burst 29/09 soir) : le repli DETACHE consomme le grain au lancement,
+    # le cas exit-75-boucle (grain en file + worker vivant) n'existe plus — la
+    # fenetre n'est plus qu'un anti-rebond listener. Le lock par-grain couvre le
+    # chevauchement reel. Valeurs precedentes : 30 min (origine), 7 min (29/09 matin).
+    $cut = (Get-Date).ToUniversalTime().AddMinutes(-2)
     $recent = $false
     $sources = @(
         (Get-ChildItem -Path $logDir -Filter 'listener-*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1),
@@ -404,10 +422,23 @@ function Invoke-QueueRefresh {
 # ---------- main ----------
 Write-FeederLog -Level 'INFO' -Text "Vibe-Feeder tick (DryRun=$DryRun)"
 
-if (Test-RunInFlight) {
+# Burst 3-workers : la saturation se lit sur les locks par-grain VIVANTS. La
+# fenetre 7 min (Test-RunInFlight) ne s'applique qu'en regime mono (0 vivant) —
+# en burst elle NOOPerait perpetuellement (un run finit toujours dans les
+# 7 dernieres minutes) etranglant la cadence a 1 worker.
+$MaxParallel = 3
+$vivants = Get-LiveWorkerCount
+if ($vivants -ge $MaxParallel) {
+    Write-FeederLog -Level 'INFO' -Text ("NOOP: {0} worker(s) Vibe vivants (budget parallele sature)" -f $vivants)
+    exit 0
+}
+$Budget = $MaxParallel - $vivants
+$dispatched = 0
+if ($vivants -eq 0 -and (Test-RunInFlight)) {
     Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 30 min"
     exit 0
 }
+Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} grain(s) ce tick" -f $vivants, $Budget)
 
 # Deux passes max : passe 1 = file telle quelle ; si elle est vide ou
 # integralement SKIP, passe 2 = re-mesure par l'organe puis nouvelle tentative.
@@ -504,7 +535,9 @@ for ($pass = 1; $pass -le 2; $pass++) {
             $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
             Write-Queue -Queue $outObj
             Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
-            exit 0
+            $dispatched++
+            if ($dispatched -ge $Budget) { exit 0 }
+            continue
         } else {
             # Le declencheur de la lane passait ENTIEREMENT par le cloud : post
             # [WAKE-VIBE] sur le dashboard partage, puis pickup par le listener. Un
@@ -535,7 +568,9 @@ for ($pass = 1; $pass -le 2; $pass++) {
                         $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
                         Write-Queue -Queue $outObj
                         Write-FeederLog -Level 'INFO' -Text ("file mise a jour (post livre malgre timeout): {0} grain(s) restant(s)" -f $remaining.Count)
-                        exit 0
+                        $dispatched++
+                        if ($dispatched -ge $Budget) { exit 0 }
+                        continue
                     }
                 }
                 Write-FeederLog -Level 'WARN' -Text ("post [WAKE-VIBE] impossible ({0}) — relecture sans trace du message, repli sur spawn LOCAL du worker" -f $trigger)
@@ -549,20 +584,31 @@ for ($pass = 1; $pass -le 2; $pass++) {
                 $vibeWorkerScript = Join-Path $repoRoot 'scripts\scheduling\start-vibe-worker.ps1'
                 $vibeProfile = Join-Path $repoRoot 'scripts\scheduling\vibe-profiles\coursia.json'
                 $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-                & $psHost -File $vibeWorkerScript -ConfigPath $vibeProfile -MessagePayloadFile $payloadFile
-                $spawnExit = $LASTEXITCODE
-                if ($spawnExit -eq 0) {
-                    Write-FeederLog -Level 'INFO' -Text ("repli local OK (exit 0) — grain {0} consomme, pas de re-post" -f $g.id)
+                # Burst 3-workers : repli DETACHE. L'invocation bloquante (&) ne
+                # laissait passer qu'UN run par tick ; le lock PAR-GRAIN fait des
+                #ormais la garde anti-double, le tick n'a plus a attendre le run.
+                # Le grain est consomme au lancement : si le worker meurt avant de
+                # committer, son worktree garde le travail pour le relay shepherd.
+                $spawnLaunched = $true
+                try {
+                    Start-Process -FilePath $psHost -ArgumentList @(
+                        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $vibeWorkerScript,
+                        '-ConfigPath', $vibeProfile, '-MessagePayloadFile', $payloadFile
+                    ) -WindowStyle Hidden | Out-Null
+                } catch {
+                    $spawnLaunched = $false
+                    Write-FeederLog -Level 'ERROR' -Text ("repli local: Start-Process echoue ({0}) — grain conserve en file" -f $_.Exception.Message)
+                }
+                if ($spawnLaunched) {
+                    Write-FeederLog -Level 'INFO' -Text ("repli local DETACHE — worker lance sur grain {0}, grain consomme" -f $g.id)
                     $remaining = @($grains | Where-Object { $_.id -ne $g.id })
                     $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
                     Write-Queue -Queue $outObj
-                    Write-FeederLog -Level 'INFO' -Text ("file mise a jour (repli local): {0} grain(s) restant(s)" -f $remaining.Count)
-                    exit 0
+                    Write-FeederLog -Level 'INFO' -Text ("file mise a jour (repli local detache): {0} grain(s) restant(s)" -f $remaining.Count)
+                    $dispatched++
+                    if ($dispatched -ge $Budget) { exit 0 }
+                    continue
                 }
-                # exit 75 = un worker vivant detient le lock : le payload n'a PAS ete
-                # traite. Ne pas consommer le grain (ce serait le perdre) — le tick
-                # suivant le reprendra.
-                Write-FeederLog -Level 'ERROR' -Text ("repli local en echec (exit={0}) — grain {1} conserve en file pour le tick suivant" -f $spawnExit, $g.id)
                 exit 1
             }
             Write-FeederLog -Level 'ERROR' -Text "post echoue grain $($g.id) — relire dashboard avant retry (write-first)"
