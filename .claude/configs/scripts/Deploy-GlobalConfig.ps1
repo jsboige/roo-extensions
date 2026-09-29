@@ -201,6 +201,22 @@ if ($Target -in "all", "settings") {
         $canonHash = Convert-ToOrderedHash (Get-Content $templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
         $actions = [System.Collections.ArrayList]::new()
 
+        # The pre-fix Convert-ToOrderedHash flattened EVERY 1-item array, not only hooks:
+        # a one-entry permissions list came back as a bare string, which Claude Code
+        # rejects too. Wrap it back BEFORE the merge — Merge-CanonIntoLive reads a
+        # non-array deny as empty and would drop the local entry.
+        function Repair-PermissionLists {
+            param($liveHash, [ref]$actions)
+            if (-not ($liveHash.Contains('permissions') -and $liveHash['permissions'] -is [System.Collections.IDictionary])) { return }
+            $perm = $liveHash['permissions']
+            foreach ($k in 'allow', 'deny', 'ask', 'additionalDirectories') {
+                if ($perm.Contains($k) -and $perm[$k] -is [string]) {
+                    $perm[$k] = @($perm[$k])
+                    $null = $actions.Value.Add("REPAIRED permissions.$k — was a single string, wrapped into an array")
+                }
+            }
+        }
+
         # ── Structural validator (incident 29/09: machines arrived with hooks Claude
         # Code refuses to parse — PreToolUse as an OBJECT instead of an ARRAY, an entry
         # with no `matcher`). ConvertFrom-Json catches malformed JSON, NOT schema errors,
@@ -234,17 +250,20 @@ if ($Target -in "all", "settings") {
                 $dropped = 0
                 foreach ($e in $entries) {
                     if (-not ($e -is [System.Collections.IDictionary])) { $dropped++; continue }
-                    $hasMatcher = $e.Contains('matcher') -and -not [string]::IsNullOrWhiteSpace("$($e['matcher'])")
+                    # NO check on `matcher`: it is optional. Omitted, "" or "*" = match all,
+                    # and Stop / UserPromptSubmit / ... have no matcher by design
+                    # (code.claude.com/docs/en/hooks, "Matcher patterns"). Dropping it
+                    # deletes a valid hook.
                     $inner = $e['hooks']
-                    if (-not $hasMatcher) {
-                        # An entry with no matcher matches NOTHING — it is inert garbage
-                        # (measured on po-2027: the whole file had to be deleted). An empty
-                        # matcher is dropped, never kept, never guessed at.
-                        $dropped++
-                        continue
+                    if ($inner -is [System.Collections.IDictionary]) {
+                        # Same flattening one level down: a second pass of the pre-fix
+                        # deployer turns the 1-command `hooks` list into a bare object.
+                        $inner = @($inner)
+                        $e['hooks'] = $inner
+                        $null = $actions.Value.Add("REPAIRED hooks.$eventName[].hooks — was a single object, wrapped into an array")
                     }
                     if (-not ($inner -is [object[]]) -or $inner.Count -eq 0) {
-                        # matcher but no hook commands — nothing to run. Unrepairable.
+                        # no hook commands — nothing to run. Unrepairable.
                         $dropped++
                         continue
                     }
@@ -252,7 +271,7 @@ if ($Target -in "all", "settings") {
                 }
                 if ($dropped -gt 0) {
                     $hooks[$eventName] = $cleaned
-                    $null = $actions.Value.Add("REPAIRED hooks.$eventName — dropped $dropped entrie(s) with no matcher or no hooks (inert)")
+                    $null = $actions.Value.Add("REPAIRED hooks.$eventName — dropped $dropped entrie(s) with no hook command (inert)")
                 }
                 if ($cleaned.Count -eq 0) {
                     # The event had only invalid entries: remove the event key entirely
@@ -269,6 +288,7 @@ if ($Target -in "all", "settings") {
 
         if (Test-Path $livePath) {
             $liveHash = Convert-ToOrderedHash (Get-Content $livePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+            Repair-PermissionLists -liveHash $liveHash -actions ([ref]$actions)
             Merge-CanonIntoLive -liveHash $liveHash -canonHash $canonHash -path '' -actions ([ref]$actions)
             $fatal = [System.Collections.ArrayList]::new()
             Repair-AndValidateHooks -liveHash $liveHash -actions ([ref]$actions) -fatal ([ref]$fatal)
