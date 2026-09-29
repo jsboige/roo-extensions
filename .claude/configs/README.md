@@ -8,6 +8,7 @@ Ce repertoire contient les templates de configuration Claude Code deployables gl
 configs/
 ├── README.md                    # Ce fichier
 ├── user-global-claude.md        # Template pour ~/.claude/CLAUDE.md
+├── settings.template.json       # Canon flotte ~/.claude/settings.json (merge, pas copie)
 ├── agents/                      # Agents generiques (-> ~/.claude/agents/)
 │   ├── code-explorer.md
 │   ├── git-sync.md
@@ -30,6 +31,31 @@ configs/
     ├── harnais-tightening.md    # Regles 15/09 (zero question, papermill, ENABLE_TOOL_SEARCH, #3657)
     └── uac-dryrun-discipline.md # Discipline dry-run UAC
 ```
+
+## Canon settings.json (mandat user, 4e relance 29/09/2026)
+
+`settings.template.json` declare le canon flotte de `~/.claude/settings.json` — la
+reponse durable au mandat recurrent d'homogenisation (la campagne #3544
+`hc-claude-settings-1.0.1`, close 7/7 le 18/09, ne couvrait que ~10 cles du bloc
+env et rien n'a surveille la derive apres clôture ; bascules `model` observees
+sur po-203 des la campagne).
+
+Semantique du deploiement (`Deploy-GlobalConfig.ps1 -Target settings`) :
+
+- **Merge canon, jamais copie** : seules les cles listees dans le template sont
+  touchees. Allow-list locale, hooks locaux, `effortLevel`, `cleanupPeriodDays`
+  et toute autre cle restent a la machine.
+- **`<<preserve-local>>`** : la valeur locale est gardee (secrets, endpoint
+  machine, lane Sol). Un `<<preserve-local>>` sur machine neuve (pas de fichier
+  live) est deposé avec un WARN — les profils provider gerent l'onboarding.
+- **`permissions.deny` = liste ENSURE** : les entrees canon absentes sont
+  AJOUTEES ; un deny local extra (ex. `ScheduleWakeup` sur po-2025) n'est jamais
+  supprime.
+- **Surete** : backup horodate avant ecriture, UTF-8 sans BOM, re-parse
+  systematique apres ecriture (un settings.json casse casse toutes les sessions
+  de la machine). Les deux interpreteurs (5.1 et 7) valides.
+- **Tier ids** : ils periment a chaque release modele — les maj via PR ici, pas
+  par edit local d'une machine.
 
 > **Note (#2368) :** `~/.claude/CLAUDE.md` reference desormais les regles globales `~/.claude/rules/sddd-protocol.md` et `~/.claude/rules/file-writing.md` (deportees ici). La copie projet `.claude/rules/file-writing.md` a ete supprimee (contenu preserve dans le global). Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. La regle `harnais-tightening.md` (#3657) est elle aussi deployee globalement via le meme `Deploy-GlobalConfig.ps1 -Target rules`.
 
