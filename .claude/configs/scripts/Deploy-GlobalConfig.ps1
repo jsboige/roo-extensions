@@ -138,6 +138,15 @@ if ($Target -in "all", "settings") {
             foreach ($p in $obj.PSObject.Properties) { $h[$p.Name] = Convert-ToOrderedHash $p.Value }
             return $h
         }
+        # Preserve arrays AS arrays (recursing into elements): the hook validator must
+        # see PreToolUse as object[] — flattening an array here is what made a VALID
+        # settings.json read as "PreToolUse is a PSCustomObject" (measured 29/09).
+        # The unary comma forces the result back into an array even when it holds a
+        # SINGLE element: a pipeline unwraps a 1-item collection to the item itself,
+        # which is exactly how a 1-entry PreToolUse array became a bare OrderedDictionary.
+        if ($obj -is [object[]]) {
+            return ,@($obj | ForEach-Object { Convert-ToOrderedHash $_ })
+        }
         return $obj
     }
 
@@ -192,10 +201,82 @@ if ($Target -in "all", "settings") {
         $canonHash = Convert-ToOrderedHash (Get-Content $templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
         $actions = [System.Collections.ArrayList]::new()
 
+        # ── Structural validator (incident 29/09: machines arrived with hooks Claude
+        # Code refuses to parse — PreToolUse as an OBJECT instead of an ARRAY, an entry
+        # with no `matcher`). ConvertFrom-Json catches malformed JSON, NOT schema errors,
+        # so the deployer used to re-emit a corrupt-but-parseable file untouched. This
+        # validator REPAIRS the unambiguous corruptions and REFUSES to write a file that
+        # still does not validate — a settings.json Claude cannot parse breaks every
+        # session on the machine, which is worse than no deploy at all.
+        function Repair-AndValidateHooks {
+            param($liveHash, [ref]$actions, [ref]$fatal)
+            if (-not ($liveHash.Contains('hooks'))) { return }
+            $hooks = $liveHash['hooks']
+            if (-not ($hooks -is [System.Collections.IDictionary])) {
+                $fatal.Value.Add("hooks is a $($hooks.GetType().Name), expected an object — REFUSING to write")
+                return
+            }
+            foreach ($eventName in @($hooks.Keys)) {
+                $entries = $hooks[$eventName]
+                # Claude Code requires every hook event to be an ARRAY of
+                # { matcher, hooks: [ {type, command} ] }. An object here is the exact
+                # corruption measured 29/09 — repair by wrapping when it is unambiguous.
+                if ($entries -is [System.Collections.IDictionary]) {
+                    $entries = @($entries)
+                    $hooks[$eventName] = $entries
+                    $null = $actions.Value.Add("REPAIRED hooks.$eventName — was a single object, wrapped into an array")
+                }
+                if (-not ($entries -is [object[]])) {
+                    $fatal.Value.Add("hooks.$eventName is a $($entries.GetType().Name), expected an array — REFUSING to write")
+                    continue
+                }
+                $cleaned = @()
+                $dropped = 0
+                foreach ($e in $entries) {
+                    if (-not ($e -is [System.Collections.IDictionary])) { $dropped++; continue }
+                    $hasMatcher = $e.Contains('matcher') -and -not [string]::IsNullOrWhiteSpace("$($e['matcher'])")
+                    $inner = $e['hooks']
+                    if (-not $hasMatcher) {
+                        # An entry with no matcher matches NOTHING — it is inert garbage
+                        # (measured on po-2027: the whole file had to be deleted). An empty
+                        # matcher is dropped, never kept, never guessed at.
+                        $dropped++
+                        continue
+                    }
+                    if (-not ($inner -is [object[]]) -or $inner.Count -eq 0) {
+                        # matcher but no hook commands — nothing to run. Unrepairable.
+                        $dropped++
+                        continue
+                    }
+                    $cleaned += $e
+                }
+                if ($dropped -gt 0) {
+                    $hooks[$eventName] = $cleaned
+                    $null = $actions.Value.Add("REPAIRED hooks.$eventName — dropped $dropped entrie(s) with no matcher or no hooks (inert)")
+                }
+                if ($cleaned.Count -eq 0) {
+                    # The event had only invalid entries: remove the event key entirely
+                    # rather than emit an empty array (cleaner, and Claude accepts absence).
+                    $hooks.Remove($eventName)
+                    $null = $actions.Value.Add("REPAIRED hooks.$eventName — removed (no valid entry remained)")
+                }
+            }
+            if ($hooks.Keys.Count -eq 0) {
+                $liveHash.Remove('hooks')
+                $null = $actions.Value.Add("REPAIRED hooks — removed (no valid event remained)")
+            }
+        }
+
         if (Test-Path $livePath) {
             $liveHash = Convert-ToOrderedHash (Get-Content $livePath -Raw -Encoding UTF8 | ConvertFrom-Json)
             Merge-CanonIntoLive -liveHash $liveHash -canonHash $canonHash -path '' -actions ([ref]$actions)
-            if (-not $DryRun) {
+            $fatal = [System.Collections.ArrayList]::new()
+            Repair-AndValidateHooks -liveHash $liveHash -actions ([ref]$actions) -fatal ([ref]$fatal)
+            if ($fatal.Count -gt 0) {
+                foreach ($fmsg in $fatal) { Write-Host "  FATAL $fmsg" -ForegroundColor Red }
+                Write-Host "  REFUSED settings.json — live file left UNTOUCHED (fix the corruption, then re-run)" -ForegroundColor Red
+            }
+            elseif (-not $DryRun) {
                 $backup = "$livePath.bak-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                 Copy-Item $livePath $backup -Force
                 $json = $liveHash | ConvertTo-Json -Depth 10
@@ -204,7 +285,7 @@ if ($Target -in "all", "settings") {
                 # breaks EVERY session on the machine.
                 $null = Get-Content $livePath -Raw -Encoding UTF8 | ConvertFrom-Json
                 Write-Host "  BACKUP $(Split-Path -Leaf $backup)"
-                Write-Host "  WROTE settings.json (JSON round-trip verified, UTF-8 no BOM)" -ForegroundColor Green
+                Write-Host "  WROTE settings.json (JSON round-trip verified, hooks validated, UTF-8 no BOM)" -ForegroundColor Green
             }
         } else {
             # Fresh machine: scaffold from the canon. <<preserve-local>> keys cannot
