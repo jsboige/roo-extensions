@@ -1,7 +1,7 @@
 # Wake-Claude — Listener, durabilité et observabilité
 
 **Déporté de** `.claude/rules/wake-claude-routing.md` (v1.1.0) le 2026-08-05.
-**Issues :** #2431 (durabilité + observabilité) · #2186 (routing vérifié-correct) · #2928 (détection fleet) · #2561 (choix du modèle) · #3686/#3687 (zombie watchdog)
+**Issues :** #2431 (durabilité + observabilité) · #2186 (routing vérifié-correct) · #2928 (détection fleet) · #2561 (choix du modèle) · #3686/#3687 (zombie watchdog) · #3904 (réponse aux alertes STALE)
 
 La règle auto-chargée garde le **contrat de routing** et les interdits. Tout ce qui suit est de la
 procédure et du contexte : on le lit quand on répare un listener, pas à chaque conversation.
@@ -118,6 +118,35 @@ pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-check-all
 Options de rollout (lane coordinator/user) : (1) ai-01 seul auto-monitore tout le fleet,
 (2) chaque machine installe → détection distribuée redondante, (3) garder ad-hoc. L'installeur ne
 décide pas — il supporte les trois selon qui l'installe.
+
+## Réponse à une alerte STALE — probe local avant tout geste (#3904)
+
+Une alerte STALE porte sur le **heartbeat partagé**, pas sur le process : le listener peut être
+vivant localement pendant que sa copie GDrive est en retard. Les deux lectures ont été mesurées le
+même jour (27/09, #3904) :
+
+| Machine | Verdict local | Verdict réel |
+|---|---|---|
+| ai-01 | heartbeat local frais, log continu, 0 erreur le 27/09 | **Fausse alerte** — divergence DriveFS côté partagé ; le listener n'est jamais mort |
+| po-2023 | arrêt abrupt du log (BSOD `0x116` VIDEO_TDR), relance schtask au reboot | **Vraie alerte** — le process était mort |
+
+**Ordre non négociable :**
+
+1. Sur la machine visée, `diagnose-wake-listener.ps1` (non élevé, dispatchable) — il tranche entre
+   vivant et mort local en une minute.
+2. Vivant local → **ne PAS relancer** : c'est le partagé qui ment. Relancer un listener sain casse
+   un listener sain.
+3. Mort local → geste du zombie watchdog (`Stop-ScheduledTask` + `Start-ScheduledTask`, non élevé) ;
+   réinstallation élevée seulement si la tâche elle-même est cassée.
+
+Variante montage : DriveFS déconnecté (jeton révoqué, web2 29/09 — #3151) → plus de `G:` du tout :
+ni lecture ni publication de heartbeat possibles, le fix est la reconnexion du lecteur, jamais le
+listener.
+
+Deux pièges de lecture : `LastTaskResult=0x800710E0` (« operator refused ») est le refus **normal**
+d'un re-trigger quand une instance vit déjà (`MultipleInstances=IgnoreNew`) — pas une panne ; et le
+log listener stampe l'heure **locale avec un suffixe Z** (#3686) — jamais comparable aux timestamps
+UTC.
 
 ## Watchdog zombie (#3687)
 
