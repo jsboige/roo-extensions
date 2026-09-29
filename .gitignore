@@ -85,6 +85,11 @@ config/mcp_settings.json
 *.bak
 *.backup
 *.backup_*
+# Timestamped copies and machine-local launchers generated beside scripts
+# (never versioned; a timestamped config copy can carry tokens)
+*.bak-*
+*.backup-*
+*.launcher.vbs
 sync-config.ref.json.backup.*
 
 # Fichiers spécifiques à Roo
