@@ -604,7 +604,7 @@ if (-not [string]::IsNullOrWhiteSpace($MessagePayloadFile) -and (Test-Path $Mess
                 $LockName = "vibe-worker-{0}.lock" -f $wtLeaf
             }
         }
-    } catch { }
+    } catch { Write-Log "payload WAKE illisible — repli sur le verrou global (review ai-01 #3942)" "WARN" }
 }
 $LockFile = Join-Path $LogDir $LockName
 $script:LockStream = $null

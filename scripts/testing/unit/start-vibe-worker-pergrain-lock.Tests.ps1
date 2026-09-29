@@ -73,6 +73,10 @@ Describe "start-vibe-worker lock par-grain (#17636 burst)" {
         $null = ($Script:PayloadOneLine -match $Script:LockRegex)
         $leaf = ($Matches[1] -split '[\\/]')[-1] -replace '[^A-Za-z0-9._-]', ''
         $leaf | Should -BeExactly 'w3-1-search-f4'
-        (Join-Path $env:TEMP ("vibe-worker-{0}.lock" -f $leaf)) | Should -Not -Match '[^A-Za-z0-9._:\\\-]'
+        # [IO.Path]::GetTempPath() en repli : $env:TEMP est null sur le runner CI
+        # Ubuntu (review ai-01 #3942 — le cycle de mutation 6/6 n'avait tourne que
+        # sous Windows).
+        $tmpRoot = if ($env:TEMP) { $env:TEMP } else { [IO.Path]::GetTempPath() }
+        (Join-Path $tmpRoot ("vibe-worker-{0}.lock" -f $leaf)) | Should -Not -Match '[^A-Za-z0-9._:\\\-]'
     }
 }
