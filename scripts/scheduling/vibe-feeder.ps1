@@ -76,8 +76,11 @@ function Write-FeederLog {
 }
 
 # ---------- run-in-flight guard (conservative) ----------
+# -7 min (mandat user 29/09 « Mistral quasi non stop ») : les runs durent 2-4,5 min
+# (mesure 29/09 : 91-246 s) et le worker lock (exit 75) protege deja du chevauchement
+# reel — la garde 30 min etrangleit la cadence a 1 grain/h avec des ticks 15 min.
 function Test-RunInFlight {
-    $cut = (Get-Date).ToUniversalTime().AddMinutes(-30)
+    $cut = (Get-Date).ToUniversalTime().AddMinutes(-7)
     $recent = $false
     $sources = @(
         (Get-ChildItem -Path $logDir -Filter 'listener-*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1),
