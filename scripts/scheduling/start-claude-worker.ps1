@@ -2561,6 +2561,20 @@ function Test-OnlyAutoCommits {
 
     try {
         Push-Location $WorktreePath
+
+        # Guard (suivi #3933, same 3-line idiom as Test-WorktreeHasChanges): the folder
+        # must still BE a git worktree. One the session removed (deregistered, emptied
+        # down to its folder) lives INSIDE the main checkout (.claude/worktrees/...):
+        # with no .git entry of its own, the git log below walks up and reads the MAIN
+        # checkout — empty ahead-list, verdict $false "real work", and both callers push
+        # or keep a folder git must never address. $true (nothing reviewable via git)
+        # makes both callers Remove-Worktree: same refuse-and-clean outcome as #3933.
+        $Here = (Get-Location).ProviderPath
+        if (-not (Test-Path -LiteralPath (Join-Path $Here '.git'))) {
+            Write-Log "REFUSED OnlyAutoCommits probe: '$Here' has no .git entry - no longer a git worktree, git would address the enclosing checkout" "ERROR"
+            return $true
+        }
+
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         $CommitMessages = @((& cmd /c "git log main..HEAD --format=""%s"" 2>&1") | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
