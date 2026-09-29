@@ -123,6 +123,15 @@ roosync_search(
 roosync_search(action: "semantic", search_query: "...", conversation_id: "{TASK_ID}")
 ```
 
+**Pagination des resultats larges (#936) :** `offset` (0-1000) saute les N premiers resultats
+(groupes de taches uniques en semantic, matches tries par score en text). Chainer les pages
+avec `offset += max_results` tant que la reponse porte `pagination.has_more: true` :
+
+```
+roosync_search(action: "semantic", search_query: "...", max_results: 50, offset: 0)  # page 1
+roosync_search(action: "semantic", search_query: "...", max_results: 50, offset: 50) # page 2
+```
+
 **Patterns de requete courants (#637) :**
 
 | Pattern | Parametres cles | Usage |
@@ -135,6 +144,7 @@ roosync_search(action: "semantic", search_query: "...", conversation_id: "{TASK_
 | **Par modele** | `model:"opus"` | Sessions opus uniquement |
 | **Fenetre temporelle** | `start_date + end_date` | Analyse tendance sur periode |
 | **Dans tache** | `conversation_id:"{ID}"` | Fouiller une tache specifique |
+| **Requete large** | `offset + max_results` (#936) | Depasser le plafond de 100 resultats par pages |
 
 ---
 
