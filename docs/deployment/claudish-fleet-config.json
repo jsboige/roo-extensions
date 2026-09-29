@@ -32,7 +32,7 @@
       "description": "Coordinator — Anthropic Opus primary, z.ai for haiku/subagent",
       "models": {
         "opus": "anthropic@claude-opus-5-5",
-        "sonnet": "anthropic@claude-sonnet-5",
+        "sonnet": "anthropic@claude-sonnet-5-5",
         "haiku": "gc@glm-4.7-flash",
         "subagent": "gc@glm-4.5-air"
       },
@@ -44,7 +44,7 @@
       "description": "All Anthropic — premium mode for critical sessions",
       "models": {
         "opus": "anthropic@claude-opus-5-5",
-        "sonnet": "anthropic@claude-sonnet-5",
+        "sonnet": "anthropic@claude-sonnet-5-5",
         "haiku": "anthropic@claude-haiku-4-5-20251001",
         "subagent": "anthropic@claude-haiku-4-5-20251001"
       },

@@ -9,7 +9,7 @@
     "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1",
     "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME": "Fable 5.1",
     "ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION": "Anthropic Fable 5.1 (SOTA)",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1m]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5[1m]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "Sonnet",
     "ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION": "Rôle Sonnet — modèle décidé par claudish (bascule budget selon les quotas)",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5-20251001[1m]",
