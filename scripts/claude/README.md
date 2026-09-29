@@ -16,14 +16,13 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
   - Creates config files from templates
 
 - **`Deploy-GlobalConfig.ps1`** - Deploy global CLAUDE.md/agents/skills/commands/**rules** to a machine
-  - Usage: `scripts/claude/Deploy-GlobalConfig.ps1` (ou `-Target rules|claude-md|agents|skills|commands`)
+  - Usage: `.claude/configs/scripts/Deploy-GlobalConfig.ps1` (ou `-Target rules|claude-md|agents|skills|commands|settings`)
   - Copies configs from `.claude/configs/` to `~/.claude/`
-  - **Deuxième copie** : `.claude/configs/scripts/Deploy-GlobalConfig.ps1`. Les deux chemins sont
-    documentés, chacun dans son README, et les agents lancent l'un ou l'autre indifféremment.
-    **L'invariant n'est pas qu'elles soient identiques, c'est que chacune déploie les rules.**
-    Du 26/05 au 02/09 cette copie-ci n'avait ni `rules` dans son `ValidateSet` ni son bloc de
-    déploiement : lancée avec `-Target all` elle affichait `Done.` en laissant `~/.claude/rules/`
-    inchangé. Garde : `scripts/testing/unit/deploy-global-config.Tests.ps1` (job CI `unit-pester`).
+  - **Copie unique depuis le 29/09/2026** (consolidation dispatch ai-01, règle de consolidation) :
+    la copie locale `scripts/claude/Deploy-GlobalConfig.ps1` — amputée de `rules` du 26/05 au 02/09,
+    puis restée sans la cible `settings` — a été supprimée après analyse ligne-par-ligne (chaque
+    feature de l'ancien est byte-identique dans le canon ; blob conservé dans l'historique git).
+    Garde : `scripts/testing/unit/deploy-global-config.Tests.ps1` (job CI `unit-pester`).
 
 ### Provider Management
 

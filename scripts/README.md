@@ -60,7 +60,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `claude/` | 17 | Scripts PowerShell Claude Code (spawn workers, switch-provider, validation) |
+| `claude/` | 16 | Scripts PowerShell Claude Code (spawn workers, switch-provider, validation) |
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
@@ -72,7 +72,7 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 
 | Script | Description |
 |--------|-------------|
-| `claude/Deploy-GlobalConfig.ps1` | Déploie la configuration globale Claude Code depuis les templates roo-extensions (copie agents, skills, commands, rules et CLAUDE.md de `.claude/configs/` vers `~/.claude/`) |
+| `claude/Deploy-GlobalConfig.ps1` | **Supprimé — consolidé** (29/09/2026, #3938) : le canon unique vit dans `.claude/configs/scripts/Deploy-GlobalConfig.ps1` |
 | `claude/Deploy-ProviderSwitcher.ps1` | Déploie le Provider Switcher Claude Code dans les paramètres globaux de l'utilisateur (`~/.claude/`) : commande slash, script de bascule et templates de config providers |
 | `claude/Switch-MCPConfig.ps1` | Bascule entre différentes configurations MCP pour debugger les doublons d'outils (erreur « Tool names must be unique ») |
 | `claude/Switch-Provider.ps1` | Bascule Claude Code entre providers LLM (anthropic, zai, claudish) en mettant à jour le `settings.json` utilisateur |
