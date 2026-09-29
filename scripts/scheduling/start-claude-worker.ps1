@@ -2368,7 +2368,13 @@ function Remove-WorktreeReparsePoints {
     $stack.Push((Get-Item -LiteralPath $WorktreePath -Force))
     while ($stack.Count -gt 0) {
         $dir = $stack.Pop()
-        try { $subDirs = $dir.GetDirectories() } catch { continue }
+        try { $subDirs = $dir.GetDirectories() }
+        catch {
+            # A folder we cannot list may hide a junction: refuse rather than delete blind.
+            Write-Log "Cannot enumerate '$($dir.FullName)' ($($_.Exception.Message)) - recursive removal refused" "ERROR"
+            $allUnlinked = $false
+            continue
+        }
         foreach ($sub in $subDirs) {
             if (-not ($sub.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
                 $stack.Push($sub)

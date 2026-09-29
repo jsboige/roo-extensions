@@ -54,6 +54,14 @@ Describe "Worker - jonctions retirees avant suppression recursive" {
             $script:helperBody | Should -Not -Match 'rmdir /s'
             $script:helperBody | Should -Not -Match 'Remove-Item'
         }
+
+        It "Refuse (retourne false) quand un lien survit au rmdir" {
+            $script:helperBody | Should -Match '(?s)if \(Test-Path -LiteralPath \$sub\.FullName\) \{[^}]*\$allUnlinked = \$false'
+        }
+
+        It "Refuse (retourne false) quand un dossier ne peut pas etre liste : il peut cacher une jonction" {
+            $script:helperBody | Should -Match '(?s)catch \{[^}]*\$allUnlinked = \$false[^}]*continue'
+        }
     }
 
     Context "Remove-Worktree" {
