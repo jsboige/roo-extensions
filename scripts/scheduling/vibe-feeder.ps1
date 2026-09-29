@@ -534,6 +534,12 @@ for ($pass = 1; $pass -le 2; $pass++) {
             $remaining = @($grains | Where-Object { $_.id -ne $g.id })
             $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
             Write-Queue -Queue $outObj
+            # Resynchroniser la file EN MEMOIRE (garde de l'EVICT, review #3756
+            # M2) : sans elle, le consume suivant du meme tick RESSUSCITE ce
+            # grain sur disque ($grains le contient encore). Mesure live 29/09 :
+            # budget 3, deux consumes successifs affichent 205 -> 205.
+            $grains = $remaining
+            $q.grains = $remaining
             Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
             $dispatched++
             if ($dispatched -ge $Budget) { exit 0 }
@@ -567,6 +573,11 @@ for ($pass = 1; $pass -le 2; $pass++) {
                         $remaining = @($grains | Where-Object { $_.id -ne $g.id })
                         $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
                         Write-Queue -Queue $outObj
+                        # Garde identique au consume nominal : la file EN MEMOIRE
+                        # doit suivre le disque (#3756 M2), sinon le consume
+                        # suivant du tick ressuscite ce grain.
+                        $grains = $remaining
+                        $q.grains = $remaining
                         Write-FeederLog -Level 'INFO' -Text ("file mise a jour (post livre malgre timeout): {0} grain(s) restant(s)" -f $remaining.Count)
                         $dispatched++
                         if ($dispatched -ge $Budget) { exit 0 }
@@ -604,6 +615,11 @@ for ($pass = 1; $pass -le 2; $pass++) {
                     $remaining = @($grains | Where-Object { $_.id -ne $g.id })
                     $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
                     Write-Queue -Queue $outObj
+                    # Garde identique au consume nominal : la file EN MEMOIRE
+                    # doit suivre le disque (#3756 M2), sinon le consume
+                    # suivant du tick ressuscite ce grain.
+                    $grains = $remaining
+                    $q.grains = $remaining
                     Write-FeederLog -Level 'INFO' -Text ("file mise a jour (repli local detache): {0} grain(s) restant(s)" -f $remaining.Count)
                     $dispatched++
                     if ($dispatched -ge $Budget) { exit 0 }

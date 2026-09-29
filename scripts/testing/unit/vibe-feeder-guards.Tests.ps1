@@ -354,7 +354,11 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
         It "la relecture precede le repli local (WARN puis spawn)" {
             $iVerify = $content.IndexOf('Test-WakeDelivered -Marker $noteId')
             $iWarn   = $content.IndexOf('repli sur spawn LOCAL')
-            $iSpawn  = $content.IndexOf('& $psHost -File $vibeWorkerScript')
+            # Burst #3943 : le spawn bloquant `& $psHost -File ...` est devenu
+            # un Start-Process DETACHE (l'invocation bloquante ne laissait
+            # passer qu'un run par tick). Le contrat d'ORDRE est inchange :
+            # relecture -> WARN -> spawn.
+            $iSpawn  = $content.IndexOf('Start-Process -FilePath $psHost')
             $iVerify | Should -BeGreaterThan 0
             $iWarn   | Should -BeGreaterThan $iVerify
             $iSpawn  | Should -BeGreaterThan $iWarn
