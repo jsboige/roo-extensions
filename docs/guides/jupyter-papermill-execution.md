@@ -1,7 +1,7 @@
 # Exécution de Notebooks Jupyter via Papermill
 
-**Version** : 1.1.0
-**Date** : 2026-06-12 (ajout `-Kernel` + skill `jupyter-exec`)
+**Version** : 1.2.0
+**Date** : 2026-09-29 (retrait du skill `jupyter-exec` — zéro invocation mesurée #2884, arbitrage user registre Q4 ; les agents invoquent le script directement)
 **Issue** : #600 - [STUDY] Exécution Jupyter dans Claude Code - Options
 
 ---
@@ -262,7 +262,6 @@ CellExecutionError: An error occurred while executing the cell
 ## 📚 Références
 
 - **Script** : `scripts/jupyter/run-notebook.ps1`
-- **Skill agent** : `.claude/skills/jupyter-exec/SKILL.md` — invocation auto par les agents Claude Code
 - **MCP interactif** : `mcps/internal/servers/jupyter-papermill-mcp-server/` (Option 1, kernels persistants)
 - **Papermill** : https://github.com/nteract/papermill
 - **nbconvert** : https://nbconvert.readthedocs.io/
