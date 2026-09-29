@@ -4,7 +4,8 @@
 # Syntaxe Pester v5 -- execute en CI par le job `unit-pester` (#3216) via
 # scripts/testing/run-pester-tests.ps1, sur ubuntu-latest. Assertions purement
 # STATIQUES sur le texte des scripts : ils ecrivent dans $env:USERPROFILE et
-# resolvent le depot via `git rev-parse`, donc on ne les EXECUTE pas ici.
+# resolvent le depot par `PSScriptRoot` d'abord (garde `configs/`, repli
+# `git rev-parse` — consolidation 29/09), donc on ne les EXECUTE pas ici.
 #
 # LE DEFAUT QUI MOTIVAIT CE FICHIER — RESOLU PAR CONSOLIDATION (29/09/2026)
 # ----------------------------------------------------------------------
