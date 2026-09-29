@@ -2349,6 +2349,49 @@ function Stop-WorktreeChildProcesses {
     Write-Log "Worktree child process cleanup done (stopped $($targetProcs.Count) process(es))"
 }
 
+# Junctions (and directory symlinks) inside a worktree must be unlinked BEFORE any recursive
+# removal: `git worktree remove --force` descends into a junction and deletes the TARGET's tree,
+# and so does PS 5.1 `Remove-Item -Recurse`. Measured 29/09 on ai-01 (worker-20260929-124410.log
+# l.30-31): an agent had junctioned D:/dev/mcp-wt-2191-view-pg/servers/roo-state-manager/node_modules
+# to the main checkout's node_modules, which itself holds an npm self-link
+# (node_modules/roo-state-manager -> the server root). The #2123 guard's `worktree remove --force`
+# followed both links and deleted the main server's .env, build/ and 147 tracked files.
+# Walks the tree WITHOUT following reparse points; `rmdir` on a reparse point removes the link only.
+# Returns $false when a reparse point could not be unlinked: the caller must then NOT remove.
+function Remove-WorktreeReparsePoints {
+    param([string]$WorktreePath)
+
+    if (-not $WorktreePath -or -not (Test-Path -LiteralPath $WorktreePath -PathType Container)) { return $true }
+
+    $allUnlinked = $true
+    $stack = New-Object System.Collections.Stack
+    $stack.Push((Get-Item -LiteralPath $WorktreePath -Force))
+    while ($stack.Count -gt 0) {
+        $dir = $stack.Pop()
+        try { $subDirs = $dir.GetDirectories() }
+        catch {
+            # A folder we cannot list may hide a junction: refuse rather than delete blind.
+            Write-Log "Cannot enumerate '$($dir.FullName)' ($($_.Exception.Message)) - recursive removal refused" "ERROR"
+            $allUnlinked = $false
+            continue
+        }
+        foreach ($sub in $subDirs) {
+            if (-not ($sub.Attributes -band [System.IO.FileAttributes]::ReparsePoint)) {
+                $stack.Push($sub)
+                continue
+            }
+            & cmd /c "rmdir ""$($sub.FullName)"" 2>&1" | Out-Null
+            if (Test-Path -LiteralPath $sub.FullName) {
+                Write-Log "Reparse point NOT unlinked: '$($sub.FullName)' - recursive removal refused" "ERROR"
+                $allUnlinked = $false
+            } else {
+                Write-Log "Unlinked reparse point before removal: '$($sub.FullName)'" "WARN"
+            }
+        }
+    }
+    return $allUnlinked
+}
+
 function Remove-Worktree {
     param([string]$WorktreePath)
 
@@ -2364,6 +2407,11 @@ function Remove-Worktree {
 
     # #2495: Increased from 2s to 5s — claude.exe handles can linger 30-60s after SIGTERM.
     Start-Sleep -Seconds 5
+
+    if (-not (Remove-WorktreeReparsePoints $WorktreePath)) {
+        Write-Log "Worktree NOT removed (a junction could not be unlinked): $WorktreePath" "ERROR"
+        return
+    }
 
     # Strategy 1: git worktree remove --force with retry (handles everything including submodules)
     # #2495: Added retry loop — handles may release after initial failure.
@@ -2764,6 +2812,7 @@ function Remove-NestedSubmoduleWorktrees {
 
                 if ($normalizedWt.StartsWith("$normalizedSm/") -or $normalizedWt.StartsWith("$normalizedSm\")) {
                     Write-Log "NESTED WORKTREE DETECTED (#2123): '$wtPath' inside submodule '$smPath'. Removing." "WARN"
+                    if (-not (Remove-WorktreeReparsePoints $wtPath)) { continue }
                     $prevPref = $ErrorActionPreference
                     $ErrorActionPreference = "Continue"
                     & cmd /c "git -C ""$RepoRoot"" worktree remove --force ""$wtPath"" 2>&1" | Out-Null
@@ -2850,6 +2899,10 @@ function Remove-NestedSubmoduleWorktrees {
                 }
 
                 Write-Log "ORPHAN SUBMODULE WORKTREE (#2123): '$smWtPath' (parent worktree gone). Removing." "WARN"
+                if (-not (Remove-WorktreeReparsePoints $smWtPath)) {
+                    $ErrorActionPreference = $prevPref
+                    continue
+                }
                 & cmd /c "git --git-dir ""$smGitDir"" worktree remove --force ""$smWtPath"" 2>&1" | Out-Null
                 $ErrorActionPreference = $prevPref
 
@@ -2867,7 +2920,7 @@ function Remove-NestedSubmoduleWorktrees {
             # These are always safe to clean — they should never contain legitimate content
             # (agents that create worktrees inside submodules are the exact problem #2123 targets).
             $smWtDir = Join-Path $fullSmPath ".claude\worktrees"
-            if (Test-Path $smWtDir) {
+            if ((Test-Path $smWtDir) -and (Remove-WorktreeReparsePoints $smWtDir)) {
                 Write-Log "Cleaning up nested worktree directory: $smWtDir" "INFO"
                 Remove-Item -LiteralPath $smWtDir -Recurse -Force -ErrorAction SilentlyContinue
                 $RemovedCount++
