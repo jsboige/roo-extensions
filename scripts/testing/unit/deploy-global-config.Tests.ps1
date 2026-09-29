@@ -6,30 +6,28 @@
 # STATIQUES sur le texte des scripts : ils ecrivent dans $env:USERPROFILE et
 # resolvent le depot via `git rev-parse`, donc on ne les EXECUTE pas ici.
 #
-# LE DEFAUT QUI MOTIVE CE FICHIER
-# --------------------------------
-# Le script existe en DEUX exemplaires, chacun documente dans son propre README :
-#   * .claude/configs/scripts/Deploy-GlobalConfig.ps1
-#   * scripts/claude/Deploy-GlobalConfig.ps1
-# Le bloc `rules` a ete ajoute au premier le 26/05 (#2376) et jamais au second.
-# Pendant trois mois, un agent qui lancait la seconde copie avec -Target all
-# voyait "Done." pendant que ~/.claude/rules/ n'etait PAS mis a jour. Rien ne
-# distinguait ce succes d'un vrai : ni code de sortie, ni message, ni warning.
+# LE DEFAUT QUI MOTIVAIT CE FICHIER — RESOLU PAR CONSOLIDATION (29/09/2026)
+# ----------------------------------------------------------------------
+# Le script a existe en DEUX exemplaires pendant six mois :
+#   * .claude/configs/scripts/Deploy-GlobalConfig.ps1  (canon, 17 Ko)
+#   * scripts/claude/Deploy-GlobalConfig.ps1           (ancien, 4,4 Ko)
+# Le bloc `rules` manquait a la seconde du 26/05 (#2376) au 02/09 : un agent
+# qui lancait cette copie avec -Target all voyait "Done." pendant que
+# ~/.claude/rules/ n'etait PAS mis a jour. Rien ne distinguait ce succes d'un
+# vrai.
 #
-# POURQUOI CE N'EST PAS UN TEST D'IDENTITE
-# -----------------------------------------
-# L'invariant tentant serait "les deux fichiers sont identiques". Il est faux
-# dans les deux sens :
-#   * il est SATISFAIT si on resout la divergence a l'envers, en ecrasant la
-#     copie complete par la copie amputee -- le defaut revient, test au vert ;
-#   * il vire au ROUGE si un jour on corrige le fallback $repoRoot par
-#     emplacement (les deux copies ne sont pas a la meme profondeur : 3 niveaux
-#     est juste pour .claude/configs/scripts/, faux pour scripts/claude/) --
-#     c'est-a-dire sur un bon changement.
-# La propriete qui compte est donc verifiee SUR CHAQUE COPIE, separement :
-# est-ce que celle-ci, prise seule, deploie les rules ?
+# CONSOLIDATION (dispatch ai-01 29/09, lane po-2025, regle de consolidation) :
+# analyse ligne-par-ligne de l'ancien — Deploy-Files (ancien l.42-71 = canon
+# l.45-74, byte-identiques), blocs claude-md/agents/skills/commands/rules
+# (ancien l.76-119 = canon l.79-122, identiques), param (ancien l.20-24 ⊂
+# canon l.20-24 qui ajoute "settings"), repoRoot (ancien git-rev-parse-first
+# ⊂ canon PSScriptRoot-first, incident mesure 29/09). AUCUNE feature de
+# l'ancien absente du canon → ancien supprime, blob preserve dans l'historique
+# git. Ce fichier continue de tester LA copie restante : la propriete "cette
+# copie, prise seule, deploie les rules" reste vraie apres consolidation.
 #
-# Une troisieme copie apparaitra un jour. L'ajouter a $script:Copies suffit.
+# Une deuxieme copie apparaitra peut-etre un jour. L'ajouter a
+# $script:Copies suffit.
 #
 # Usage:
 #   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/deploy-global-config.Tests.ps1 -Output Detailed"
@@ -38,7 +36,6 @@ BeforeDiscovery {
     $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
     $script:Copies = @(
         @{ Name = ".claude/configs/scripts"; Path = Join-Path $projectRoot ".claude/configs/scripts/Deploy-GlobalConfig.ps1" }
-        @{ Name = "scripts/claude";          Path = Join-Path $projectRoot "scripts/claude/Deploy-GlobalConfig.ps1" }
     )
 }
 
