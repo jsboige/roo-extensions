@@ -2897,6 +2897,23 @@ function Test-WorktreeHasChanges {
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
 
+        # Guard: the folder must still BE a git worktree. One the session removed
+        # (deregistered, emptied down to its folder) lives INSIDE the main checkout
+        # (.claude/worktrees/...): with no .git entry of its own, git walks up and every
+        # command below runs against the MAIN checkout, auto-committing its dirty files
+        # onto `main`. Measured 29/09 on ai-01 (worker-20260929-124410.log l.148-149):
+        # dd4c92a4 committed a local .vscode/settings.json on the main checkout's `main`.
+        # Tested on the .git entry, not on a path comparison: every linked worktree root
+        # has one, so a valid worktree is never refused — a refusal makes both callers
+        # remove the worktree.
+        $Here = (Get-Location).ProviderPath
+        if (-not (Test-Path -LiteralPath (Join-Path $Here '.git'))) {
+            Write-Log "REFUSED auto-commit: '$Here' has no .git entry - no longer a git worktree, git would address the enclosing checkout" "ERROR"
+            Pop-Location
+            $ErrorActionPreference = $prevPref
+            return $false
+        }
+
         # Guard #1156 v2 (ROOT FIX): Reset phantom submodule pointers BEFORE auto-commit.
         # This prevents side-effect submodule mutations (npm install, tests, lint) from
         # being captured in auto-commits when the submodule commit was never pushed.
