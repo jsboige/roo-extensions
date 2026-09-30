@@ -2662,6 +2662,17 @@ function Invoke-GracefulShutdown {
         return
     }
 
+    if ($script:PhantomRescueRefused) {
+        # #3944 (#1156 v2 / web1 29/09): the local rescue branch is the ONLY copy of the work.
+        # GracefulShutdown runs from the finally block, the watchdog, Ctrl+C and Exiting —
+        # every Remove-Worktree path below (auto-commit-only, push-ok, clean tree) would
+        # delete the worktree's submodule store, and the rescue branch with it. Push is
+        # skipped too: the parent HEAD carries the phantom gitlink (reproduces #3944
+        # through the shutdown path).
+        Write-Log "Phantom-rescue push REFUSED (#3944) — GracefulShutdown CONSERVÉ worktree: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $($($script:PhantomRescueRefused.Commit).Substring(0, 8)))" "WARN"
+        return
+    }
+
     try {
         # Step 1: Auto-commit any uncommitted changes
         Write-Log "Attempting to preserve work in worktree: $WorktreePath" "INFO"

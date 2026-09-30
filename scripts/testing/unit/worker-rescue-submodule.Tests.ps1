@@ -38,6 +38,7 @@ BeforeAll {
     $script:fnRescue = Get-WorkerFnBody -Content $script:content -Name 'Reset-PhantomSubmodulePointers'
     $script:fnMark   = Get-WorkerFnBody -Content $script:content -Name 'Mark-TaskAsComplete'
     $script:fnReport = Get-WorkerFnBody -Content $script:content -Name 'Report-Results'
+    $script:fnGraceful = Get-WorkerFnBody -Content $script:content -Name 'Invoke-GracefulShutdown'
 
     # Fenetre etape 8 : bloc de cleanup final du script PRINCIPAL (pas une fonction —
     # fenetrage par marqueurs). Chaines ASCII uniquement : un fichier sans BOM decode en
@@ -171,6 +172,27 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
             $flagPos | Should -BeGreaterThan 0
             $firstRemove | Should -BeGreaterThan $flagPos
             ($script:blockStep8 -match 'CONSERV') | Should -Be $true
+        }
+
+        It "Doit conserver le worktree dans Invoke-GracefulShutdown : garde et return avant tout Remove-Worktree (review #3946, ai-01 30/09)" {
+            # GracefulShutdown est appele par le finally, le watchdog, Ctrl+C et Exiting —
+            # ses 3 Remove-Worktree (auto-commit-only / push-ok / arbre propre) sont des
+            # chemins de destruction que le flag doit couvrir en tete du bloc de cleanup.
+            ($script:fnGraceful.Length) | Should -BeGreaterThan 0
+            # La CONDITION elle-meme, pas une occurrence du flag : le corps de la garde
+            # reference le flag dans son log — neutraliser le if en '$false' doit echouer
+            # ici (lecon #3774 : le discriminant n'est pas une valeur ecrite par la garde).
+            ($script:fnGraceful -match 'if \(\$script:PhantomRescueRefused\)') | Should -Be $true
+            $guardPos = $script:fnGraceful.IndexOf('if ($script:PhantomRescueRefused)')
+            $firstRemove = $script:fnGraceful.IndexOf('Remove-Worktree -WorktreePath')
+            $guardPos | Should -BeGreaterThan 0
+            $firstRemove | Should -BeGreaterThan $guardPos
+            # Le return de la garde coupe le cleanup AVANT le premier Remove-Worktree
+            # (les return des garde-fous d'entree precedent la garde, IndexOf part d'elle).
+            $returnPos = $script:fnGraceful.IndexOf('return', $guardPos)
+            $returnPos | Should -BeGreaterThan $guardPos
+            $returnPos | Should -BeLessThan $firstRemove
+            ($script:fnGraceful -match 'CONSERV') | Should -Be $true
         }
     }
 }
