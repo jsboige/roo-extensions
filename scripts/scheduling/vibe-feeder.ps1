@@ -36,6 +36,7 @@
 [CmdletBinding()]
 param(
     [switch]$DryRun,
+    [switch]$PostVisibility,
     [string]$QueuePath = '',
     [int]$TimeoutSec = 150,
     [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime'
@@ -434,10 +435,20 @@ if ($vivants -ge $MaxParallel) {
 }
 $Budget = $MaxParallel - $vivants
 $dispatched = 0
-if ($vivants -eq 0 -and (Test-RunInFlight)) {
-    Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 2 min (regime mono)"
-    exit 0
-}
+# Burst 30/09 (mandat user 207 EUR < 1 j) : garde run-in-flight DESACTIVEE en
+# burst — double etage redondant : l'anti-double-run vit desormais dans le lock
+# par-grain cote worker (#3942) et le plafond de parallelisme dans le budget
+# vivants cote feeder. Elle tuait des ticks a budget PLEIN (mesure 23:08:34Z :
+# 0 vivant, 3 grains prets, NOOP parce qu'un run venait de finir — a cadence
+# PT3M avec des runs ~100 s, vivants=0 arrive a presque chaque tick).
+# Reservation : les workers issus du backlog listener (anciens posts
+# [WAKE-VIBE]) ne comptent pas dans $vivants — parallelisme effectif maxi
+# ~3+2, accepte sous mandat (Mistral, credits a bruler).
+# REVERSIBLE : de-commenter le bloc if Test-RunInFlight ci-dessous.
+# if ($vivants -eq 0 -and (Test-RunInFlight)) {
+#     Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 2 min (regime mono)"
+#     exit 0
+# }
 Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} grain(s) ce tick" -f $vivants, $Budget)
 
 # Deux passes max : passe 1 = file telle quelle ; si elle est vide ou
@@ -521,115 +532,82 @@ for ($pass = 1; $pass -le 2; $pass++) {
             exit 0
         }
         $noteId = "vibe-feeder-$env:COMPUTERNAME-$($g.id)-$(Get-Date -Format yyyyMMddHHmm)"
-        # Le listener matche le token literal [WAKE-VIBE] en DEBUT DE LIGNE dans le corps
-        # (detection stricte #2004) — le parametre `tags` du MCP n'est pas rendu dans l'intercom.
-        $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('WAKE-VIBE', 'vibe-feeder'); content = "[WAKE-VIBE] $payload"; messageId = $noteId }
-        $postStarted = Get-Date
-        $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec $TimeoutSec
-        if ($posted) {
-            Write-FeederLog -Level 'INFO' -Text "[WAKE-VIBE] poste: grain $($g.id) -> workspace-CoursIA"
-            # Consommer le grain poste : sinon il reste en tete de file et le tick
-            # suivant le re-poste (messageId horodate a la minute => la dedup du
-            # dashboard ne dedup rien entre deux posts, review #3518 C1).
-            $remaining = @($grains | Where-Object { $_.id -ne $g.id })
-            $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
-            Write-Queue -Queue $outObj
-            # Resynchroniser la file EN MEMOIRE (garde de l'EVICT, review #3756
-            # M2) : sans elle, le consume suivant du meme tick RESSUSCITE ce
-            # grain sur disque ($grains le contient encore). Mesure live 29/09 :
-            # budget 3, deux consumes successifs affichent 205 -> 205.
-            $grains = $remaining
-            $q.grains = $remaining
-            Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
-            $dispatched++
-            if ($dispatched -ge $Budget) { exit 0 }
-            continue
-        } else {
-            # Le declencheur de la lane passait ENTIEREMENT par le cloud : post
-            # [WAKE-VIBE] sur le dashboard partage, puis pickup par le listener. Un
-            # DriveFS qui decroche arretait donc la lane alors que la file, le grain
-            # et le worker sont tous LOCAUX. Mesure 2026-09-12 : G: demonte, post en
-            # timeout a 151 s pour TimeoutSec=150, 0 run pendant 13 h.
-            # Discriminant (revu 13/09, maillon 3) : un post qui epuise son timeout
-            # n'a recu aucune reponse, mais le message a PU etre livre (WRITE-FIRST
-            # ecrit avant la condensation, qui peut durer 132 s) — d'ou la relecture
-            # ci-dessous. Le repli local ne se declenche que si la relecture ne
-            # trouve PAS le message. Un echec RAPIDE (rejet de schema, wrapper
-            # absent) garde au contraire la doctrine write-first : ne pas spawner,
-            # relire avant retry.
-            $elapsed = ((Get-Date) - $postStarted).TotalSeconds
-            $wrapperMissing = -not (Test-Path $wrapperPath)
-            if ($elapsed -ge ($TimeoutSec - 5) -or $wrapperMissing) {
-                $trigger = if ($wrapperMissing) { 'wrapper absent' } else { ("timeout {0:N0}s" -f $elapsed) }
-                # Maillon 3 : le timeout n'est pas une preuve de non-livraison
-                # (WRITE-FIRST + condensation longue, mesure 13/09). Relire
-                # l'intercom AVANT de replier : si le message y figure, le
-                # dispatch a abouti — le repli local ne ferait que se heurter
-                # au lock du run parti de CE message (exit 75, 13/09 08:57:58Z),
-                # et le grain garde en file serait re-dispatche au tick suivant.
-                if (-not $wrapperMissing) {
-                    if (Test-WakeDelivered -Marker $noteId -Workspace $appendArgs.workspace -TimeoutSec 60) {
-                        Write-FeederLog -Level 'INFO' -Text ("post en fait LIVRE malgre {0} (relecture write-first) — grain {1} consomme, pas de repli" -f $trigger, $g.id)
-                        $remaining = @($grains | Where-Object { $_.id -ne $g.id })
-                        $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
-                        Write-Queue -Queue $outObj
-                        # Garde identique au consume nominal : la file EN MEMOIRE
-                        # doit suivre le disque (#3756 M2), sinon le consume
-                        # suivant du tick ressuscite ce grain.
-                        $grains = $remaining
-                        $q.grains = $remaining
-                        Write-FeederLog -Level 'INFO' -Text ("file mise a jour (post livre malgre timeout): {0} grain(s) restant(s)" -f $remaining.Count)
-                        $dispatched++
-                        if ($dispatched -ge $Budget) { exit 0 }
-                        continue
-                    }
-                }
-                Write-FeederLog -Level 'WARN' -Text ("post [WAKE-VIBE] impossible ({0}) — relecture sans trace du message, repli sur spawn LOCAL du worker" -f $trigger)
-                $payloadFile = Join-Path $env:TEMP ("vibe-feeder-payload-{0}.json" -f $g.id)
-                $payloadObj = [pscustomobject]@{
-                    timestamp = (Get-Date).ToUniversalTime().ToString('o')
-                    author    = [pscustomobject]@{ machineId = $env:COMPUTERNAME }
-                    content   = "[WAKE-VIBE] $payload"
-                }
-                [IO.File]::WriteAllText($payloadFile, ($payloadObj | ConvertTo-Json -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
-                $vibeWorkerScript = Join-Path $repoRoot 'scripts\scheduling\start-vibe-worker.ps1'
-                $vibeProfile = Join-Path $repoRoot 'scripts\scheduling\vibe-profiles\coursia.json'
-                $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-                # Burst 3-workers : repli DETACHE. L'invocation bloquante (&) ne
-                # laissait passer qu'UN run par tick ; le lock PAR-GRAIN fait des
-                #ormais la garde anti-double, le tick n'a plus a attendre le run.
-                # Le grain est consomme au lancement : si le worker meurt avant de
-                # committer, son worktree garde le travail pour le relay shepherd.
-                $spawnLaunched = $true
-                try {
-                    Start-Process -FilePath $psHost -ArgumentList @(
-                        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $vibeWorkerScript,
-                        '-ConfigPath', $vibeProfile, '-MessagePayloadFile', $payloadFile
-                    ) -WindowStyle Hidden | Out-Null
-                } catch {
-                    $spawnLaunched = $false
-                    Write-FeederLog -Level 'ERROR' -Text ("repli local: Start-Process echoue ({0}) — grain conserve en file" -f $_.Exception.Message)
-                }
-                if ($spawnLaunched) {
-                    Write-FeederLog -Level 'INFO' -Text ("repli local DETACHE — worker lance sur grain {0}, grain consomme" -f $g.id)
-                    $remaining = @($grains | Where-Object { $_.id -ne $g.id })
-                    $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
-                    Write-Queue -Queue $outObj
-                    # Garde identique au consume nominal : la file EN MEMOIRE
-                    # doit suivre le disque (#3756 M2), sinon le consume
-                    # suivant du tick ressuscite ce grain.
-                    $grains = $remaining
-                    $q.grains = $remaining
-                    Write-FeederLog -Level 'INFO' -Text ("file mise a jour (repli local detache): {0} grain(s) restant(s)" -f $remaining.Count)
-                    $dispatched++
-                    if ($dispatched -ge $Budget) { exit 0 }
-                    continue
-                }
-                exit 1
-            }
-            Write-FeederLog -Level 'ERROR' -Text "post echoue grain $($g.id) — relire dashboard avant retry (write-first)"
-            exit 1
+        # Burst 30/09 leviers 2+3 (mandat user 207 EUR/255 EUR < 1 j).
+        # Levier 2 : tag NON ROUTABLE [VIBE-DISPATCH] — le listener (cooldown
+        # 5 min, eleve, non redemarrable sans elevation) etalait les spawns a
+        # ~12/h ; le spawn devient LOCAL systematique, le dashboard ne sert
+        # plus qu'a la visibilite.
+        # Levier 3 : SPAWN AVANT POST. La schtask feeder est mono-instance
+        # (IgnoreNew) : la DUREE du tick gate le debit de dispatch, or le post
+        # dashboard coute 50-150 s de latence GDrive (timeout 151 s mesure ce
+        # soir sur f7). Le spawn passe devant ; le post visibilite prend un cap
+        # 20 s et n'est JAMAIS fatal — a l'expiration, seule la visibilite
+        # dashboard du grain est perdue : le worker tourne deja, le worktree
+        # reste relayable par le shepherd. Le payload fichier garde le tag
+        # [WAKE-VIBE] interne attendu par le driver.
+        # Garde anti-double : lock par-grain (#3942) + budget 3-vivants.
+        # Bug corrige au passage : l'ancienne branche « post livre malgre
+        # timeout » consommait le grain SANS spawner (elle supposait le pickup
+        # listener — faux depuis que le tag est non routable) = grain perdu.
+        # REVERSIBLE : restaurer l'ordre post-then-spawn, tags WAKE-VIBE,
+        # content [WAKE-VIBE], TimeoutSec $TimeoutSec et la relecture
+        # write-first (cf. git history de ce bloc, commentaires 13/09).
+        $payloadFile = Join-Path $env:TEMP ("vibe-feeder-payload-{0}.json" -f $g.id)
+        $payloadObj = [pscustomobject]@{
+            timestamp = (Get-Date).ToUniversalTime().ToString('o')
+            author    = [pscustomobject]@{ machineId = $env:COMPUTERNAME }
+            content   = "[WAKE-VIBE] $payload"
         }
+        [IO.File]::WriteAllText($payloadFile, ($payloadObj | ConvertTo-Json -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
+        $vibeWorkerScript = Join-Path $repoRoot 'scripts\scheduling\start-vibe-worker.ps1'
+        $vibeProfile = Join-Path $repoRoot 'scripts\scheduling\vibe-profiles\coursia.json'
+        $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+        $spawnLaunched = $true
+        try {
+            Start-Process -FilePath $psHost -ArgumentList @(
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $vibeWorkerScript,
+                '-ConfigPath', $vibeProfile, '-MessagePayloadFile', $payloadFile
+            ) -WindowStyle Hidden | Out-Null
+            Write-FeederLog -Level 'INFO' -Text ("worker local DETACHE lance sur grain {0}" -f $g.id)
+        } catch {
+            $spawnLaunched = $false
+            Write-FeederLog -Level 'ERROR' -Text ("spawn local echoue ({0}) — grain conserve en file, tick arrete" -f $_.Exception.Message)
+        }
+        if (-not $spawnLaunched) { exit 1 }
+        # Consommer le grain des maintenant : le worker tourne, un re-dispatch
+        # au tick suivant ne ferait que se heurter au lock par-grain (exit 75).
+        # Resynchroniser la file EN MEMOIRE (garde de l'EVICT, review #3756
+        # M2) : sans elle, le consume suivant du meme tick RESSUSCITE ce grain
+        # sur disque ($grains le contient encore). Mesure live 29/09 : budget
+        # 3, deux consumes successifs affichent 205 -> 205.
+        $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+        $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+        Write-Queue -Queue $outObj
+        $grains = $remaining
+        $q.grains = $remaining
+        Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
+        # Visibilite seule, cap 20 s, jamais fatal (levier 3). Le messageId
+        # horodate fait la dedup cote dashboard (review #3518 C1).
+        # Switch OFF par defaut (review ai-01 08:57Z sur #3953) : le post
+        # [VIBE-DISPATCH] a ecrit la tete NUL de workspace-CoursIA le
+        # 30/09 06:08:44Z (lecture d'une reservation DriveFS non hydratee
+        # puis reecriture). Rester off jusqu'a livraison du correctif RSM
+        # (full rewrite depuis PG quand la tete du fichier est illisible).
+        # Re-armement : ajouter -PostVisibility a l'appel schtask du feeder.
+        if ($PostVisibility) {
+            $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('INFO', 'vibe-feeder', 'vibe-dispatch'); content = "[VIBE-DISPATCH] $payload"; messageId = $noteId }
+            $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec 20
+            if ($posted) {
+                Write-FeederLog -Level 'INFO' -Text "[VIBE-DISPATCH] poste: grain $($g.id) -> workspace-CoursIA (visibilite seule)"
+            } else {
+                Write-FeederLog -Level 'WARN' -Text ("post visibilite [VIBE-DISPATCH] echoue (cap 20 s) — grain {0} deja en execution, visibilite perdue, worktree relayable" -f $g.id)
+            }
+        } else {
+            Write-FeederLog -Level 'INFO' -Text ("post visibilite DESACTIVE (-PostVisibility absent, garde #3953 review 08:57Z) — grain {0} en execution, worktree relayable" -f $g.id)
+        }
+        $dispatched++
+        if ($dispatched -ge $Budget) { exit 0 }
+        continue
     }
 
     # Passe epuisee sans grain passable : la passe suivante (s'il y en a une)
