@@ -2262,8 +2262,12 @@ function Create-Worktree {
         # (no-op when the pointer is unchanged) and best-effort (never aborts).
         Sync-McpSubmoduleBuild -Path $RepoRoot
 
-        # Créer worktree with new branch from current HEAD
-        $wtOutput = & cmd /c "git -C ""$RepoRoot"" worktree add ""$WorktreePath"" -b $BranchName 2>&1"
+        # Créer worktree branché sur origin/main (fetch juste au-dessus). #3951 : sans
+        # base explicite, git part du HEAD du checkout principal — une branche locale en
+        # fusion portant des commits non poussés fait pousser à l'auto-PR des commits
+        # préexistants (cas po-2025 30/09 : 2 commits du 29/09 dans la PR #3951 alors
+        # que le run concluat « aucun changement »).
+        $wtOutput = & cmd /c "git -C ""$RepoRoot"" worktree add ""$WorktreePath"" -b $BranchName origin/main 2>&1"
         $wtExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevPref
 
