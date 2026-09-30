@@ -1,7 +1,7 @@
 # Architecture Unifiée d'Extraction de Tâches Roo + Claude
 
 **Version:** 1.1.0
-**Date:** 2026-04-15 (création) · 2026-09-28 (MAJ statuts)
+**Date:** 2026-04-15 (création) · 2026-09-28 (MAJ statuts) · 2026-09-30 (Phase 4 livrée)
 **Issue Parente:** #1360
 **Phases:** #1391, #1392, #1393, #1394, #1395
 **Chemin:** `docs/architecture/unified-task-extraction-architecture.md` (note: issues référencent `docs/roosync/...` mais ce chemin est ignoré par git)
@@ -365,12 +365,28 @@ $ROOSYNC_SHARED_PATH/.shared-tasks/locks/<taskId>.lock
 
 **Durée :** 3-4 semaines
 
+**Statut (2026-09-30) :** Livrée — **PR submod
+[jsboige-mcp-servers#1257](https://github.com/jsboige/jsboige-mcp-servers/pull/1257)
+MERGÉE 2026-09-29, commit `20b91dfc`** (squash ; présent sur `main` parent via
+le pointeur `7be377b4`, bumps #3952/#3954). Migration header-level des 4
+consommateurs réels — `conversation_browser(list)`, `view_task_details`,
+`roosync_search` (semantic), `conversation_summarizer` — via la projection
+`toUnifiedTask` + la couche compat `unifiedTaskToSkeletonHeader`
+(round-trip header sans perte, 34 tests). Preuve « 0 régression » : tests A/B
+legacy-congelé vs pipeline unifié (`unified-header-pipeline.test.ts`, 22
+scénarios ; revérifiés 2026-09-30 sur `main` : 56/56 verts). `codebase_search`
+et méta-analystes : **0 référence squelette** (inventaire, table 6/6 dans
+`servers/roo-state-manager/docs/UNIFIED-TASK-CONSUMERS-MIGRATION.md`). Les
+étapes sequence-dépendantes restent volontairement sur le squelette pendant
+la transition — retrait planifié par #1395 (≥ 2026-10-28, gated dual-write
+#2191).
+
 **Livrables :**
-- [ ] Migration `conversation_browser`
-- [ ] Migration `codebase_search` (indexation)
-- [ ] Migration `view_task_details`
-- [ ] Migration meta-analystes
-- [ ] Tests de régression
+- [x] Migration `conversation_browser`
+- [x] Migration `codebase_search` (indexation) — N/A : 0 référence squelette (inventaire)
+- [x] Migration `view_task_details`
+- [x] Migration meta-analystes — N/A : 0 référence squelette (inventaire)
+- [x] Tests de régression
 
 **Critères d'acceptation :**
 - Tous les outils downstream utilisent `UnifiedTask`
@@ -389,12 +405,12 @@ MERGÉE, commit `476316c4`** (squash ; pointeur parent suivi sur `main` via #392
 changement de comportement), guide de migration
 (`servers/roo-state-manager/docs/MIGRATION-UNIFIED-TASK-EXTRACTION.md`), entrée
 CHANGELOG `### Deprecated`, 2 tests warn-once (CI 14 245 verts au merge).
-**La suppression code mort (J+30) est gated sur la Phase 4 (#1394)** :
-la migration des consommateurs est complète côté code (PR submod #1257 en
-review, table 6/6 dans `docs/UNIFIED-TASK-CONSUMERS-MIGRATION.md`) mais le
-dual-write Postgres
-(`unified-store`, #2191) prend encore le squelette complet comme entrée — un
-retrait prématuré casserait le store. Grace period inchangée : ≥ 2026-10-28.
+**La suppression code mort (J+30) est maintenant gated sur le dual-write
+Postgres (`unified-store`, #2191) seul** — la Phase 4 (#1394) est livrée (PR
+submod #1257 MERGÉE 2026-09-29, table 6/6 dans
+`docs/UNIFIED-TASK-CONSUMERS-MIGRATION.md`), mais le dual-write prend encore
+le squelette complet comme entrée — un retrait prématuré casserait le store.
+Grace period inchangée : ≥ 2026-10-28.
 
 **Livrables :**
 - [x] Marquer `ConversationSkeleton` deprecated (J+0, 2026-09-28)
@@ -507,5 +523,5 @@ cités avant le 2026-09-28 n'existaient pas dans le dépôt)*
 ---
 
 **Auteurs :** Claude Sonnet 4.5
-**Dernière MAJ :** 2026-09-28 (#1395 Phase 5 J+0 — statuts de phase, chemins corrigés)
-**Statut :** Phases 1-3 livrées (#1391, #1392, #1393) · Phase 4 en cours (#1394) · Phase 5 J+0 livré, suppression gated (#1395)
+**Dernière MAJ :** 2026-09-30 (#1394 Phase 4 livrée — statut PR #1257 merged, livrables cochés, gating Phase 5 mis à jour)
+**Statut :** Phases 1-3 livrées (#1391, #1392, #1393) · Phase 4 livrée (#1394) · Phase 5 J+0 livré, suppression gated dual-write #2191 (#1395)
