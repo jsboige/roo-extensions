@@ -3,7 +3,7 @@
   "model": "opus",
   "env": {
     "ANTHROPIC_BASE_URL": "https://models.myia.io",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
     "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "GLM-5.2 (z.ai)",
@@ -21,7 +21,7 @@
   ],
   "description": "Claudish hybrid proxy — Opus via Anthropic, Sonnet via z.ai, Haiku via vLLM",
   "modelMapping": {
-    "opus": "Claude Opus 4.7 (Anthropic Max)",
+    "opus": "Claude Opus 5.5 (Anthropic Max)",
     "sonnet": "GLM-5.2 (z.ai coding plan)",
     "haiku": "Qwen3.6-35B-A3B (vLLM local)"
   },
