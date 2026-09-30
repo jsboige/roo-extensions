@@ -38,6 +38,7 @@
 | **`append` dashboard qui expire** | Mesures du timeout d'`append` : WRITE-FIRST puis condensation attendue, 45,3 s dont 42,3 s de condensation (99,4 % = bloc `## Status`), A/B ~75×, 3 expirés / 1 écrit (02/07). Conduite canonique = `.claude/rules/intercom-protocol.md` (slim) | `intercom-append-timeout.md` |
 | **Garde-fous workflow PR** | Incidents et workflows pas à pas déportés de `pr-mandatory.md` : worktrees imbriqués (#2123, 136k untracked), pointer-bump prématuré (#1799), detached HEAD (#1666 A2), `--body-file` (#2864), économie d'identité APPROVE (#2368) | `pr-workflow-guards.md` |
 | **Clean Cycle Exit (#3776)** | Postcondition Git de fin de cycle : clone principal sur la branche par défaut, fast-forward avec l'upstream, index/worktree propres, submodules aux gitlinks. Organe read-only `scripts/check_clean_cycle_exit.py` + workflow de remédiation (préservation prouvée avant toute mutation). Distinction avec #3147 (stashes existants) | `clean-cycle-exit.md` |
+| **Patterns claw-code (#1320)** | State machine `AgentLifecycleState` (action `roosync_diagnose lifecycle`), recovery-before-escalation (action `recovery`), mock parity harness (fs mémoire diffé contre fs réel — CI sans GDrive). Statut pattern par pattern + suivis non adoptés | `claw-code-patterns.md` |
 | **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
 
 ## Quality & CI
