@@ -58,34 +58,37 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match '\$q\._comment') | Should -Be $true
         }
 
-        It "la consommation est DANS la branche du post reussi, avant son exit" {
-            # Extraire le bloc if ($posted) jusqu'a son exit 0 : la reecriture
-            # doit vivre a l'interieur, pas apres un exit qui la court-circuite.
-            $postedBlock = [regex]::Match($content, '(?s)if \(\$posted\) \{.*?exit 0').Value
-            $postedBlock | Should -Not -BeNullOrEmpty
-            ($postedBlock -match 'Write-Queue -Queue \$outObj') | Should -Be $true
+        It "le spawn local precede la consommation du grain (levier 3, burst 30/09)" {
+            # Burst 30/09 : le spawn direct est PRIMAIRE (tag [VIBE-DISPATCH]
+            # non routable = le post ne peut plus demarrer de run). La
+            # consommation ne doit suivre qu'apres un spawn reussi -- jamais
+            # l'inverse (grain consomme avant spawn = grain perdu, bug
+            # introduit par le levier 2 puis corrige par le 3).
+            $iSpawn   = $content.IndexOf('Start-Process -FilePath $psHost')
+            $iConsume = $content.IndexOf('Write-Queue -Queue $outObj', $iSpawn)
+            $iSpawn | Should -BeGreaterThan 0
+            $iConsume | Should -BeGreaterThan $iSpawn
         }
 
-        It "la consommation suit l'appel de post, pas l'inverse" {
-            # Le feeder peut avoir PLUSIEURS Write-Queue (eviction wtHead en
-            # #3755, avant le post ; puis consommation du post reussi) ; on
-            # cherche celle qui suit SPECIFIQUEMENT l'appel de post, pas la
-            # premiere du fichier. Pour cela on part de la position du post
-            # et on cherche la consommation qui suit -- pas celle qui precede.
-            $iPost = $content.IndexOf('$posted = Invoke-RsmAppend')
-            $iConsumeAfterPost = $content.IndexOf('Write-Queue -Queue $outObj', $iPost)
-            $iPost | Should -BeGreaterThan 0
-            $iConsumeAfterPost | Should -BeGreaterThan $iPost
+        It "l'echec de spawn preserve le grain (exit 1 avant consommation)" {
+            # Sans worker lance, consommer le grain le perdrait : exit 1
+            # AVANT toute ecriture de file, le grain sera re-dispatche au
+            # tick suivant.
+            $iFail    = $content.IndexOf('if (-not $spawnLaunched) { exit 1 }')
+            $iConsume = $content.IndexOf('Write-Queue -Queue $outObj', $iFail)
+            $iFail | Should -BeGreaterThan 0
+            $iConsume | Should -BeGreaterThan $iFail
         }
 
-        It "la consommation specifique au post reussi vit DANS la branche posted" {
-            # #3755 a ajoute une Write-Queue supplementaire (eviction wtHead,
-            # avant le post) ; on verifie que la consommation liee au POST
-            # REUSSI est strictement dans la branche `if ($posted)`, pas un
-            # accident de position. Scoped regex sur le bloc.
-            $postedBranch = [regex]::Match($content, '(?s)if \(\$posted\) \{.*?exit 0').Value
-            $postedBranch | Should -Not -BeNullOrEmpty
-            ($postedBranch -match 'Write-Queue -Queue \$outObj') | Should -Be $true
+        It "la consommation vit dans le bloc du grain, avant le post de visibilite" {
+            # Le post est visibilite-ONLY (cap 20 s, jamais fatal) : il ne
+            # porte plus la consommation. Celle-ci suit le spawn et precede
+            # la construction des arguments de post.
+            $iSpawn   = $content.IndexOf('Start-Process -FilePath $psHost')
+            $iConsume = $content.IndexOf('Write-Queue -Queue $outObj', $iSpawn)
+            $iPost    = $content.IndexOf('$posted = Invoke-RsmAppend', $iConsume)
+            $iConsume | Should -BeGreaterThan $iSpawn
+            $iPost | Should -BeGreaterThan $iConsume
         }
     }
 
@@ -322,15 +325,16 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
         }
     }
 
-    Context "C5 : un timeout de post n'est pas une preuve de non-livraison (maillon 3, mesure 13/09)" {
+    Context "C5 : le post est visibilite-only, le spawn direct est le dispatch (leviers 2+3, burst 30/09)" {
 
-        # WRITE-FIRST ecrit le message AVANT la condensation, qui peut durer
-        # 132 s (13/09 09:31Z : append 146 s dont ecriture 7,5 s). Un post
-        # livre etait donc enregistre ECHOUE (13/09 08:57:54Z timeout 151 s,
-        # message visible des 08:56:10Z) : repli local heurtant le lock du run
-        # parti de CE message (exit 75), grain garde, re-dispatch au tick
-        # suivant = run double paye. Ces contrats verifient que la relecture
-        # tranche AVANT tout repli.
+        # SUPERSEDE la garde relecture du 13/09 : le post n'est plus le
+        # mecanisme de dispatch (tag [VIBE-DISPATCH] non routable -- le
+        # listener ne le voit pas), donc un timeout de post ne peut plus
+        # provoquer ni run double ni repli heurtant un lock. Le spawn local
+        # par fichier payload est PRIMAIRE et inconditionnel par grain ; le
+        # post, cap 20 s, n'est qu'une trace de visibilite jamais fatale.
+        # La relecture Test-WakeDelivered est conservee comme fonction mais
+        # retiree du flux (plus aucune decision a porter).
 
         It "possede une fonction de verification par relecture" {
             ($content -match 'function Test-WakeDelivered') | Should -Be $true
@@ -342,42 +346,40 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match "section = 'intercom'; intercomLimit = 12") | Should -Be $true
         }
 
-        It "le marqueur est l'ID du message, pas le contenu" {
-            # Un grain garde apres exit 75 est re-poste au tick suivant avec
-            # un contenu byte-identique : matcher sur le contenu confondrait
-            # le message du tick precedent avec celui-ci (faux positif =
-            # grain consomme sans run). $noteId = machine + grain + minute.
-            ($content -match 'Test-WakeDelivered -Marker \$noteId') | Should -Be $true
-            ($content -match '\$marker = "\[WAKE-VIBE\] \$payload"') | Should -Be $false
+        It "le post est un tag NON ROUTABLE [VIBE-DISPATCH] (visibilite seule)" {
+            # Levier 2 (30/09) : le listener ne doit PAS voir ce post comme
+            # un wake (cooldown 5 min sinon, double-run possible) -- le
+            # spawn direct est le seul dispatch, le post n'est que trace.
+            ($content -match 'content = "\[VIBE-DISPATCH\] \$payload"') | Should -Be $true
+            ($content -match "tags = @\('INFO', 'vibe-feeder', 'vibe-dispatch'\)") | Should -Be $true
         }
 
-        It "la relecture precede le repli local (WARN puis spawn)" {
-            $iVerify = $content.IndexOf('Test-WakeDelivered -Marker $noteId')
-            $iWarn   = $content.IndexOf('repli sur spawn LOCAL')
-            # Burst #3943 : le spawn bloquant `& $psHost -File ...` est devenu
-            # un Start-Process DETACHE (l'invocation bloquante ne laissait
-            # passer qu'un run par tick). Le contrat d'ORDRE est inchange :
-            # relecture -> WARN -> spawn.
-            $iSpawn  = $content.IndexOf('Start-Process -FilePath $psHost')
-            $iVerify | Should -BeGreaterThan 0
-            $iWarn   | Should -BeGreaterThan $iVerify
-            $iSpawn  | Should -BeGreaterThan $iWarn
+        It "le payload fichier garde le tag [WAKE-VIBE] interne (contrat driver)" {
+            # Le driver vibe-acp exige le tag [WAKE-VIBE] dans le payload ;
+            # le fichier passe au worker (-MessagePayloadFile) le porte, le
+            # post dashboard non.
+            ($content -match 'content\s+= "\[WAKE-VIBE\] \$payload"') | Should -Be $true
         }
 
-        It "la relecture exige le wrapper present" {
-            # Sans wrapper, la relecture stdio est impossible : passer
-            # directement au repli au lieu d'un faux verdict.
-            ($content -match 'if \(-not \$wrapperMissing\) \{\s*\r?\n\s*if \(Test-WakeDelivered') | Should -Be $true
+        It "le post est cap 20 s et jamais fatal" {
+            # Visibilite-only : l'echec du post ne doit ni consommer ni
+            # bloquer -- le grain est deja en execution par le spawn. Le
+            # bloc WARN est ancre sur SA ligne (pas sur un "} else {"
+            # anonyme -- le fichier en contient d'autres, plus haut).
+            ($content -match 'Invoke-RsmAppend -AppendOptions \$appendArgs -TimeoutSec 20') | Should -Be $true
+            $warnBlock = [regex]::Match($content, '(?s)Write-FeederLog -Level ''WARN'' -Text \("post visibilite.*?\r?\n\s*\}').Value
+            $warnBlock | Should -Not -BeNullOrEmpty
+            ($warnBlock -match 'exit') | Should -Be $false
         }
 
-        It "la branche livre consomme le grain SANS spawner" {
-            # Si le message est livre : ecrire la file et sortir. Le spawn
-            # local serait un double-run (le listener part du message poste).
-            $delivered = [regex]::Match($content, '(?s)if \(Test-WakeDelivered.*?exit 0').Value
-            $delivered | Should -Not -BeNullOrEmpty
-            ($delivered -match 'Write-Queue -Queue \$outObj') | Should -Be $true
-            ($delivered -match '\$grains \| Where-Object \{ \$_\.id -ne \$g\.id \}') | Should -Be $true
-            ($delivered -match '\$psHost -File') | Should -Be $false
+        It "plus de decision de relecture dans le flux (Test-WakeDelivered non appele)" {
+            # Levier 3 : le post ne pouvant plus demarrer de run (tag non
+            # routable), la relecture n'a plus de decision a porter. La
+            # fonction reste definie (reutilisabilite, regle no-deletion),
+            # mais aucune branche du flux ne l'appelle.
+            ($content -match 'function Test-WakeDelivered') | Should -Be $true
+            ($content -match 'if \(Test-WakeDelivered') | Should -Be $false
+            ($content -match '= Test-WakeDelivered') | Should -Be $false
         }
     }
 
