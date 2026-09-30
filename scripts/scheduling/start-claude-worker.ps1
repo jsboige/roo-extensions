@@ -192,6 +192,15 @@ $script:NoFallbackMode = $NoFallback
 # Must be reported in the [RESULT] comment so the coordinator can follow up instead of losing the work.
 $script:RecoveryBranchName = $null
 
+# #3944: submodule rescue branches created before a phantom-pointer revert would erase real
+# worker work. Same reporting contract as RecoveryBranchName — the coordinator must see them.
+$script:RescuedSubmoduleBranches = @()
+
+# #3944 (#1156 v2 / web1 29/09): set when a rescue push was REFUSED — the local rescue branch
+# is then the ONLY copy of real worker work. The verdict must stay non-PASS and step 8 must
+# keep the worktree, or the branch dies with the worktree's submodule store (reproduces #3944).
+$script:PhantomRescueRefused = $null
+
 function Test-ClaudeCLI {
     try {
         $Version = (& cmd /c "claude --version 2>&1") | Select-Object -First 1
@@ -1117,6 +1126,14 @@ function Mark-TaskAsComplete {
                     $MachineId = $env:COMPUTERNAME.ToLower()
                     if ($Success -and $PrUrl) {
                         $Body = "[RESULT] $MachineId`: PASS — PR created: $PrUrl"
+                    } elseif ($Success -and $script:PhantomRescueRefused) {
+                        # #3944 (#1156 v2 / web1 29/09): rescue push refused — the local branch is the
+                        # only copy of the work and the parent push was blocked. Never report PASS.
+                        $Ref = $script:PhantomRescueRefused
+                        $Body = "[RESULT] $MachineId`: BLOCKED — submodule work NOT preserved remotely, worktree kept at $($Ref.WorktreePath), commit $($Ref.Commit.Substring(0, 8)) — rescue branch '$($Ref.Branch)' exists LOCALLY ONLY (push refused). Coordinator: recover before any worktree cleanup."
+                    } elseif ($Success -and $script:RescuedSubmoduleBranches.Count -gt 0) {
+                        # #3944: never claim "no code changes" when submodule work was preserved on a rescue branch.
+                        $Body = "[RESULT] $MachineId`: PASS — completed, but submodule work was PRESERVED on a rescue branch — review required, do not redispatch"
                     } elseif ($Success) {
                         $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
                     } elseif ($PrUrl -or $DeliveredArtifacts.Count -gt 0) {
@@ -1137,6 +1154,13 @@ function Mark-TaskAsComplete {
                     # needs the exact branch name to fetch it. Otherwise the work is silently stranded.
                     if ($script:RecoveryBranchName) {
                         $Body += "`n`n[RECOVERY_BRANCH] Detached HEAD guard fired — work is on ``$($script:RecoveryBranchName)`` (pushed to origin). Coordinator: fetch and review/merge manually. (#1666 A2)"
+                    }
+                    # #3944: submodule rescue branches — same contract as [RECOVERY_BRANCH] above.
+                    if ($script:RescuedSubmoduleBranches.Count -gt 0) {
+                        $SubmodRescueLines = @($script:RescuedSubmoduleBranches | ForEach-Object {
+                            "- ``$($_.Branch)``@$(([string]$_.Commit).Substring(0, 8)) in $($_.Path)"
+                        }) -join "`n"
+                        $Body += "`n`n[RESCUE_BRANCH] #3944 (#1156 v2 / web1 29/09) phantom-pointer guard preserved real submodule work (pushed to submodule origin) before reverting the pointer. Coordinator: fetch and review/merge manually.`n$SubmodRescueLines"
                     }
                     # Multiline [RESULT] bodies cannot cross the cmd.exe layer as --body
                     # args (newlines/markdown backticks break the command string): temp
@@ -2642,6 +2666,17 @@ function Invoke-GracefulShutdown {
         return
     }
 
+    if ($script:PhantomRescueRefused) {
+        # #3944 (#1156 v2 / web1 29/09): the local rescue branch is the ONLY copy of the work.
+        # GracefulShutdown runs from the finally block, the watchdog, Ctrl+C and Exiting —
+        # every Remove-Worktree path below (auto-commit-only, push-ok, clean tree) would
+        # delete the worktree's submodule store, and the rescue branch with it. Push is
+        # skipped too: the parent HEAD carries the phantom gitlink (reproduces #3944
+        # through the shutdown path).
+        Write-Log "Phantom-rescue push REFUSED (#3944) — GracefulShutdown CONSERVÉ worktree: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $($($script:PhantomRescueRefused.Commit).Substring(0, 8)))" "WARN"
+        return
+    }
+
     try {
         # Step 1: Auto-commit any uncommitted changes
         Write-Log "Attempting to preserve work in worktree: $WorktreePath" "INFO"
@@ -2753,7 +2788,41 @@ function Reset-PhantomSubmodulePointers {
                 if ($NewHead -and $NewHead -match '^[a-f0-9]{7,40}$') {
                     if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath "$WorktreePath/$SubmodulePath" -Commit $NewHead)) {
                         Write-Log "PHANTOM POINTER DETECTED (#1156 v2): Submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) not on origin/main. Reverting." "WARN"
-                        # Reset submodule to origin/main (discard local commit that was never pushed)
+                        # #3944: the unpushed commit may be REAL worker work, not a side-effect pointer
+                        # move. reset --hard would erase it (reflog-only) and the run would then report
+                        # "no code changes". Preserve first: unique commits => rescue branch pushed to
+                        # the submodule remote; push failure => do NOT revert, leave the worktree as-is.
+                        $AheadRaw = ((& cmd /c "git -C ""$WorktreePath/$SubmodulePath"" rev-list origin/main..$NewHead --count 2>&1") | Select-Object -First 1)
+                        $AheadCount = -1
+                        if ($AheadRaw -match '^\d+$') { $AheadCount = [int]$AheadRaw }
+                        if ($AheadCount -ne 0) {
+                            # >0 unique commits, or unreadable count (rescue is the safe default).
+                            $RescueTaskId = if ($script:Task -and $script:Task.id) { ([string]$script:Task.id -replace '[^A-Za-z0-9._-]', '-') } else { 'unknown' }
+                            $RescueBranch = "worker-rescue/$RescueTaskId-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                            Write-Log "WORK PRESERVED (#3944): submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) has $(if ($AheadCount -gt 0) { "$AheadCount unique commit(s)" } else { "an unreadable commit count" }) — creating rescue branch '$RescueBranch' before revert" "WARN"
+                            & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" branch -f $RescueBranch $NewHead 2>&1" | Out-Null
+                            & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" push origin $RescueBranch 2>&1" | ForEach-Object { Write-Log "git push (rescue): $_" "GIT" }
+                            if ($LASTEXITCODE -ne 0) {
+                                Write-Log "REFUSED phantom-pointer revert (#3944, #1156 v2 / web1 29/09): rescue push of '$RescueBranch' FAILED — submodule '$SubmodulePath' left UNTOUCHED at $($NewHead.Substring(0,8)) (work must not be erased). Coordinator: inspect '$WorktreePath/$SubmodulePath'." "ERROR"
+                                # The rescue branch exists LOCALLY only. Without this flag the run would
+                                # end "PASS (no code changes needed)" while step 8 Remove-Worktree deletes
+                                # the submodule store — and the branch with it (#3944).
+                                $script:PhantomRescueRefused = [pscustomobject]@{
+                                    Branch       = $RescueBranch
+                                    Commit       = $NewHead
+                                    Path         = $SubmodulePath
+                                    WorktreePath = $WorktreePath
+                                }
+                                continue
+                            }
+                            Write-Log "RESCUE OK (#3944): '$RescueBranch' pushed to submodule origin ($($NewHead.Substring(0,8))) — safe to revert the pointer" "WARN"
+                            $script:RescuedSubmoduleBranches += [pscustomobject]@{
+                                Branch = $RescueBranch
+                                Commit = $NewHead
+                                Path   = $SubmodulePath
+                            }
+                        }
+                        # Reset submodule to origin/main (discard local commit — preserved above if real work)
                         & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" reset --hard origin/main 2>&1" | Out-Null
                         $ResetPaths += $SubmodulePath
                     } else {
@@ -4272,6 +4341,12 @@ $(if ($DeliveredArtifacts.Count -gt 0) {
     }) -join "`n"
     "**Livraison vérifiée (réconciliation #3560) — ne pas redispatcher :**`n$ArtifactLines"
 })
+$(if ($script:RescuedSubmoduleBranches.Count -gt 0) {
+    $SubmodRescueLines = @($script:RescuedSubmoduleBranches | ForEach-Object {
+        "- Branche de sauvetage ``$($_.Branch)`` commit ``$($_.Commit)`` ($($_.Path))"
+    }) -join "`n"
+    "**Travail submodule préservé (#3944, #1156 v2 / web1 29/09) — review requise, ne pas redispatcher :**`n$SubmodRescueLines"
+})
 $GhostHashWarning
 
 ### Output
@@ -5118,7 +5193,11 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
     # Sinon, conserver pour reprise ou investigation manuelle — SAUF si guards #1156/#1423
     # ont déjà détecté qu'il n'y a pas de travail reviewable (dans ce cas, remote déjà nettoyé).
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
-        if ($PrUrl) {
+        if ($script:PhantomRescueRefused) {
+            # #3944 (#1156 v2 / web1 29/09): the local rescue branch is the ONLY copy of the work.
+            # Remove-Worktree would delete the worktree's submodule store — and the branch with it.
+            Write-Log "Phantom-rescue push REFUSED (#3944) — worktree CONSERVÉ pour investigation: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $($script:PhantomRescueRefused.Commit.Substring(0, 8)))" "WARN"
+        } elseif ($PrUrl) {
             Write-Log "PR créée avec succès, suppression du worktree..."
             Remove-Worktree -WorktreePath $WorktreePath
         } elseif (Test-OnlyAutoCommits -WorktreePath $WorktreePath) {
