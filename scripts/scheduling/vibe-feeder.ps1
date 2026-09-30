@@ -435,20 +435,19 @@ if ($vivants -ge $MaxParallel) {
 }
 $Budget = $MaxParallel - $vivants
 $dispatched = 0
-# Burst 30/09 (mandat user 207 EUR < 1 j) : garde run-in-flight DESACTIVEE en
-# burst — double etage redondant : l'anti-double-run vit desormais dans le lock
-# par-grain cote worker (#3942) et le plafond de parallelisme dans le budget
-# vivants cote feeder. Elle tuait des ticks a budget PLEIN (mesure 23:08:34Z :
+# Garde run-in-flight REACTIVEE post-burst (30/09 soir — budget epuise 14:14Z,
+# retour cadence PT10M/PT15M) : elle ne s'applique qu'en regime mono
+# ($vivants -eq 0), condition posee pendant le burst 30/09 (mandat user
+# 207 EUR < 1 j) ou elle tuait des ticks a budget PLEIN (mesure 23:08:34Z :
 # 0 vivant, 3 grains prets, NOOP parce qu'un run venait de finir — a cadence
 # PT3M avec des runs ~100 s, vivants=0 arrive a presque chaque tick).
-# Reservation : les workers issus du backlog listener (anciens posts
-# [WAKE-VIBE]) ne comptent pas dans $vivants — parallelisme effectif maxi
-# ~3+2, accepte sous mandat (Mistral, credits a bruler).
-# REVERSIBLE : de-commenter le bloc if Test-RunInFlight ci-dessous.
-# if ($vivants -eq 0 -and (Test-RunInFlight)) {
-#     Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 2 min (regime mono)"
-#     exit 0
-# }
+# Etages : anti-double-run = lock par-grain cote worker (#3942) ; plafond de
+# parallelisme = budget vivants cote feeder ; cette fenetre 2 min = anti-rebond
+# listener (cf. Test-RunInFlight l.94).
+if ($vivants -eq 0 -and (Test-RunInFlight)) {
+    Write-FeederLog -Level 'INFO' -Text "NOOP: run Vibe en vol ou termine dans les 2 min (regime mono)"
+    exit 0
+}
 Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} grain(s) ce tick" -f $vivants, $Budget)
 
 # Deux passes max : passe 1 = file telle quelle ; si elle est vide ou
