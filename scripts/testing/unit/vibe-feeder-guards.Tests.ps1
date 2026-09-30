@@ -437,4 +437,33 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match '\$g\.wtHead -and ') | Should -Be $true
         }
     }
+
+    Context "C7 : le post [VIBE-DISPATCH] est gated derriere -PostVisibility, OFF par defaut (review ai-01 08:57Z #3953)" {
+
+        # Incident 30/09 06:08:44Z : ce post a ecrit la tete NUL de
+        # workspace-CoursIA (Invoke-RsmAppend lisant une reservation DriveFS
+        # non hydratee puis reecrivant le fichier). Le switch reste OFF
+        # jusqu'a livraison du correctif RSM (full rewrite depuis PG quand
+        # la tete du fichier est illisible/NUL). Re-armement : ajouter
+        # -PostVisibility a l'appel schtask du feeder.
+
+        It "le parametre switch existe, sans valeur par defaut (off)" {
+            ($content -match '\[switch\]\$PostVisibility') | Should -Be $true
+        }
+
+        It "Invoke-RsmAppend n'est appele que sous la garde if (`$PostVisibility)" {
+            # L'appel doit vivre DANS le bloc de la garde : sans le switch,
+            # aucune execution n'atteint Invoke-RsmAppend.
+            $guardBlock = [regex]::Match($content, '(?s)if \(\$PostVisibility\) \{.*?Invoke-RsmAppend -AppendOptions.*?\n\s*\}').Value
+            $guardBlock | Should -Not -BeNullOrEmpty
+            # L'appel figure exactement une fois, dans la garde (pas d'appel inconditionnel residuel).
+            ([regex]::Matches($content, 'Invoke-RsmAppend -AppendOptions')).Count | Should -Be 1
+        }
+
+        It "la branche off logue DESACTIVE et ne touche pas au dashboard" {
+            $offBlock = [regex]::Match($content, "(?s)\} else \{\s*\r?\n\s*Write-FeederLog[^\r\n]*DESACTIVE[^\r\n]*\r?\n\s*\}").Value
+            $offBlock | Should -Not -BeNullOrEmpty
+            ($offBlock -match 'Invoke-RsmAppend') | Should -Be $false
+        }
+    }
 }

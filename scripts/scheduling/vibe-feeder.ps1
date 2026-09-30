@@ -36,6 +36,7 @@
 [CmdletBinding()]
 param(
     [switch]$DryRun,
+    [switch]$PostVisibility,
     [string]$QueuePath = '',
     [int]$TimeoutSec = 150,
     [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime'
@@ -587,12 +588,22 @@ for ($pass = 1; $pass -le 2; $pass++) {
         Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
         # Visibilite seule, cap 20 s, jamais fatal (levier 3). Le messageId
         # horodate fait la dedup cote dashboard (review #3518 C1).
-        $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('INFO', 'vibe-feeder', 'vibe-dispatch'); content = "[VIBE-DISPATCH] $payload"; messageId = $noteId }
-        $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec 20
-        if ($posted) {
-            Write-FeederLog -Level 'INFO' -Text "[VIBE-DISPATCH] poste: grain $($g.id) -> workspace-CoursIA (visibilite seule)"
+        # Switch OFF par defaut (review ai-01 08:57Z sur #3953) : le post
+        # [VIBE-DISPATCH] a ecrit la tete NUL de workspace-CoursIA le
+        # 30/09 06:08:44Z (lecture d'une reservation DriveFS non hydratee
+        # puis reecriture). Rester off jusqu'a livraison du correctif RSM
+        # (full rewrite depuis PG quand la tete du fichier est illisible).
+        # Re-armement : ajouter -PostVisibility a l'appel schtask du feeder.
+        if ($PostVisibility) {
+            $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('INFO', 'vibe-feeder', 'vibe-dispatch'); content = "[VIBE-DISPATCH] $payload"; messageId = $noteId }
+            $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec 20
+            if ($posted) {
+                Write-FeederLog -Level 'INFO' -Text "[VIBE-DISPATCH] poste: grain $($g.id) -> workspace-CoursIA (visibilite seule)"
+            } else {
+                Write-FeederLog -Level 'WARN' -Text ("post visibilite [VIBE-DISPATCH] echoue (cap 20 s) — grain {0} deja en execution, visibilite perdue, worktree relayable" -f $g.id)
+            }
         } else {
-            Write-FeederLog -Level 'WARN' -Text ("post visibilite [VIBE-DISPATCH] echoue (cap 20 s) — grain {0} deja en execution, visibilite perdue, worktree relayable" -f $g.id)
+            Write-FeederLog -Level 'INFO' -Text ("post visibilite DESACTIVE (-PostVisibility absent, garde #3953 review 08:57Z) — grain {0} en execution, worktree relayable" -f $g.id)
         }
         $dispatched++
         if ($dispatched -ge $Budget) { exit 0 }
