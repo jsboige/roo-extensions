@@ -1130,7 +1130,7 @@ function Mark-TaskAsComplete {
                         # #3944 (#1156 v2 / web1 29/09): rescue push refused — the local branch is the
                         # only copy of the work and the parent push was blocked. Never report PASS.
                         $Ref = $script:PhantomRescueRefused
-                        $Body = "[RESULT] $MachineId`: BLOCKED — submodule work NOT preserved remotely, worktree kept at $($Ref.WorktreePath), commit $($Ref.Commit.Substring(0, 8)) — rescue branch '$($Ref.Branch)' exists LOCALLY ONLY (push refused). Coordinator: recover before any worktree cleanup."
+                        $Body = "[RESULT] $MachineId`: BLOCKED — submodule work NOT preserved remotely, worktree kept at $($Ref.WorktreePath), commit $(Get-Sha8 $Ref.Commit) — rescue branch '$($Ref.Branch)' exists LOCALLY ONLY (push refused). Coordinator: recover before any worktree cleanup."
                     } elseif ($Success -and $script:RescuedSubmoduleBranches.Count -gt 0) {
                         # #3944: never claim "no code changes" when submodule work was preserved on a rescue branch.
                         $Body = "[RESULT] $MachineId`: PASS — completed, but submodule work was PRESERVED on a rescue branch — review required, do not redispatch"
@@ -2004,6 +2004,64 @@ function Sync-McpSubmoduleBuild {
 }
 
 # ============================================================================
+# Phantom-rescue persistence (#3944 run 2, review 30/09 09:25Z) — helpers
+# ============================================================================
+# $script:PhantomRescueRefused est mémoire de session : au run suivant il est
+# vide, et Create-Worktree (Remove-Worktree sur état "clean", reset --hard via
+# Reset-WorktreeForMaintenance sur resume-maintenance) détruirait la branche de
+# secours locale du submodule — la seule copie du travail quand le push a été
+# refusé. Le marqueur persiste dans le gitdir du worktree : `reset --hard` et
+# `clean -fd` n'y touchent pas (le clean exclut .git par construction).
+function Get-WorktreeGitDirPath {
+    param([string]$WorktreePath)
+    # Un worktree lié porte un FICHIER .git "gitdir: <chemin>" ; le checkout
+    # principal porte un DOSSIER .git → null (jamais un marqueur valide).
+    if (-not $WorktreePath -or -not (Test-Path -LiteralPath $WorktreePath)) { return $null }
+    $dotGitFile = Join-Path $WorktreePath '.git'
+    if (-not (Test-Path -LiteralPath $dotGitFile -PathType Leaf)) { return $null }
+    $first = Get-Content -LiteralPath $dotGitFile -TotalCount 1
+    if ($first -match '^gitdir:\s*(.+?)\s*$') { return $Matches[1] }
+    return $null
+}
+
+function Save-PhantomRescueMarker {
+    param($Ref)
+    if (-not $Ref -or -not $Ref.WorktreePath) { return }
+    try {
+        $gitdir = Get-WorktreeGitDirPath -WorktreePath $Ref.WorktreePath
+        if (-not $gitdir -or -not (Test-Path -LiteralPath $gitdir)) {
+            Write-Log "Phantom-rescue marker NOT saved: gitdir du worktree introuvable ($($Ref.WorktreePath))" "WARN"
+            return
+        }
+        $markerPath = Join-Path $gitdir 'PHANTOM-RESCUE-REFUSED.json'
+        # ASCII-safe (sha hex, nom de branche, chemins) : aucun encodage ambigu.
+        @{ Branch = [string]$Ref.Branch; Commit = [string]$Ref.Commit; Path = [string]$Ref.Path
+           WorktreePath = [string]$Ref.WorktreePath; MarkedAt = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssK') } |
+            ConvertTo-Json -Compress | Set-Content -LiteralPath $markerPath -Encoding Ascii
+        Write-Log "Phantom-rescue marker persisted (survit au run suivant): $markerPath" "WARN"
+    } catch {
+        Write-Log "Phantom-rescue marker save failed (non-fatal): $_" "WARN"
+    }
+}
+
+function Test-PhantomRescueMarker {
+    param([string]$WorktreePath)
+    $gitdir = Get-WorktreeGitDirPath -WorktreePath $WorktreePath
+    if (-not $gitdir) { return $false }
+    return (Test-Path -LiteralPath (Join-Path $gitdir 'PHANTOM-RESCUE-REFUSED.json'))
+}
+
+# Null-safe SHA8 pour tout ce qui loggue un commit du flag/marqueur : le JSON
+# relu au run suivant peut avoir Commit absent, et $null.Substring() ferait
+# crasher le cleanup exactement là où il doit CONSERVER (review 30/09, point b).
+function Get-Sha8 {
+    param($Sha)
+    $s = [string]$Sha
+    if ($s) { return $s.Substring(0, [Math]::Min(8, $s.Length)) }
+    return ''
+}
+
+# ============================================================================
 # Reset-WorktreeForMaintenance — #2834 worktree-reset-on-maintenance-run
 # ============================================================================
 # Maintenance runs (fallback-maintenance: build + vitest, no valuable commits)
@@ -2021,6 +2079,14 @@ function Reset-WorktreeForMaintenance {
     param([string]$WorktreePath)
 
     if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) { return $false }
+
+    # #3944 run 2 : un worktree CONSERVÉ (push de secours refusé au run précédent)
+    # porte un marqueur dans son gitdir. reset --hard y déplacerait le checkout du
+    # submodule et trahirait le « left UNTOUCHED » promis au coordinateur.
+    if (Test-PhantomRescueMarker -WorktreePath $WorktreePath) {
+        Write-Log "Reset-WorktreeForMaintenance REFUSÉ (#3944 run suivant): marqueur PHANTOM-RESCUE présent — branche de secours locale à préserver, worktree CONSERVÉ: $WorktreePath" "WARN"
+        return $false
+    }
 
     try {
         $prevPref = $ErrorActionPreference
@@ -2192,6 +2258,16 @@ function Create-Worktree {
     $ExistingWt = Find-ExistingWorktree -TaskId $TaskId
 
     if ($ExistingWt) {
+        # #3944 run 2 : worktree CONSERVÉ au run précédent (push de secours refusé).
+        # Les deux branches ci-dessous le détruiraient : état "clean" → Remove-Worktree
+        # (supprime le store du submodule et la branche de secours avec), état "resume"
+        # maintenance → reset --hard. On ne le réutilise pas non plus : son submodule est
+        # posé sur le commit de secours non poussé. Le run travaille sur le checkout
+        # principal ; la récupération reste au coordinateur (verdict BLOCKED du run d'origine).
+        if (Test-PhantomRescueMarker -WorktreePath $ExistingWt.worktreePath) {
+            Write-Log "Worktree CONSERVÉ (#3944 run suivant): marqueur PHANTOM-RESCUE présent — ni reset, ni remove, ni réutilisation: $($ExistingWt.worktreePath). Le run travaille sur le checkout principal." "WARN"
+            return $null
+        }
         if ($ExistingWt.state -eq "resume") {
             # #2834: maintenance runs (source = "fallback") produce no valuable commits
             # (safety auto-commit only) but accumulate cruft across days — stray 0-byte
@@ -2279,6 +2355,13 @@ function Create-Worktree {
         $ErrorActionPreference = "Continue"
 
         & cmd /c "git -C ""$RepoRoot"" fetch origin main --quiet 2>&1" | Out-Null
+        # #3955 suivi (review 30/09 point c) : rendre visible l'échec du fetch — sans lui,
+        # `worktree add -b <branch> origin/main` échoue en fail-closed avec un message qui
+        # ne dit pas que la base elle-même n'a pas pu être rafraîchie.
+        $fetchExit = $LASTEXITCODE
+        if ($fetchExit -ne 0) {
+            Write-Log "git fetch origin main failed (exit $fetchExit) — origin/main local peut être périmé, worktree add échouera en fail-closed (#3955)" "WARN"
+        }
 
         # Deploy-lag mitigation (#2591 follow-up): if the fetched parent tree
         # moved the mcps/internal pointer, align + rebuild the MAIN-tree submodule
@@ -2666,14 +2749,17 @@ function Invoke-GracefulShutdown {
         return
     }
 
-    if ($script:PhantomRescueRefused) {
+    if ($script:PhantomRescueRefused -or (Test-PhantomRescueMarker -WorktreePath $WorktreePath)) {
         # #3944 (#1156 v2 / web1 29/09): the local rescue branch is the ONLY copy of the work.
         # GracefulShutdown runs from the finally block, the watchdog, Ctrl+C and Exiting —
         # every Remove-Worktree path below (auto-commit-only, push-ok, clean tree) would
         # delete the worktree's submodule store, and the rescue branch with it. Push is
         # skipped too: the parent HEAD carries the phantom gitlink (reproduces #3944
         # through the shutdown path).
-        Write-Log "Phantom-rescue push REFUSED (#3944) — GracefulShutdown CONSERVÉ worktree: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $($($script:PhantomRescueRefused.Commit).Substring(0, 8)))" "WARN"
+        # Run 2 (review 30/09): le flag est mémoire de session — au run suivant seul le
+        # marqueur gitdir témoigne. Get-Sha8 : Commit peut être absent (marqueur relu).
+        $rescueBranch = if ($script:PhantomRescueRefused) { $script:PhantomRescueRefused.Branch } else { 'unknown (persisted marker)' }
+        Write-Log "Phantom-rescue push REFUSED (#3944) — GracefulShutdown CONSERVÉ worktree: $WorktreePath (rescue branch '$rescueBranch' local only, commit $(Get-Sha8 $script:PhantomRescueRefused.Commit))" "WARN"
         return
     }
 
@@ -2813,6 +2899,9 @@ function Reset-PhantomSubmodulePointers {
                                     Path         = $SubmodulePath
                                     WorktreePath = $WorktreePath
                                 }
+                                # #3944 run 2 : le flag est mémoire de session — persister
+                                # la décision pour que le run SUIVANT conserve aussi ce worktree.
+                                Save-PhantomRescueMarker -Ref $script:PhantomRescueRefused
                                 continue
                             }
                             Write-Log "RESCUE OK (#3944): '$RescueBranch' pushed to submodule origin ($($NewHead.Substring(0,8))) — safe to revert the pointer" "WARN"
@@ -5196,7 +5285,7 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
         if ($script:PhantomRescueRefused) {
             # #3944 (#1156 v2 / web1 29/09): the local rescue branch is the ONLY copy of the work.
             # Remove-Worktree would delete the worktree's submodule store — and the branch with it.
-            Write-Log "Phantom-rescue push REFUSED (#3944) — worktree CONSERVÉ pour investigation: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $($script:PhantomRescueRefused.Commit.Substring(0, 8)))" "WARN"
+            Write-Log "Phantom-rescue push REFUSED (#3944) — worktree CONSERVÉ pour investigation: $WorktreePath (rescue branch '$($script:PhantomRescueRefused.Branch)' local only, commit $(Get-Sha8 $script:PhantomRescueRefused.Commit))" "WARN"
         } elseif ($PrUrl) {
             Write-Log "PR créée avec succès, suppression du worktree..."
             Remove-Worktree -WorktreePath $WorktreePath
