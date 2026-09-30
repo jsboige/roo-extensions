@@ -95,8 +95,9 @@
     4 = echec d'empaquetage 7z — aucun fichier supprime
 
     Le deploiement en tache planifiee se fait par
-    install-rotate-scheduling-logs-schtask.ps1 (separe, -WhatIf, elevation
-    requise pour Register-ScheduledTask = fenetre UAC groupee, #3834).
+    install-rotate-scheduling-logs-schtask.ps1 (separe, -WhatIf, sans
+    elevation : RunLevel Limited, utilisateur courant — mesure flotte 30/09,
+    #3834).
 #>
 
 param(

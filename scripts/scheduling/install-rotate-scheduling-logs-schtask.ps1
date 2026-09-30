@@ -19,15 +19,17 @@
     job transcripts 04:41 et le job claudish 04:17 pour ne pas contester la
     fenetre d'upload GDrive.
 
-    Regle UAC (#3834) : l'installation exige une elevation (Register-ScheduledTask)
-    et se fait machine par machine dans une fenetre UAC groupee — UNE SEULE passe
-    par lane. Le dry-run (-WhatIf) est poste sur le dashboard AVANT la fenetre.
+    Installation SANS elevation (#3834, mesure ai-01 30/09 c.5907823129) :
+    Register-ScheduledTask en RunLevel Limited, utilisateur courant — aucun
+    UAC n'est declenche, chaque machine installe sa tache directement. Le
+    dry-run (-WhatIf) reste la preview standard avant le geste.
 
     Interpreter : powershell.exe (Windows PowerShell 5.1, present partout — pwsh
     absent d'une partie de la flotte #2368) ; le script rotate est verifie 5.1.
 
-    RunLevel Limited : le run n'a besoin d'aucune elevation (logs du repo + GDrive
-    de l'utilisateur interactif). Seule l'ENREGISTREMENT de la tache est elevee.
+    RunLevel Limited : ni le run NI l'enregistrement n'ont besoin d'elevation
+    (logs du repo + GDrive de l'utilisateur interactif ; le premier passage
+    flotte a rendu 0 sans aucune elevation).
 
 .PARAMETER Uninstall
     Remove the scheduled task instead of creating it.
@@ -50,19 +52,18 @@
 
 .EXAMPLE
     .\install-rotate-scheduling-logs-schtask.ps1 -WhatIf
-    # Dry-run : preview complet, rien n'est enregistre (pas d'elevation requise).
-    # La sortie est postee sur le dashboard avant la fenetre UAC groupee (#3834).
+    # Dry-run : preview complet, rien n'est enregistre.
 
 .EXAMPLE
     .\install-rotate-scheduling-logs-schtask.ps1
-    # Enregistre la tache hebdomadaire (elevation requise).
+    # Enregistre la tache hebdomadaire (RunLevel Limited, sans elevation).
 
 .EXAMPLE
     .\install-rotate-scheduling-logs-schtask.ps1 -Uninstall
 
 .NOTES
-    Issue : #3834 (suite #3323). Reviewed-but-NOT-installed par ce depot :
-    le deploiement flotte = fenetre UAC groupee, decision user.
+    Issue : #3834 (suite #3323). Installation par machine, sans elevation
+    (RunLevel Limited, utilisateur courant — mesure flotte 30/09).
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -211,10 +212,10 @@ Write-Host "Description : $description"
 Write-Host "7z          : $sevenZipResolved"
 Write-Host "ArchiveTo   : $ArchiveTo  (archive du jour -> <ArchiveTo>\$($env:COMPUTERNAME.ToLower())\<yyyy-MM-dd>\)"
 Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host "To register (elevated, fenetre UAC groupee #3834) : re-run without -WhatIf"
+Write-Host "To register (sans elevation, RunLevel Limited #3834) : re-run without -WhatIf"
 
 # ========================================
-# REGISTER (elevated) — idempotent : retrait de l'existante d'abord
+# REGISTER (sans elevation) — idempotent : retrait de l'existante d'abord
 # ========================================
 if ($PSCmdlet.ShouldProcess($taskName, 'Register-ScheduledTask (weekly archive-then-remove)')) {
     $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
