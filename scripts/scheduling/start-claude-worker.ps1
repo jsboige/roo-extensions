@@ -3193,6 +3193,7 @@ function Test-WorktreeHasChanges {
                 'test-match\.ps1$',                                # Test match scripts
                 'final-test\.ps1$',                                # Final test scripts
                 'regex-test\.txt$',                                # Regex test artifacts
+                '^.. "?\$[A-Za-z_{]',                               # Path under an unexpanded shell variable (literal `$TEMP/`, #3969)
                 'mcps/external/win-cli/config/win_cli_config\.json' # Config only coordinator should change
             )
             $EssentialChanges = @($Uncommitted | Where-Object {
