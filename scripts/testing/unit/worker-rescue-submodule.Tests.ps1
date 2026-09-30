@@ -39,6 +39,8 @@ BeforeAll {
     $script:fnMark   = Get-WorkerFnBody -Content $script:content -Name 'Mark-TaskAsComplete'
     $script:fnReport = Get-WorkerFnBody -Content $script:content -Name 'Report-Results'
     $script:fnGraceful = Get-WorkerFnBody -Content $script:content -Name 'Invoke-GracefulShutdown'
+    $script:fnCreate = Get-WorkerFnBody -Content $script:content -Name 'Create-Worktree'
+    $script:fnReset  = Get-WorkerFnBody -Content $script:content -Name 'Reset-WorktreeForMaintenance'
 
     # Fenetre etape 8 : bloc de cleanup final du script PRINCIPAL (pas une fonction —
     # fenetrage par marqueurs). Chaines ASCII uniquement : un fichier sans BOM decode en
@@ -162,7 +164,9 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
             ($script:fnMark -match 'BLOCKED') | Should -Be $true
             ($script:fnMark -match 'submodule work NOT preserved remotely') | Should -Be $true
             ($script:fnMark.IndexOf('($Ref.WorktreePath)')) | Should -BeGreaterThan 0
-            ($script:fnMark.IndexOf('($Ref.Commit.Substring(0, 8))')) | Should -BeGreaterThan 0
+            # Commit cite via Get-Sha8 (null-safe, run 2) : le JSON marqueur relu au run
+            # suivant peut avoir Commit absent — $null.Substring() crasherait le rapport.
+            ($script:fnMark.IndexOf('(Get-Sha8 $Ref.Commit)')) | Should -BeGreaterThan 0
         }
 
         It "Doit verifier le flag a l'etape 8 avant TOUT appel Remove-Worktree et conserver le worktree" {
@@ -182,8 +186,11 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
             # La CONDITION elle-meme, pas une occurrence du flag : le corps de la garde
             # reference le flag dans son log — neutraliser le if en '$false' doit echouer
             # ici (lecon #3774 : le discriminant n'est pas une valeur ecrite par la garde).
-            ($script:fnGraceful -match 'if \(\$script:PhantomRescueRefused\)') | Should -Be $true
-            $guardPos = $script:fnGraceful.IndexOf('if ($script:PhantomRescueRefused)')
+            # Run 2 : la condition est ETENDUE au marqueur persistant (le flag memoire de
+            # session est vide au run suivant — retirer le '-or (Test-PhantomRescueMarker'
+            # doit echouer ici aussi).
+            ($script:fnGraceful -match 'if \(\$script:PhantomRescueRefused -or \(Test-PhantomRescueMarker') | Should -Be $true
+            $guardPos = $script:fnGraceful.IndexOf('if ($script:PhantomRescueRefused')
             $firstRemove = $script:fnGraceful.IndexOf('Remove-Worktree -WorktreePath')
             $guardPos | Should -BeGreaterThan 0
             $firstRemove | Should -BeGreaterThan $guardPos
@@ -193,6 +200,76 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
             $returnPos | Should -BeGreaterThan $guardPos
             $returnPos | Should -BeLessThan $firstRemove
             ($script:fnGraceful -match 'CONSERV') | Should -Be $true
+        }
+    }
+
+    Context "Run suivant : le worktree conserve SURVIT (review ai-01 30/09 09:25Z)" {
+
+        It "Doit persister la decision REFUSED dans le gitdir (marqueur survives reset+clean)" {
+            ($script:content -match 'function Save-PhantomRescueMarker') | Should -Be $true
+            ($script:content -match 'function Test-PhantomRescueMarker') | Should -Be $true
+            ($script:content -match 'function Get-WorktreeGitDirPath') | Should -Be $true
+            # Le marqueur vit dans le gitdir du worktree, pas dans l'arbre : reset --hard
+            # et clean -fd n'y touchent pas, Remove-Worktree est le seul a le detruire —
+            # c'est precisement ce que les gardes empechent.
+            ($script:content -match "PHANTOM-RESCUE-REFUSED\.json") | Should -Be $true
+            # Pose DANS le bloc REFUSED, apres le flag, avant le continue.
+            $flagPos = $script:fnRescue.IndexOf('$script:PhantomRescueRefused = [pscustomobject]')
+            $savePos = $script:fnRescue.IndexOf('Save-PhantomRescueMarker -Ref')
+            $flagPos | Should -BeGreaterThan 0
+            $savePos | Should -BeGreaterThan $flagPos
+        }
+
+        It "Doit refuser le reset de maintenance sous marqueur, avant fetch et reset --hard" {
+            ($script:fnReset.Length) | Should -BeGreaterThan 0
+            $guardPos = $script:fnReset.IndexOf('if (Test-PhantomRescueMarker -WorktreePath $WorktreePath)')
+            $fetchPos = $script:fnReset.IndexOf('fetch origin main')
+            $resetPos = $script:fnReset.IndexOf('reset --hard origin/main')
+            $guardPos | Should -BeGreaterThan 0
+            $fetchPos | Should -BeGreaterThan $guardPos
+            $resetPos | Should -BeGreaterThan $guardPos
+            # La garde sort AVANT le fetch : le checkout du submodule ne bouge pas.
+            $returnPos = $script:fnReset.IndexOf('return $false', $guardPos)
+            $returnPos | Should -BeGreaterThan $guardPos
+            $returnPos | Should -BeLessThan $fetchPos
+        }
+
+        It "Doit ignorer le worktree marque dans Create-Worktree : ni remove, ni reset, ni reutilisation" {
+            ($script:fnCreate.Length) | Should -BeGreaterThan 0
+            $guardPos = $script:fnCreate.IndexOf('if (Test-PhantomRescueMarker -WorktreePath $ExistingWt.worktreePath)')
+            $removePos = $script:fnCreate.IndexOf('Remove-Worktree -WorktreePath')
+            $resetPos = $script:fnCreate.IndexOf('Reset-WorktreeForMaintenance -WorktreePath')
+            $guardPos | Should -BeGreaterThan 0
+            $removePos | Should -BeGreaterThan $guardPos
+            $resetPos | Should -BeGreaterThan $guardPos
+            # return $null = le run travaille sur le checkout principal ; le premier
+            # return $null apres la garde est celui de la garde (les autres viennent
+            # des garde-fous ulterieurs).
+            $returnPos = $script:fnCreate.IndexOf('return $null', $guardPos)
+            $returnPos | Should -BeGreaterThan $guardPos
+            $returnPos | Should -BeLessThan $removePos
+            $returnPos | Should -BeLessThan $resetPos
+        }
+
+        It "Doit rendre tout Substring de commit du flag null-safe via Get-Sha8 (point b)" {
+            # Aucune occurrence directe restante : $null.Substring() crasherait le cleanup
+            # (ou le rapport) exactement la ou il doit CONSERVER. File-wide : une
+            # reintroduction n'importe ou doit echouer.
+            ($script:content -match 'function Get-Sha8') | Should -Be $true
+            ($script:content -notmatch '\.Commit\.Substring') | Should -Be $true
+            # Les 3 sites consommateurs du flag passent par le helper.
+            ($script:fnMark.IndexOf('(Get-Sha8 $Ref.Commit)')) | Should -BeGreaterThan 0
+            ($script:fnGraceful.IndexOf('Get-Sha8 $script:PhantomRescueRefused.Commit')) | Should -BeGreaterThan 0
+            ($script:blockStep8.IndexOf('Get-Sha8 $script:PhantomRescueRefused.Commit')) | Should -BeGreaterThan 0
+        }
+
+        It "Doit logger l'echec du fetch origin main de Create-Worktree (point c, suite #3955)" {
+            $fetchPos = $script:fnCreate.IndexOf('fetch origin main --quiet')
+            $exitPos = $script:fnCreate.IndexOf('$fetchExit = $LASTEXITCODE')
+            $warnPos = $script:fnCreate.IndexOf('fetch origin main failed')
+            $fetchPos | Should -BeGreaterThan 0
+            $exitPos | Should -BeGreaterThan $fetchPos
+            $warnPos | Should -BeGreaterThan $exitPos
         }
     }
 }
