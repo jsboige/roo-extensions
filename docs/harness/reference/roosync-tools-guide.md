@@ -160,7 +160,7 @@ roosync_inventory({ type: "status", detail: "full", includeDetails: true })
 |-----------|------|---------|-------------|
 | `source` | string | local machineId | Source machine. Alias `"local-machine"` = machine locale ; machines distantes par machineId réel (ex `"myia-ai-01"`). NB : le littéral `"local"` retourne une erreur CRITICAL de validation |
 | `target` | string | first other roster machine (sorted) | Cible. `"local-machine"` ou machineId réel — le littéral `"remote"` n'est PAS une valeur valide (CRITICAL) |
-| `granularity` | string | — | `mcp`, `mode`, `settings`, `claude`, `modes-yaml`, `full` |
+| `granularity` | string | — | `mcp`, `mode`, `settings`, `claude`, `modes-yaml`, `boot-resilience`, `full` |
 | `filter` | string | — | Path filter (e.g. `"jupyter"` for specific MCP) |
 | `force_refresh` | boolean | false | Force inventory re-collection |
 
@@ -173,6 +173,7 @@ roosync_inventory({ type: "status", detail: "full", includeDetails: true })
 | `settings` | Claude Code settings.json |
 | `claude` | Claude-specific configs |
 | `modes-yaml` | .roomodes YAML definitions |
+| `boot-resilience` | #3975 — Docker autostart (service StartType, Desktop sign-in, tâches planifiées LastRunTime/LastTaskResult), autologon, politique WU reboot. Détecte une machine qui ne survivra pas à son prochain reboot |
 | `full` | All of the above |
 
 ### Output
@@ -201,6 +202,12 @@ roosync_compare_config({ source: "myia-ai-01", granularity: "mcp" })
 ```
 roosync_compare_config({ source: "myia-ai-01", granularity: "full" })
 ```
+
+**Scenario — Audit résilience reboot flotte (#3975, consigné dans le tick §2d Maintenance) :**
+```
+roosync_compare_config({ source: "myia-ai-01", target: "myia-po-2025", granularity: "boot-resilience" })
+```
+Le bloc `bootResilience` est collecté par chaque machine lors de son inventaire local (`roosync_inventory type="all"`, rafraîchi au moins quotidiennement par l'auto-heartbeat #3975). Config divergente (StartType, enabled, politique WU) = drift signal ; runtime (statut courant, LastTaskResult) = INFO. Bloc absent d'un côté = statut de couverture, pas de diffs fantômes.
 
 ---
 
