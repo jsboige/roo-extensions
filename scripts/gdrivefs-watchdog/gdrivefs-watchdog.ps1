@@ -151,6 +151,24 @@ function Write-Log {
     Write-Host $line
 }
 
+# ---------- MountPath sanitation (argv corruption guard, #3979) ----------
+# A task action value ending in a backslash (`-MountPath "G:\"`) has its closing
+# quote escaped under the Windows argv convention, so the REST of the command
+# line merges into the value. Live on po-2026 (17/09 -> 01/10/2026, #3979) the
+# body received 'G:" -MountProbeTimeoutSeconds 5': the C1 probe failed on every
+# poll and the watchdog killed a HEALTHY GDriveFS every ~30 min for 14 days,
+# then alerted "outage persists" off a cooldown-skip loop. The installer has
+# doubled the trailing backslash since #3690; this guard keeps the body safe
+# from task actions rewritten outside the installer (migration repoints,
+# manual `schtasks /change`) by recovering the prefix before the embedded quote.
+if ($MountPath.Contains('"')) {
+    $rawMountArg = $MountPath
+    $MountPath = ($MountPath -split '"', 2)[0]
+    if ([string]::IsNullOrWhiteSpace($MountPath)) { $MountPath = 'G:\' }
+    elseif ($MountPath -match '^[A-Za-z]:$') { $MountPath += '\' }
+    Write-Log 'WARN' "MountPath argv-corrupted (embedded quote) — sanitized '$rawMountArg' -> '$MountPath'. The task action should double its trailing backslash (installer >= #3690 does)."
+}
+
 # ---------- event log ----------
 function Write-WatchdogEvent {
     param([int]$EventId, [string]$EntryType, [string]$Message)

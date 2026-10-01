@@ -77,7 +77,11 @@ enumeration answers "does it serve content?" — both are needed.
 
 C1 is enabled by default for `G:\`. Set `MountPath` for hosts that use a different
 DriveFS mount. `MountProbeTimeoutSeconds=0` disables C1 as an explicit recovery
-option; normal installs should retain the default probe. The previous CPU-delta
+option; normal installs should retain the default probe. The body sanitizes an
+argv-corrupted `MountPath` (embedded quote from a trailing backslash escaping
+the task action's closing quote — #3979): it recovers the prefix before the
+quote and warns, instead of probing a garbage path and killing a healthy
+GDriveFS on every poll. The previous CPU-delta
 heuristic was removed because an idle-but-healthy DriveFS legitimately uses 0%
 CPU and therefore produced false positives.
 
