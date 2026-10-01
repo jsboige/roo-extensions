@@ -53,7 +53,9 @@ d'escalader (`DEFAULT_RECOVERY_ACTIONS`) :
 | `CONFLICT…Merge conflict` | `rebase_git` |
 | `EBUSY…\.node`, `429/rate limit`, `ECONNREFUSED/RESET/TIMEDOUT` | `retry_once` |
 
-**Point de décision MCP (la nouveauté 2026-10) :**
+**Point de décision MCP (la nouveauté 2026-10 — submod PR #1273, `6505faea` ;
+servi par un hôte RSM seulement après le bump du pointeur `mcps/internal` et le
+respawn de l'hôte) :**
 
 ```
 roosync_diagnose(action:"recovery", errorMessage:"<erreur brute>")
@@ -66,6 +68,21 @@ roosync_diagnose(action:"recovery")                # historique (borné 50)
 L'outil rend la **décision**, pas l'exécution — le worker/scripts exécutent la
 remédiation (source de vérité unique des patterns : `HeartbeatService`, pas de
 réplication PowerShell).
+
+**Limites du contrat (à lire avant d'exécuter une action) :**
+
+- **« Une fois » est un contrat appelant, pas une garde.** `attemptRecovery`
+  ne consulte pas l'historique : la même erreur re-matche la même action à
+  chaque appel. De plus, l'historique vit **en mémoire** du process (pas
+  persisté, ADR 008) et repart de zéro au redémarrage de l'hôte. Une erreur
+  persistante peut donc relancer la même remédiation à chaque cycle : c'est au
+  worker de compter ses tentatives et d'escalader au deuxième échec.
+- **`rebase_git` et `reset_submodule` modifient l'arborescence.** Avant de les
+  exécuter, appliquer la garde de préservation prouvée de
+  [`clean-cycle-exit.md`](clean-cycle-exit.md) (#3776) : contenu non livré
+  committé et poussé, ou sauvegardé hors dépôt avec manifeste. Jamais de
+  `reset_submodule` sur un gitlink sans
+  [`submod-pointer-safety`](../../../.claude/rules/submod-pointer-safety.md).
 
 ## 3. Mock parity harness
 
@@ -104,4 +121,4 @@ Détail (règles d'isolation, gaps délibérés, contrat de normalisation) :
 | submod `13d1f197`/`dba8b54a` | Recovery-Before-Escalation dans HeartbeatService |
 | submod `7a69788f` (PR #527, arbitrage #512) | lifecycle re-câblé en action `roosync_diagnose` |
 | submod `6bbda09a` (PR #528, #2307 Phase 5) | tests de routage lifecycle |
-| submod PR 2026-10 (#1320 session) | action `roosync_diagnose recovery` + mock parity harness |
+| submod `6505faea` (PR #1273, 2026-10-01) | action `roosync_diagnose recovery` + mock parity harness |
