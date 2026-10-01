@@ -4,5 +4,5 @@
 Option Explicit
 Dim sh, rc
 Set sh = CreateObject("WScript.Shell")
-rc = sh.Run("powershell.exe -ExecutionPolicy Bypass -File ""D:\dev\roo-extensions\scripts\scheduling\vibe-feeder.ps1""", 0, True)
+rc = sh.Run("powershell.exe -ExecutionPolicy Bypass -File ""D:\dev\roo-extensions\scripts\scheduling\vibe-feeder.ps1"" -PostVisibility", 0, True)
 WScript.Quit rc
