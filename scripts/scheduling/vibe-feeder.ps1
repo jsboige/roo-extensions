@@ -39,7 +39,8 @@ param(
     [switch]$PostVisibility,
     [string]$QueuePath = '',
     [int]$TimeoutSec = 150,
-    [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime'
+    [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime',
+    [int]$MaxParallel = 1
 )
 $ErrorActionPreference = 'Continue'   # Continue : git ecrit du progres sur stderr (fin de pipe), Stop le transformerait en throw
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -427,7 +428,10 @@ Write-FeederLog -Level 'INFO' -Text "Vibe-Feeder tick (DryRun=$DryRun)"
 # fenetre 2 min (Test-RunInFlight) ne s'applique qu'en regime mono (0 vivant) —
 # en burst elle NOOPerait perpetuellement (un run finit toujours dans les
 # 7 dernieres minutes) etranglant la cadence a 1 worker.
-$MaxParallel = 3
+# Regime octobre (decision user 01/10 via ai-01:CoursIA, forfait 255 EUR/mois
+# a rythme lineaire ~8,2 EUR/j, jamais de rafale) : MONO-dispatch par defaut —
+# $MaxParallel vit dans le param block (defaut 1). Le burst 3-workers reste
+# atteignable par -MaxParallel 3, a ne re-activer que sur mandat explicite.
 $vivants = Get-LiveWorkerCount
 if ($vivants -ge $MaxParallel) {
     Write-FeederLog -Level 'INFO' -Text ("NOOP: {0} worker(s) Vibe vivants (budget parallele sature)" -f $vivants)
