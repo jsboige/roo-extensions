@@ -204,6 +204,52 @@ Assert-Probe 'fast-poll: future window active'  (Test-FastPollWindowActive -Fast
 Assert-Probe 'fast-poll: past window inactive'  (-not (Test-FastPollWindowActive -FastPollUntil $alertNow.AddMinutes(-1).ToString('o') -Now $alertNow)) 'past'
 Assert-Probe 'fast-poll: unparsable window inactive (fail-safe)' (-not (Test-FastPollWindowActive -FastPollUntil 'not-a-date' -Now $alertNow)) 'garbage'
 
+# ---------- MountPath sanitation guard (#3979) ----------
+# The guard is top-level code in the body, not a function: extract the section
+# and re-invoke it per case, with Write-Log stubbed (the harness never extracts
+# the logging section). The corrupted values are the argv class observed live:
+# a trailing backslash escaped the closing quote and swallowed the rest of the
+# task action command line.
+$mpMatch = [regex]::Match(
+    $source,
+    '(?s)# ---------- MountPath sanitation.*?(?=\r?\n# ---------- event log)'
+)
+if (-not $mpMatch.Success) {
+    throw 'Could not locate the MountPath sanitation section in watchdog script.'
+}
+$script:sanWarns = @()
+function Write-Log { param([string]$Level, [string]$Message) $script:sanWarns += "$Level $Message" }
+
+# Live #3979 value (po-2026, 17/09 repoint): prefix recovered + drive root slash.
+$MountPath = 'G:" -MountProbeTimeoutSeconds 5'
+$script:sanWarns = @()
+Invoke-Expression $mpMatch.Value
+Assert-Probe 'sanitation: live #3979 corrupted argv recovered to G:\' ($MountPath -eq 'G:\' -and $script:sanWarns.Count -eq 1 -and $script:sanWarns[0] -like 'WARN*') ("mount=$MountPath warns=$($script:sanWarns.Count)")
+
+# Clean path (quote-free) passes through untouched, no warn.
+$MountPath = 'G:\'
+$script:sanWarns = @()
+Invoke-Expression $mpMatch.Value
+Assert-Probe 'sanitation: clean path untouched, no warn' ($MountPath -eq 'G:\' -and $script:sanWarns.Count -eq 0) ("mount=$MountPath warns=$($script:sanWarns.Count)")
+
+# Folder-style mount (web1) with corruption: prefix keeps its trailing slash.
+$MountPath = 'C:\Drive\" -MountProbeTimeoutSeconds 5'
+$script:sanWarns = @()
+Invoke-Expression $mpMatch.Value
+Assert-Probe 'sanitation: folder mount prefix preserved' ($MountPath -eq 'C:\Drive\' -and $script:sanWarns.Count -eq 1) ("mount=$MountPath")
+
+# Drive-only prefix gets normalized to a root path.
+$MountPath = 'X:" -Swallowed 1'
+$script:sanWarns = @()
+Invoke-Expression $mpMatch.Value
+Assert-Probe 'sanitation: drive-only prefix gets root slash' ($MountPath -eq 'X:\') ("mount=$MountPath")
+
+# Value starting WITH the quote (empty prefix) falls back to the param default.
+$MountPath = '" -Swallowed'
+$script:sanWarns = @()
+Invoke-Expression $mpMatch.Value
+Assert-Probe 'sanitation: empty prefix falls back to G:\' ($MountPath -eq 'G:\') ("mount=$MountPath")
+
 $failed = @($results | Where-Object { -not $_.Passed })
 Write-Host "`n$($results.Count - $failed.Count)/$($results.Count) tests passed"
 if ($failed.Count -gt 0) { exit 1 }
