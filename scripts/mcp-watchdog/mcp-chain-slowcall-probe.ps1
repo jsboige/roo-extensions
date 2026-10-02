@@ -28,8 +28,10 @@
                          dashboard. NOT an AC#4 pass.
 
     The append is a real, idempotent telemetry note: the messageId bucket is
-    per UTC minute (#3276 mechanism), so a client timeout followed by a
-    same-minute retry cannot double-write.
+    15 minutes plus a fingerprint of the note content (mcp-chain-watchdog.ps1's
+    proven pattern, #3276 mechanism), so a client timeout (800 s) followed by
+    a retry cannot double-write — the retry lands in the same bucket with the
+    same fingerprint and is skipped server-side.
 
 .PARAMETER BotEnvFile
     Path to the NanoClaw .env (MCP_PROXY_BASE_URL + MCP_PROXY_BEARER).
@@ -97,15 +99,26 @@ $headers = @{
 
 $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-chain-slowcall-probe","version":"1.0"}}}'
 
+# Idempotence (#3276), same pattern as mcp-chain-watchdog.ps1's Publish-FleetNote
+# (follow-up to the #4030 APPROVE review): the id is THE note (fingerprint of the
+# content + 15-min bucket), not the attempt. A 1-min bucket dies against this
+# probe's 800 s client timeout: the retry always starts in a later minute, and if
+# the first append did write (WRITE-FIRST), the retry double-posts on a channel
+# the whole fleet reads. With the fingerprint, two different notes never collide
+# either — a NOTE text the operator changed IS a new note and must write.
+$epoch = [datetime]::UtcNow - [datetime]::new(1970, 1, 1, 0, 0, 0, [datetimekind]::Utc)
+$bucket = [int][math]::Floor($epoch.TotalSeconds / 900)
+$md5 = [System.Security.Cryptography.MD5]::Create()
+try {
+    $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Note))
+} finally { $md5.Dispose() }
+$noteDigest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
 $appendArgs = @{
     action    = 'append'
     type      = $DashboardType
     tags      = @('INFO','mcp-chain-slowcall-probe')
     content   = $Note
-    # Idempotence (#3276): the id is THE note (UTC-minute bucket), not the
-    # attempt -- a same-minute retry after a client timeout is deduplicated
-    # server-side instead of double-writing a channel the whole fleet reads.
-    messageId = "e2e-slowcall-1357-" + (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmm')
+    messageId = "e2e-slowcall-1357-$noteDigest-$bucket"
 }
 if ($DashboardType -eq 'workspace') { $appendArgs.workspace = $Workspace }
 if ($DashboardType -eq 'machine' -and $MachineId) { $appendArgs.machineId = $MachineId }
