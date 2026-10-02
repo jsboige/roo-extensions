@@ -73,11 +73,15 @@ $principal = New-ScheduledTaskPrincipal `
     -RunLevel Highest
 
 # Settings : restart on failure, no battery restriction, allow-start-if-missed
+# Q13 : plafond 2->5 min (arbitrage user 02/10) — un service qui met ~100 s a revenir
+# apres reparation etait confirme au tick suivant (~2 min de delta) ; 5 min absorbent
+# la reverification complete dans la MEME execution. NB: pas de commentaire entre les
+# lignes de continuation backtick — il rompt la commande (verifie AST 02/10).
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -RestartCount 3 `
     -MultipleInstances IgnoreNew
