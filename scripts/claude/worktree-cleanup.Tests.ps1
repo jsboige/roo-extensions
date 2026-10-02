@@ -14,6 +14,7 @@
 #   6. dossier orphelin vide sans marqueur               → supprimé
 #   7. dossier sans marqueur contenant des fichiers      → REFUSED, le dossier reste
 #   8. statique : ni `--prune=now` ni règle « NO-PR worker artifact » dans la source
+#   9. worktree propre enregistré par un autre dépôt (sous-module) → conservé (02/10)
 #
 # Exécution : pwsh -NoProfile -File scripts/testing/run-pester-tests.ps1 -Path scripts/claude/worktree-cleanup.Tests.ps1
 
@@ -216,6 +217,26 @@ Describe 'worktree-cleanup safety guards' {
         $out | Should -Match 'REFUSED \(dirty-guard\): git state unreadable .*pendant-git'
         Test-Path $husk | Should -BeFalse
         $out | Should -Match 'Removed orphan directory: .*zz-empty-husk'
+    }
+
+    It 'worktree propre enregistré par un AUTRE dépôt (sous-module) → conservé' {
+        $f = New-CleanupFixture
+        $script:Fixtures.Add($f)
+        # Disposition des incidents po-2026/po-2025 du 02/10 : worktree du dépôt
+        # sous-module rangé dans le .claude\worktrees du parent. Absent de la liste
+        # du parent, propre aux yeux de git — l'ancien classifieur le supprimait.
+        $other = "$f-other"
+        $script:Fixtures.Add($other)
+        git init -q $other
+        git -C $other -c user.email=t@example.invalid -c user.name=t commit --allow-empty -q -m init
+        $foreign = Join-Path $f '.claude\worktrees\foreign-wt'
+        git -C $other worktree add -q -b wt/foreign $foreign
+
+        $out = Invoke-CleanupChild -Fixture $f
+
+        Test-Path (Join-Path $foreign '.git') | Should -BeTrue
+        $out | Should -Match 'Skipping foreign-wt: worktree registered by another repository'
+        $out | Should -Not -Match 'Removed orphan directory: .*foreign-wt'
     }
 
     It 'statique : plus de git gc --prune=now ni de règle NO-PR worker dans la source' {
