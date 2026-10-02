@@ -13,10 +13,10 @@
 | Metric | Count |
 |--------|-------|
 | **Total models** | 8 (8 enabled, 0 disabled) |
-| **Top-level agents** | 35 |
+| **Top-level agents** | 37 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
-| **MCP plugins** | 5 |
+| **MCP plugins** | 6 |
 | **Conversations** | 11 (group_chat, magentic, sequential) |
 
 ---
@@ -73,6 +73,8 @@
 | `context-explorer` | `glm-5.3` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.3. |
 | `regression-hunter` | `glm-5.3` | — | N | Hunts for regression risks by analyzing git history, past incidents, and similar changes that caused issues. GLM-5.3 with GitHub tools. |
 | `security-executor` | `glm-5.3` | — | N | Deep security analysis with code execution — dependency audit, OWASP scan, secret detection. GLM-5.3 with GitHub + terminal tools. |
+| `terminal-analyst` | `qwen3.6-35b-a3b` | open_terminal, searxng | N | Local analyst with terminal+repo access: log analysis, config drift, read-only gh queries. Evidence-cited, output French (vllm dossier §6 skeleton). |
+| `coordination-agent` | `qwen3.6-35b-a3b` | roo_state_manager, searxng | N | Local agent that reads/posts RooSync dashboards (7-machine fleet) and drafts lane reports. Sampling per dossier §5 (thinking profile): calibrate via agent_spec.sampling {temperature: 0.7, presence_penalty: 1.5, max_tokens: 2048}. |
 
 ## Inline Agents (conversation-scoped)
 
@@ -103,6 +105,7 @@
 | `sk_agent` | `VENV_PATH/Scripts/python.exe INSTALLATION_PATH/sk_agent.py` | Self-inclusion for recursive tool chaining |
 | `open_terminal` | `python ../open-terminal-mcp/open_terminal_mcp.py` | Remote terminal access (shell commands, file operations, grep/glob) via Open Terminal API |
 | `markitdown` | `markitdown-mcp ` | Document conversion (PDF/DOCX/XLSX/PPTX/HTML/images) to Markdown via Microsoft markitdown |
+| `roo_state_manager` | `node ../roo-state-manager/build/index.js` | RooSync fleet coordination: dashboards read/append, messages inbox/send, conversation search |
 
 ## Conversations
 
