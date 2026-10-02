@@ -953,8 +953,11 @@ try {
 Write-Host "`nCollecte des services Windows critiques..." -ForegroundColor Yellow
 try {
     $criticalServices = @(
-        "Docker Desktop Service",
-        "com.docker.backend",
+        # #3975: noms de SERVICE réels — "Docker Desktop Service" est un
+        # DisplayName, Get-Service -Name ne le matchait jamais (Docker absent
+        # de windowsServices sur toute la flotte sans erreur visible) ;
+        # "com.docker.backend" est un process, pas un service.
+        "com.docker.service",
         "WSL",
         "wslservice",
         "LxssManager",
@@ -1121,6 +1124,82 @@ try {
 } catch {
     Write-Host "  Erreur lors de la collecte ports: $_" -ForegroundColor Red
     $inventory.inventory.listeningPorts = @()
+}
+
+# ===============================
+# 18bis. Boot Resilience (NOUVEAU #3975)
+# Non sensible : aucun nom d'utilisateur, aucun secret.
+# Constat fondateur 01/10/2026 : reboot WU po-2025 -> Docker non reparti ->
+# hub .50:3000 mort 5h30, invisible de l'inventaire RSM.
+# ===============================
+Write-Host "`nCollecte bootResilience (autostart Docker, taches planifiees, autologon, politique WU)..." -ForegroundColor Yellow
+try {
+    $bootResilience = @{
+        collectedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        scheduledTasks = @()
+    }
+
+    # Service Docker engine (le vrai nom est com.docker.service — "Docker
+    # Desktop Service" est un DisplayName, Get-Service -Name ne le matche pas)
+    $dockerSvc = Get-CimInstance Win32_Service -Filter "Name='com.docker.service'" -ErrorAction SilentlyContinue
+    if ($dockerSvc) {
+        $bootResilience.dockerService = @{
+            name = "com.docker.service"
+            status = [string]$dockerSvc.State
+            startType = [string]$dockerSvc.StartMode
+        }
+    }
+
+    # Taches planifiees liees a Docker (Auto-Start, Watchdog-Docker-*, Claudish...)
+    Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -like "*Docker*" } | ForEach-Object {
+        $taskInfo = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
+        $taskEntry = @{
+            name = [string]$_.TaskName
+            state = [string]$_.State
+        }
+        if ($taskInfo) {
+            # LastRunTime sentinelle < 2000 = jamais executee (cas po-2025 : LastRun 1999)
+            if ($taskInfo.LastRunTime -and $taskInfo.LastRunTime.Year -ge 2000) {
+                $taskEntry.lastRunTime = $taskInfo.LastRunTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            } else {
+                $taskEntry.lastRunTime = $null
+            }
+            $taskEntry.lastTaskResult = [int]$taskInfo.LastTaskResult
+        }
+        $bootResilience.scheduledTasks += $taskEntry
+    }
+
+    # Docker Desktop "start when you sign in" (cle Run HKCU)
+    $runKey = Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -ErrorAction SilentlyContinue
+    if ($runKey -and $runKey.PSObject.Properties["Docker Desktop"]) {
+        $bootResilience.dockerDesktopAutoStart = @{ enabled = $true }
+    } else {
+        $bootResilience.dockerDesktopAutoStart = @{ enabled = $false }
+    }
+
+    # Autologon — flag seul, JAMAIS le username (non-nominatif)
+    $winlogon = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -ErrorAction SilentlyContinue
+    if ($winlogon -and $winlogon.AutoAdminLogon -eq "1") {
+        $bootResilience.autoLogon = @{ enabled = $true }
+    } else {
+        $bootResilience.autoLogon = @{ enabled = $false }
+    }
+
+    # Politique Windows Update de reboot automatique
+    $wuAu = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
+    $wuBlock = @{ policyKeyPresent = [bool]$wuAu }
+    if ($wuAu -and $null -ne $wuAu.NoAutoRebootWithLoggedOnUsers) {
+        $wuBlock.noAutoRebootWithLoggedOnUsers = [int]$wuAu.NoAutoRebootWithLoggedOnUsers
+    } else {
+        $wuBlock.noAutoRebootWithLoggedOnUsers = $null
+    }
+    $bootResilience.windowsUpdate = $wuBlock
+
+    $inventory.inventory.bootResilience = $bootResilience
+    $dockerTasksCount = $bootResilience.scheduledTasks.Count
+    Write-Host "  OK bootResilience: dockerService=$($bootResilience.dockerService.status)/$($bootResilience.dockerService.startType) taches=$dockerTasksCount" -ForegroundColor Green
+} catch {
+    Write-Host "  Erreur lors de la collecte bootResilience: $_" -ForegroundColor Red
 }
 
 # ===============================
