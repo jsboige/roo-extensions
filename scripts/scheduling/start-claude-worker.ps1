@@ -1124,6 +1124,8 @@ function Mark-TaskAsComplete {
                 try {
                     # #1213: Post [RESULT] with proof — aligns with Roo protocol
                     $MachineId = $env:COMPUTERNAME.ToLower()
+                    # Verdicts that say "do not redispatch" must not release the issue lock.
+                    $HoldLock = $false
                     if ($Success -and $PrUrl) {
                         $Body = "[RESULT] $MachineId`: PASS — PR created: $PrUrl"
                     } elseif ($Success -and $script:PhantomRescueRefused) {
@@ -1131,9 +1133,11 @@ function Mark-TaskAsComplete {
                         # only copy of the work and the parent push was blocked. Never report PASS.
                         $Ref = $script:PhantomRescueRefused
                         $Body = "[RESULT] $MachineId`: BLOCKED — submodule work NOT preserved remotely, worktree kept at $($Ref.WorktreePath), commit $(Get-Sha8 $Ref.Commit) — rescue branch '$($Ref.Branch)' exists LOCALLY ONLY (push refused). Coordinator: recover before any worktree cleanup."
+                        $HoldLock = $true
                     } elseif ($Success -and $script:RescuedSubmoduleBranches.Count -gt 0) {
                         # #3944: never claim "no code changes" when submodule work was preserved on a rescue branch.
                         $Body = "[RESULT] $MachineId`: PASS — completed, but submodule work was PRESERVED on a rescue branch — review required, do not redispatch"
+                        $HoldLock = $true
                     } elseif ($Success) {
                         $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
                     } elseif ($PrUrl -or $DeliveredArtifacts.Count -gt 0) {
@@ -1146,6 +1150,7 @@ function Mark-TaskAsComplete {
                         })
                         $ArtifactSummary = @($ArtifactParts | Select-Object -Unique) -join ', '
                         $Body = "[RESULT] $MachineId`: FAIL — run terminal en échec, mais artefacts livrés et vérifiés: $ArtifactSummary — ne pas redispatcher (#3560)"
+                        $HoldLock = $true
                     } else {
                         $Body = "[RESULT] $MachineId`: FAIL — no actionable result produced"
                     }
@@ -1161,6 +1166,14 @@ function Mark-TaskAsComplete {
                             "- ``$($_.Branch)``@$(([string]$_.Commit).Substring(0, 8)) in $($_.Path)"
                         }) -join "`n"
                         $Body += "`n`n[RESCUE_BRANCH] #3944 (#1156 v2 / web1 29/09) phantom-pointer guard preserved real submodule work (pushed to submodule origin) before reverting the pointer. Coordinator: fetch and review/merge manually.`n$SubmodRescueLines"
+                    }
+                    # A [RESULT] line closes the issue lock in check_issue_claim.py (CLOSE_MARKERS),
+                    # so a "do not redispatch" verdict used to free the issue for any lane while the
+                    # work sat on a branch (#4000, 02/10: web2 claimed over po-2025's rescue). Re-open
+                    # it on a LATER line: the reducer applies markers top-to-bottom, last one wins.
+                    # The hold goes stale after the guard's threshold (24h) like any claim.
+                    if ($HoldLock -or $script:RecoveryBranchName) {
+                        $Body += "`n`n[CLAIMED] $MachineId -- held: work above awaits recovery/review; do not re-take without asking $MachineId or the coordinator"
                     }
                     # Multiline [RESULT] bodies cannot cross the cmd.exe layer as --body
                     # args (newlines/markdown backticks break the command string): temp

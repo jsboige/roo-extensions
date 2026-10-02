@@ -135,6 +135,20 @@ Describe "Worker - le revert phantom ne detruit plus le travail submodule (#3944
             ($script:fnMark -match '\$\(\$_\.Branch') | Should -Be $true
         }
 
+        It "Doit garder le verrou d'issue sur les verdicts 'ne pas redispatcher' (#4000, 02/10)" {
+            # [RESULT] ferme le verrou dans check_issue_claim.py : les trois verdicts qui disent
+            # « ne pas redispatcher » (BLOCKED, rescue, FAIL avec artefacts) le rouvrent par une
+            # ligne [CLAIMED] posee APRES le bloc [RESCUE_BRANCH] (dernier marqueur gagne).
+            ([regex]::Matches($script:fnMark, '\$HoldLock = \$true')).Count | Should -Be 3
+            $rescuePos = $script:fnMark.IndexOf('[RESCUE_BRANCH] #3944')
+            $holdPos = $script:fnMark.IndexOf('[CLAIMED] $MachineId -- held')
+            $writePos = $script:fnMark.IndexOf('$ResultBodyFile = Join-Path')
+            $rescuePos | Should -BeGreaterThan 0
+            $holdPos | Should -BeGreaterThan $rescuePos
+            $writePos | Should -BeGreaterThan $holdPos
+            ($script:fnMark -match 'if \(\$HoldLock -or \$script:RecoveryBranchName\)') | Should -Be $true
+        }
+
         It "Doit porter le bloc de preservation dans le rapport (Report-Results)" {
             ($script:fnReport -match 'Travail submodule pr') | Should -Be $true
             ($script:fnReport -match '\(#3944') | Should -Be $true

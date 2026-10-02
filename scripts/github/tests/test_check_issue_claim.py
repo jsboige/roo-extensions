@@ -191,6 +191,27 @@ class TestReduceClaims(unittest.TestCase):
         state = reduce_claims(comments)
         self.assertEqual(state["myia-po-2023"]["state"], "released")
 
+    def test_worker_hold_line_keeps_claim_after_result(self):
+        # #4000 (02/10): the worker's "do not redispatch" verdicts (rescue branch,
+        # BLOCKED, FAIL with artifacts) start with [RESULT], which releases. The
+        # worker now re-opens on a LATER line of the same comment: last marker wins.
+        body = (
+            "[RESULT] myia-po-2025: PASS — completed, but submodule work was PRESERVED "
+            "on a rescue branch — review required, do not redispatch\n\n"
+            "[RESCUE_BRANCH] #3944 phantom-pointer guard preserved real submodule work.\n"
+            "- `worker-rescue/github-4000-x`@143ea41d in mcps/internal\n\n"
+            "[CLAIMED] myia-po-2025 -- held: work above awaits recovery/review; "
+            "do not re-take without asking myia-po-2025 or the coordinator"
+        )
+        comments = [
+            comment("[CLAIMED] by claude on myia-po-2025 at 2026-10-02T04:40", T0),
+            comment(body, T0 + timedelta(minutes=22)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2025"]["state"], "active")
+        blocking, _, _ = classify(state, "myia-web2", 24, now=T0 + timedelta(minutes=40))
+        self.assertEqual([b[0] for b in blocking], ["myia-po-2025"])
+
     def test_result_releases_only_own_machine(self):
         comments = [
             comment("[CLAIMED] myia-po-2023 -- a", T0),
