@@ -132,4 +132,7 @@ Le timeout ne s'applique qu'aux upstreams HTTP (streamable/SSE), jamais a stdio.
 
 ### Verification E2E (>60s slow tool)
 
-Voir `scripts/mcp-watchdog/mcp-chain-watchdog.ps1` — probe E2E `NanoClaw → mcp-tools.myia.io → TBXark → sparfenyuk → roo-state-manager` deja 15s. Un test d'un tool volontairement lent (>60s) necessite un script de validation que l'agent `task-worker` peut executer interactivement sur ai-01. **Non livre dans ce patch** (necessite acces runtime aux containers en cours d'execution).
+Deux instruments :
+
+- `scripts/mcp-watchdog/mcp-chain-watchdog.ps1` — probe E2E continu `NanoClaw → mcp-tools.myia.io → TBXark → sparfenyuk → roo-state-manager`, budget 15-20s (health, pas slow-path).
+- `scripts/mcp-watchdog/mcp-chain-slowcall-probe.ps1` (#1357 AC#4) — probe one-shot du chemin lent : append dashboard declenchant la condensation LLM (77-165s mesures), budget client 800s > hop TBXark 780s > budget interne 720s. PASS = 200 + pas d'`isError` + >60s ; exit 3 = succes rapide (chaine saine, chemin lent non exerce). S'execute sur l'hote porteur du bearer (ai-01), comme le watchdog : `.\mcp-chain-slowcall-probe.ps1`.
