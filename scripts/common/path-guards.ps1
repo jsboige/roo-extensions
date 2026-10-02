@@ -184,3 +184,42 @@ function Test-SafeCleanupRoot {
 
     return @{ Safe = $true; Reason = '' }
 }
+
+function Test-RegisteredWorktreeDir {
+    <#
+    .SYNOPSIS
+        True when $Path is a linked worktree that SOME repository still registers.
+    .DESCRIPTION
+        A linked worktree carries a `.git` FILE: `gitdir: <repo-gitdir>/worktrees/<name>`.
+        A worktree of the submodule repo is registered under
+        `.git/modules/<submodule>/worktrees/`, so it never appears in the PARENT's
+        `git worktree list`. Orphan classifiers that only read the parent's list
+        took live submodule worktrees placed in the parent's .claude/worktrees for
+        orphans and deleted them (po-2026 02/10 ~19:30Z, po-2025 02/10 ~22:25 local).
+
+        An existing gitdir target = a live registration: not an orphan, whoever owns it.
+        A dangling target (registry pruned) = a husk: the caller's own checks apply.
+        An unreadable `.git` file counts as registered (fail-safe toward preservation).
+    .OUTPUTS
+        [bool]
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $gitFile = Join-Path $Path '.git'
+    if (-not (Test-Path -LiteralPath $gitFile -PathType Leaf)) { return $false }
+
+    try {
+        # [string]: an empty file yields no object, and -notmatch on that is no test at all
+        $raw = [string](Get-Content -LiteralPath $gitFile -Raw -ErrorAction Stop)
+    } catch {
+        return $true
+    }
+    if ($raw -notmatch '(?m)^gitdir:\s*(.+?)\s*$') { return $false }
+
+    $gitdir = $Matches[1]
+    if (-not [System.IO.Path]::IsPathRooted($gitdir)) {
+        $gitdir = Join-Path $Path $gitdir
+    }
+    return [bool](Test-Path -LiteralPath $gitdir -PathType Container)
+}

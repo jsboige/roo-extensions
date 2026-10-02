@@ -210,6 +210,111 @@ Describe "Path Guards - #2772 couche 3b (deletion-time)" {
     }
 
     # ---------------------------------------------------------------------------
+    # Test-RegisteredWorktreeDir — worktrees registered by ANOTHER repo (submodule)
+    # are absent from the parent's `git worktree list` but live (po-2026/po-2025 02/10)
+    # ---------------------------------------------------------------------------
+
+    Context "Test-RegisteredWorktreeDir - live registration vs husk" {
+
+        BeforeAll {
+            $script:RegRoot = Join-Path $script:TempRoot "reg-fixture"
+            # Registry dirs that a .git file can point to
+            New-Item -ItemType Directory -Path "$script:RegRoot/modules/internal/worktrees/live" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$script:RegRoot/rel-registry/worktrees/rel" -Force | Out-Null
+
+            # Untyped content: [string] would turn $null into '' and write an empty .git
+            function New-WorktreeDir([string]$Name, $GitFileContent) {
+                $d = Join-Path $script:RegRoot $Name
+                New-Item -ItemType Directory -Path $d -Force | Out-Null
+                if ($null -ne $GitFileContent) {
+                    [System.IO.File]::WriteAllText((Join-Path $d '.git'), $GitFileContent, [System.Text.UTF8Encoding]::new($false))
+                }
+                return $d
+            }
+        }
+
+        It "returns true when the gitdir target exists (absolute path)" {
+            $d = New-WorktreeDir 'wt-live' "gitdir: $script:RegRoot/modules/internal/worktrees/live`n"
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $true
+        }
+
+        It "returns true when the gitdir target exists (relative path, resolved from the worktree)" {
+            $d = New-WorktreeDir 'wt-rel' "gitdir: ../rel-registry/worktrees/rel`n"
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $true
+        }
+
+        It "returns false when the gitdir target is gone (husk: registry pruned)" {
+            $d = New-WorktreeDir 'wt-dangling' "gitdir: $script:RegRoot/modules/internal/worktrees/gone`n"
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $false
+        }
+
+        It "returns false without a .git file" {
+            $d = New-WorktreeDir 'wt-plain' $null
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $false
+        }
+
+        It "returns false for an empty .git file (no gitdir line), without throwing" {
+            $d = New-WorktreeDir 'wt-empty-gitfile' ''
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $false
+        }
+
+        It "returns false for a .git DIRECTORY (standalone clone, not a linked worktree)" {
+            $d = New-WorktreeDir 'wt-clone' $null
+            New-Item -ItemType Directory -Path (Join-Path $d '.git') -Force | Out-Null
+            Test-RegisteredWorktreeDir -Path $d | Should -Be $false
+        }
+    }
+
+    # ---------------------------------------------------------------------------
+    # Behaviour — cleanup-orphan-worktrees.ps1 runs on every worker start with
+    # -Execute -DaysThreshold 0: a live worktree of another repo must survive it
+    # ---------------------------------------------------------------------------
+
+    Context "Behaviour - cleanup-orphan-worktrees.ps1 keeps a live foreign worktree" {
+
+        BeforeAll {
+            $script:BhvRoot = Join-Path ([System.IO.Path]::GetTempPath()) "orphan-cleaner-bhv-$(Get-Random)"
+            $script:Parent = Join-Path $script:BhvRoot 'parent'
+            $script:Other  = Join-Path $script:BhvRoot 'other'
+            New-Item -ItemType Directory -Path (Join-Path $script:Parent '.claude/worktrees') -Force | Out-Null
+            New-Item -ItemType Directory -Path $script:Other -Force | Out-Null
+            foreach ($r in @($script:Parent, $script:Other)) {
+                git -C $r init -q 2>&1 | Out-Null
+                git -C $r -c user.email=t@example.invalid -c user.name=t commit --allow-empty -q -m init 2>&1 | Out-Null
+            }
+            # Worktree of the OTHER repo placed in the parent's container — the
+            # submodule-worktree layout of the 02/10 incidents.
+            $script:Foreign = Join-Path $script:Parent '.claude/worktrees/wt-foreign'
+            git -C $script:Other worktree add -q -b wt/foreign $script:Foreign 2>&1 | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $script:Foreign 'work.txt'), 'committed elsewhere', [System.Text.UTF8Encoding]::new($false))
+            # True husk next to it: must still be cleaned
+            $script:Husk = Join-Path $script:Parent '.claude/worktrees/wt-husk'
+            New-Item -ItemType Directory -Path $script:Husk -Force | Out-Null
+
+            $cleaner = Join-Path $projectRoot 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
+            & $cleaner -RepoRoot $script:Parent -Execute -DaysThreshold 0 -LogPath (Join-Path $script:BhvRoot 'cleanup.log') *> $null
+        }
+
+        AfterAll {
+            git -C $script:Other worktree remove --force $script:Foreign 2>&1 | Out-Null
+            Remove-Item $script:BhvRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        It "fixture sanity: the foreign worktree is NOT in the parent's worktree list" {
+            (@(git -C $script:Parent worktree list --porcelain) -join "`n") | Should -Not -Match 'wt-foreign'
+        }
+
+        It "keeps the foreign worktree and its files" {
+            Test-Path (Join-Path $script:Foreign 'work.txt') | Should -Be $true
+            Test-Path (Join-Path $script:Foreign '.git') | Should -Be $true
+        }
+
+        It "still removes the unregistered husk" {
+            Test-Path $script:Husk | Should -Be $false
+        }
+    }
+
+    # ---------------------------------------------------------------------------
     # Wiring — the guards are actually dot-sourced and called by the cleaners,
     # BEFORE any deletion strategy (structure checks, same style as #2351 tests)
     # ---------------------------------------------------------------------------

@@ -168,6 +168,13 @@ function Get-OrphanWorktreeDirs {
             }
         }
 
+        if (-not $isActive -and (Test-RegisteredWorktreeDir -Path $dir.FullName)) {
+            # Registered by another repo (submodule worktree): absent from the
+            # parent's list, but live — not an orphan.
+            Write-Info "Skipping $($dir.Name): worktree registered by another repository"
+            continue
+        }
+
         if (-not $isActive) {
             # Check if it has .git file (worktree marker)
             $gitFile = Join-Path $dir.FullName ".git"

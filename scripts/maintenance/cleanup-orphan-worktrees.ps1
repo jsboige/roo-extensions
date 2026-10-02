@@ -149,6 +149,12 @@ foreach ($dir in $dirs) {
         $protected += $dir
         continue
     }
+    # Registered by another repo (submodule worktree): absent from the parent's
+    # list, but live — not an orphan.
+    if (Test-RegisteredWorktreeDir -Path $dir.FullName) {
+        $protected += $dir
+        continue
+    }
 
     $lastWrite = $dir.LastWriteTime
     $age = (Get-Date) - $lastWrite
