@@ -64,7 +64,7 @@ $script:alerts  = @()
 $script:deferredVerifications = @()
 
 # ---------- run budget (#3205) ----------
-# The schtask stops this run at 2 min (ExecutionTimeLimit in
+# The schtask stops this run at 5 min (ExecutionTimeLimit in
 # install-watchdog-schtask.ps1), and the probe path alone can outlast it:
 # 20 s + 60 s (E2E retry) + 20 s + 60 s (LAN retry) = 160 s. Measured on
 # 22/09/2026 in watchdog-20260922.log: six runs were cut during the LAN
@@ -73,7 +73,7 @@ $script:deferredVerifications = @()
 # lastRepairAt. The next tick found sparfenyuk's port DOWN and ran a second
 # full repair two minutes later, despite the 15-min cooldown.
 # A step that cannot finish inside the run is not started.
-$TaskTimeLimitSec = 120
+$TaskTimeLimitSec = 290
 $RunClock = [System.Diagnostics.Stopwatch]::StartNew()
 function Get-RunSecondsLeft { ($TaskTimeLimitSec - 5) - $RunClock.Elapsed.TotalSeconds }
 # Stop + 3 s + Start + 10 s + docker restart + the repair-state write: the part
@@ -251,7 +251,7 @@ $SlowRetryTimeoutSec = 60
 #     from a healthy quiet chain, which is how 15/08 stayed invisible 2.5 days.
 #
 # Best-effort ONLY: short per-request budget, one fallback URL, no retry, all
-# errors swallowed. The schtask runs under a 2-min ExecutionTimeLimit, and a
+# errors swallowed. The schtask runs under a 5-min ExecutionTimeLimit, and a
 # dashboard append can legitimately take ~45 s when the auto-condensation
 # fires (measured 01/09/2026); telemetry that can outrun its budget is
 # telemetry that gets the repair sequence killed mid-flight.
@@ -588,7 +588,7 @@ function Test-LatencyShift {
 # Ceiling 150 s (approved scope, RX37): the loop stops the moment the chain
 # answers, so a fast recovery (TBXark-only restart) costs a single probe.
 #
-# Budget, recomputed against the schtask's 2-min ExecutionTimeLimit:
+# Budget, recomputed against the schtask's 5-min ExecutionTimeLimit:
 #   - the destructive sequence is what must not be cut, and the guards above
 #     now budget exactly that (50 s / 30 s, was 75 s / 55 s);
 #   - each probe costs <= 20 s (Test-E2E's own timeout); the loop never starts
@@ -599,17 +599,20 @@ function Test-LatencyShift {
 #     wait) and the next tick, 2 min later, re-probes a chain that has had the
 #     time to boot. Alerting on a truncated wait would rebuild the exact false
 #     alarm this change removes.
-# The 150 s ceiling is a bound of last resort, and in a 2-min run it is a bound
-# the RUN BUDGET always reaches first: one probe plus one interval costs ~35 s
-# of the 115 s budget, so a run fits ~2 re-probes (~35 s of uncertainty) and
-# then defers. The cap binds only if the task's ExecutionTimeLimit is raised
-# (installer install-watchdog-schtask.ps1, out of this issue's scope); its job
-# is to keep a longer limit from turning one probe into an unbounded wait.
+# The 150 s ceiling is a bound of last resort, and with the task's
+# ExecutionTimeLimit raised to 5 min (Q13, install-watchdog-schtask.ps1) it is
+# now the BINDING bound: the run budget is ~285 s, one probe plus one interval
+# costs ~35 s, so the loop would otherwise re-probe for ~7 intervals -- the cap
+# keeps a longer limit from turning one probe into an unbounded wait. The run
+# budget still ends the wait first when a tick starts late or the earlier
+# phases ate the clock; the verdict is DEFERRED in that case, never 'still down'.
 # What this changes, measured against the 22/09 runs: two probes ~35 s apart
 # instead of a single one at 15 s, and -- the decisive part -- a DEFERRED
 # verdict instead of a DOWN verdict on a chain that has not finished booting.
-# A chain that needs the ~100 s cold start is confirmed by the NEXT tick (2 min
-# later, repair on cooldown, whole budget in the wait), never declared down.
+# A chain that needs the ~100 s cold start now completes its re-check INSIDE
+# the same run (repair + wait ~100 s + probe well under the 285 s budget); the
+# NEXT tick (2 min later, repair on cooldown) remains the backstop when the
+# wait was cut.
 $PostRepairProbeCapSec = 150
 $PostRepairProbeIntervalSec = 15
 $PostRepairProbeCostSec = 20

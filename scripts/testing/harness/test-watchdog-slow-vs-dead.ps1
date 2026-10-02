@@ -161,7 +161,7 @@ Assert-That "aucun message emis n'accuse une machine de la flotte" `
 # #3394 : les notes vont sur le machine dashboard via la chaine qu'elles
 # surveillent. Un append dashboard peut prendre ~45 s quand l'auto-condensation
 # se declenche (mesure 01/09/2026), et la schtask tourne sous une
-# ExecutionTimeLimit de 2 min : une note sans budget borne pourrait faire tuer
+# ExecutionTimeLimit de 5 min : une note sans budget borne pourrait faire tuer
 # le watchdog en pleine sequence de reparation. Et sans heartbeat etrangle,
 # la tache qui tire toutes les 2 min remplirait le dashboard (et nourrirait la
 # condensation a 92 %) pour rien.
@@ -172,8 +172,9 @@ if ($Text -match '\$FleetNoteTimeoutSec[ \t]*=[ \t]*(\d+)') {
     # Le budget porte sur l'AGGREGAT, pas la requete (revue po-2023 F2 /
     # po-2026 F3, arbitrage ai-01) : le pire cas de Publish-FleetNote est
     # 3 requetes x 2 URLs x budget. Asserter ~15 s/requete laissait la garde
-    # accepter 6 x 15 = 90 s + ~30 s de reparation = 120 s, l'ExecutionTimeLimit,
-    # marge nulle. A 8 s (valeur ecrite) : 48 + 30 = 78 s, marge 42 s.
+    # accepter 6 x 15 = 90 s + ~30 s de reparation = 120 s, l'ExecutionTimeLimit
+    # d'alors (2 min), marge nulle. A 8 s (valeur ecrite) : 48 + 30 = 78 s,
+    # marge confortable sous les 5 min actuelles.
     # 75 s = au pire 105 s avec la reparation, 15 s de marge.
     Assert-That "la telemetrie ne peut pas bloquer une reparation (6 x budget <= 75 s, agregat)" ($noteBudget * 6 -le 75)
 }
@@ -216,7 +217,7 @@ Assert-That "la cle d'idempotence est definie UNE seule fois (partagee par les 2
     ($idDefCount -eq 1)
 
 # --- 7. Aucune etape ne demarre si elle ne peut pas finir dans le run (#3205) ---
-# La schtask coupe le run a 2 min (ExecutionTimeLimit). Le chemin de sonde seul
+# La schtask coupe le run a 5 min (ExecutionTimeLimit). Le chemin de sonde seul
 # peut durer 20 + 60 + 20 + 60 = 160 s. Mesure 22/09 (watchdog-20260922.log) :
 # six runs coupes pendant la retente LAN, et une reparation coupee avant
 # d'ecrire lastRepairAt, d'ou une 2e reparation complete deux minutes plus

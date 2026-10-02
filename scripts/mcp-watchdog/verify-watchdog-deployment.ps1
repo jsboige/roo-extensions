@@ -94,7 +94,7 @@ if (-not $wdTask) {
             Add-Result 'OK' "derniere execution il y a $ageMin min"
         }
         if ($wdInfo.LastTaskResult -ne 0) {
-            Add-Result 'WARN' "LastTaskResult = 0x$('{0:X}' -f $wdInfo.LastTaskResult)" 'Le dernier tick a exit non-zero : lire les dernieres lignes du log (section 2). Resultat 0x103 = tache tuer par ExecutionTimeLimit (2 min) : une sequence probe+reparation+telemetrie trop lente.'
+            Add-Result 'WARN' "LastTaskResult = 0x$('{0:X}' -f $wdInfo.LastTaskResult)" 'Le dernier tick a exit non-zero : lire les dernieres lignes du log (section 2). Resultat 0x103 = tache tuer par ExecutionTimeLimit (5 min) : une sequence probe+reparation+telemetrie trop lente.'
         } else {
             Add-Result 'OK' 'LastTaskResult = 0'
         }

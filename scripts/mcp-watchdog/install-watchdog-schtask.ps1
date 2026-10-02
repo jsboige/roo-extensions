@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Installe la scheduled task 'MCP-Chain-Watchdog' (SYSTEM, At startup + Every 5 min).
+    Installe la scheduled task 'MCP-Chain-Watchdog' (SYSTEM, At startup + Every 2 min).
 
 .DESCRIPTION
     - Compte d'exécution : NT AUTHORITY\SYSTEM (pas besoin de session user)
     - Trigger 1 : At startup (avec délai 2 min pour laisser Docker démarrer)
-    - Trigger 2 : Every 5 min indéfiniment
+    - Trigger 2 : Every 2 min indéfiniment (paramètre $IntervalMinutes)
     - Logon type : Password = N/A (SYSTEM n'a pas besoin de password)
     - Run level : Highest (SYSTEM l'a déjà, mais explicite)
     - Restart on failure : 3 tentatives toutes les 1 min
@@ -73,11 +73,15 @@ $principal = New-ScheduledTaskPrincipal `
     -RunLevel Highest
 
 # Settings : restart on failure, no battery restriction, allow-start-if-missed
+# Q13 : plafond 2->5 min (arbitrage user 02/10) — un service qui met ~100 s a revenir
+# apres reparation etait confirme au tick suivant (~2 min de delta) ; 5 min absorbent
+# la reverification complete dans la MEME execution. NB: pas de commentaire entre les
+# lignes de continuation backtick — il rompt la commande (verifie AST 02/10).
 $settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 2) `
+    -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -RestartCount 3 `
     -MultipleInstances IgnoreNew
@@ -87,7 +91,7 @@ $task = New-ScheduledTask `
     -Trigger @($trigStart, $trigRepeat) `
     -Principal $principal `
     -Settings $settings `
-    -Description 'Watchdog E2E du chain MCP (bot NanoClaw -> mcp-tools.myia.io -> TBXark -> sparfenyuk). Poll toutes les 5 min + at startup, repare sparfenyuk/TBXark en cascade.'
+    -Description 'Watchdog E2E du chain MCP (bot NanoClaw -> mcp-tools.myia.io -> TBXark -> sparfenyuk). Poll toutes les 2 min + at startup, repare sparfenyuk/TBXark en cascade.'
 
 Register-ScheduledTask -TaskName $TaskName -InputObject $task | Out-Null
 
