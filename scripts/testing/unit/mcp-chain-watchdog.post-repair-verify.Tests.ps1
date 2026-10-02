@@ -21,12 +21,16 @@
       - `Start-Sleep`     -> records the requested interval, sleeps nothing (no real wait)
 
     The scenario ai-01 asked for -- "a chain answering at T+100 s, expected OK, with no
-    e2e-still-down-after-full-repair alert" -- is covered by three tests that state what
-    the budget actually allows, rather than the window one would wish for. A 2-min task
-    gives the loop 115 s, and one probe plus one interval costs ~35 s of it: a run fits
-    ~2 re-probes, so a ~100 s cold start is NOT confirmable in-run. What is guaranteed
-    is the part that produced the false alarms: the run that repairs DEFERS instead of
-    declaring the chain down, and the NEXT tick confirms OK in-run.
+    e2e-still-down-after-full-repair alert" -- is covered by tests that state what
+    the budget actually allows, rather than the window one would wish for. Since Q13
+    (arbitrage user 02/10) the task runs under a 5-min ExecutionTimeLimit and the loop
+    budget is 285 s ($TaskTimeLimitSec 290 - 5), while one probe plus one interval
+    costs ~35 s: the ~100 s cold start IS now confirmable in-run. What stays
+    guaranteed is the part that produced the false alarms: a run whose earlier phases
+    ate the clock DEFERS instead of declaring the chain down, never starts a probe it
+    cannot finish, and the NEXT tick (2 min later, repair on cooldown) confirms OK
+    in-run. The 150 s ceiling (see the static guards) stays the bound of last resort
+    against an unbounded wait on a budget this large.
 
 .NOTES
     Issue #3802 (RX37). Requires Pester 5+.
@@ -147,14 +151,28 @@ Describe 'mcp-chain-watchdog post-repair verification (#3802)' {
             $r.Probes   | Should -BeExactly 2
         }
 
-        It 'defers rather than declaring down beyond the ~35 s in-run window' {
-            # Probe k costs k*20 + (k-1)*15 s of the 115 s budget, so the 3rd probe
-            # would start at ~T+70 s with under the 30 s margin left: the loop defers
-            # instead of starting a probe it cannot finish, and never reports down.
+        It 'confirms in-run beyond the old ~35 s window — the Q13 5-min budget absorbs the re-check' {
+            # Same shape as the 22/09 false alarm, now on the 285 s budget (Q13):
+            # the chain answers on the 3rd probe at ~T+110 s of the wait, which the
+            # old 115 s budget could not pay for (it deferred, next tick confirmed).
             $r = Invoke-PostRepairWait -AnswerAfterProbes 3 -RepairCostSec 20
 
-            $r.Deferred | Should -BeTrue
+            $r.Ok       | Should -BeTrue
+            $r.Deferred | Should -BeFalse
+            $r.Probes   | Should -BeExactly 3
+        }
+
+        It 'still defers — never declares down — when the earlier phases ate the clock' {
+            # 200 s burnt before the wait (route repair + slow drive): probe 3, the
+            # one the chain would answer on, would start past the budget, so the
+            # loop defers instead of starting a probe it cannot finish. This is the
+            # DEFERRED-not-DOWN guarantee that removed the false alarms, preserved
+            # on the larger budget.
+            $r = Invoke-PostRepairWait -AnswerAfterProbes 3 -RepairCostSec 200
+
+            $r.Deferred | Should -BeTrue -Because 'the run budget, not the chain, ended the wait'
             $r.Ok       | Should -BeFalse
+            $r.Probes   | Should -BeLessThan 3 -Because 'the answering probe never started'
         }
     }
 
@@ -174,9 +192,10 @@ Describe 'mcp-chain-watchdog post-repair verification (#3802)' {
         }
 
         It 'never starts a probe it cannot finish inside the remaining budget' {
-            # 95 s already burnt: fewer than CostSec+10 s are left, so no probe may
-            # start -- a probe cut mid-flight would cost the run its tail.
-            $r = Invoke-PostRepairWait -AnswerAfterProbes 1 -RepairCostSec 95
+            # 260 s already burnt: fewer than CostSec+10 s (30) are left of the 285 s
+            # budget, so no probe may start -- a probe cut mid-flight would cost the
+            # run its log + telemetry tail.
+            $r = Invoke-PostRepairWait -AnswerAfterProbes 1 -RepairCostSec 260
 
             $r.Deferred  | Should -BeTrue
             $r.Probes    | Should -BeExactly 0
