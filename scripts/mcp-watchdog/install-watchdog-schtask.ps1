@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Installe la scheduled task 'MCP-Chain-Watchdog' (SYSTEM, At startup + Every 5 min).
+    Installe la scheduled task 'MCP-Chain-Watchdog' (SYSTEM, At startup + Every 2 min).
 
 .DESCRIPTION
     - Compte d'exécution : NT AUTHORITY\SYSTEM (pas besoin de session user)
     - Trigger 1 : At startup (avec délai 2 min pour laisser Docker démarrer)
-    - Trigger 2 : Every 5 min indéfiniment
+    - Trigger 2 : Every 2 min indéfiniment (paramètre $IntervalMinutes)
     - Logon type : Password = N/A (SYSTEM n'a pas besoin de password)
     - Run level : Highest (SYSTEM l'a déjà, mais explicite)
     - Restart on failure : 3 tentatives toutes les 1 min
@@ -91,7 +91,7 @@ $task = New-ScheduledTask `
     -Trigger @($trigStart, $trigRepeat) `
     -Principal $principal `
     -Settings $settings `
-    -Description 'Watchdog E2E du chain MCP (bot NanoClaw -> mcp-tools.myia.io -> TBXark -> sparfenyuk). Poll toutes les 5 min + at startup, repare sparfenyuk/TBXark en cascade.'
+    -Description 'Watchdog E2E du chain MCP (bot NanoClaw -> mcp-tools.myia.io -> TBXark -> sparfenyuk). Poll toutes les 2 min + at startup, repare sparfenyuk/TBXark en cascade.'
 
 Register-ScheduledTask -TaskName $TaskName -InputObject $task | Out-Null
 
