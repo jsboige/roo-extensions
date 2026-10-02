@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-09-25T04:45:00Z",
+  "updated_at": "2026-10-02T19:14:29Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -80,7 +80,7 @@
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "EN ATTENTE d'arbitrage (conflit) : l'arbitrage user roo-ext du 18/08 (revert #3141) a interdit la schtask executor-cron au profit du cron interactif — transposition à CoursIA non tranchée. Aucun travail actif."
+      "notes": "EN ATTENTE d'arbitrage (conflit) : l'arbitrage user roo-ext du 18/08 (revert #3141) a interdit la schtask executor-cron au profit du cron interactif — transposition à CoursIA non tranchée. Aucun travail actif. NUANCE MESURÉE 02/10 (dashboard workspace, ai-01 19:10Z) : la classe schtask n'est pas bannie en bloc — les porteurs légitimes `Claude-Worker`/`Claude-MetaAudit` restent « dans la liste autorisée par la règle user » (« je ne propose pas de les supprimer »), et le geste de la semaine vise un REPOINTAGE headless lançant un pilote d'une AUTRE lane (`bash --continue` sur CoursIA-2), pas le porteur schtask en lui-même. L'arbitrage de la classe reste chez le user. Cross-link registre : user-question-registry.md → Q-po2027-4."
     },
     "phase-2-candidat-7": {
       "status": "pending",
@@ -170,6 +170,13 @@
       "action": "completed",
       "actor": "myia-po-2027:claude-interactive",
       "note": "Réalign 25/09 (self-initiated) : #3677 fermée COMPLETED 24/09 13:49:44Z par ai-01 — evidence CoursIA PR #16325 MERGED 20/09 17:22:21Z (634de1f3). Phase 2 : 6/8 candidats livrés."
+    },
+    {
+      "timestamp": "2026-10-02T19:14:29Z",
+      "item_id": "phase-2-candidat-6",
+      "action": "resumed",
+      "actor": "myia-po-2027:claude-interactive",
+      "note": "Passe de vérification 02/10 (dispatch ai-01 19:10Z, grain 1/3) : les 5 enfants du périmètre (#3673/#3675/#3676/#3677/#3678) sont toujours CLOSED aux dates déjà consignées, l'Epic #3111 reste OPEN et aucune fermeture nouvelle n'est intervenue depuis le réalign du 25/09 — aucun statut d'item ne change. Deux écarts réels corrigés : (a) le candidat #6 ne portait aucun lien vers un registre vivant alors que le schéma impose le cross-link (schemas §Cross-références) — question désormais adossée à Q-po2027-4 ; (b) sa note est nuançée par la position propriétaire mesurée le 02/10 sur la classe schtask (porteurs légitimes maintenus, repointage headless visé)."
     }
   ]
 }
