@@ -40,6 +40,7 @@
 | **Clean Cycle Exit (#3776)** | Postcondition Git de fin de cycle : clone principal sur la branche par défaut, fast-forward avec l'upstream, index/worktree propres, submodules aux gitlinks. Organe read-only `scripts/check_clean_cycle_exit.py` + workflow de remédiation (préservation prouvée avant toute mutation). Distinction avec #3147 (stashes existants) | `clean-cycle-exit.md` |
 | **Patterns claw-code (#1320)** | State machine `AgentLifecycleState` (action `roosync_diagnose lifecycle`), recovery-before-escalation (action `recovery`), mock parity harness (fs mémoire diffé contre fs réel — CI sans GDrive). Statut pattern par pattern + suivis non adoptés | `claw-code-patterns.md` |
 | **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
+| **Checklist fiabilité harnais (par machine)** | Référentiel **corrigé** : 17 outils roo-state-manager (le « 34 » du corps de #1069 est périmé), carte des retraits→fusions, 8 items machine (RAM, tâches, heartbeat, cron, gh, git, claim, surface), format de rapport. Reliquat #1069 → #2307 | `per-machine-harness-reliability-checklist.md` |
 
 ## Quality & CI
 
