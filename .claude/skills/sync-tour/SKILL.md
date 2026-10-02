@@ -811,22 +811,20 @@ A la fin du tour de sync, produire un **rapport consolide** :
 
 ---
 
-## Phase 9 : Mise à jour Dashboard Hiérarchique GDrive
+## Phase 9 : Rapport sur le dashboard workspace
 
-**Objectif :** Mettre à jour le dashboard partagé GDrive avec l'état actuel de la machine.
+**Objectif :** Rapporter l'état de fin de tour sur le dashboard `workspace`. Ce message **est** le `[DONE]` de fin de session : un seul message, pas deux.
 
-**Outil :** `roosync_dashboard` (Phase 1 #546)
+**Outil :** `roosync_dashboard` (v3 : 3 types `global`/`machine`/`workspace`, sections `status`/`intercom`/`all`)
 
-### Actions
+### Action
 
-**9a. Mettre à jour la section machine :**
 ```
 roosync_dashboard(
-  section: "machine",
-  machine: "{MACHINE}",
-  workspace: "roo-extensions",
-  content: "{ETAT_ACTUEL_MARKDOWN}",
-  mode: "replace"
+  action: "append",
+  type: "workspace",
+  tags: ["DONE"],
+  content: "{ETAT_ACTUEL_MARKDOWN}"
 )
 ```
 
@@ -837,22 +835,14 @@ Le contenu markdown doit inclure :
 - Tests : résultats
 - Notes libres de l'agent
 
-**9b. Mettre à jour les métriques globales (coordinateur uniquement) :**
-```
-roosync_dashboard(
-  section: "metrics",
-  content: "{METRIQUES_GITHUB}",
-  mode: "replace"
-)
-```
+Les anciennes sections `machine`/`metrics` du `DASHBOARD.md` monolithique n'existent plus : `read` les rejette (#3994) comme `update` (#1935). Ne pas réécrire le `status` d'un dashboard partagé pour y loger un rapport : `update` en mode `replace` écraserait l'état des autres lanes.
 
 ### Output attendu
 ```
-## Phase 9 : Dashboard GDrive
+## Phase 9 : Dashboard workspace
 
-### Mise à jour effectuée
-- Section machine : {MACHINE}/roo-extensions
-- Dashboard path : {ROOSYNC_SHARED_PATH}/DASHBOARD.md
+### Rapport posté
+- Dashboard : workspace-roo-extensions (intercom, tag DONE)
 - Timestamp : {date}
 
 ### État rapporté
