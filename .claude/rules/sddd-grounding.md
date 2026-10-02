@@ -1,7 +1,7 @@
 # SDDD — Grounding conversationnel
 
-**Version:** 5.0.0 (slim — tables déportées 2026-08-05)
-**Issues :** #2218 (bookend généralisé) · #636 (filtres) · #881 (detailLevel) · #1785 (JSONL)
+**Version:** 5.1.0 (slim — tables déportées 2026-08-05 ; casse workspace #2368)
+**Issues :** #2218 (bookend généralisé) · #636 (filtres) · #881 (detailLevel) · #1785 (JSONL) · #2368
 
 > Le protocole général (triple grounding, bookend, `workspace` explicite, scepticisme) est dans
 > `~/.claude/rules/sddd-protocol.md`. Ce fichier ne porte que ce qui est **propre à ce dépôt**.
@@ -30,7 +30,10 @@ Ne jamais conclure sur une seule source.
   maintient l'alignement avec les 8 stratégies de `DetailLevelStrategyFactory`.
   Toujours `smart_truncation: true` au-delà de 10K chars.
 - **`codebase_search` : `workspace` toujours explicite**, requêtes **en anglais** (vocabulaire du code).
-  L'auto-détection pointe vers le répertoire du serveur MCP, pas vers le tien.
+  L'auto-détection pointe vers le répertoire du serveur MCP, pas vers le tien. Le filtre `workspace`
+  de `roosync_search` est un match **exact, sensible à la casse et à la forme du chemin** (ai-01,
+  02/10 : `D:/…` = 0 résultat silencieux, `d:/…` = 15+) : passer la valeur telle que stockée, ou le
+  basename (`roo-extensions`) — un filtre à 0 résultat est un filtre suspect, pas une absence de données.
 - **Ne JAMAIS lire un JSONL de session directement** (#1785) — passer par `conversation_browser`.
 
 ## Bookend (tâche > 50 LOC ou > 3 fichiers)

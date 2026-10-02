@@ -225,11 +225,29 @@ Le bloc `bootResilience` est collecté par chaque machine lors de son inventaire
 | `write` | Replace dashboard status |
 | `update` | Create or replace an editable v3 section |
 | `list` | List all dashboards |
+| `merge` | #3537 §6.2 — fold a fork key (e.g. `machine-myia-po-2025 (1)`) into its target: intercom union (by message id, latest timestamp wins), freshest status kept, source archived then removed. Host-gated — see matrix below |
 | `scrub` | #3584 — retroactively mask secrets in the LIVE dashboard (file + PG mirror). Run from a seat whose `process.env` holds the leaked value; archives need the manual procedure |
 
 `read`, `write`, `append`, and `update` use the same v3 key family for `global`, `machine`, and
 `workspace` dashboards. `update` creates an absent section or modifies an existing one; it does not
 fall back to the legacy monolithic `DASHBOARD.md` store.
+
+### `merge` — Host Capability Matrix (#2368)
+
+`sourceKey` must be a raw key exactly as listed by `action: "list"` — no path separators, `..` or `:`
+(rejected before any lock, #3537 §6.2). Pure guards run first: store accessibility (fail-closed
+#3459), retirement marks #3782 (a retired source or target is refused — merge into the canonical
+target instead), then the PG asymmetry guard #1134 below. The merge itself takes two-key cross-process
+locks, fail-closed: no lock ⇒ no merge.
+
+| Host configuration (env) | Union fidelity | Merge |
+|--------------------------|----------------|-------|
+| No PG (`UNIFIED_STORE_PG_URL` unset, or no `UNIFIED_STORE_DUAL_WRITE`) | Files only | **Allowed** — legitimate while dashboards are file-canonical (fleet nominal today; #3151 pending) |
+| PG reader (`UNIFIED_STORE_DASHBOARD_READ_PG=1`) | Files + PG journal | **Allowed — preferred** when the fork may hold PG-only messages |
+| Dual-write **without** read (`UNIFIED_STORE_DUAL_WRITE=1` + `UNIFIED_STORE_PG_URL`, no `READ_PG`) | — | **REFUSED** (#1134) — blind union would then overwrite the target's PG journal, clobbering PG-only messages |
+
+Other parameters: `deleteSource` (default `true`) removes the source key only after the PG half
+verifiably holds the union; the source is archived via atomic rename either way.
 
 ### `read_overview` — Coordinator Quick Scan
 

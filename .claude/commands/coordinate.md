@@ -161,6 +161,13 @@ Deux variantes de la meme cecite, mesurees le 2026-09-04 :
   attestations #3405). Avant d'inscrire quoi que ce soit au compte de l'utilisateur, verifier que je
   ne peux pas le faire moi-meme. Sur-demander et ne-pas-demander produisent le meme resultat.
 
+**5. Les claims de plus de 72 h (#2368).** Un `[CLAIMED]` sur une issue sans `[RESULT]`, PR ni
+commentaire depuis plus de 72 h n'est plus du travail en cours : c'est un verrou qui dort, et il rend
+l'issue inaccessible aux autres lanes. Chaque cycle, relever les claims anciens des issues actives
+(`python scripts/github/check_issue_claim.py NNN` lit le claim actif et son age ; le balayage
+s'appuie sur les issues dispatchees recentes). Un claim > 72 h sans activite → relancer la lane sur
+le dashboard ; sans reponse au cycle suivant → liberer le verrou (`--release`) et re-dispatcher.
+
 **Une dette a une echeance EXTERNE** : « pousse ces deux gestes et j'approuve dans la foulee » tombe
 quand l'autre pousse, pas quand je m'en souviens — et personne ne me reveille. Comme chez CoursIA,
 l'echappatoire se justifie **par ecrit** sur la PR ou l'issue ; elle ne se prend pas en silence.
