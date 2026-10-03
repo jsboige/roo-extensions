@@ -15,6 +15,7 @@
 | **Harness Reduction** | Plan de reduction du harnais (audit tokens, strategie) | `harness-reduction-plan.md` |
 | **Pi Agent Comparative Study** | Pi / pi-subagents / devstack vs RooSync — adaptation opportunities (#2416) | `pi-agent-comparative-study.md` |
 | **SDDD Grounding (detailed)** | Actions `conversation_browser`, `detailLevel`, filtres `roosync_search`, multi-pass, substituts JSONL, workflow complet | `sddd-grounding-detailed.md` |
+| **API Error Handling** | Circuit breaker agent (max 5 retries) ; les deux 429 ne se traitent pas pareil (Fair Usage = breaker immediat, le retry aggrave, #3170) ; 400/401/403 = corriger, jamais retry | `api-error-handling.md` |
 | **Wake-Claude listener** | Chaine de spawn, durabilite #2431 (kill 72h + heartbeat menteur), liveness 5 min / seuil 2h, re-install elevee `[INTERACTIVE-ONLY]`, detection fleet #2928 | `wake-claude-listener.md` |
 | **Submod pointer safety (procedure)** | Incident `67514ec1`, procedure `cat-file -e` apres fetch, anti-patterns, pattern PR submod→parent | `submod-pointer-safety-procedure.md` |
 | **conversation_browser (detailed)** | detailLevel complet, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
