@@ -43,6 +43,11 @@ GRAIN_LABELS = {"approved", "bug", "investigation"}
 UMBRELLA_LABELS = {"epic"}
 # Gel par decision (#3381) : hors de TOUTE urne, meme avec un label actionnable
 FROZEN_LABELS = {"frozen"}
+# Attente d'arbitrage ou de deblocage : hors de TOUTE urne, meme avec un label
+# actionnable. L'exclusion implicite (absence de label actionnable) ne tient pas
+# en cas de CO-OCCURRENCE - mesure 03/10 : #4038 (bug + needs-approval) pickee
+# au 1er tirage, contrairement au contrat documente ci-dessus.
+GATED_LABELS = {"needs-approval", "deferred", "blocked-on-gate"}
 
 # Repos a scanner (anti-double-claim #3407 : 2 depots)
 REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
@@ -110,7 +115,7 @@ def bucketize_issues(issues: list) -> dict:
     buckets = {"grain": [], "umbrella": [], "delivered": []}
     for issue in issues:
         labels = {lbl["name"] for lbl in issue.get("labels", [])}
-        if labels & FROZEN_LABELS:
+        if labels & (FROZEN_LABELS | GATED_LABELS):
             continue
         if labels & UMBRELLA_LABELS:
             buckets["umbrella"].append(issue)

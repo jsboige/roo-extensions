@@ -41,6 +41,13 @@ REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
 # Labels actionnables (grain reel)
 GRAIN_LABELS = {"approved", "bug", "investigation"}
 
+# Labels d'attente/gel : une issue qui en porte un n'est pas actionnable, meme
+# si elle porte AUSSI un label grain (co-occurrence mesuree 03/10 : #4038,
+# bug + needs-approval, comptait dans le backlog). Parite avec le picker ADR 016
+# et avec la decision frozen #3381/#3809 : ne pas presser une lane vers un
+# grain que l'arbitrage n'a pas debloque.
+GATED_LABELS = {"needs-approval", "deferred", "blocked-on-gate", "frozen"}
+
 
 class GhCommandError(RuntimeError):
     """Panne instrument gh : exit non-nul, timeout ou JSON invalide.
@@ -87,7 +94,7 @@ def count_actionnable_backlog() -> int:
         ], repo)
         for issue in issues:
             labels = {lbl["name"] for lbl in issue.get("labels", [])}
-            if labels & GRAIN_LABELS:
+            if labels & GRAIN_LABELS and not labels & GATED_LABELS:
                 total += 1
     return total
 

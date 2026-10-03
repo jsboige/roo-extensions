@@ -172,6 +172,28 @@ class PickerVerdicts(unittest.TestCase):
         data = json.loads(out)
         self.assertEqual(data["verdict"], "IDLE_REAL")
 
+    def test_gated_labels_are_in_no_urn_even_with_a_grain_label(self):
+        # Mesure 03/10 (po-204) : #4038 (bug + needs-approval) a ete pickee
+        # au 1er tirage alors que le contrat du module met les labels
+        # d'attente hors de toute urne. Le cas label-seul etait couvert ;
+        # la CO-OCCURRENCE ne l'etait pas (symetrique du cas frozen).
+        seq = [
+            ok_result([
+                issue(21, ["bug", "needs-approval"]),
+                issue(22, ["investigation", "deferred"]),
+                issue(23, ["approved", "blocked-on-gate"]),
+                issue(24, ["epic", "needs-approval"]),
+            ]),
+            ok_result([]),
+            ok_result([]),
+            ok_result([]),
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "IDLE_REAL")
+
     def test_subprocess_utf8_replacement_kwargs(self):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
         # text=True decode stdout en cp1252 sous Windows => UnicodeDecodeError
@@ -258,6 +280,24 @@ class TestCycleEndVerdicts(unittest.TestCase):
         # ne rapporte que ce qu'il mesure).
         with mock.patch("subprocess.run",
                         side_effect=self._seq([issue(3, ["needs-approval"])], [],
+                                              ([], []), ([], []))):
+            code, out = run_main(tce, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["backlog_grain"], 0)
+        self.assertEqual(data["verdict"], "PASS")
+
+    def test_backlog_skips_gated_or_frozen_issues_carrying_a_grain_label(self):
+        # Co-occurrence (mesure 03/10, #4038) : un label d'attente ou de gel
+        # porte AVEC un label actionnable ne doit ni gonfler le backlog ni
+        # contredire le picker (ADR 016) - sinon le test presse la lane vers
+        # des grains non actionnables. frozen inclus : parite #3381/#3809.
+        gated = [issue(3, ["bug", "needs-approval"]),
+                 issue(4, ["investigation", "deferred"]),
+                 issue(5, ["approved", "blocked-on-gate"]),
+                 issue(6, ["approved", "frozen"])]
+        with mock.patch("subprocess.run",
+                        side_effect=self._seq(gated, [],
                                               ([], []), ([], []))):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
