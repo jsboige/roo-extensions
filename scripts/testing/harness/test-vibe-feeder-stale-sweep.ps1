@@ -154,7 +154,22 @@ try {
     & git -C $wtL commit -qam 'gL own commit'
     $gLHead = (& git -C $wtL rev-parse HEAD).Trim()
     New-Item -ItemType Directory -Path (Join-Path $stage 'outputs/scheduling/logs') -Force | Out-Null
-    $lockStream = [IO.File]::Open((Join-Path $stage 'outputs/scheduling/logs/vibe-worker-wtL.lock'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    $gLockPath = Join-Path $stage 'outputs/scheduling/logs/vibe-worker-wtL.lock'
+    if ($env:OS -eq 'Windows_NT') {
+        # Windows (= production): the real mechanism -- a live holder opens
+        # the lock with FileShare None; a concurrent read throws a sharing
+        # violation, which the guard reads as "live".
+        $lockStream = [IO.File]::Open($gLockPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    } else {
+        # Unix (CI): FileShare is NOT enforced across processes (documented
+        # dotnet behavior) -- a held stream stays readable and the simulated
+        # worker would look dead. Produce the same CONTRACT another way: an
+        # unreadable file (chmod 000). The guard treats ANY failed read as a
+        # live holder -- same idiom as Get-LiveWorkerCount -- so the scenario
+        # stays faithful to the invariant on both platforms.
+        Set-Content -Path $gLockPath -Value '{"pid":0,"machine":"test"}'
+        & chmod 000 $gLockPath
+    }
 
     $queuePath = Join-Path $root 'queue.json'
     $queue = [ordered]@{
