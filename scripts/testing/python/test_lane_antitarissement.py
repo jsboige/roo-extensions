@@ -346,6 +346,37 @@ class TestCycleEndVerdicts(unittest.TestCase):
         self.assertEqual(data["verdict"], "PASS")
 
 
+class GatedLabelDriftGuard(unittest.TestCase):
+    """Dispatch c2300 item 3 (po-204) : la liste des labels bloquants vit a
+    4 endroits (picker, garde worker, requete Zoo, test_cycle_end). Le picker
+    retire un grain gated du vivier ; le worker autonome ne doit JAMAIS
+    pouvoir prendre ce que le picker a ecarte — sinon la porte que le label
+    pose est tenue d'un cote et ouverte de l'autre. Chaque label exclu par
+    le picker (GATED | FROZEN) doit donc etre exclu par
+    start-claude-worker.ps1 : requete serveur `-label:X` OU garde aval
+    `$LabelNames -contains "X"`."""
+
+    def _worker_covers(self, label, worker_src):
+        server_side = f"-label:{label}" in worker_src
+        guard_side = f'$LabelNames -contains "{label}"' in worker_src
+        return server_side or guard_side
+
+    def test_every_picker_excluded_label_is_excluded_by_the_worker(self):
+        worker_path = SCHEDULING_DIR / "start-claude-worker.ps1"
+        worker_src = worker_path.read_text(encoding="utf-8")
+        excluded = picker.GATED_LABELS | picker.FROZEN_LABELS
+        # Un ensemble vide rendrait le garde muet (toujours vert) : l'assert
+        # echoue plutot que de certifier une couverture vide.
+        self.assertTrue(excluded, "GATED|FROZEN vides : le garde ne testerait rien")
+        uncovered = sorted(
+            lbl for lbl in excluded if not self._worker_covers(lbl, worker_src)
+        )
+        self.assertEqual(
+            uncovered, [],
+            f"labels exclus par le picker mais prenables par le worker: {uncovered}",
+        )
+
+
 class MachineFlagRemoved(unittest.TestCase):
     """--machine supprime (ai-01 CR point 2) : argparse doit rejeter."""
 
