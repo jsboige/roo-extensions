@@ -189,15 +189,18 @@ def main() -> int:
 
     # Collecte issues + PRs sur les 2 depots - fail-closed : toute panne
     # instrument arrete le picker AVANT tout verdict (review #3681).
+    # Chaque item porte son repo : le numero seul n'identifie rien quand les
+    # deux depots l'utilisent (mesure po-2026 03/10, c.72 : #608 existe des
+    # deux cotes avec des contenus differents).
     all_issues = []
     all_prs = []
     errors = []
     for repo in REPOS:
         try:
             issues = run_gh_issue_list(repo, args.limit)
-            all_issues.extend(issues)
+            all_issues.extend({**iss, "repo": repo} for iss in issues)
             prs = run_gh_pr_list(repo, args.limit)
-            all_prs.extend(prs)
+            all_prs.extend({**pr, "repo": repo} for pr in prs)
         except GhCommandError as e:
             errors.append(e)
     if errors:
@@ -245,13 +248,14 @@ def main() -> int:
             "urn": urn,
             "pick": {
                 "number": issue["number"],
+                "repo": issue.get("repo", ""),
                 "title": issue["title"],
                 "updatedAt": issue.get("updatedAt", ""),
             },
         }
         print(json.dumps(output, indent=2))
     else:
-        print(f"[PICK] Urne={urn}, Issue/PR #{issue['number']}: {issue['title']}")
+        print(f"[PICK] Urne={urn}, {issue.get('repo', '?')}#{issue['number']}: {issue['title']}")
         print(f"        Backlog={total_backlog}, grain={grain_count}, "
               f"umbrella={umbrella_count}, delivered={delivered_count}")
 
@@ -262,7 +266,7 @@ def main() -> int:
                 if top_n:
                     print(f"\n[TOP {args.top}] urne={name}:")
                     for it in top_n:
-                        print(f"  #{it['number']}: {it['title'][:80]}")
+                        print(f"  {it.get('repo', '?')}#{it['number']}: {it['title'][:80]}")
 
     return 0
 

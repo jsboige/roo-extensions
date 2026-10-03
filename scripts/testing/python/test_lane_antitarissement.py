@@ -194,6 +194,26 @@ class PickerVerdicts(unittest.TestCase):
         data = json.loads(out)
         self.assertEqual(data["verdict"], "IDLE_REAL")
 
+    def test_pick_reports_which_repo_it_came_from(self):
+        # Mesure po-2026 03/10 ([FRICTION] c.72) : #608 existe dans les DEUX
+        # depots avec des contenus differents - un pick sans champ repo envoie
+        # l'agent faire son grounding sur la mauvaise issue (reflexe gh issue
+        # view sur le depot parent).
+        seq = [
+            ok_result([]),  # R1 issues
+            ok_result([]),  # R1 prs
+            ok_result([issue(608, ["bug"], "fix(infrastructure): Move qdrant-snapshots")]),  # R2 issues
+            ok_result([]),  # R2 prs
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["urn"], "grain")
+        self.assertEqual(data["pick"]["repo"], "jsboige/jsboige-mcp-servers")
+        self.assertEqual(data["pick"]["number"], 608)
+
     def test_subprocess_utf8_replacement_kwargs(self):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
         # text=True decode stdout en cp1252 sous Windows => UnicodeDecodeError
