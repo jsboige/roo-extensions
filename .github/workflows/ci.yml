@@ -305,6 +305,18 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-feeder-eviction.ps1
 
+      # Deadlock 03/10 (c.148): Update-StaleGrainBase refuses recalage on a
+      # worktree with own commits or a non-ancestor base -> the whole queue
+      # SKIPs -> NOOP every tick until a MANUAL sweep. The fix adds a pass 3
+      # (all-SKIP-stale self-healing: preserve branch + stash + reset, then
+      # retry in the same tick). This harness executes the real feeder in real
+      # mode (staged stubs for the refresh organ and the worker spawn -- no
+      # Mistral, no network) and asserts preservation, stash, reset, queue
+      # recale and the 6 h anti-loop stamp. Offline: no gh, no scheduler.
+      - name: Run vibe feeder stale-sweep harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-vibe-feeder-stale-sweep.ps1
+
       - name: Run scheduled-task result filter harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-schtask-result-filter.ps1

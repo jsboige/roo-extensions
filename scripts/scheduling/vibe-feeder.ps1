@@ -92,6 +92,26 @@ function Get-LiveWorkerCount {
     $n
 }
 
+# Garde vivante PAR GRAIN pour le sweep (trou trouve en review de la passe 3,
+# 03/10) : un worker VIVANT tient le lock vibe-worker-<wtLeaf>.lock en partage
+# exclusif (#17636, #3942) -- lock present et ILLISIBLE (sharing violation) =
+# detenteur vivant ; lock lisible ou absent = pas de worker (un titulaire mort
+# laisse un lock relisible). Nom derive du leaf du worktree exactement comme
+# start-vibe-worker.ps1. Sans cette garde, le sweep pouvait stasher et reseter
+# un worktree SOUS LES PIEDS d'un worker en cours : budget MP tenu par les
+# workers vivants = zero dispatch + worktrees sales = refus de recalage = la
+# precondition MEME du sweep. Ce n'est pas un cas exotique, c'est l'etat
+# courant pendant que des workers tournent.
+function Test-GrainWorkerLive {
+    param([object]$Grain)
+    if (-not $Grain.worktree) { return $false }
+    $leaf = ($Grain.worktree -split '[\\/]')[-1] -replace '[^A-Za-z0-9._-]', ''
+    if ([string]::IsNullOrWhiteSpace($leaf)) { return $false }
+    $lockPath = Join-Path $logDir ("vibe-worker-{0}.lock" -f $leaf)
+    if (-not (Test-Path $lockPath)) { return $false }
+    try { $null = [IO.File]::ReadAllText($lockPath); return $false } catch { return $true }
+}
+
 function Test-RunInFlight {
     # -2 min (burst 29/09 soir) : le repli DETACHE consomme le grain au lancement,
     # le cas exit-75-boucle (grain en file + worker vivant) n'existe plus — la
@@ -257,6 +277,99 @@ function Update-StaleGrainBase {
     Write-Queue -Queue $q
     Write-FeederLog -Level 'INFO' -Text ("{0}: baseSha recalee dans le tick vers {1}" -f $Grain.id, $OriginMain)
     return $true
+}
+
+# ---------- auto-guerison all-SKIP-stale (deadlock 03/10, annonce c.148) ----------
+# Deadlock mesure le 03/10 : recalage refuse sur worktree avec commits propres
+# (fail-safe ci-dessus) -> file integralement SKIP -> NOOP a chaque tick jusqu'a
+# sweep MANUEL (c.148 : preserver 24 commits via branches -r2/push ff + reset +
+# refresh + kick). Ce bloc fait le meme sweep DANS le tick, seulement quand rien
+# n'a ete dispatche et que tous les echecs de la derniere passe sont des refus de
+# recalage. Preserver AVANT de reseter : branche locale vibe-preserve/<id>-<ts>
+# (pousssee best-effort, jamais fatale), stash --include-untracked si worktree
+# sale, puis reset --hard origin/main. Aucune destruction sans preuve de
+# preservation : si la branche de preservation ne peut pas etre posee, le grain
+# reste SKIP (etat actuel) et le sweep rend 0 pour ce grain.
+function Invoke-StaleSweep {
+    param([object[]]$Grains, [string]$OriginMain)
+
+    # Anti-boucle : si un sweep a deja tourne dans les 6 dernieres heures, ne pas
+    # en relancer un -- un sweep qui echoue ne doit pas resetter en boucle. Le
+    # stamp fait foi ; en son absence, premier sweep.
+    $stampPath = Join-Path $repoRoot 'outputs\vibe\stale-sweep.stamp'
+    if (Test-Path $stampPath) {
+        $last = Get-Content $stampPath -ErrorAction SilentlyContinue
+        $lastDt = [datetime]::MinValue
+        if ($last) { [void][datetime]::TryParse("$last", [ref]$lastDt) }
+        if (((Get-Date).ToUniversalTime() - $lastDt).TotalHours -lt 6) {
+            Write-FeederLog -Level 'WARN' -Text ("sweep stale refuse : dernier sweep il y a moins de 6 h ({0})" -f $last)
+            return 0
+        }
+    }
+
+    $swept = 0
+    foreach ($g in $Grains) {
+        # Worker vivant sur ce worktree : JAMAIS de stash/reset sous ses pieds.
+        # Le grain reste en l'etat, NON compte comme recale (pas de stamp) :
+        # nouvelle tentative au tick suivant, le worker sera termine.
+        if (Test-GrainWorkerLive -Grain $g) {
+            Write-FeederLog -Level 'WARN' -Text ("SWEEP {0}: worker vivant (lock tenu) — grain laisse en l'etat" -f $g.id)
+            continue
+        }
+        if ($g.worktree -and (Test-Path $g.worktree)) {
+            $wtHead = (git -C $g.worktree rev-parse HEAD) 2>$null
+            $wtHead = "$wtHead".Trim()
+            if ($wtHead -notmatch '^[0-9a-f]{40}$') {
+                Write-FeederLog -Level 'WARN' -Text ("SWEEP {0}: HEAD du worktree illisible — grain laisse en l'etat" -f $g.id)
+                continue
+            }
+            $ahead = (git -C $g.worktree rev-list --count "$OriginMain..$wtHead") 2>$null
+            $ahead = "$ahead".Trim()
+            if ($ahead -match '^\d+$' -and [int]$ahead -gt 0) {
+                $preserve = "vibe-preserve/{0}-{1}" -f ($g.id -replace '[^A-Za-z0-9._-]', '_'), (Get-Date -Format yyyyMMdd-HHmmss)
+                git -C $runtimeDir branch $preserve $wtHead 2>$null
+                if ($LASTEXITCODE -ne 0) {
+                    Write-FeederLog -Level 'ERROR' -Text ("SWEEP {0}: branche de preservation {1} impossible — reset REFUSE, grain laisse en l'etat" -f $g.id, $preserve)
+                    continue
+                }
+                Write-FeederLog -Level 'INFO' -Text ("SWEEP {0}: {1} commit(s) preserve(s) sur branche locale {2}" -f $g.id, $ahead, $preserve)
+                git -C $runtimeDir push origin $preserve 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-FeederLog -Level 'INFO' -Text ("SWEEP {0}: branche de preservation poussee ({1})" -f $g.id, $preserve)
+                } else {
+                    Write-FeederLog -Level 'WARN' -Text ("SWEEP {0}: push de preservation echoue — preservation LOCALE seulement ({1})" -f $g.id, $preserve)
+                }
+            }
+            $dirty = (git -C $g.worktree status --porcelain 2>$null)
+            if ($dirty) {
+                git -C $g.worktree stash push --include-untracked -m ("vibe-stale-sweep {0}" -f $g.id) 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-FeederLog -Level 'INFO' -Text ("SWEEP {0}: worktree sale — {1} entree(s) stashees" -f $g.id, @($dirty).Count)
+                } else {
+                    Write-FeederLog -Level 'WARN' -Text ("SWEEP {0}: stash echoue — reset REFUSE, grain laisse en l'etat" -f $g.id)
+                    continue
+                }
+            }
+            git -C $g.worktree reset --hard $OriginMain 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-FeederLog -Level 'WARN' -Text ("SWEEP {0}: reset vers main echoue — grain laisse en l'etat" -f $g.id)
+                continue
+            }
+            Write-FeederLog -Level 'INFO' -Text ("SWEEP {0}: worktree recale sur origin/main" -f $g.id)
+        }
+        # Grains sans worktree ET base non ancetre : rien a preserver, recalage direct.
+        $g.baseSha = $OriginMain
+        if (-not $g.PSObject.Properties['wtHead'] -or -not $g.wtHead) { $g | Add-Member -NotePropertyName wtHead -NotePropertyValue $OriginMain -Force } else { $g.wtHead = $OriginMain }
+        $swept++
+    }
+
+    if ($swept -gt 0) {
+        $stampDir = Split-Path $stampPath -Parent
+        if (-not (Test-Path $stampDir)) { New-Item -ItemType Directory -Path $stampDir -Force | Out-Null }
+        [System.IO.File]::WriteAllText($stampPath, (Get-Date).ToUniversalTime().ToString('o'), (New-Object Text.UTF8Encoding $false))
+        Write-FeederLog -Level 'INFO' -Text ("SWEEP: {0} grain(s) recale(s) — re-essai dans le meme tick" -f $swept)
+    }
+    return $swept
 }
 
 # ---------- post via stdio roo-state-manager (pattern Publish-HealthNote) ----------
@@ -454,13 +567,42 @@ if ($vivants -eq 0 -and (Test-RunInFlight)) {
 }
 Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} grain(s) ce tick" -f $vivants, $Budget)
 
-# Deux passes max : passe 1 = file telle quelle ; si elle est vide ou
-# integralement SKIP, passe 2 = re-mesure par l'organe puis nouvelle tentative.
-# DryRun ne declenche JAMAIS la re-mesure (elle reecrit la file).
-for ($pass = 1; $pass -le 2; $pass++) {
+# Trois passes max : passe 1 = file telle quelle ; si elle est vide ou
+# integralement SKIP, passe 2 = re-mesure par l'organe puis nouvelle tentative ;
+# passe 3 (auto-guerison, deadlock 03/10) = UNIQUEMENT si la passe 2 s'est
+# terminee sans dispatch et avec des refus de recalage (all-SKIP-stale) : sweep
+# preserver+recaler des grains refuses, puis re-essai. DryRun ne declenche NI la
+# re-mesure NI le sweep (tous deux ecrivent).
+$staleRefused = @()
+for ($pass = 1; $pass -le 3; $pass++) {
     if ($pass -eq 2) {
         if ($DryRun) { break }
         if (-not (Invoke-QueueRefresh)) { break }
+        # La re-mesure a reecrit la file : les refus de la passe 1 parlent
+        # d'objets peut-etre disparus — seul compte ce que la DERNIERE passe
+        # mesure refuse.
+        $staleRefused = @()
+    }
+    if ($pass -eq 3) {
+        if ($DryRun) { break }
+        if ($dispatched -gt 0 -or $staleRefused.Count -eq 0) { break }
+        # C2 (review #3518) : jamais de relecture de origin/main AVANT le fetch
+        # de la passe. La passe 3 n'est atteinte que si la passe precedente a
+        # itere des grains (refus de recalage), donc $originMain -- lu par
+        # grain APRES le fetch de cette passe -- est forcement defini et de la
+        # fraicheur de CE tick. On le REUTILISE, on ne relit pas avant un fetch.
+        $originMainSweep = $originMain
+        if ($originMainSweep -notmatch '^[0-9a-f]{40}$') {
+            Write-FeederLog -Level 'WARN' -Text "SWEEP refuse : origin/main illisible"
+            break
+        }
+        $sweptCount = Invoke-StaleSweep -Grains $staleRefused -OriginMain $originMainSweep
+        if ($sweptCount -lt 1) { break }
+        # Le sweep a recale les objets grain EN MEMOIRE (references partagees
+        # avec $q.grains de la passe precedente) mais pas la file sur disque :
+        # l'ecrire ici, sinon le corps de passe ci-dessous relit les VIEUX
+        # baseSha et re-SKIPpe exactement ce que le sweep vient de recaler.
+        Write-Queue -Queue $q
     }
 
     $q = Read-Queue
@@ -519,6 +661,7 @@ for ($pass = 1; $pass -le 2; $pass++) {
         if ($originMain -match '^[0-9a-f]{40}$' -and $originMain -ne $g.baseSha) {
             if (-not (Update-StaleGrainBase -Grain $g -OriginMain $originMain)) {
                 Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: baseSha perime ({1} != main {2})" -f $g.id, $g.baseSha, $originMain)
+                $staleRefused += $g
                 continue
             }
         }
@@ -565,12 +708,24 @@ for ($pass = 1; $pass -le 2; $pass++) {
         $vibeWorkerScript = Join-Path $repoRoot 'scripts\scheduling\start-vibe-worker.ps1'
         $vibeProfile = Join-Path $repoRoot 'scripts\scheduling\vibe-profiles\coursia.json'
         $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-        $spawnLaunched = $true
-        try {
-            Start-Process -FilePath $psHost -ArgumentList @(
+        # -WindowStyle est Windows-ONLY : sous pwsh/Linux, Start-Process REJETTE
+        # le parametre (exception) -> catch -> exit 1. C'est exactement les 3
+        # FAIL du harnais sweep en CI (enfant exit 1, pas de ligne DETACHE,
+        # g-S non consomme) : le harnais execute le feeder en mode REEL, chemin
+        # jamais couvert par CI auparavant (eviction s'arrete en DryRun).
+        # $env:OS marche en 5.1 comme en 7 ($IsWindows est absent du
+        # powershell.exe 5.1 de production).
+        $spawnArgs = @{
+            FilePath = $psHost
+            ArgumentList = @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $vibeWorkerScript,
                 '-ConfigPath', $vibeProfile, '-MessagePayloadFile', $payloadFile
-            ) -WindowStyle Hidden | Out-Null
+            )
+        }
+        if ($env:OS -eq 'Windows_NT') { $spawnArgs.WindowStyle = 'Hidden' }
+        $spawnLaunched = $true
+        try {
+            Start-Process @spawnArgs | Out-Null
             Write-FeederLog -Level 'INFO' -Text ("worker local DETACHE lance sur grain {0}" -f $g.id)
         } catch {
             $spawnLaunched = $false
