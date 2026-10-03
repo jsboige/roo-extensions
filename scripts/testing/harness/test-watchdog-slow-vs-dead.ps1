@@ -305,6 +305,60 @@ if ($Text -match '\$RouteRepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
     Assert-That "le pire cas route-absente est ecrit dans le code" $false
 }
 
+# --- 9. La sonde slowcall : idempotence et echelles (#4035 follow-up) ---------
+# Suite demandee par ai-01 au merge de #4035 : ce harnais couvrait
+# mcp-chain-watchdog.ps1 seul, la sonde E2E slowcall (#1357 AC#4) vivait hors
+# garde. Meme discipline que le reste du fichier : ancres sur le code
+# executable (jamais la doc), et chaque garde verifie par mutation sur la PR.
+$Probe = [System.IO.Path]::GetFullPath("$PSScriptRoot/../../mcp-watchdog/mcp-chain-slowcall-probe.ps1")
+Assert-That "la sonde slowcall existe" (Test-Path $Probe)
+$ProbeText = if (Test-Path $Probe) { Get-Content $Probe -Raw } else { '' }
+$ProbeErrors = $null
+if ($ProbeText) {
+    $null = [System.Management.Automation.Language.Parser]::ParseFile($Probe, [ref]$null, [ref]$ProbeErrors)
+}
+Assert-That "la sonde slowcall parse sans erreur" (@($ProbeErrors).Count -eq 0)
+
+# L'idempotence #3276 de la sonde = le MEME couple empreinte+seau que
+# Publish-FleetNote (section 6) : un client timeout (800 s) suivi d'un retry
+# ne doit jamais double-poster. Le seau d'1 minute que #4030/#4035 a remplace
+# mourait la : le retry part toujours dans une autre minute, et si le premier
+# append a ecrit (WRITE-FIRST), il double-poste sur un canal que 7 machines
+# lisent. L'empreinte de CONTENU compte autant que le seau : une note dont
+# l'operateur a change le texte EST une nouvelle note et doit ecrire.
+Assert-That "la sonde porte un messageId d'idempotence" `
+    ($ProbeText -match 'messageId[ \t]*=[ \t]*"e2e-slowcall-1357-\$noteDigest-\$bucket"')
+Assert-That "le seau de la sonde est 15 min (900 s)" `
+    ($ProbeText -match 'TotalSeconds[^\r\n]{0,80}?/ 900')
+Assert-That "aucun seau d'1 minute ne survit (regression #4030)" `
+    (-not ($ProbeText -match 'TotalSeconds[^\r\n]{0,60}?/[ \t]*60\b'))
+Assert-That "l'empreinte porte le CONTENU de la note (MD5 du texte)" `
+    ($ProbeText -match 'ComputeHash\([^\r\n]{0,90}GetBytes\([ \t]*\$Note\)\)')
+Assert-That "l'empreinte est tronquee a 12 caracteres hexa" `
+    ($ProbeText -match 'Substring\(0,[ \t]*12\)')
+
+# L'echelle du client doit dominer chaque etage de la chaine, sinon la sonde
+# teste son propre timeout et non la chaine : 780 s = le hop TBXark (13 min),
+# 720 s = le budget dashboard interne du RSM. Le client qui coupe le premier
+# transforme un verdict de CHAINE en verdict de client.
+if ($ProbeText -match '\[int\]\$TimeoutSec[ \t]*=[ \t]*(\d+)') {
+    $clientBudget = [int]$matches[1]
+    Assert-That "le budget client couvre le hop TBXark (>= 780 s)" ($clientBudget -ge 780)
+    Assert-That "le budget client reste borne (< 1200 s)"          ($clientBudget -lt 1200)
+} else {
+    Assert-That "le budget client est ecrit dans le code" $false
+}
+
+# Un 200 sain mais RAPIDE n'est pas un AC#4 : la jambe lente n'a pas ete
+# exercee. La sonde doit le dire par un exit distinct (3), pas par un PASS
+# silencieux -- et isError:true reste un echec quelle que soit la duree.
+Assert-That "un 200 sain mais rapide (<= 60 s) sort en exit 3, pas en PASS" `
+    ($ProbeText -match '\$elapsedSec[ \t]*-le[ \t]*60[\s\S]{0,400}?exit[ \t]+3')
+Assert-That "l'exit 0 reste reserve au succes lent porte a terme" `
+    ($ProbeText -match 'PASS:[^\r\n]{0,20}>60s')
+Assert-That "isError:true interdite le verdict PASS de la sonde" `
+    ($ProbeText -match 'StatusCode[ \t]*-eq[ \t]+200[^\r\n]*-match[^\r\n]*isError')
+
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }
 else { Write-Host "$($script:Fails) ECHEC(S)" -ForegroundColor Red; exit 1 }
