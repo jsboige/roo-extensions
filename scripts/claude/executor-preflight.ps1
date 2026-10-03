@@ -116,7 +116,13 @@ try {
         }
     }
 
-    Invoke-GitChecked @('fetch', 'origin')
+    # No submodule recursion on the all-branch fetch: with the default
+    # on-demand mode, a parent branch whose gitlink was never pushed to the
+    # submodule remote makes git fetch that SHA and fail ("upload-pack: not our
+    # ref"), which aborted the whole pre-flight. Measured 03/10 on po-2024 and
+    # web1, after two old recovery branches were pushed at 01:51Z. The
+    # submodule update below fetches the one SHA main actually needs.
+    Invoke-GitChecked @('fetch', '--recurse-submodules=no', 'origin')
     Invoke-GitChecked @('pull', 'origin', 'main', '--no-rebase', '--autostash')
 
     # `--autostash` ne fait PAS echouer le pull quand la remise de la remise
