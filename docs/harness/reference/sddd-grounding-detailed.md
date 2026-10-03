@@ -72,6 +72,7 @@ meme sans en connaitre les mots exacts.
 | `tool_name: "write_to_file"` | Historique d'un outil |
 | `role: "user"`, `exclude_tool_results: true` | Messages utilisateur purs |
 | `source: "roo"` ou `"claude-code"` | Filtrer par agent |
+| `workspace` | Match **exact, sensible à la casse et à la forme du chemin** (ai-01, 02/10 : `D:/…` = 0 résultat silencieux, `d:/…` = 15+) : passer la valeur telle que stockée, ou le basename (`roo-extensions`) — un filtre à 0 résultat est un filtre suspect, pas une absence de données (#2368) |
 | `model: "opus"`, `start_date`, `end_date` | Par modele et periode |
 
 ## Workflow SDDD Complet
