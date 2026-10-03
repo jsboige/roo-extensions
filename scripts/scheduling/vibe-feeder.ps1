@@ -325,7 +325,14 @@ function Invoke-StaleSweep {
             }
             $ahead = (git -C $g.worktree rev-list --count "$OriginMain..$wtHead") 2>$null
             $ahead = "$ahead".Trim()
-            if ($ahead -match '^\d+$' -and [int]$ahead -gt 0) {
+            # Fail-closed (review c.5972480466, chemin 2) : un rev-list qui echoue
+            # rend $ahead non numerique — l'ancien code le traitait comme zero,
+            # sautait la preservation et resetait quand meme. Refuser le grain.
+            if ($ahead -notmatch '^\d+$') {
+                Write-FeederLog -Level 'ERROR' -Text ("SWEEP {0}: rev-list illisible (ahead='{1}') — reset REFUSE, grain laisse en l'etat" -f $g.id, $ahead)
+                continue
+            }
+            if ([int]$ahead -gt 0) {
                 $preserve = "vibe-preserve/{0}-{1}" -f ($g.id -replace '[^A-Za-z0-9._-]', '_'), (Get-Date -Format yyyyMMdd-HHmmss)
                 git -C $runtimeDir branch $preserve $wtHead 2>$null
                 if ($LASTEXITCODE -ne 0) {
@@ -341,6 +348,15 @@ function Invoke-StaleSweep {
                 }
             }
             $dirty = (git -C $g.worktree status --porcelain 2>$null)
+            $rcStatus = $LASTEXITCODE
+            # Fail-closed (review c.5972480466, chemin 1) : un status qui echoue
+            # avec sortie vide lisait le worktree comme PROPRE — rien n'etait
+            # stashe et le reset courait quand meme. Refuser le grain, meme
+            # garde qu'Update-StaleGrainBase quelques lignes plus haut.
+            if ($rcStatus -ne 0) {
+                Write-FeederLog -Level 'ERROR' -Text ("SWEEP {0}: git status exit {1} — reset REFUSE, grain laisse en l'etat" -f $g.id, $rcStatus)
+                continue
+            }
             if ($dirty) {
                 git -C $g.worktree stash push --include-untracked -m ("vibe-stale-sweep {0}" -f $g.id) 2>$null
                 if ($LASTEXITCODE -eq 0) {

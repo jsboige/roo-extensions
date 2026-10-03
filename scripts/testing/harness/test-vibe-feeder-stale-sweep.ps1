@@ -31,6 +31,21 @@
            the next tick. Zero dispatch + refusals is the COMMON state while
            workers run (live budget = zero new dispatch); without the guard
            the sweep stash+resets worktrees under live workers' feet.
+      g-X (review c.5972480466, path 1 -- git status FAILS): worktree at
+           base0 + ONE own commit, but its INDEX is unreadable (held
+           FileShare.None on Windows / chmod 000 on Unix -- same dual idiom
+           as the g-L lock). rev-list still works, so the own commit IS
+           preserved on its branch FIRST; then status exits non-zero with
+           empty output -- the PRE-fix code read that as "clean worktree",
+           stashed nothing and reset anyway. The sweep must REFUSE at the
+           status gate: tip intact, no stash, grain stays queued.
+      g-Y (review c.5972480466, path 2 -- rev-list FAILS): detached
+           worktree whose HEAD commit OBJECT was deleted from the object
+           store (rev-parse still resolves the detached sha; rev-list
+           cannot walk). $ahead comes back non-numeric -- the PRE-fix code
+           treated it as zero, skipped preservation and reset anyway. The
+           sweep must REFUSE at the rev-list gate: no branch, tip intact,
+           grain stays queued.
 
     Asserts on the feeder's own LOG FILE, the resulting queue FILE, the git
     state of the runtime repo (preservation branch, stash, reset HEAD) and the
@@ -88,6 +103,10 @@ Assert-Equal 'refused preservation => grain untouched' $true ($src -match 'branc
 # stash+resets the worktree while the worker is editing it.
 Assert-Equal 'live-worker guard defined'              $true ($src -match 'function Test-GrainWorkerLive')
 Assert-Equal 'sweep consults the live-worker guard'   $true ($src -match 'if \(Test-GrainWorkerLive -Grain \$g\)')
+# Fail-closed guards of review c.5972480466: NEITHER git call may fail open
+# into the reset. The behavioral half below proves each path end-to-end.
+Assert-Equal 'status exit code checked before reset'  $true ($src -match '\$rcStatus\s*=\s*\$LASTEXITCODE' -and $src -match 'git status exit .*reset REFUSE')
+Assert-Equal 'non-numeric ahead refused before reset' $true ($src -match "rev-list illisible .*reset REFUSE" -and $src -match 'SWEEP .*: rev-list illisible')
 
 # ============================================================================
 # Test 2: behavioral -- the real feeder, real mode, staged stubs
@@ -171,6 +190,38 @@ try {
         & chmod 000 $gLockPath
     }
 
+    # g-X worktree (review path 1 -- status FAILS, rev-list fine): branch at
+    # base0 + one own commit. Its INDEX is made unreadable for the whole
+    # child run: held FileShare.None on Windows (git exits 128 with empty
+    # stdout), chmod 000 on Unix -- the same dual idiom as the g-L lock.
+    # rev-list never opens the index, so the own commit is PRESERVED on its
+    # branch before the status gate refuses.
+    $wtX = (Join-Path $root 'wtX') -replace '\\', '/'
+    & git -C $rt worktree add $wtX $base0 2>$null | Out-Null
+    Set-Content -Path (Join-Path $wtX 'f.txt') -Value 'gX-own-work'
+    & git -C $wtX commit -qam 'gX own commit'
+    $gXHead = (& git -C $wtX rev-parse HEAD).Trim()
+    $gXIdx = ((& git -C $wtX rev-parse --git-dir).Trim()) + '/index'
+    if ($env:OS -eq 'Windows_NT') {
+        $script:idxStream = [IO.File]::Open($gXIdx, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::None)
+    } else {
+        & chmod 000 $gXIdx
+    }
+
+    # g-Y worktree (review path 2 -- rev-list FAILS): DETACHED at side2,
+    # then side2's commit OBJECT is deleted from the store. rev-parse HEAD
+    # still resolves the detached sha (ref-only); rev-list cannot walk it.
+    & git -C $rt checkout -q -b side2
+    Set-Content -Path (Join-Path $rt 'f.txt') -Value 'side2'
+    & git -C $rt commit -qam side2-work
+    $side2 = (& git -C $rt rev-parse HEAD).Trim()
+    & git -C $rt checkout -q main
+    $wtY = (Join-Path $root 'wtY') -replace '\\', '/'
+    & git -C $rt worktree add --detach $wtY $side2 2>$null | Out-Null
+    $gYHead = (& git -C $wtY rev-parse HEAD).Trim()
+    $objDir = Join-Path $rt ('.git/objects/' + $side2.Substring(0, 2))
+    Remove-Item -LiteralPath (Join-Path $objDir $side2.Substring(2)) -Force
+
     $queuePath = Join-Path $root 'queue.json'
     $queue = [ordered]@{
         _comment = 'stale-sweep behavioral stage'
@@ -180,6 +231,8 @@ try {
             [ordered]@{ id = 'g-S'; issue = 1; baseSha = $base0; branch = 'wt/vibe-gS'; worktree = $wtS; wtHead = $gSHead; payload = 'payload S' }
             [ordered]@{ id = 'g-T'; issue = 2; baseSha = $orphan; branch = 'wt/vibe-gT'; worktree = ((Join-Path $root 'wtT') -replace '\\', '/'); wtHead = $orphan; payload = 'payload T' }
             [ordered]@{ id = 'g-L'; issue = 3; baseSha = $base0; branch = 'wt/vibe-gL'; worktree = $wtL; wtHead = $gLHead; payload = 'payload L' }
+            [ordered]@{ id = 'g-X'; issue = 4; baseSha = $base0; branch = 'wt/vibe-gX'; worktree = $wtX; wtHead = $gXHead; payload = 'payload X' }
+            [ordered]@{ id = 'g-Y'; issue = 5; baseSha = $base0; branch = 'wt/vibe-gY'; worktree = $wtY; wtHead = $gYHead; payload = 'payload Y' }
         )
     }
     [System.IO.File]::WriteAllText($queuePath, ($queue | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding $false))
@@ -229,12 +282,33 @@ try {
     Assert-Equal 'g-L: no preservation branch'               $true ($null -eq $presL -or "$presL".Trim().Length -eq 0)
     Assert-Equal 'g-L worktree untouched (tip intact)'       $gLHead ((& git -C $wtL rev-parse HEAD).Trim())
 
+    # g-X (status fails, rev-list fine): the own commit IS preserved on its
+    # branch first, THEN the status gate refuses -- tip intact, nothing
+    # stashed (status could not even be read), grain still queued. The
+    # pre-fix feeder would have read the worktree as clean and reset it.
+    Assert-Equal 'g-X sweep refused (git status exit)'      $true ($log -match 'SWEEP g-X: git status exit \d+')
+    Assert-Equal 'g-X preserved BEFORE the status refusal'  $true ($log -match 'SWEEP g-X: 1 commit\(s\) preserve\(s\)')
+    $presX = (& git -C $rt branch --list 'vibe-preserve/g-X-*') 2>$null
+    Assert-Equal 'g-X preservation branch exists'          $true ($null -ne $presX -and "$presX".Trim().Length -gt 0)
+    Assert-Equal 'g-X worktree NOT reset (tip intact)'     $gXHead ((& git -C $wtX rev-parse HEAD).Trim())
+    Assert-Equal 'g-X nothing stashed (status unreadable)' $false ((& git -C $rt stash list) -match 'vibe-stale-sweep g-X')
+
+    # g-Y (rev-list fails): refused at the rev-list gate, BEFORE any
+    # preservation attempt -- no branch, tip intact, grain still queued.
+    # The pre-fix feeder would have treated the empty $ahead as zero and
+    # reset the worktree without preserving anything.
+    Assert-Equal 'g-Y sweep refused (rev-list illisible)'   $true ($log -match 'SWEEP g-Y: rev-list illisible')
+    Assert-Equal 'g-Y never preserved'                      $false ($log -match 'SWEEP g-Y: \d+ commit\(s\) preserve')
+    $presY = (& git -C $rt branch --list 'vibe-preserve/g-Y-*') 2>$null
+    Assert-Equal 'g-Y: no preservation branch'              $true ($null -eq $presY -or "$presY".Trim().Length -eq 0)
+    Assert-Equal 'g-Y worktree untouched (tip intact)'      $gYHead ((& git -C $wtY rev-parse HEAD).Trim())
+
     # Queue: g-S consumed by the dispatch; g-T still there, recalé by the
     # sweep (non-ancestor refusal -> direct recale, nothing to preserve);
-    # g-L still there untouched (live worker -> next tick).
+    # g-L, g-X, g-Y still there untouched (refused -> next tick).
     $q2 = Get-Content $queuePath -Raw -Encoding utf8 | ConvertFrom-Json
     $ids = (@($q2.grains) | ForEach-Object { $_.id }) -join ','
-    Assert-Equal 'queue after tick: g-T and g-L remain'      'g-T,g-L' $ids
+    Assert-Equal 'queue after tick: g-T/g-L/g-X/g-Y remain' 'g-T,g-L,g-X,g-Y' $ids
     $gT2 = @($q2.grains | Where-Object { $_.id -eq 'g-T' })[0]
     Assert-Equal 'g-T baseSha recalé to origin/main'         $base1 $gT2.baseSha
     Assert-Equal 'g-T wtHead recalé to origin/main'          $base1 $gT2.wtHead
@@ -245,6 +319,10 @@ try {
 finally {
     $ErrorActionPreference = $savedEap
     if ($lockStream) { $lockStream.Dispose() }
+    if ($script:idxStream) { $script:idxStream.Dispose() }
+    if ($gXIdx -and (Test-Path $gXIdx) -and $env:OS -ne 'Windows_NT') {
+        & chmod 644 $gXIdx 2>$null   # restore so the tree cleanup can remove it
+    }
     if (Test-Path $root) {
         Get-ChildItem -Path $root -Recurse -File -Filter '.git' -ErrorAction SilentlyContinue |
             Where-Object { $_.Parent.FullName -like '*wt*' } |
