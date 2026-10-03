@@ -681,8 +681,8 @@ function Get-GitHubTask {
         #
         # `-label:harness-change -label:deferred -label:epic` : ce worker est autonome, et les deux
         # premiers posent une porte humaine (feu vert utilisateur / issue explicitement garee).
-        # `needs-approval` est deja filtre en aval l.656 ; on le laisse la pour ne pas dupliquer la
-        # regle a deux endroits.
+        # `needs-approval` et `blocked-on-gate` sont deja filtres en aval (garde $LabelNames du
+        # foreach ci-dessous) ; on les laisse la pour ne pas dupliquer la regle a deux endroits.
         # `-label:epic` n'est PAS redondant avec le filtrage aval : les epics sont des conteneurs, pas
         # des work items. /executor SKILL.md l.99 les exclut nommement du vivier actionnable (aux cotes
         # de needs-approval/deferred/blocked-on-gate) ; ce script etait hors conformite avec cette regle
@@ -705,10 +705,12 @@ function Get-GitHubTask {
             # Skip si déjà assignée
             if ($Issue.assignees.Count -gt 0) { continue }
 
-            # Skip si label needs-approval (attente validation utilisateur)
+            # Skip si label needs-approval ou blocked-on-gate (attente validation utilisateur /
+            # deblocage de gate — meme classe que les GATED_LABELS du picker, suite #4045 :
+            # mesure ai-01 03/10, 3 issues ouvertes portaient blocked-on-gate prenable ici)
             $LabelNames = @($Issue.labels | ForEach-Object { $_.name })
-            if ($LabelNames -contains "needs-approval") {
-                Write-Log "  Issue #$($Issue.number) : needs-approval, skip" "DEBUG"
+            if ($LabelNames -contains "needs-approval" -or $LabelNames -contains "blocked-on-gate") {
+                Write-Log "  Issue #$($Issue.number) : gated (needs-approval/blocked-on-gate), skip" "DEBUG"
                 continue
             }
 
