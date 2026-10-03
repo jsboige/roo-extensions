@@ -199,7 +199,7 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 **Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred -label:epic -label:frozen' --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen' --limit 40 --json number,title,labels")
 ```
 
 > ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
@@ -214,8 +214,10 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 >   NOT for Roo schedulers »*. Tu es un orchestrateur Roo. Sans ce filtre tu peux non seulement perdre
 >   ton cycle dessus, mais **poser le verrou `assignee`** sur une issue de Claude et la lui retirer.
 >   Au 2026-08-11 : 45 des 95 ouvertes, et 9 des 15 libres.
-> - **`-label:needs-approval -label:harness-change -label:deferred`** — ces trois labels signifient
->   qu'une decision humaine est en attente (`needs-approval`), que le changement touche le harness et
+> - **`-label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred`** — ces
+>   quatre labels signifient qu'une decision humaine est en attente (`needs-approval`), qu'un
+>   deblocage de gate est attendu (`blocked-on-gate` — meme classe que le filtre aval de
+>   `start-claude-worker.ps1`, suite #4045), que le changement touche le harness et
 >   demande le feu vert utilisateur (`harness-change`), ou que l'issue est explicitement garee
 >   (`deferred`). Tu es autonome : les implementer contourne exactement la porte que le label pose.
 >   Ces filtres n'existaient pas tant que la fenetre etait saturee — ils deviennent necessaires
