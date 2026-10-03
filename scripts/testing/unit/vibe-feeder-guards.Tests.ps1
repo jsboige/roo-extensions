@@ -64,7 +64,11 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             # consommation ne doit suivre qu'apres un spawn reussi -- jamais
             # l'inverse (grain consomme avant spawn = grain perdu, bug
             # introduit par le levier 2 puis corrige par le 3).
-            $iSpawn   = $content.IndexOf('Start-Process -FilePath $psHost')
+            # (03/10) Marqueur 'Start-Process @spawnArgs' : l'appel est passe
+            # en splat pour rendre -WindowStyle conditionnel (Windows-only,
+            # rejete sous pwsh/Linux -- cf. harnais sweep en CI). Meme
+            # invariant, meme ordre.
+            $iSpawn   = $content.IndexOf('Start-Process @spawnArgs')
             $iConsume = $content.IndexOf('Write-Queue -Queue $outObj', $iSpawn)
             $iSpawn | Should -BeGreaterThan 0
             $iConsume | Should -BeGreaterThan $iSpawn
@@ -84,7 +88,8 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             # Le post est visibilite-ONLY (cap 20 s, jamais fatal) : il ne
             # porte plus la consommation. Celle-ci suit le spawn et precede
             # la construction des arguments de post.
-            $iSpawn   = $content.IndexOf('Start-Process -FilePath $psHost')
+            # (03/10) Marqueur splat, cf. test spawn ci-dessus.
+            $iSpawn   = $content.IndexOf('Start-Process @spawnArgs')
             $iConsume = $content.IndexOf('Write-Queue -Queue $outObj', $iSpawn)
             $iPost    = $content.IndexOf('$posted = Invoke-RsmAppend', $iConsume)
             $iConsume | Should -BeGreaterThan $iSpawn

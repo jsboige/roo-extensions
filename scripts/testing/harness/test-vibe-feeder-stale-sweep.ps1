@@ -25,6 +25,12 @@
            class -> SWEEP: branch preserved, dirty stashed, worktree reset
       g-T: no worktree, baseSha = an orphan (non-ancestor of main) -> refused
            l.206 class -> SWEEP: direct recale, nothing to preserve
+      g-L: clean worktree at base0 + ONE own commit (sweep-target shape) but
+           a HELD per-grain lock simulates a LIVE worker -> the sweep must
+           REFUSE: no preservation branch, no reset, grain stays queued for
+           the next tick. Zero dispatch + refusals is the COMMON state while
+           workers run (live budget = zero new dispatch); without the guard
+           the sweep stash+resets worktrees under live workers' feet.
 
     Asserts on the feeder's own LOG FILE, the resulting queue FILE, the git
     state of the runtime repo (preservation branch, stash, reset HEAD) and the
@@ -76,6 +82,12 @@ Assert-Equal 'sweep never runs in DryRun'            $true ($pass3Block -match '
 Assert-Equal 'anti-loop stamp consulted (6 h)'       $true ($src -match 'stale-sweep\.stamp' -and $src -match 'TotalHours\s*-lt\s*6')
 Assert-Equal 'preservation before reset (branch first)' $true ($src.IndexOf('vibe-preserve/') -gt 0 -and $src.IndexOf('reset --hard $OriginMain', $src.IndexOf('function Invoke-StaleSweep')) -gt $src.IndexOf('vibe-preserve/'))
 Assert-Equal 'refused preservation => grain untouched' $true ($src -match 'branche de preservation.*impossible.*reset REFUSE' -or $src -match 'SWEEP.*impossible.*REFUSE')
+# The sweep must refuse to touch a worktree a LIVE worker holds (per-grain
+# lock, #17636/#3942 idiom) -- correctness hole found in review of the first
+# head: a live worker makes its lock unreadable; without this guard the sweep
+# stash+resets the worktree while the worker is editing it.
+Assert-Equal 'live-worker guard defined'              $true ($src -match 'function Test-GrainWorkerLive')
+Assert-Equal 'sweep consults the live-worker guard'   $true ($src -match 'if \(Test-GrainWorkerLive -Grain \$g\)')
 
 # ============================================================================
 # Test 2: behavioral -- the real feeder, real mode, staged stubs
@@ -85,6 +97,7 @@ Write-Host "`n=== Test 2: the real feeder executes the sweep end-to-end ===" -Fo
 $savedEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-sweep-" + [guid]::NewGuid().ToString('N').Substring(0,8))
+$lockStream = $null
 try {
     New-Item -ItemType Directory -Path $root -Force | Out-Null
 
@@ -131,6 +144,18 @@ try {
     $gSHead = (& git -C $wtS rev-parse HEAD).Trim()
     Set-Content -Path (Join-Path $wtS 'dirty.txt') -Value 'uncommitted'
 
+    # g-L worktree: clean + ONE own commit (sweep-target shape) but the held
+    # per-grain lock simulates a LIVE worker (#17636/#3942: a live holder
+    # opens the lock with FileShare None -> unreadable). The sweep must
+    # refuse this grain: no branch, no reset, untouched.
+    $wtL = (Join-Path $root 'wtL') -replace '\\', '/'
+    & git -C $rt worktree add $wtL $base0 2>$null | Out-Null
+    Set-Content -Path (Join-Path $wtL 'f.txt') -Value 'gL-own-work'
+    & git -C $wtL commit -qam 'gL own commit'
+    $gLHead = (& git -C $wtL rev-parse HEAD).Trim()
+    New-Item -ItemType Directory -Path (Join-Path $stage 'outputs/scheduling/logs') -Force | Out-Null
+    $lockStream = [IO.File]::Open((Join-Path $stage 'outputs/scheduling/logs/vibe-worker-wtL.lock'), [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+
     $queuePath = Join-Path $root 'queue.json'
     $queue = [ordered]@{
         _comment = 'stale-sweep behavioral stage'
@@ -139,6 +164,7 @@ try {
             # budget slot dispatches after the sweep.
             [ordered]@{ id = 'g-S'; issue = 1; baseSha = $base0; branch = 'wt/vibe-gS'; worktree = $wtS; wtHead = $gSHead; payload = 'payload S' }
             [ordered]@{ id = 'g-T'; issue = 2; baseSha = $orphan; branch = 'wt/vibe-gT'; worktree = ((Join-Path $root 'wtT') -replace '\\', '/'); wtHead = $orphan; payload = 'payload T' }
+            [ordered]@{ id = 'g-L'; issue = 3; baseSha = $base0; branch = 'wt/vibe-gL'; worktree = $wtL; wtHead = $gLHead; payload = 'payload L' }
         )
     }
     [System.IO.File]::WriteAllText($queuePath, ($queue | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding $false))
@@ -146,7 +172,11 @@ try {
     $childPs = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
     if (-not $childPs) { $childPs = 'powershell' }
     $stagedFeeder = Join-Path $stage 'scripts/scheduling/vibe-feeder.ps1'
-    $null = & $childPs -NoProfile -ExecutionPolicy Bypass -File $stagedFeeder -QueuePath $queuePath -RuntimeDir $rt 2>&1
+    # MaxParallel 2: the held g-L lock makes Get-LiveWorkerCount see ONE live
+    # worker, so the dispatch budget is MaxParallel - vivants. With the
+    # production default of 1 the budget would be 0 and g-S could never be
+    # dispatched after the sweep.
+    $null = & $childPs -NoProfile -ExecutionPolicy Bypass -File $stagedFeeder -QueuePath $queuePath -RuntimeDir $rt -MaxParallel 2 2>&1
     $rc = $LASTEXITCODE
 
     $logFile = Join-Path $stage ("outputs/scheduling/logs/vibe-feeder-{0}.log" -f (Get-Date -Format yyyyMMdd))
@@ -176,11 +206,20 @@ try {
     Assert-Equal 'dirty file gone from worktree (stashed)'   $false (Test-Path (Join-Path $wtS 'dirty.txt'))
     Assert-Equal 'stash holds the sweep entry'               $true ((& git -C $rt stash list) -match 'vibe-stale-sweep g-S')
 
+    # g-L: live worker (held lock) -> the sweep must have refused EVERYTHING
+    # on this grain: no preservation branch, worktree tip intact, still queued.
+    Assert-Equal 'g-L sweep refused (worker vivant)'         $true ($log -match 'SWEEP g-L: worker vivant')
+    Assert-Equal 'g-L never preserved (live worker)'         $false ($log -match 'SWEEP g-L: \d+ commit\(s\) preserve')
+    $presL = (& git -C $rt branch --list 'vibe-preserve/g-L-*') 2>$null
+    Assert-Equal 'g-L: no preservation branch'               $true ($null -eq $presL -or "$presL".Trim().Length -eq 0)
+    Assert-Equal 'g-L worktree untouched (tip intact)'       $gLHead ((& git -C $wtL rev-parse HEAD).Trim())
+
     # Queue: g-S consumed by the dispatch; g-T still there, recalé by the
-    # sweep (non-ancestor refusal -> direct recale, nothing to preserve).
+    # sweep (non-ancestor refusal -> direct recale, nothing to preserve);
+    # g-L still there untouched (live worker -> next tick).
     $q2 = Get-Content $queuePath -Raw -Encoding utf8 | ConvertFrom-Json
     $ids = (@($q2.grains) | ForEach-Object { $_.id }) -join ','
-    Assert-Equal 'queue after tick: only g-T remains'        'g-T' $ids
+    Assert-Equal 'queue after tick: g-T and g-L remain'      'g-T,g-L' $ids
     $gT2 = @($q2.grains | Where-Object { $_.id -eq 'g-T' })[0]
     Assert-Equal 'g-T baseSha recalé to origin/main'         $base1 $gT2.baseSha
     Assert-Equal 'g-T wtHead recalé to origin/main'          $base1 $gT2.wtHead
@@ -190,6 +229,7 @@ try {
 }
 finally {
     $ErrorActionPreference = $savedEap
+    if ($lockStream) { $lockStream.Dispose() }
     if (Test-Path $root) {
         Get-ChildItem -Path $root -Recurse -File -Filter '.git' -ErrorAction SilentlyContinue |
             Where-Object { $_.Parent.FullName -like '*wt*' } |
