@@ -214,6 +214,26 @@ class PickerVerdicts(unittest.TestCase):
         self.assertEqual(data["pick"]["repo"], "jsboige/jsboige-mcp-servers")
         self.assertEqual(data["pick"]["number"], 608)
 
+    def test_delivered_pick_carries_repo_too(self):
+        # Miroir du cas grain pour l'urne delivered : les PRs submod vivent
+        # dans le depot fils - un pick delivered sans champ repo envoie
+        # l'agent reviewer la PR au mauvais depot (suite #4047, snippet
+        # promis en review par web2).
+        seq = [
+            ok_result([]),  # R1 issues
+            ok_result([]),  # R1 prs
+            ok_result([]),  # R2 issues
+            ok_result([issue(77, [], "fix(server): condensation guard")]),  # R2 prs
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["urn"], "delivered")
+        self.assertEqual(data["pick"]["repo"], "jsboige/jsboige-mcp-servers")
+        self.assertEqual(data["pick"]["number"], 77)
+
     def test_subprocess_utf8_replacement_kwargs(self):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
         # text=True decode stdout en cp1252 sous Windows => UnicodeDecodeError
