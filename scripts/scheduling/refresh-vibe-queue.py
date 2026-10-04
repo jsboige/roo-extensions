@@ -46,6 +46,16 @@ import sys
 FLOOR = 10          # fournee floor: confirmed findings per grain (contract #15719)
 MAX_FILES = 15      # anti-composite cap: files per PR
 
+#: La file vit dans le repoRoot du FEEDER (derive de $PSScriptRoot dans
+#: vibe-feeder.ps1), pas dans le cwd de session. Le default historique
+#: "outputs/vibe/feeder-queue.json" etait relatif : un run depuis D:/dev/CoursIA
+#: ecrivait CoursIA/outputs/vibe/... pendant que le feeder lisait
+#: roo-extensions/outputs/vibe/... (near-miss x2, c.150/c.151). Meme ancrage
+#: que le feeder : le repo qui porte CE script. --queue explicite prime toujours.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DEFAULT_QUEUE = os.path.join(_REPO_ROOT, "outputs", "vibe", "feeder-queue.json")
+
+
 PAYLOAD = """[WAKE-VIBE] {gid} (sweep #15719, fournee dimensionnee sur re-scan frais)
 baseSha: {base}
 targetPath:
@@ -674,7 +684,9 @@ def main():
     ap.add_argument("--issue", type=int, action="append", default=None,
                     help="contrat(s) a ravitailler (defaut: les contrats NON geles ; "
                          "un contrat gele ne s'obtient qu'en le nommant explicitement)")
-    ap.add_argument("--queue", default="outputs/vibe/feeder-queue.json")
+    ap.add_argument("--queue", default=DEFAULT_QUEUE,
+                    help="file de sortie (defaut: <repo du script>/outputs/vibe/feeder-queue.json, "
+                         "ancrage feeder — jamais le cwd de session)")
     ap.add_argument("--scan-wt", default="D:/dev/CoursIA-vibe/_scan-queue")
     ap.add_argument("--wt-root", default="D:/dev/CoursIA-vibe")
     ap.add_argument("--dry-run", action="store_true")
