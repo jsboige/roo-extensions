@@ -398,5 +398,41 @@ class MachineFlagRemoved(unittest.TestCase):
         self.assertIn(b"unrecognized arguments", proc.stderr)
 
 
+class PickerConsoleEncoding(unittest.TestCase):
+    """Sortie texte sur console Windows cp1252 (mesure web2 04/10, cycle c.24).
+
+    #3675/#3681 a corrige la LECTURE de stdout gh (decodage UTF-8
+    errors='replace'). L'ECRITURE du mode texte restait sur l'encodage de la
+    console : un titre portant '→' (U+2192, absent de cp1252) tuait le
+    -dry-run, precisement le mode qui sert a choisir quand le tirage rend un
+    candidat deja pris (mesure du cycle : deux candidats ecartes d'affilee
+    sans pouvoir lire la liste des autres).
+    """
+
+    def _cp1252_console(self):
+        """Vraie console cp1252 stricte (pas un mock) : BytesIO + TextIOWrapper."""
+        raw = io.BytesIO()
+        return raw, io.TextIOWrapper(raw, encoding="cp1252", errors="strict")
+
+    def test_dry_run_text_output_survives_cp1252_console(self):
+        title = "Stack audio OWUI : 2e panne post-reboot → restart-policy"
+        seq = [
+            ok_result([issue(3896, ["bug"], title)]),  # R1 issues
+            ok_result([]),                              # R1 prs
+            ok_result([]),                              # R2 issues
+            ok_result([]),                              # R2 prs
+        ]
+        raw, console = self._cp1252_console()
+        # Pas de redirect_stdout ici : il masquerait l'encodage reel derriere
+        # un StringIO, qui accepte tout et rendrait le test faussement vert.
+        with mock.patch("subprocess.run", side_effect=seq), \
+                mock.patch.object(sys, "argv", ["prog", "--dry-run"]), \
+                mock.patch.object(sys, "stdout", console):
+            code = picker.main()
+            console.flush()
+        self.assertEqual(code, 0)
+        self.assertIn("3896", raw.getvalue().decode("cp1252", "replace"))
+
+
 if __name__ == "__main__":
     unittest.main()
