@@ -74,6 +74,7 @@ meme sans en connaitre les mots exacts.
 | `source: "roo"` ou `"claude-code"` | Filtrer par agent |
 | `workspace` | Match **exact, sensible à la casse et à la forme du chemin** (ai-01, 02/10 : `D:/…` = 0 résultat silencieux, `d:/…` = 15+) : passer la valeur telle que stockée, ou le basename (`roo-extensions`) — un filtre à 0 résultat est un filtre suspect, pas une absence de données (#2368) |
 | `model: "opus"`, `start_date`, `end_date` | Par modele et periode |
+| `offset: N` | **Pagination des requêtes larges** — sauter les N premiers résultats classés, la page suivante continue le classement (clamp [0, 10000], #936, submod PR #1343). ⚠ Unités asymétriques, vérifiées sur le code #1343 : en **texte**, l'offset compte des TASKS (slice exact après classement) ; en **sémantique**, il compte des CHUNKS Qdrant (`qdrant.search({offset})`) alors que la sortie compte des tasks groupées — un task multi-chunks occupe plusieurs créneaux d'offset, la pagination est approximative : dédupliquer par `task_id` côté appelant. Le classement est celui de l'instant de l'appel (pas d'isolation snapshot entre pages ; le tri texte inclut un `lastActivity` mutable) et un offset au-delà du pool rend une liste vide sans signal de fin — arrêter sur page vide. Écho de la valeur effective : `current_machine.offset` (sémantique), `applied_filters` `offset=N` (texte) |
 
 ## Workflow SDDD Complet
 
