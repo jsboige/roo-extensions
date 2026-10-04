@@ -8,6 +8,7 @@ family-level grouping for contract 16472, and payload sanity per contract.
 
 import importlib.util
 import os
+import tempfile
 import unittest
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -339,6 +340,43 @@ class TestTellcContract(unittest.TestCase):
         bins = rvq.plan(free, floor=10, group_fn=fam)
         self.assertEqual([n for n, _ in bins], ["A"])
         self.assertNotIn("b/x.py", {p for _, ch in bins for p in ch})
+
+
+class TestDefaultQueueAnchoring(unittest.TestCase):
+    """Friction c.150/c.151 : le default --queue etait relatif au cwd — un run
+    depuis D:/dev/CoursIA ecrivait la file au mauvais repo pendant que le
+    feeder (repoRoot derive de $PSScriptRoot) lisait l'ancienne. Le default
+    doit suivre le meme ancrage que le feeder : le repo qui porte LE SCRIPT."""
+
+    def test_default_queue_is_absolute_and_script_anchored(self):
+        # Ancrage calcule INDEPENDAMMENT depuis ce fichier de test :
+        # scripts/testing/python -> scripts -> repo root.
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__)))))
+        expected = os.path.join(repo_root, "outputs", "vibe", "feeder-queue.json")
+        self.assertTrue(os.path.isabs(rvq.DEFAULT_QUEUE),
+                        "le default doit etre absolu, pas relatif au cwd")
+        self.assertEqual(rvq.DEFAULT_QUEUE, expected)
+
+    def test_default_queue_survives_a_cwd_change(self):
+        """Le defaut ne doit rien au cwd : chdir vers un tempdir distinct ne
+        change pas la valeur (le bug historique : la valeur ETAIT le cwd)."""
+        before = rvq.DEFAULT_QUEUE
+        original = os.getcwd()
+        tmp = tempfile.mkdtemp(prefix="rvq-cwd-")
+        try:
+            os.chdir(tmp)
+            # Recalcule la derivation comme le ferait un import dans ce cwd :
+            # le chemin du script ne bouge pas, le default non plus.
+            recomputed = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.abspath(rvq.__file__)))),
+                "outputs", "vibe", "feeder-queue.json")
+            self.assertEqual(before, recomputed)
+            self.assertNotIn(tmp, before)
+        finally:
+            os.chdir(original)
+            os.rmdir(tmp)
 
 
 if __name__ == "__main__":
