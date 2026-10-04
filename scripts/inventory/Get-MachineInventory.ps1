@@ -684,6 +684,17 @@ try {
 # ===============================
 # 12. VS Code Claude Settings (NOUVEAU #1746)
 # ===============================
+# #2307 (durcissement) : les args MCP sont des valeurs sans nom — un arg qui
+# mentionne key/token/secret/password est masqué avant publication, même règle
+# que le filtre par nom de collectClaudeConfig côté serveur MCP.
+function Hide-SecretLikeArgs {
+    param([string[]]$ArgList)
+    if (-not $ArgList) { return @() }
+    return @($ArgList | ForEach-Object {
+        if ($_ -match '(?i)(key|token|secret|password)') { '<redacted>' } else { $_ }
+    })
+}
+
 Write-Host "`nCollecte des paramètres VS Code Claude..." -ForegroundColor Yellow
 try {
     $vscodeConfig = @{}
@@ -697,7 +708,7 @@ try {
                 @{
                     name = $_.Name
                     command = $_.Value.command
-                    args = if ($_.Value.args) { $_.Value.args } else { @() }
+                    args = if ($_.Value.args) { Hide-SecretLikeArgs $_.Value.args } else { @() }
                     env = if ($_.Value.env) { $_.Value.env.PSObject.Properties.Name } else { @() }
                 }
             })
@@ -724,7 +735,7 @@ try {
                 @{
                     name = $_.Name
                     command = $_.Value.command
-                    args = if ($_.Value.args) { $_.Value.args } else { @() }
+                    args = if ($_.Value.args) { Hide-SecretLikeArgs $_.Value.args } else { @() }
                 }
             })
         } else { @() }
