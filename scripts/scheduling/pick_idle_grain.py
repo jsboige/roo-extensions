@@ -163,7 +163,31 @@ def emit_error(errors: list, as_json: bool) -> int:
     return 2
 
 
+def _make_stdout_encoding_safe() -> None:
+    """Ecrire sans jamais lever sur une console Windows cp1252 (#3675 suite).
+
+    Mesure web2 04/10 (cycle c.24) : `--dry-run` sur une urne contenant un
+    titre portant '→' (U+2192, absent de cp1252) -> UnicodeEncodeError a
+    l'impression. Le mode qui sert a choisir quand le tirage rend un candidat
+    deja pris etait donc inutilisable en texte ; seul `--json` survivait
+    (json.dumps echappe le non-ASCII par defaut).
+
+    #3675/#3681 avait corrige la LECTURE de stdout gh (UTF-8,
+    errors='replace'). L'ECRITURE porte la meme politique : `errors='replace'`
+    plutot qu'un forcage UTF-8, pour que la console garde son rendu actuel
+    (les accents cp1252 continuent de s'afficher) et que seul l'incodable
+    recule ('?') au lieu de lever.
+    """
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except (AttributeError, ValueError, OSError):
+        # stdout sans reconfigure (StringIO de test, flux deja ferme) : ne pas
+        # empecher le picker de rendre son verdict pour autant.
+        pass
+
+
 def main() -> int:
+    _make_stdout_encoding_safe()
     parser = argparse.ArgumentParser(
         description="Picker 3 urnes ponderees pour le pool executor roo-extensions (issue #3675).",
     )
