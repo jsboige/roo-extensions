@@ -8,6 +8,11 @@
       -> roo-state-manager
     carries a legitimately slow (> 60 s) tool call to SUCCESS.
 
+    The hops actually crossed are those in front of MCP_PROXY_BASE_URL, not the
+    list above: the NanoClaw .env points at host.docker.internal:9090, which is
+    TBXark directly (no IIS/ARR), and run from the host it does not cross the
+    container -> host Docker bridge either (measured on ai-01, 2026-10-05).
+
     The slow call is a real dashboard append that triggers the auto-condensation
     LLM leg -- the exact operation the 12-minute roosync_dashboard budget and
     the 24/09 timeout ladder exist for (77-165 s measured fleet-wide on 02/10,
@@ -198,5 +203,5 @@ if ($elapsedSec -le 60) {
     Write-Host "FAST-SUCCESS: chain carried the call in ${elapsedSec}s (healthy), but the slow path was NOT exercised -- condensation did not fire. NOT an AC#4 pass. Re-run when the target dashboard is near the ~46 KB threshold, or pick a busier one."
     exit 3
 }
-Write-Host "PASS: >60s tool call (${elapsedSec}s) carried to SUCCESS through the full public chain (IIS/ARR -> TBXark 13min hop -> sparfenyuk -> RSM 720s dashboard budget). AC#4 satisfied."
+Write-Host "PASS: >60s tool call (${elapsedSec}s) carried to SUCCESS through $url and every hop behind it (RSM 720s dashboard budget). Hops in front of that URL (IIS/ARR, Docker bridge) are covered only if the URL routes through them."
 exit 0
