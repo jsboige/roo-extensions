@@ -3524,7 +3524,10 @@ function Request-StaleReview {
     param([string]$PrUrl)
 
     try {
-        if ($PrUrl -notmatch 'github\.com/([^/]+/[^/]+)/pull/(\d+)') { return }
+        if ($PrUrl -notmatch 'github\.com/([^/]+/[^/]+)/pull/(\d+)') {
+            Write-Log "Re-review skip: unrecognized PR url '$PrUrl'." "INFO"
+            return
+        }
         $Repo = $Matches[1]; $PrNumber = $Matches[2]
 
         # Pending requests already tell the reviewers — never stack a second one.
@@ -3546,6 +3549,8 @@ function Request-StaleReview {
             & cmd /c "gh api -X POST ""repos/$Repo/pulls/$PrNumber/requested_reviewers"" -f ""reviewers[]=$login"" 2>&1" | Out-Null
             if ($LASTEXITCODE -eq 0) {
                 Write-Log "Re-review requested from $login on $Repo#$PrNumber (review older than head commit)." "INFO"
+            } else {
+                Write-Log "Re-review POST failed for $login on $Repo#$PrNumber (exit $LASTEXITCODE)." "WARN"
             }
         }
     }
