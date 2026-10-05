@@ -41,7 +41,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `mcp-watchdog/` | 7 | Surveillance et redémarrage automatique des MCP (+ vérificateur de déploiement #3394) |
 | `qdrant/` | 6 | Gestion Qdrant (backup, restore, diagnostics) |
 | `postgres/` | 3 | Sauvegarde Postgres (backup dump, schtask install) |
-| `pg/` | 1 | Sonde divergence dashboards GDrive↔PG (#3230/RX14 — read-only, plancher `--expect-files` miroir chaud) |
+| `pg/` | 2 | Sonde divergence dashboards GDrive↔PG (#3230/RX14 — read-only, plancher `--expect-files` miroir chaud) ; sonde de latence du store de conversations (#2191 — lectures, écritures en `ROLLBACK`, fraîcheur) |
 | `copilot/` | 1 | Configuration VS Code Copilot MCP |
 | `deployment/` | 15 | Déploiement des configurations (install-mcps, migrate-roo-to-zoo) |
 | `roo-settings/` | 3 | Gestion des paramètres Roo Code |
