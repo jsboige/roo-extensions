@@ -6,8 +6,11 @@
 
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet("deploy", "disable", "status", "test")]
+    [ValidateSet("deploy", "disable", "enable", "status", "test")]
     [string]$Action = "status",
+
+    [Parameter(Mandatory = $false)]
+    [string]$Schedule = "",  # Nom EXACT d'une cadence : enable/disable d'une seule cadence (vide = toutes)
 
     [Parameter(Mandatory = $false)]
     [string]$BasePath = ""  # Auto-détecté si vide
@@ -99,6 +102,8 @@ function Deploy-Scheduler {
 }
 
 function Disable-Scheduler {
+    param([string]$ScheduleName = "")
+
     Write-Log "=== DÉSACTIVATION DU ROOSCHEDULE ===" "INFO"
 
     if (-not (Test-Path $SchedulesPath)) {
@@ -110,7 +115,16 @@ function Disable-Scheduler {
         # Lire et désactiver
         $json = Get-Content $SchedulesPath -Raw | ConvertFrom-Json
 
-        foreach ($schedule in $json.schedules) {
+        $targets = $json.schedules
+        if ($ScheduleName) {
+            $targets = @($json.schedules | Where-Object { $_.name -eq $ScheduleName })
+            if ($targets.Count -eq 0) {
+                Write-Log "Aucun schedule nommé '$ScheduleName' (disponibles: $(($json.schedules | ForEach-Object { $_.name }) -join ', '))" "ERROR"
+                return $false
+            }
+        }
+
+        foreach ($schedule in $targets) {
             $schedule.active = $false
         }
 
@@ -123,6 +137,47 @@ function Disable-Scheduler {
     }
     catch {
         Write-Log "Erreur lors de la désactivation: $($_.Exception.Message)" "ERROR"
+        return $false
+    }
+}
+
+function Enable-Scheduler {
+    param([string]$ScheduleName = "")
+
+    Write-Log "=== ACTIVATION DU ROOSCHEDULE ===" "INFO"
+
+    if (-not (Test-Path $SchedulesPath)) {
+        Write-Log "schedules.json introuvable: $SchedulesPath" "ERROR"
+        Write-Log "Exécutez d'abord: .\deploy-scheduler.ps1 -Action deploy" "ERROR"
+        return $false
+    }
+
+    try {
+        # Lire et activer
+        $json = Get-Content $SchedulesPath -Raw | ConvertFrom-Json
+
+        $targets = $json.schedules
+        if ($ScheduleName) {
+            $targets = @($json.schedules | Where-Object { $_.name -eq $ScheduleName })
+            if ($targets.Count -eq 0) {
+                Write-Log "Aucun schedule nommé '$ScheduleName' (disponibles: $(($json.schedules | ForEach-Object { $_.name }) -join ', '))" "ERROR"
+                return $false
+            }
+        }
+
+        foreach ($schedule in $targets) {
+            $schedule.active = $true
+        }
+
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $jsonText = $json | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SchedulesPath, $jsonText, $utf8NoBom)
+
+        Write-Log "Scheduler activé pour: $MachineName" "SUCCESS"
+        return $true
+    }
+    catch {
+        Write-Log "Erreur lors de l'activation: $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
@@ -244,7 +299,12 @@ switch ($Action.ToLower()) {
     }
 
     "disable" {
-        $result = Disable-Scheduler
+        $result = Disable-Scheduler -ScheduleName $Schedule
+        exit $(if ($result) { 0 } else { 1 })
+    }
+
+    "enable" {
+        $result = Enable-Scheduler -ScheduleName $Schedule
         exit $(if ($result) { 0 } else { 1 })
     }
 
@@ -262,11 +322,12 @@ switch ($Action.ToLower()) {
         Write-Log "Action non reconnue: $Action" "ERROR"
         Write-Host @"
 
-Usage: .\deploy-scheduler.ps1 -Action <action>
+Usage: .\deploy-scheduler.ps1 -Action <action> [-Schedule <nom>]
 
 Actions:
   deploy   - Déploie le scheduler pour cette machine
-  disable  - Désactive le scheduler
+  disable  - Désactive le scheduler (toutes les cadences, ou une seule avec -Schedule)
+  enable   - Active le scheduler (toutes les cadences, ou une seule avec -Schedule)
   status   - Affiche le statut actuel (défaut)
   test     - Exécute un test DryRun
 
@@ -274,7 +335,11 @@ Exemples:
   .\deploy-scheduler.ps1                    # Affiche le statut
   .\deploy-scheduler.ps1 -Action deploy     # Déploie le scheduler
   .\deploy-scheduler.ps1 -Action test       # Teste le scheduler
-  .\deploy-scheduler.ps1 -Action disable    # Désactive le scheduler
+  .\deploy-scheduler.ps1 -Action disable    # Désactive toutes les cadences
+  .\deploy-scheduler.ps1 -Action enable -Schedule "Claude-Code Assistant"  # Active UNE cadence
+
+-Schedule prend le nom EXACT d'une cadence du fichier (voir -Action status).
+Une cadence inconnue échoue sans rien modifier.
 
 "@
         exit 1
