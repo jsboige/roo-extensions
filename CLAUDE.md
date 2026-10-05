@@ -64,7 +64,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 
 ## Agents, Skills & Commands
 
-**20 subagents** + **9 skills** + **5 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`, `/team`).
+**20 subagents** + **9 skills** + **5 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`, `/team`). Parité commands↔skills : allowlist explicite [`commands-skills-pairs.md`](docs/harness/reference/commands-skills-pairs.md) (#3381 D9 — les orphelins y sont intentionnels, toute dérive s'y met à jour).
 
 > **Règle de recompte (#3321)** : à chaque modification de cette ligne, recompter firsthand
 > (`find .claude/agents -name '*.md' | wc -l`, `find .claude/skills -name 'SKILL.md' | wc -l`,
