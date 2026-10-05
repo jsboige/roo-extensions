@@ -101,7 +101,7 @@ Ces items viennent de #1069 (leçon #1068 : un composant du harnais peut casser 
 | 1 | **RAM** | `Get-CimInstance Win32_OperatingSystem` | usage **< 80 %** |
 | 2 | **Tâches planifiées** | `Get-ScheduledTask` filtré `Claude*`/`Vibe*` | listener `Claude-DashboardListener` **présent** ; tout lanceur headless recensé nommément (état, action, trigger) |
 | 3 | **Liveness du listener** | fraîcheur du heartbeat `listener-heartbeats/<machine>.heartbeat` | **< 10 min** (cadence nominale ~5 min). *Ne pas juger sur le bloc status du dashboard* |
-| 4 | **Cron de session** | `CronList` | **exactement 1** job `/executor`, à la cadence de la lane (`41 */4` pour les exécuteurs, `23 */6` pour ai-01) |
+| 4 | **Cron de session** | `CronList` | **exactement 1** job `/executor`, à la cadence de la lane (`41 */4` pour les exécuteurs, `23 */12` pour ai-01) |
 | 5 | **`gh`** | `gh auth status` + `gh api user --jq .login` | identité attendue pour la machine, **API répond** (un 401 sur SSH est attendu sur web2) |
 | 6 | **`git`** | `git status --porcelain`, branche, `git ls-tree HEAD mcps/internal` | worktree **propre**, branche par défaut, gitlink submodule aligné sur le build servi |
 | 7 | **Claim worker** | `python scripts/github/check_issue_claim.py <NNN> --claim "<une ligne>"` | **claim posé** (le test réel de la leçon #1068 : un worker qui ne peut pas claimer est un harnais mort) |
