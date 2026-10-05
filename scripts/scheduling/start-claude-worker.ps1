@@ -3447,6 +3447,113 @@ function Push-WorktreeBranch {
     }
 }
 
+function Get-StaleReviewers {
+    <#
+    .SYNOPSIS
+    Pure decision core for Request-StaleReview — which reviewers owe a re-look.
+
+    .DESCRIPTION
+    Returns the logins whose LATEST qualifying review (APPROVED or
+    CHANGES_REQUESTED — COMMENTED carries no verdict, PENDING is someone's
+    draft) predates the head commit. A review older than the last commit is
+    the reviewer's debt (pr-review-policy.md §3): new commits reopened it.
+    No gh, no network — the caller owns all I/O. Fail-open to @(): an
+    unparseable date never triggers a re-request.
+
+    .OUTPUTS
+    String[] — logins to re-request (self excluded: re-requesting the login
+    that just pushed is a no-op addressed to ourselves).
+    #>
+    param([string]$ReviewsJson, [string]$HeadCommitDate, [string]$SelfLogin)
+
+    try {
+        if (-not $ReviewsJson) { return @() }
+        # PS7 ConvertFrom-Json auto-converts ISO dates to [datetime],
+        # keeping wall-clock time and dropping the UTC designator
+        # (13:00:00Z arrives as 13:00 local — instant shifted by the
+        # machine offset, enough to flip a "newer than head" verdict
+        # to stale). Neutralize the detection with a sentinel and
+        # parse the raw text ourselves; PS 5.1 (no auto-date) passes
+        # through unchanged and strips the empty sentinel the same way.
+        $SafeJson = $ReviewsJson -replace '"submitted_at"\s*:\s*"', '"submitted_at":"__TS__'
+        $Reviews = ConvertFrom-Json $SafeJson
+        [datetimeoffset]$HeadDto = [datetimeoffset]::MinValue
+        if (-not [datetimeoffset]::TryParse($HeadCommitDate, [ref]$HeadDto)) { return @() }
+
+        $LatestByLogin = @{}
+        foreach ($rv in @($Reviews)) {
+            if ($rv.state -ne 'APPROVED' -and $rv.state -ne 'CHANGES_REQUESTED') { continue }
+            $login = "$($rv.user.login)"
+            $rawTs = "$($rv.submitted_at)"
+            if ($rawTs.StartsWith('__TS__')) { $rawTs = $rawTs.Substring(6) }
+            [datetimeoffset]$dto = [datetimeoffset]::MinValue
+            if (-not [datetimeoffset]::TryParse($rawTs, [ref]$dto)) { continue }
+            if (-not $LatestByLogin.ContainsKey($login) -or $dto -gt $LatestByLogin[$login]) {
+                $LatestByLogin[$login] = $dto
+            }
+        }
+
+        $Stale = @()
+        foreach ($login in @($LatestByLogin.Keys)) {
+            if ($login -eq $SelfLogin) { continue }
+            if ($LatestByLogin[$login] -lt $HeadDto) { $Stale += $login }
+        }
+        return @($Stale)
+    }
+    catch {
+        return @()
+    }
+}
+
+function Request-StaleReview {
+    <#
+    .SYNOPSIS
+    Re-request review on a PR that just received new commits.
+
+    .DESCRIPTION
+    Called from New-WorkerPR's existing-PR branch — reached only AFTER pushing
+    to a branch whose PR already exists, i.e. new commits just landed on a
+    reviewed PR (typically fixes answering a CHANGES_REQUESTED). Without a
+    re-request, nothing tells the reviewer their review went stale. Skips
+    when review requests are already pending (never stack a second nudge).
+    Never fatal: any failure logs WARN and lets the PR flow continue.
+
+    .OUTPUTS
+    None.
+    #>
+    param([string]$PrUrl)
+
+    try {
+        if ($PrUrl -notmatch 'github\.com/([^/]+/[^/]+)/pull/(\d+)') { return }
+        $Repo = $Matches[1]; $PrNumber = $Matches[2]
+
+        # Pending requests already tell the reviewers — never stack a second one.
+        $Pending = (& cmd /c "gh pr view $PrNumber --repo $Repo --json reviewRequests --jq ""[.reviewRequests[].login] | length"" 2>&1") | Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and "$Pending".Trim() -match '^\d+$' -and [int]"$Pending".Trim() -gt 0) {
+            Write-Log "Re-review skip: $Repo#$PrNumber already has pending review requests." "INFO"
+            return
+        }
+
+        $HeadRefOid = (& cmd /c "gh pr view $PrNumber --repo $Repo --json headRefOid --jq "".headRefOid"" 2>&1") | Select-Object -First 1
+        if ($LASTEXITCODE -ne 0 -or -not "$HeadRefOid".Trim()) { return }
+        $HeadDate = (& cmd /c "gh api ""repos/$Repo/commits/$($HeadRefOid.Trim())"" --jq "".commit.committer.date"" 2>&1") | Select-Object -First 1
+        if ($LASTEXITCODE -ne 0 -or -not "$HeadDate".Trim()) { return }
+        $ReviewsJson = (& cmd /c "gh api ""repos/$Repo/pulls/$PrNumber/reviews"" 2>&1") -join ''
+        $SelfLogin = (& cmd /c "gh api user --jq "".login"" 2>&1") | Select-Object -First 1
+
+        $Stale = Get-StaleReviewers -ReviewsJson $ReviewsJson -HeadCommitDate "$($HeadDate.Trim())" -SelfLogin "$($SelfLogin.Trim())"
+        foreach ($login in @($Stale)) {
+            & cmd /c "gh api -X POST ""repos/$Repo/pulls/$PrNumber/requested_reviewers"" -f ""reviewers[]=$login"" 2>&1" | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log "Re-review requested from $login on $Repo#$PrNumber (review older than head commit)." "INFO"
+            }
+        }
+    }
+    catch {
+        Write-Log "Request-StaleReview non-fatal failure: $_" "WARN"
+    }
+}
+
 function New-WorkerPR {
     <#
     .SYNOPSIS
@@ -3637,6 +3744,10 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
             $ExistingPR = & cmd /c "gh pr list --repo jsboige/roo-extensions --state open --head $BranchName --json url --jq "".[0].url"" 2>&1"
             if ($LASTEXITCODE -eq 0 -and $ExistingPR -and "$ExistingPR".Trim() -ne '' -and "$ExistingPR".Trim() -ne '[]') {
                 Write-Log "PR already exists for branch ${BranchName}: $ExistingPR" "INFO"
+                # New commits just landed on a reviewed PR (re-push on existing
+                # branch, typically fixes answering a CHANGES_REQUESTED) —
+                # re-request review from reviewers whose verdict predates them.
+                Request-StaleReview -PrUrl "$ExistingPR".Trim()
                 Remove-Item $BodyFile -ErrorAction SilentlyContinue
                 return "$ExistingPR".Trim()
             }

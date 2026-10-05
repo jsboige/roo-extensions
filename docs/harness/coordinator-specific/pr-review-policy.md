@@ -178,6 +178,23 @@ VERDICT: APPROVE / REQUEST_CHANGES / COMMENT.
 | Architecture concerns | ❌ Request major changes or close PR |
 | Blocked by auto-review | ⏸️ Wait for fixes, then review |
 
+### Review Debt After Re-Push
+
+**Une review plus ancienne que le dernier commit est la dette du reviewer.**
+A re-push (fixes answering a CHANGES_REQUESTED, new commits on an existing PR
+branch) reopens the review: the previous verdict no longer describes the head.
+Nothing in GitHub flags this — an old CHANGES_REQUESTED just sits there while
+the author waits.
+
+- **Worker side (automated):** on re-push to a branch whose PR already exists,
+  `start-claude-worker.ps1` (`Request-StaleReview`) re-requests review from
+  each reviewer whose latest APPROVED/CHANGES_REQUESTED verdict predates the
+  head commit (`submitted_at` < head committer date). Self-review requests are
+  excluded; pending requests are never stacked; failures log WARN, never fatal.
+- **Reviewer side:** a re-request means the debt transferred back — the verdict
+  must be re-issued on the new head. An APPROVED more recent than the head
+  commit carries no debt and merges normally.
+
 ### Merge Rules
 
 - [ ] **Single approval:** Coordinator approval sufficient (no second reviewer)
