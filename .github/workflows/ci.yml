@@ -12,6 +12,11 @@ on:
       # worktree classifier landing on main would never re-run its own check.
       - 'scripts/maintenance/worktree-classify.ps1'
       - 'scripts/testing/harness/**'
+      # #1357 AC#1: test-mcp-proxy-template-timeout.ps1 guards this template, so
+      # a template edit landing on main has to re-run the guard (mcp-chain-
+      # watchdog.ps1 precedent, f6580da6 -- a guarded file changed on main and
+      # re-ran nothing because no path here matched).
+      - 'docker/mcp-proxy/**'
       - 'scripts/dashboard-scheduler/**'
       # Same gap, measured rather than predicted: f6580da6 changed
       # mcp-chain-watchdog.ps1 on main and triggered ZERO CI runs, because no
@@ -425,6 +430,20 @@ jobs:
         run: |
           python3 -m unittest discover -s scripts/github/tests
           python3 -m unittest discover -s scripts/testing/python
+
+      # #1357 AC#1: the mcp-proxy template's TBXark hop timeout must stay a
+      # JSON NUMBER. The deployed image decodes it into a Go time.Duration
+      # (nanoseconds); #3083 shipped the string form "5m", which makes the
+      # proxy crash-loop at load ("cannot unmarshal string into Go struct
+      # field ... of type time.Duration") -- invisible until the template is
+      # copied to a live config, and fixed only in #3839. The guard reads the
+      # real template and also runs its predicate over mutated copies (string
+      # / zero / below the inner 720 s budget / field removed / unparsable), so
+      # it can actually fail. It also pins the 2026-09-24 ladder: the hop must
+      # outlast the innermost roosync_dashboard budget. Static, ubuntu-latest.
+      - name: Run mcp-proxy template timeout harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-mcp-proxy-template-timeout.ps1
 
   # #3834 (follow-up deferred from #3835): test-rotate-scheduling-logs.ps1
   # exercises the REAL rotate script through powershell.exe — Windows
