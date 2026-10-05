@@ -1,11 +1,100 @@
 # ADR 010: conversation_browser — GDrive Cross-Machine Storage + Postgres Metadata Layer
 
-**Date:** 2026-05-15 (v1.0) → 2026-05-15 (v2.0 — R43 Scenario B hybrid permanent)
-**Status:** Proposed (Phase 1 — ADR for user review)
-**Issue:** #2191
+**Date:** 2026-05-15 (v1.0) → 2026-05-15 (v2.0 — R43 Scenario B hybrid permanent) → 2026-10-06 (v3.0 — accepted, as-built + measurements)
+**Status:** Accepted (user decisions 2026-05-29 on the 7 open questions, Q1 overridden) — see [v3.0](#v30--accepted-as-built-and-measured-2026-10-06)
+**Issue:** #2191 (sub-issues #2426, #2427, #2428, #2429)
 **Supersedes:** #1393 (hot/warm/cold tiered storage — rejected by user), ADR 010 v1.0 (Option D Qdrant+GDrive — partially superseded by v2.0)
 **Related:** EPIC #2190 (vibe-conversation-browser), #1244 (multi-tier cache), #1360 (master plan), #1822 (STUCK sessions), #2121 (GDrive write storm), #1747 (per-tier health stats), #2193 (Qdrant payload `message_id` extension)
-**Deciders:** jsboige (mandate R43), claude-interactive po-2025 (Phase 1 author)
+**Deciders:** jsboige (mandate R43, GO 2026-05-29 with Q1 override), claude-interactive po-2025 (Phase 1 author)
+
+---
+
+## v3.0 — Accepted, as-built and measured (2026-10-06)
+
+> Cette section **prime** sur le texte v2.0 qui suit, conservé tel que proposé le 15/05. Là où les deux divergent, c'est ici que se lit ce qui a été décidé, puis construit.
+
+### Décisions user du 2026-05-29 (GO sur les 7 questions)
+
+Source : #2191, commentaire « Décision utilisateur 2026-05-29 — Phase 2 débloquée ».
+
+| Q | Sujet | Décision |
+|---|---|---|
+| Q1 | Réplication | **Override user : aucune réplication.** Une base unique sur ai-01, ouverte aux autres machines par un sous-domaine dédié (`pg.myia.io`). Le store est un index dérivé : la résilience vient des sauvegardes et de la ré-ingestion, pas de répliques. |
+| Q2 | Hébergement | Docker sur ai-01. |
+| Q3 | Rétention des sauvegardes | 30 jours. |
+| Q4 | Bascule | Simplifiée : restauration de sauvegarde + ré-ingestion (plus de promotion de réplique). |
+| Q5 | `message_id` | Nullable, rempli progressivement. |
+| Q6 | Texte des messages | Dupliqué dans Postgres (source requêtable). |
+| Q7 | Throttle GDrive 30 s | Accepté ; sans objet tel que construit (aucun squelette n'est écrit sur GDrive, voir ci-dessous). |
+
+Décision user du 2026-09-29 sur le critère « disques locaux » : « on garde toutes les conversations disponibles, j'ai jamais tenu à ce que ça soit en local […] mais il faut être sûr que tout est bien remonté ». Le nettoyage local se fait donc par **archivage** (déplacement vers GDrive avec manifeste et empreintes), machine par machine, **après** une preuve de complétude du store.
+
+### Construit vs prévu (v2.0)
+
+Vérifié le 2026-10-06 sur `jsboige-mcp-servers` `origin/main` (`98af3a8c`) et sur le build servi d'ai-01. Chemins relatifs à `mcps/internal/servers/roo-state-manager/`.
+
+| Élément | Prévu v2.0 | Construit | Où |
+|---|---|---|---|
+| Base | Postgres sur ai-01 + répliques po-2024 / po-2026 | **Base unique** (Q1) : conteneur `postgres_production` (Postgres 18) sur ai-01, base `unified_store` ; les autres machines s'y connectent via `pg.myia.io`. | — |
+| Schéma | `conversations` / `messages` (`idx`) | `conversations` : `task_id`, `machine_id`, **`harness` (roo / zoo / claude)**, `workspace`, `parent_task_id`, `title`, `first_ts`, `last_ts`, `msg_count`, `metadata`, `ingested_at`. `messages` : `seq`, `role`, `content`, `tool_calls`, `ts`, unicité `(task_id, seq)`, index GIN sur `tool_calls`. Horodatages tirés des messages, jamais du mtime. | `migrations/001_init_unified_store.sql` |
+| Écriture | `SkeletonCacheService.upsertSkeleton()` appelé par `ToolUsageInterceptor` | `dualWriteConversationToStore()`, branché sur les chemins qui peuplent réellement le cache (`addOrUpdate` n'avait aucun appelant, #692) : `build-skeleton-cache`, workers de rafraîchissement, chargement complet, sessions Claude. Sans attente pour l'appelant, disjoncteur (3 échecs, réarmement 60 s). Depuis #2427, seuls les messages au-delà du dernier `seq` stocké partent. Gate : `UNIFIED_STORE_DUAL_WRITE=1` + `UNIFIED_STORE_PG_URL`. | `src/services/unified-store/dual-write.ts`, `PgUnifiedStoreWriter.ts` |
+| Lecture `list` | Qdrant filtré → cache → GDrive | Palier PG ajouté après les paliers locaux, dédoublonné par `task_id`. Gate `UNIFIED_STORE_CONVERSATION_READ_PG=1`. #1129 : couverture ×2,6, 32,1 s → 54 ms. | `src/services/unified-store/conversation-list-store.ts` |
+| Lecture `view` | Qdrant → Postgres → GDrive | Repli PG quand les fichiers locaux manquent, même gate, provenance affichée (#1259). | `src/tools/view-conversation-tree.ts` |
+| Recherche en 2 temps | Qdrant ANN → JOIN Postgres sur `message_id` | Qdrant ANN → `joinFromQdrant()` sur **`task_id`**. Le JOIN **enrichit** ; il ne filtre que s'il rend des lignes (régression du 16/06 corrigée). | `src/tools/search/search-semantic.tool.ts` |
+| Squelettes GDrive `.shared-state/skeletons/<machine>/<task>.json` | Nouveau chemin d'écriture | **Non construit** (0 occurrence dans `src/`). GDrive porte les archives Tier 3 `.json.gz` (`TaskArchiver`) et, depuis le canari du 30/09, les transcripts archivés. | — |
+| Payload Qdrant `message_id` | Ajouté pour le JOIN inverse | **Non construit** : le JOIN passe par `task_id`. | — |
+| Cache local | Validité 30 → 60 min | Inchangé (30 min). | `src/services/skeleton-cache.service.ts:74` |
+| Zoo-Code | « futur » | Harnais à part entière (`ZooStorageDetector`, #2429). | — |
+
+### Mesures (2026-10-06, depuis ai-01)
+
+**Corpus.** claude 3 723 conversations (8 machines), roo 2 463 (3), zoo 9 080 (8) ; ~8,2 M messages ; base ~3 Go, dont `messages` 2,7 Go. La dernière activité stockée de chaque machine datait de moins de 4 h au moment de la mesure.
+
+**Latences.** Sonde [`scripts/pg/measure-conversation-store-latency.mjs`](../../../scripts/pg/measure-conversation-store-latency.mjs), deux passages. Elle appelle le code servi (`build-dc9d1a65f943d340`). Les écritures exécutent le SQL exact du writer dans une transaction annulée (`ROLLBACK`) ; 0 ligne résiduelle vérifiée après chaque passage.
+
+| Opération | Volume | Médiane | Max |
+|---|---|---|---|
+| En-tête d'une conversation | 1 ligne | 0,6–0,7 ms | 1,3 ms |
+| `view` complet (en-tête + messages par pages de 1 000) | 58–75 messages | 1,7–1,9 ms | 3,1 ms |
+|  | 836–1 193 messages | 4,8–6,7 ms | 7,3 ms |
+|  | ~5 000 messages | 31–35 ms | 36 ms |
+| `list`, palier PG, toute la flotte (limite 5 000) | 5 000 lignes | 86–104 ms | 1,7 s (premier appel, à froid) |
+| `list`, palier PG, une seule machine | 1 420 à 5 000 lignes | 26–91 ms | 745 ms |
+| Recherche, étape 2 (JOIN sur 20 `task_id`) | 20 lignes | 1,0–1,3 ms | 6,2 ms |
+| Recherche de bout en bout (`roosync_search semantic` : embedding + Qdrant + JOIN + rendu) | 3 requêtes | 660 ms | 2,9 s (premier appel) |
+| Écriture d'une conversation neuve | 58–75 messages | 4–48 ms | 54 ms |
+|  | 836–1 193 messages | 66–68 ms | 87 ms |
+|  | ~5 000 messages (0,6 Mo) | 177–184 ms | 211 ms |
+| Écriture de rafraîchissement (conversation déjà stockée, renvoyée entière : le cas courant) | 58 à 5 000 messages | 1,7–8 ms | 8,9 ms |
+
+**Limites de la mesure.** ai-01 héberge la base : la connexion est locale. Les sept autres sièges passent par `pg.myia.io`, leur latence ajoute le réseau et le transfert du contenu — **non mesurés ici**. Le `ROLLBACK` saute l'écriture du journal au commit : les chiffres d'écriture la sous-estiment d'autant.
+
+**Fraîcheur entre machines** (lecture seule, 7 derniers jours, 393 conversations) : délai entre le premier message d'une conversation et sa première présence dans le store.
+
+| Harnais | Médiane selon la machine | p90 selon la machine |
+|---|---|---|
+| roo / zoo | 27–93 s | 77–113 s |
+| claude | 38–219 s | 87–318 s sur ai-01, po-2027, web1 ; **0,5 à 4,4 h** sur po-2023, po-2024, po-2025, po-2026, web2 |
+
+La queue des sessions Claude n'est pas expliquée à ce jour. Deux pistes, non vérifiées : des sessions découvertes tard par le rafraîchissement, ou des sessions reprises dont le premier message précède la création du fichier.
+
+### Critères d'acceptation de #2191
+
+| Critère | État | Preuve |
+|---|---|---|
+| ADR évalué avec mesures de latence | **Fait** : ce document. | mesures ci-dessus |
+| Prototype sur 2 machines, lecture < 500 ms, écriture < 2 s | Les 8 machines écrivent dans le store. Lecture ≤ 36 ms et écriture ≤ 211 ms **depuis ai-01**. Il manque une mesure depuis un siège distant ; la sonde est versionnée pour ça. | sonde ci-dessus |
+| Tous types de tâches | claude, roo et zoo présents (8 / 3 / 8 machines). | corpus ci-dessus |
+| Migration testée sur 100+ tâches | Sanctuaire ré-ingéré à 99,8 % (15 conversations bloquées par la garde des 10 Mo, #2428 ouverte). Sondes de complétude sur 7 machines : 2 445 sessions locales sur 2 452 présentes dans le store, les 7 autres sans contenu ou expliquées. | #2191, matrice du 30/09 |
+| Disques locaux en baisse | Canari po-2026 (30/09) : 111 transcripts de plus de 30 jours déplacés vers GDrive, 1,2 Go libérés sur ~4,0 Go de transcripts, 0 écart de manifeste, 0 perte en base. **Pas généralisé** à la flotte. | #2191, rapport canari du 30/09 |
+| Compatibilité ascendante 30 jours | Cache local intact ; les lectures PG ne s'activent que par gate. Annonce de dépréciation J+0 le 29/09 (#1255) : la fenêtre court jusqu'au ~29/10, la suite relève de #1395. | #1255 |
+
+### Écarts connus
+
+1. **Actions d'outils non stockées.** Le dual-write ne garde que les tours user / assistant : `messages.tool_calls` est vide sur les ~8,2 M lignes (mesuré le 06/10). L'index GIN et le filtre `tool_name` côté PG ne trouvent donc rien, et la recherche retombe sur Qdrant seul. Une vue servie par PG n'affiche pas les actions.
+2. **Conversations sans messages en base** : 987 en-têtes seuls (claude 621, zoo 262, roo 104).
+3. **Transcripts archivés** : leur version complète (actions comprises) n'existe plus que dans l'archive GDrive. `view` peut retomber sur PG quand la gate est ouverte, messages seulement ; `summarize` échoue désormais vite au lieu d'attendre 30 s (#1328).
+4. **Garde des 10 Mo** : 15 conversations du sanctuaire en attente (#2428).
 
 ---
 
@@ -185,6 +274,8 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
 
 #### 2. Postgres (nouveau — metadata structurée)
 
+> v3.0 : pas de répliques (Q1), schéma construit différent — voir [v3.0](#v30--accepted-as-built-and-measured-2026-10-06).
+
 - **Installation** : PostgreSQL 16+ sur `ai-01` (master), logical/streaming replicas (read-only) sur `po-2024` et `po-2026`.
 - **Schema** :
 
@@ -221,6 +312,8 @@ CREATE INDEX idx_messages_task_id ON messages(task_id);
 
 #### 3. GDrive skeleton artifacts (étendu)
 
+> v3.0 : non construit — voir [v3.0](#v30--accepted-as-built-and-measured-2026-10-06).
+
 - **Path** : `.shared-state/skeletons/<machineId>/<taskId>.json` (non gzippé, < 50KB typique).
 - **Contenu** : `ConversationSkeleton` JSON UTF-8 no-BOM, identique à Tier 1 actuel.
 - **Pas de .gz par défaut** : skeletons sont petits ; gzip overhead read pas justifié. La compression reste sur Tier 3 archives (gros volumes de messages).
@@ -232,6 +325,8 @@ CREATE INDEX idx_messages_task_id ON messages(task_id);
 - Validité étendue à **60 min** (vs 30 actuel). Justification : Qdrant + Postgres index permettent l'invalidation explicite, donc on peut allonger le TTL sans risquer la staleness.
 
 #### 5. Writer path
+
+> v3.0 : construit autrement (`dualWriteConversationToStore`, sans GDrive ni Qdrant) — voir [v3.0](#v30--accepted-as-built-and-measured-2026-10-06).
 
 - `SkeletonCacheService.upsertSkeleton(taskId, skeleton)` (méthode à ajouter) :
   1. Update Map mémoire.
@@ -423,6 +518,8 @@ LIMIT 20;
 
 ## Open questions (pour user review)
 
+> Tranchées par le user le 2026-05-29 — voir [v3.0](#v30--accepted-as-built-and-measured-2026-10-06).
+
 1. **Replication Postgres** : logical (par-table, plus flexible, peut répliquer subset) vs streaming (whole cluster, plus simple). Recommandation : logical pour pouvoir exclure des tables très volumineuses à l'avenir si besoin.
 
 2. **Postgres hosting sur ai-01** : container Docker vs install native. Docker = isolation + backup facile. Native = perf + simplicité. Recommandation : Docker pour faciliter la maintenance et les snapshots.
@@ -449,3 +546,4 @@ LIMIT 20;
 |---------|------|--------|
 | v1.0 | 2026-05-15 | Option D — Hybride Qdrant + GDrive (R42) |
 | v2.0 | 2026-05-15 | Option E — Hybrid permanent Qdrant + Postgres + GDrive (R43 Scenario B). Supersede R42 "decommission Qdrant". Add Postgres metadata layer, 2-step search, schema definition, Qdrant payload `message_id` extension. |
+| v3.0 | 2026-10-06 | Status Accepted. Records the user decisions of 2026-05-29 (Q1 override: single DB, no replicas) and 2026-09-29 (local cleanup by archival after proof of completeness), the as-built deltas vs v2.0 (no GDrive skeleton path, no Qdrant `message_id`, join on `task_id`), measured read/write/search latencies and cross-machine freshness, acceptance-criteria status, known gaps. |
