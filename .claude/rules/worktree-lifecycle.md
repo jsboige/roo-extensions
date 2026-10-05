@@ -1,8 +1,8 @@
 # Cycle de vie des worktrees — pas d'orphelin
 
-**Version:** 1.0.1
+**Version:** 1.1.0
 **Origine :** [PROPOSAL] po-2026 (20/08), approuvée par l'utilisateur — ancrages (a) + (b)
-**Révisions :** 1.0.1 — points Hermes/jsboige confirmés par web1 sur #3197 : `-d` → `-D` après lecture d'état, worktree sale ≠ orphelin.
+**Révisions :** 1.0.1 — points Hermes/jsboige confirmés par web1 sur #3197 : `-d` → `-D` après lecture d'état, worktree sale ≠ orphelin. · 1.1.0 — garde jonction : délier les reparse points AVANT tout `worktree remove` (incident po-203 c.525 du 05/10 : remove à travers une jonction `node_modules` → contenu du checkout principal supprimé, récupéré ; constat jumeau po-2027 `mcps-2639-*` dirs vides le même jour).
 **Coût qui la motive :** ~300 worktrees orphelins purgés à la main en 4 vagues sur la flotte (14→20/08), dont certains portaient du travail jamais livré (un notebook complet, un fix tsync absent de `main`).
 
 ---
@@ -43,6 +43,11 @@ Seul le cas **detached HEAD** perd réellement du travail au retrait : vérifier
 ## Garde-fous permanents
 
 - **Jamais de `rm -rf` sur un worktree.** Passer par `git worktree remove`.
+- **Jonction = frontière : délier AVANT tout remove.** `git worktree remove` **suit les jonctions** (`mklink /J`) et supprime tout ce qui y est atteignable — y compris dans le checkout principal. Incident fondateur po-203 c.525 (05/10) : le remove d'un worktree submod a suivi `node_modules\roo-state-manager` → serveur RSM du checkout principal, 144 fichiers trackés partis (récupérés : index intact, `.env` depuis GDrive, rebuild). Recette, **avant tout `worktree remove`/`rm`** :
+  1. énumérer les reparse points **par niveau** : `Get-ChildItem -Force | Where-Object LinkType` ;
+  2. délier chaque jonction **sans la traverser** : `[IO.Directory]::Delete($j, $false)` (équivalent `rmdir` nu — jamais `Remove-Item -Recurse`, jamais `rm -rf`, jamais `/S`) ;
+  3. seulement ensuite remove/rm.
+  Le vecteur est le pattern standard des worktrees submod : jonction `node_modules` depuis le checkout principal pour économiser le disque. Le même jour, po-2027 constatait la même famille sur `mcps-2639-*` (dirs vidées).
 - **Sale ≠ orphelin.** `worktree remove` refuse un worktree avec modifications non commitées sans `--force`. Ce refus est une protection : des modifications non commitées peuvent être du travail jamais livré ailleurs. Examiner le contenu (`git status` + `git diff` dans le worktree) **avant** d'utiliser `--force` — pas l'inverse.
 - **Jonctions `.mathlib-cache` et projet SEED : intouchables.**
 - **Preuves avant suppression de branche** — état de PR lu, ou absence de contenu constatée.
