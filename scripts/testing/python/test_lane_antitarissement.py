@@ -275,8 +275,11 @@ class TestCycleEndFailClosed(unittest.TestCase):
 
 class TestCycleEndVerdicts(unittest.TestCase):
     def _seq(self, issues_r1, issues_r2, opened, merged):
+        # Ordre des appels gh de test_cycle_end : issues r1/r2, PR-listes r1/r2
+        # (#3381 D3 : approved-sans-PR), puis delivered (opened/merged par repo).
         return [
             ok_result(issues_r1), ok_result(issues_r2),
+            ok_result([]), ok_result([]),
             ok_result(opened[0]), ok_result(merged[0]),
             ok_result(opened[1]), ok_result(merged[1]),
         ]
@@ -344,6 +347,54 @@ class TestCycleEndVerdicts(unittest.TestCase):
         data = json.loads(out)
         self.assertEqual(data["backlog_grain"], 0)
         self.assertEqual(data["verdict"], "PASS")
+
+    def test_approved_no_pr_word_boundary_coverage(self):
+        # #3381 D3 : couverture = frontiere de mot sur le numero dans le titre
+        # de la PR. "#71" ne couvre PAS l'issue 7 (mesure 05/09 : le flou
+        # --search GitHub, ici remplace par un scan regex local des titres).
+        now = datetime.now(timezone.utc)
+        merged_pr = {"number": 5, "mergedAt": now.isoformat()}
+
+        def pr(n, title):
+            return {"number": n, "title": title}
+
+        seq = [
+            ok_result([issue(7, ["approved"]), issue(8, ["approved"])]),
+            ok_result([]),
+            # PR-listes r1/r2 : "#8 fix" couvre 8 ; "#71" ne couvre PAS 7.
+            ok_result([pr(101, "fix(#8): covered"), pr(102, "ref #71 for other")]),
+            ok_result([]),
+            ok_result([]), ok_result([merged_pr]),   # delivered r1
+            ok_result([]), ok_result([]),            # delivered r2
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(tce, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PASS")
+        nos = [(i["repo"], i["number"]) for i in data["approved_no_pr"]]
+        self.assertIn(("jsboige/roo-extensions", 7), nos)
+        self.assertNotIn(("jsboige/roo-extensions", 8), nos)
+
+    def test_approved_no_pr_gated_excluded(self):
+        # Une approved portant un label de gel ne doit pas apparaitre dans la
+        # vue D3 (meme filtre que le backlog).
+        gated_and_clean = [issue(3, ["approved", "needs-approval"]),
+                           issue(9, ["approved"])]
+        now = datetime.now(timezone.utc)
+        merged_pr = {"number": 5, "mergedAt": now.isoformat()}
+        seq = [
+            ok_result(gated_and_clean), ok_result([]),
+            ok_result([]), ok_result([]),
+            ok_result([]), ok_result([merged_pr]),
+            ok_result([]), ok_result([]),
+        ]
+        with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(tce, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["backlog_grain"], 1)
+        self.assertEqual([i["number"] for i in data["approved_no_pr"]], [9])
 
 
 class GatedLabelDriftGuard(unittest.TestCase):

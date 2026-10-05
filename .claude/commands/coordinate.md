@@ -399,7 +399,8 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
 3. **Commit + push** si fichiers partages modifies
 4. **INTERCOM** : Laisser etat courant pour Roo
 5. **Postcondition Git de fin de cycle (#3776)** : executer `python scripts/check_clean_cycle_exit.py` sur le **clone principal** (pas un worktree) et joindre le verdict au bilan final. Tout verdict non-`PASS` = traiter avant de clore (preservation d'abord, cf. `docs/harness/reference/clean-cycle-exit.md`). Si non applicable (session sans mutation du depot), motiver un `[SKIP-CHECK]` explicite dans le bilan. Les worktrees de PR actifs suivent leur propre protocole (`worktree-lifecycle.md`).
-6. **Skill applicable :** `debrief` (analyse de session, lecons capturees) en fin de session **interactive uniquement** — pas dans un cycle cron. Refs #2884.
+6. **Issues approuvées sans PR (#3381 D3)** : executer `python scripts/scheduling/test_cycle_end.py --since-hours 24 --status-block` et poster le bloc émis dans la section **status** du dashboard workspace via `roosync_dashboard(action:"update", type:"workspace", section:"status", mode:"append")`. Vue **déterministe** (les états GitHub ne viennent jamais de la condensation LLM, #3771) ; le coordinateur est l'**unique writer** — les exécuteurs ne postent pas ce bloc (anti-spam, 1Writer).
+7. **Skill applicable :** `debrief` (analyse de session, lecons capturees) en fin de session **interactive uniquement** — pas dans un cycle cron. Refs #2884.
 
 **Principe :** La consolidation demande du jugement humain/agent. Les scripts `scripts/memory/` sont des aides au diagnostic, pas des automatismes. L'agent decide quoi consolider et ou.
 

@@ -32,6 +32,7 @@ Usage :
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
@@ -78,25 +79,80 @@ def run_gh_json(cmd: list, repo: str, timeout: int = 60) -> list:
         raise GhCommandError(repo, f"stdout non-JSON: {e}") from e
 
 
-def count_actionnable_backlog() -> int:
+def fetch_open_issues(repo: str) -> list:
+    """Issues ouvertes d'un depot (limite 300, bug #2509), fail-closed."""
+    return run_gh_json([
+        "gh", "issue", "list",
+        "--repo", repo,
+        "--state", "open",
+        "--limit", "300",
+        "--json", "number,title,labels",
+    ], repo)
+
+
+def issue_labels(issue: dict) -> set:
+    return {lbl["name"] for lbl in issue.get("labels", [])}
+
+
+def count_actionnable_backlog(issues_by_repo: dict = None) -> int:
     """
     Compte le sous-ensemble actionnable (urne grain uniquement : labels
     approved/bug/investigation) du backlog global. Limite 300 (bug #2509).
     """
+    if issues_by_repo is None:
+        issues_by_repo = {repo: fetch_open_issues(repo) for repo in REPOS}
     total = 0
-    for repo in REPOS:
-        issues = run_gh_json([
-            "gh", "issue", "list",
-            "--repo", repo,
-            "--state", "open",
-            "--limit", "300",
-            "--json", "number,labels",
-        ], repo)
+    for issues in issues_by_repo.values():
         for issue in issues:
-            labels = {lbl["name"] for lbl in issue.get("labels", [])}
+            labels = issue_labels(issue)
             if labels & GRAIN_LABELS and not labels & GATED_LABELS:
                 total += 1
     return total
+
+
+def list_approved_without_pr(issues_by_repo: dict) -> list:
+    """
+    #3381 D3 : issues portant le label `approved` (ouvertes, non gatees)
+    qu'aucune PR ouverte ne couvre, sur les 2 depots.
+
+    Couverture = frontiere de mot sur le numero dans le titre de la PR
+    (`#N([^0-9]|$)`) - le --search GitHub est flou (mesure 05/09) et la
+    parite exacte avec la discipline anti-double-claim est requise.
+    Vue deterministe destinee au statut du dashboard (les etats GitHub
+    ne viennent JAMAIS de la condensation LLM, #3771).
+    """
+    covered = set()
+    prs_by_repo = {}
+    for repo in REPOS:
+        prs = run_gh_json([
+            "gh", "pr", "list",
+            "--repo", repo,
+            "--state", "open",
+            "--limit", "100",
+            "--json", "number,title",
+        ], repo)
+        prs_by_repo[repo] = prs
+        for pr in prs:
+            title = pr.get("title", "")
+            for m in re.finditer(r"#(\d+)(?!\d)", title):
+                covered.add((repo, int(m.group(1))))
+
+    result = []
+    for repo in REPOS:
+        for issue in issues_by_repo.get(repo, []):
+            labels = issue_labels(issue)
+            if "approved" not in labels or labels & GATED_LABELS:
+                continue
+            number = issue.get("number")
+            if (repo, number) in covered:
+                continue
+            result.append({
+                "repo": repo,
+                "number": number,
+                "title": issue.get("title", ""),
+            })
+    result.sort(key=lambda i: (i["repo"], i["number"]))
+    return result
 
 
 def count_prs_delivered_since(since_hours: int) -> int:
@@ -155,13 +211,19 @@ def main() -> int:
                         help="Fenetre temporelle en heures (defaut 24).")
     parser.add_argument("--json", action="store_true",
                         help="Sortie JSON machine-readable.")
+    parser.add_argument("--status-block", action="store_true",
+                        help="#3381 D3 : emet en plus un bloc markdown pret a poster "
+                             "dans la section status du dashboard (issues approved sans PR).")
     args = parser.parse_args()
 
     # Etape 1-2 : collecte fail-closed - toute panne instrument rend ERROR
     # AVANT tout verdict de fond (review #3681).
     errors = []
+    approved_no_pr = None
     try:
-        backlog = count_actionnable_backlog()
+        issues_by_repo = {repo: fetch_open_issues(repo) for repo in REPOS}
+        backlog = count_actionnable_backlog(issues_by_repo)
+        approved_no_pr = list_approved_without_pr(issues_by_repo)
     except GhCommandError as e:
         errors.append(e)
         backlog = None
@@ -208,6 +270,7 @@ def main() -> int:
         "reason": reason,
         "backlog_grain": backlog,
         "prs_delivered_fleet": delivered,
+        "approved_no_pr": approved_no_pr,
         "since_hours": args.since_hours,
         "checked_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -219,6 +282,21 @@ def main() -> int:
         print(f"  Backlog grain (flotte) : {backlog}")
         print(f"  PRs livrees (flotte)   : {delivered}")
         print(f"  Fenetre                : {args.since_hours}h")
+        if approved_no_pr is not None:
+            print(f"  Approved sans PR (D3)  : {len(approved_no_pr)}")
+
+    if args.status_block:
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if approved_no_pr is None:
+            print(f"### Issues approuvees sans PR (auto, {stamp})\n- donnees indisponibles (instrument gh en panne)")
+        elif not approved_no_pr:
+            print(f"### Issues approuvees sans PR (auto, {stamp})\n- aucune")
+        else:
+            lines = [f"### Issues approuvees sans PR (auto, {stamp}) — {len(approved_no_pr)}"]
+            for item in approved_no_pr:
+                repo_short = item["repo"].split("/")[-1]
+                lines.append(f"- {repo_short}#{item['number']} — {item['title']}")
+            print("\n".join(lines))
 
     return 0 if verdict == "PASS" else 1
 
