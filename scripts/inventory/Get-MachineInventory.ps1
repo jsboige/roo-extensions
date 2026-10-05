@@ -684,15 +684,29 @@ try {
 # ===============================
 # 12. VS Code Claude Settings (NOUVEAU #1746)
 # ===============================
-# #2307 (durcissement) : les args MCP sont des valeurs sans nom — un arg qui
-# mentionne key/token/secret/password est masqué avant publication, même règle
-# que le filtre par nom de collectClaudeConfig côté serveur MCP.
+# #2307 (durcissement, review #4064 v2) : les args MCP sont des valeurs sans nom.
+# Trois formes portent un secret et sont masquées avant publication :
+#   1. flag qui NOMME un secret, sans '=' (--api-key, -token) -> l'arg ET le suivant ;
+#   2. valeur qui mentionne key/token/secret/password/bearer/authorization (--api-key=X, headers) ;
+#   3. URL à identifiants (https://user:pass@host).
 function Hide-SecretLikeArgs {
     param([string[]]$ArgList)
     if (-not $ArgList) { return @() }
-    return @($ArgList | ForEach-Object {
-        if ($_ -match '(?i)(key|token|secret|password)') { '<redacted>' } else { $_ }
-    })
+    $marker = 'key|token|secret|password|bearer|authorization'
+    $flagNamesSecret = '^--?[\w-]*(key|token|secret|password|auth)[\w-]*$'
+    $urlCreds = '://[^/@\s]+:[^/@\s]+@'
+    $out = @()
+    for ($i = 0; $i -lt $ArgList.Count; $i++) {
+        $a = $ArgList[$i]
+        if ($a -match $flagNamesSecret) {
+            $out += '<redacted>'
+            if ($i + 1 -lt $ArgList.Count) { $i++; $out += '<redacted>' }
+            continue
+        }
+        if ($a -match $marker -or $a -match $urlCreds) { $out += '<redacted>'; continue }
+        $out += $a
+    }
+    return @($out)
 }
 
 Write-Host "`nCollecte des paramètres VS Code Claude..." -ForegroundColor Yellow
