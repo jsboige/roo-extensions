@@ -359,6 +359,21 @@ Assert-That "l'exit 0 reste reserve au succes lent porte a terme" `
 Assert-That "isError:true interdite le verdict PASS de la sonde" `
     ($ProbeText -match 'StatusCode[ \t]*-eq[ \t]+200[^\r\n]*-match[^\r\n]*isError')
 
+# La ligne PASS doit nommer l'URL REELLEMENT traversee, et ne plus declarer
+# AC#4 satisfait. C'est le defaut corrige par #4068 : le texte etait code en
+# dur (« through the full public chain (IIS/ARR -> ...). AC#4 satisfied. ») et
+# affirmait des hops que l'URL ne traversait pas -- mesure ai-01 05/10,
+# host.docker.internal:9090 = TBXark direct, ni IIS/ARR ni bridge Docker. Le
+# verdict AC#4 se rend sur l'issue, pas par la sonde. Sans garde, la prochaine
+# reecriture du message reintroduit l'affirmation en dur (meme classe que le
+# string « 5m » du template, garde par test-mcp-proxy-template-timeout.ps1).
+Assert-That "la ligne PASS nomme l'URL traversee (regression #4068)" `
+    ($ProbeText -match '(?m)^Write-Host "PASS:[^\r\n]{0,300}?\$url')
+Assert-That "la sonde ne declare plus AC#4 satisfait (regression #4068)" `
+    (-not ($ProbeText -match 'AC#4\s+satisfied'))
+Assert-That "la ligne PASS dit que les hops amont dependent du routage de l'URL" `
+    ($ProbeText -match '(?m)^Write-Host "PASS:[^\r\n]{0,600}?Hops in front of that URL')
+
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }
 else { Write-Host "$($script:Fails) ECHEC(S)" -ForegroundColor Red; exit 1 }
