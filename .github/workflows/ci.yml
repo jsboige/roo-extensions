@@ -118,6 +118,13 @@ on:
       # main changeant le porteur ou la source du garde doit le re-declencher.
       - 'CLAUDE.md'
       - 'scripts/docs/scan-doc-tree-drift.ps1'
+      # Seventh instance of the same gap, and the first one closed in the same
+      # PR that creates the guard: Get-MachineInventory.hide-secret-args.Tests.ps1
+      # (unit-pester job) guards scripts/inventory/Get-MachineInventory.ps1 --
+      # its Hide-SecretLikeArgs masking is what keeps MCP args from publishing
+      # credentials. Without this path, the masking could be broken by a main
+      # push and re-run nothing, exactly like mcp-chain-watchdog.ps1 above.
+      - 'scripts/inventory/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
