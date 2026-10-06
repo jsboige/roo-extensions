@@ -28,8 +28,7 @@
 
 ## Repertoires PROTEGES
 
-- `src/services/synthesis/` — Pipeline LLM
-- `src/services/narrative/` — Stubs = cibles d'IMPLEMENTATION
+Liste unique : [`no-deletion-without-proof.md`](no-deletion-without-proof.md) § Repertoires PROTEGES (#2884).
 
 ## Review Checklist
 
