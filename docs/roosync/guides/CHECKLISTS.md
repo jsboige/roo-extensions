@@ -224,7 +224,7 @@
 
 ### 6.3 Vérifications Documentation
 
-- [ ] INTERCOM mis à jour si action significative
+- [ ] Dashboard workspace mis à jour si action significative (`roosync_dashboard(action: "append", type: "workspace")`)
 - [ ] Commentaires de code si logique complexe
 - [ ] README mis à jour si nouvelle fonctionnalité publique
 
@@ -266,8 +266,8 @@
 | Voir logs | `git log --oneline -10` |
 | Lancer tests | `npm test` |
 | Compiler | `npm run build` |
-| Voir inbox | `roosync_read_inbox` |
-| Voir statut | `roosync_get_status` |
+| Voir inbox | `roosync_messages(action: "inbox")` |
+| Voir statut | `roosync_inventory(type: "status")` |
 
 ### Priorités Messages
 
