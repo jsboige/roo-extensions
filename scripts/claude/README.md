@@ -11,7 +11,7 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
 ### Initialization & Setup
 
 - **`init-claude-code.ps1`** - Initialize Claude Code configuration from templates
-  - Usage: `.claude/scripts/init-claude-code.ps1` (legacy) or `scripts/claude/init-claude-code.ps1` (new)
+  - Usage: `scripts/claude/init-claude-code.ps1`
   - Installs MCPs globally or per-project
   - Creates config files from templates
 
@@ -59,14 +59,16 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
 
 ## Migration Notes
 
-**Old paths (deprecated but still work):**
+**Old paths (removed — `.claude/scripts/` no longer exists):**
+
 - `.claude/scripts/init-claude-code.ps1`
 - `.claude/scripts/Switch-Provider.ps1`
 - `.claude/scripts/worktree-cleanup.ps1`
 
 **New paths (recommended):**
+
 - `scripts/claude/init-claude-code.ps1`
 - `scripts/claude/Switch-Provider.ps1`
 - `scripts/claude/worktree-cleanup.ps1`
 
-The old paths in `.claude/scripts/` will be removed in a future cleanup phase once all references are updated.
+The old `.claude/scripts/` directory has been removed; only the `scripts/claude/` paths above are valid.
