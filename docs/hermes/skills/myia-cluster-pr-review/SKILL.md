@@ -1,9 +1,9 @@
 # MyIA Cluster PR Review (reduced edition)
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Lane:** myia-po-2026:hermes-pr-review
 **Full edition:** lives on po-2026 in `~/skills/github/myia-cluster-pr-review/` — this is the reduced, publishable subset.
-**Update:** 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence) + pli C-bis (marqueurs de lane sous login auteur = couverture, convergence Hermes+NanoClaw 06:22Z).
+**Update:** 2026-10-06 — régime PR TP étudiante ([ASK] CoursIA du 06/10 : jamais CHANGES_REQUESTED sur une PR de fork étudiante) — 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence) + pli C-bis (marqueurs de lane sous login auteur = couverture, convergence Hermes+NanoClaw 06:22Z).
 
 ---
 
@@ -74,6 +74,25 @@ AUTHOR=$(gh api repos/OWNER/REPO/pulls/NNN --jq .user.login); echo "opener=$AUTH
 
 - author == `jsboige` AND substantive verdict → post via the `clusterManager-Myia` token (WRITE on CoursIA; non-author, so not self-review). Fallback on 403/401 → COMMENT under `jsboige` with an honest note.
 - author != `jsboige` → real event under `jsboige`.
+
+### Student TP PRs — benevolent regime (CoursIA mandate 2026-05-20)
+
+On `jsboige/CoursIA`, a PR opened by a student follows a separate review regime (CoursIA rule [`student-pr-reviews.md`](https://github.com/jsboige/CoursIA/blob/main/.claude/rules/student-pr-reviews.md)) — detect it mechanically BEFORE any verdict:
+
+```
+gh api repos/jsboige/CoursIA/pulls/NNN --jq '{author: .user.login, fork: (.head.repo.full_name != .base.repo.full_name)}'
+```
+
+**Student PR = author NOT in (`jsboige`, `clusterManager-Myia`, any `MyIA-*`/`myia-*` machine login) AND the head comes from a fork.** Do not filter on the title (CoursIA decision 06/10); student-notebook paths (EPF/EPITA/ECE) are corroborating signals only.
+
+On a student PR:
+
+- **At most one factual, benevolent COMMENT — strengths first.** The maintainer handles integration; never request changes the student would have to act on. One public review per PR (2026-05-17 incident).
+- **NEVER CHANGES_REQUESTED** except real problems: code that does not run at all, off-topic TP, essential file missing. Empty template + red CI = OK. The internal A–G criteria of CoursIA `pr-review-discipline.md` do NOT apply.
+- **No jury-facing content** (evaluation grids, "questions pour la soutenance", grading criteria) — anti-leak HARD rule.
+- **Security-scan hit ≠ public CHANGES_REQUESTED here**: signal the maintainer on the CoursIA dashboard instead — integration is theirs, and echoing a secret in a comment amplifies it.
+
+Incident of record: 2026-10-06 10:28Z — `CHANGES_REQUESTED` on student TP #19467 (fork `dev-Clarisse`); the points were just but settled by maintainer integration, and a student reads that verdict as a rejection of their work.
 
 ### Checklist
 
