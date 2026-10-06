@@ -176,7 +176,7 @@ Quand aucune issue GitHub n'est assignable, executer ces taches productives dans
 |---|-------|------|-------------|-------------|
 | I1 | Worktree/Branch cleanup | ACTIF | Detecter branches `wt/` orphelines >48h (PR merged/closed), nettoyer worktrees | `git worktree list` + `gh pr list` |
 | I2 | Submodule drift check | READ-ONLY | Verifier `mcps/internal` vs dernier commit merged upstream. Signaler si >1 commit behind | Rapport dashboard `[WARN]` si drift |
-| I3 | Heartbeat health patrol | READ-ONLY | `roosync_inventory(type: "machines")` — verifier heartbeats <6h pour chaque machine | Signaler silencieuses `[WARN]` |
+| I3 | Heartbeat health patrol | READ-ONLY | `roosync_inventory(type: "machines")` (presence dashboard, inventory ≥ v4.2.0) — relever les machines dans `unknownMachines` (aucune activite dashboard < 8 h ; absence de signal, pas panne confirmee) | Signaler silencieuses `[WARN]` |
 | I4 | Config drift patrol | READ-ONLY | `roosync_compare_config()` entre machines, signaler divergences MCP/modes | Claude only |
 | I5 | Doc freshness check | READ-ONLY | Verifier TOUTE la doc — `docs/`, `.claude/rules/`, `.claude/skills/`, `.roo/`, `roo-config/` — chemins references existent encore | Poster `[FRICTION]` si cassé |
 | I6 | TODO/FIXME audit | READ-ONLY | Scanner `TODO`, `FIXME`, `HACK` dans le code. Recouper avec issues existantes | Creer issue pour non-trackés |

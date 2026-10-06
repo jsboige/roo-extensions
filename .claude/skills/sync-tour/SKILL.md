@@ -718,7 +718,7 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 **Objectif :** Utiliser les outils RooSync au-dela de la messagerie pour une vision globale des machines.
 
-> **⚠️ Heartbeat sunset (ADR 008 Phase 4, 2026-05-23).** Ne PAS utiliser `roosync_inventory(type: "heartbeat" | "all" | "machines")` pour juger l'activite des **autres** machines. Sous le modele in-memory d'ADR 008, ces lectures ne refletent QUE le processus local : ai-01 se voit ONLINE, toutes les autres UNKNOWN, quoi qu'elles fassent. La presence cross-machine se lit **exclusivement** depuis le dashboard. Detail : [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
+> **⚠️ Heartbeat sunset (ADR 008 Phase 4, 2026-05-23).** Ne PAS utiliser `roosync_inventory(type: "heartbeat" | "all")` pour juger l'activite des **autres** machines. Sous le modele in-memory d'ADR 008, ces lectures ne refletent QUE le processus local : ai-01 se voit ONLINE, toutes les autres UNKNOWN, quoi qu'elles fassent. La presence cross-machine se lit **exclusivement** depuis le dashboard — ce que font `type: "status"` et, depuis inventory v4.2.0 (ms#1388), `type: "machines"` (listes vides sur un processus plus ancien). Detail : [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
 
 ### Actions
 
