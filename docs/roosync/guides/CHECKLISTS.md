@@ -40,6 +40,7 @@
   cd mcps/internal/servers/roo-state-manager
   npm install && npm run build
   ```
+- [ ] Config Claude initialisée depuis les templates: `scripts/claude/init-claude-code.ps1`
 - [ ] RooSync initialisé via MCP: `roosync_init` (dashboard workspace + enregistrement machine — cf. #2406)
 - [ ] Fichier `.env` créé avec `GITHUB_TOKEN` et `ROOSYNC_SHARED_PATH`
 
