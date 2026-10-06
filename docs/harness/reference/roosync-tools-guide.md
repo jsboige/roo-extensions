@@ -120,7 +120,7 @@ Skips env var inspection when you only need machine presence + drift + capabilit
 | `type` | Purpose | Cross-Machine |
 |--------|---------|---------------|
 | `"status"` | Compact fleet snapshot (online/unknown, flags, toolUsage) | Yes (dashboard activity, 8h window) |
-| `"machines"` | List machine IDs (unknown/idle status) | Yes |
+| `"machines"` | Registry machines classified online/unknown, `machineLastSeen` per machine | Yes (dashboard activity, 8h window — inventory ≥ v4.2.0) |
 | `"machine"` | Single machine details | Local only |
 | `"all"` | Full inventory | Local only |
 | `"heartbeat"` | Heartbeat data | Local process only |
@@ -141,7 +141,7 @@ Skips env var inspection when you only need machine presence + drift + capabilit
 - `toolUsage` (with `includeDetails: true`) — Per-session: totalCalls, uniqueTools, topTools/bottomTools with count+avgMs+lastCallAt, errorTools
 - `schedulerMetrics` — Worker stats from GDrive
 
-**ADR constraint (008-heartbeat-redesign):** Only `type: "status"` is valid for cross-machine queries. `type: "heartbeat"` / `"all"` / `"machines"` reflect the local MCP process only.
+**ADR constraint (008-heartbeat-redesign):** Only `type: "status"` and `type: "machines"` are valid for cross-machine queries — `"machines"` since inventory v4.2.0 (jsboige-mcp-servers#1388); an older serving process returns empty lists. `type: "heartbeat"` / `"all"` reflect the local MCP process only.
 
 **Scenario — Coordinator checking fleet health:**
 ```
