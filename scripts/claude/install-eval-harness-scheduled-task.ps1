@@ -1,4 +1,4 @@
-# Install SDDD Eval Harness Scheduled Task (#2609 V1 cadence)
+﻿# Install SDDD Eval Harness Scheduled Task (#2609 V1 cadence)
 # FAMILY: F-installeur — registers Roo-Eval-Harness-2609 (daily 03:37, current user,
 # unelevated, StartWhenAvailable) which runs run-eval-harness.ps1 against the MAIN
 # checkout: vitest eval-harness (real Qdrant/PG) + dashboard verdict post (claude -p haiku).

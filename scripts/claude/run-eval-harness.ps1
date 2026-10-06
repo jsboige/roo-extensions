@@ -1,4 +1,4 @@
-# Run SDDD Eval Harness (#2609 V1 cadence)
+﻿# Run SDDD Eval Harness (#2609 V1 cadence)
 # FAMILY: eval — cadence wrapper for tests/eval-harness (roo-state-manager).
 # Runs `npm run eval:harness` in the MAIN checkout submodule (real Qdrant/PG via .env),
 # parses per-scenario verdicts deterministically, and posts the verdict summary to the
@@ -38,19 +38,27 @@ $scenarioMap = [ordered]@{
 function Write-Info { param($msg) Write-Host "[INFO] $msg" }
 function Write-Warn { param($msg) Write-Host "[WARN] $msg" -ForegroundColor Yellow }
 
+# Kill the whole process tree: Process.Kill() on PS 5.1 only kills the direct child
+# (npm.cmd -> cmd.exe), leaving node/vitest or claude's MCP children orphaned.
+function Stop-ProcessTree { param($proc) try { & taskkill.exe /T /F /PID $proc.Id 2>&1 | Out-Null } catch { try { $proc.Kill() } catch { } } }
+
+$lockDir = Join-Path $env:TEMP 'eval-harness-2609'
+if (-not (Test-Path $lockDir)) { New-Item -ItemType Directory -Path $lockDir -Force | Out-Null }
+
 # ---- 1. Guards ----
+# The schtask runs with -WindowStyle Hidden: console output is lost, so guard exits are
+# also appended to guard.log (otherwise a missing precondition fails silently every day).
 $pkgDir = Join-Path $RepoRoot 'mcps\internal\servers\roo-state-manager'
 foreach ($rel in @("$pkgDir\.env", "$pkgDir\node_modules\.bin\vitest.cmd", "$pkgDir\vitest.config.eval-harness.ts")) {
     if (-not (Test-Path $rel)) {
         Write-Host "[ERROR] Missing precondition: $rel"
         Write-Host "        Point -RepoRoot at the MAIN checkout (worktrees lack .env/node_modules)."
+        Add-Content -Path (Join-Path $lockDir 'guard.log') -Encoding UTF8 -Value "$(Get-Date -Format o) exit 2 — missing precondition: $rel"
         exit 2
     }
 }
 
 # Re-entry lock: a fresh lock (< 30 min) means another run is in flight — skip silently.
-$lockDir = Join-Path $env:TEMP 'eval-harness-2609'
-if (-not (Test-Path $lockDir)) { New-Item -ItemType Directory -Path $lockDir -Force | Out-Null }
 $lockFile = Join-Path $lockDir 'run.lock'
 if (Test-Path $lockFile) {
     $ageMin = ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalMinutes
@@ -82,7 +90,7 @@ try {
         -PassThru -NoNewWindow
     $timedOut = -not $proc.WaitForExit($VitestTimeoutSec * 1000)
     if ($timedOut) {
-        try { $proc.Kill() } catch { }
+        Stop-ProcessTree $proc
         Write-Warn "Vitest timed out after ${VitestTimeoutSec}s — recording partial output."
     }
     else {
@@ -92,11 +100,13 @@ try {
     $durationSec = [int]((Get-Date) - $started).TotalSeconds
 
     # Merge stdout+stderr (vitest writes test results to stderr) into the kept log, ANSI-stripped.
+    # -Encoding UTF8: node writes UTF-8; PS 5.1 would otherwise decode as cp1252 and the
+    # '✓' match below would only work by matching mojibake against mojibake.
     $ansi = [string][char]27
     $lines = @()
     foreach ($f in @($errFile, $outFile)) {
         if (Test-Path $f) {
-            $lines += (Get-Content $f -ErrorAction SilentlyContinue) |
+            $lines += (Get-Content $f -Encoding UTF8 -ErrorAction SilentlyContinue) |
                 ForEach-Object { $_ -replace "$ansi\[[0-9;]*[A-Za-z]", '' }
         }
     }
@@ -193,7 +203,7 @@ $body
         $stderrTask = $p.StandardError.ReadToEndAsync()
         $postOk = $p.WaitForExit(300000)
         if (-not $postOk) {
-            try { $p.Kill() } catch { }
+            Stop-ProcessTree $p
             Write-Warn 'Dashboard post timed out after 300s.'
             exit 4
         }
