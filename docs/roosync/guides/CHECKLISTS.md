@@ -40,14 +40,14 @@
   cd mcps/internal/servers/roo-state-manager
   npm install && npm run build
   ```
-- [ ] Script init exécuté: `.\.claude\scripts\init-claude-code.ps1`
+- [ ] RooSync initialisé via MCP: `roosync_init` (dashboard workspace + enregistrement machine — cf. #2406)
 - [ ] Fichier `.env` créé avec `GITHUB_TOKEN` et `ROOSYNC_SHARED_PATH`
 
 ### 1.3 Validation
 
 - [ ] VS Code redémarré
 - [ ] `/mcp` affiche roo-state-manager
-- [ ] `roosync_read_inbox` fonctionne
+- [ ] `roosync_messages(action: "inbox")` fonctionne
 - [ ] `gh project list --owner jsboige` fonctionne
 
 ### 1.4 Communication
@@ -65,21 +65,21 @@
 ### 2.1 Au Démarrage
 
 - [ ] Pull des derniers changements: `git pull --rebase`
-- [ ] Vérifier les messages RooSync: `roosync_read_inbox`
-- [ ] Lire INTERCOM local: `.claude/local/INTERCOM-{MACHINE}.md`
+- [ ] Vérifier les messages RooSync: `roosync_messages(action: "inbox")`
+- [ ] Lire le dashboard workspace: `roosync_dashboard(action: "read", type: "workspace", section: "all")`
 - [ ] Consulter le projet GitHub #67
 
 ### 2.2 Pendant le Travail
 
 - [ ] Committer régulièrement (toutes les 30-60 min si changes)
 - [ ] Répondre aux messages RooSync (< 2h pour HIGH, < 30min pour URGENT)
-- [ ] Mettre à jour INTERCOM après actions significatives
+- [ ] Rapporter les actions significatives sur le dashboard workspace (`roosync_dashboard(action: "append", type: "workspace")`)
 
 ### 2.3 En Fin de Session
 
 - [ ] Committer tous les changements non commités
 - [ ] Pousser les commits: `git push`
-- [ ] Mettre à jour INTERCOM avec bilan session
+- [ ] Poster le bilan de session sur le dashboard workspace (tag `DONE`)
 - [ ] Mettre à jour le projet GitHub si tâches complétées
 
 ---
