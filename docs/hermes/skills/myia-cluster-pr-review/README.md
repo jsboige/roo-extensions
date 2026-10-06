@@ -8,7 +8,7 @@ The complete skill (full SKILL.md with the complete protocol history, incident r
 
 ## Contents
 
-- `SKILL.md` — reduced protocol (dedup #2505, opener gate #3219, notebook full-read + gates #17040, living-proof rule, output format).
+- `SKILL.md` — reduced protocol (dedup #2505, opener gate #3219, student-TP benevolent regime, notebook full-read + gates #17040, living-proof rule, output format).
 - `scripts/nb_view.py` — structural notebook renderer (byte-exact canonical copy, see fingerprint in SKILL.md).
 - `scripts/dedup-triage.sh` — cycle dedup table.
 - `scripts/fast-dedup-sweep.sh` — cross-repo coverage sweep.
