@@ -617,6 +617,27 @@ function Test-CopilotCliBlocked {
     return $false
 }
 
+function Get-RepoSlug {
+    # Resolve the owner/name slug from the repo's own origin remote so that
+    # `gh issue ... -R` queries the queue repo regardless of the scheduler's
+    # -WorkingDirectory (which is roo-extensions, not the target repo — #3641 §3).
+    # Returns $null when no slug can be derived; callers then fall back to
+    # cwd-based resolution (previous behavior).
+    param([string]$RepositoryRoot)
+
+    try {
+        $remote = (& git -C $RepositoryRoot remote get-url origin 2>$null | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($remote)) { return $null }
+        # https://github.com/owner/repo(.git) or git@github.com:owner/repo(.git)
+        if ($remote -match 'github\.com[:/]([^/]+)/([^/]+?)(\.git)?$') {
+            return "{0}/{1}" -f $Matches[1], $Matches[2]
+        }
+        return $null
+    } catch {
+        return $null
+    }
+}
+
 function Test-IsActionableIssue {
     param([psobject]$Issue)
 
@@ -654,9 +675,17 @@ function Get-TargetIssue {
         [int]$PreferredIssueNumber = 0
     )
 
+    # #3641 §3: pin the queue repo explicitly. The scheduled task runs with
+    # -WorkingDirectory = roo-extensions clone, so a bare `gh issue ...` would
+    # query roo-extensions regardless of the lane's target repo. Deriving the
+    # slug from the target repo's own origin keeps cwd irrelevant.
+    $repoArgs = @()
+    $repoSlug = Get-RepoSlug -RepositoryRoot $RepositoryRoot
+    if ($repoSlug) { $repoArgs = @('-R', $repoSlug) }
+
     if ($PreferredIssueNumber -gt 0) {
         try {
-            $preferred = & gh issue view $PreferredIssueNumber --json number,title,state,url,labels 2>$null | ConvertFrom-Json
+            $preferred = & gh issue view $PreferredIssueNumber @repoArgs --json number,title,state,url,labels 2>$null | ConvertFrom-Json
             if ($preferred) {
                 if (-not (Test-IsActionableIssue -Issue $preferred)) {
                     return $null
@@ -698,7 +727,7 @@ function Get-TargetIssue {
         # Both terms live in --search on purpose: when --search is given, `gh issue list` drops
         # --label silently (measured 23/09: `--label epic --search "-label:epic"` returned 25
         # issues, not 0), which would turn this pool into every open issue.
-        $items = & gh issue list --state open --search "label:copilot-target -label:frozen" --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        $items = & gh issue list @repoArgs --state open --search "label:copilot-target -label:frozen" --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
         if ($null -eq $items -or $items.Count -eq 0) {
             return $null
         }
