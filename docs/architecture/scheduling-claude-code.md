@@ -233,7 +233,7 @@ Task 3 (Run Tests) blocked_by:
    - Lance Claude avec `--dangerously-skip-permissions`
    - Worktree pour isolation
 
-2. Créer `scripts/scheduling/sync-tour-scheduled.ps1`
+2. Créer `scripts/scheduling/sync-tour-scheduled.ps1` — *supprimé le 2026-10-07 (#4106) : resté un stub de simulation sans appelant ; le sync-tour vit dans le skill `.claude/skills/sync-tour`*
    - Version automatisée du sync-tour
    - Lancé par cron/Task Scheduler
 

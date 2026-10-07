@@ -141,7 +141,6 @@ scripts/scheduling/
 ├── report-result.ps1          # Rapport JSON/Markdown
 ├── collect-metrics.ps1        # Métriques
 ├── start-claude-worker.ps1    # Worker principal (existant)
-├── sync-tour-scheduled.ps1    # Sync-tour (existant)
 ├── setup-scheduler.ps1         # Setup Task Scheduler (existant)
 └── check-prerequisites.ps1     # Vérification pré-requis
 ```
