@@ -140,7 +140,7 @@ Metriques a surveiller :
 
 | Fichier | Role |
 |---------|------|
-| `roo-config/scripts/generate-modes.js` | Generateur (config + engine) |
+| `roo-config/scripts/generate-modes.js` | Generateur (config + engine) — itere l'echelle ordonnee `levels[]` de modes-config.json (#4115), `--config` pour les dry-runs N-niveaux |
 | `roo-config/scripts/Deploy-Modes.ps1` | Deploiement local/global |
 | `roo-config/scripts/analyze-tasks.js` | Analyse forensique |
 | `roo-config/modes/generated/simple-complex.roomodes` | Sortie generee |

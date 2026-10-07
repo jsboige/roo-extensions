@@ -91,3 +91,76 @@ def test_multiple_placeholders_mixed():
         assert missing == ["missing"]
     finally:
         del os.environ["TEST_ZOO_SYNC_SECRET_D"]
+
+
+# --- resolve_profile_mode_map (#4115: --profile pilot lane) ---
+
+_mod = _load()
+_resolve_profile = _mod.resolve_profile_mode_map
+
+_MC = {
+    "profiles": [
+        {"name": "Prod", "modeOverrides": {"code-simple": "simple"}},
+        {"name": "Pilote", "levelOverrides": {"simple": "frognano", "complex": "swift"}},
+        {
+            "name": "Mixte",
+            "modeOverrides": {"code-simple": "override-simple"},
+            "levelOverrides": {"simple": "frognano", "complex": "swift"},
+        },
+    ]
+}
+_MC3 = {
+    "profiles": [{"name": "P3", "levelOverrides": {"simple": "frognano", "medium": "swift", "complex": "default"}}],
+}
+_MODES2 = {
+    "levels": [{"name": "simple"}, {"name": "complex"}],
+    "families": {"code": {}, "debug": {}, "orchestrator": {}},
+}
+_MODES3 = {
+    "levels": [{"name": "simple"}, {"name": "medium"}, {"name": "complex"}],
+    "families": {"code": {}, "debug": {}},
+}
+
+
+def test_level_overrides_expand_to_all_families():
+    got = _resolve_profile(_MC, "Pilote", _MODES2)
+    assert got == {
+        "code-simple": "frognano", "code-complex": "swift",
+        "debug-simple": "frognano", "debug-complex": "swift",
+        "orchestrator-simple": "frognano", "orchestrator-complex": "swift",
+    }
+
+
+def test_three_level_ladder_expands_all_rungs():
+    got = _resolve_profile(_MC3, "P3", _MODES3)
+    assert got["code-medium"] == "swift" and got["debug-medium"] == "swift"
+    assert got["code-simple"] == "frognano" and got["debug-complex"] == "default"
+    assert len(got) == 6  # 2 families x 3 levels
+
+
+def test_mode_overrides_win_over_level_overrides():
+    got = _resolve_profile(_MC, "Mixte", _MODES2)
+    assert got["code-simple"] == "override-simple"  # per-mode escape hatch
+    assert got["debug-simple"] == "frognano"  # level expansion elsewhere
+
+
+def test_unknown_profile_lists_available():
+    try:
+        _resolve_profile(_MC, "N'existe pas", _MODES2)
+        assert False, "must raise"
+    except ValueError as e:
+        assert "Prod" in str(e) and "Pilote" in str(e)
+
+
+def test_level_key_must_be_declared():
+    try:
+        _resolve_profile({"profiles": [{"name": "X", "levelOverrides": {"oracle": "y"}}]}, "X", _MODES2)
+        assert False, "must raise on undeclared level"
+    except ValueError as e:
+        assert "oracle" in str(e)
+
+
+def test_slug_only_profile_without_modes_config():
+    # No levelOverrides -> modes-config not consulted, modeOverrides pass through.
+    got = _resolve_profile(_MC, "Prod", None)
+    assert got == {"code-simple": "simple"}

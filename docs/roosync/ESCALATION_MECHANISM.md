@@ -294,7 +294,7 @@ Chaque mode worker (code, debug, architect, ask) dispose de ses propres critère
 
 ### Couche 3 : Claude CLI Escalade (NOUVEAU - #464 Phase 2.5)
 
-**Fichier source :** `roo-config/modes/modes-config.json` (champ `complexEscalationInstructions`)
+**Fichier source :** `roo-config/modes/modes-config.json` (champ `escalationInstruction` de la **dernière** entrée `levels[]` — ex-`complexEscalationInstructions`, relogé par #4115)
 
 **Rôle :** Quand un mode `-complex` est toujours bloqué après 2 tentatives, il peut escalader à Claude CLI (`claude -p "..."`) qui utilise le modèle Anthropic (plus puissant que le modèle Roo).
 

@@ -37,6 +37,11 @@
     (emit-import) Path for the autoImport file. Default ~/.zoo-provider-profiles.json
     (home dir, outside the repo, never committed — contains resolved plaintext keys).
 
+.PARAMETER ProfileName
+    Deploy this profiles[] entry's mode bindings instead of the top-level modeApiConfigs
+    (#4115 pilot lane: e.g. "Pilote Zoo (FrogNano L1 + Swift L2, tout-local)" on po-2025 —
+    production stays the default everywhere else).
+
 .EXAMPLE
     .\sync-zoo-provider-profiles.ps1 -Mode verify
     Show what's currently in Zoo SecretStorage.
@@ -54,6 +59,11 @@
     Emit a self-healing autoImport file + set zoo-code.autoImportSettingsPath. Then restart
     VS Code — Zoo re-imports and re-asserts the good provider config on every restart.
 
+.EXAMPLE
+    .\sync-zoo-provider-profiles.ps1 -Mode dry-run -ProfileName "Pilote Zoo (FrogNano L1 + Swift L2, tout-local)"
+    Preview the #4115 pilot bindings (FrogNano L1 / Swift L2) before applying them on the
+    pilot machine.
+
 .NOTES
     Issue: #2543 (Phase 2 as-code), #2134, Epic #2639 WS3.
 #>
@@ -70,6 +80,10 @@ param(
     [string]$EnvFile = "",
 
     [string]$ModelConfigs = "",
+
+    [string]$ProfileName = "",
+
+    [string]$ModesConfig = "",
 
     [string]$ImportPath = "~/.zoo-provider-profiles.json"
 )
@@ -119,6 +133,8 @@ switch ($Mode) {
 $pyArgs += @("--target", $Target)
 if ($EnvFile)       { $pyArgs += @("--env", $EnvFile) }
 if ($ModelConfigs)  { $pyArgs += @("--model-configs", $ModelConfigs) }
+if ($ProfileName)   { $pyArgs += @("--profile", $ProfileName) }
+if ($ModesConfig)   { $pyArgs += @("--modes-config", $ModesConfig) }
 
 Write-Host "[wrapper] $pyExe $($pyArgs -join ' ')" -ForegroundColor Cyan
 & $pyExe @pyArgs

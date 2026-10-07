@@ -26,6 +26,10 @@ Usage:
   python sync-zoo-provider-profiles.py --dry-run         # show planned changes, no write
   python sync-zoo-provider-profiles.py --apply           # write (with backup + verify)
   python sync-zoo-provider-profiles.py --apply --target roo
+  python sync-zoo-provider-profiles.py --apply --profile "Pilote Zoo (FrogNano L1 + Swift L2, tout-local)"
+                                                        # deploy a profiles[] entry instead of the
+                                                        # top-level modeApiConfigs (#4115 pilot:
+                                                        # po-2025 only, production untouched elsewhere)
 
 Issue: #2543 (Phase 2 as-code), #2134, Epic #2639 WS3.
 """
@@ -212,15 +216,55 @@ def load_current_blob(vscdb, ext_id, master_key):
 
 
 # --- build new blob from model-configs.json ---
-def build_new_blob(model_configs, env, current_blob, strict):
+def resolve_profile_mode_map(model_configs, profile_name, modes_config):
+    """mode slug -> config NAME, resolved from a profiles[] entry (#4115).
+
+    Two binding forms, both optional:
+      - modeOverrides: slug -> config name (explicit per-mode, wins on conflict)
+      - levelOverrides: LEVEL NAME -> config name, expanded to every family via the
+        ordered levels[] x families declared in modes-config.json. This is the N-level
+        form: a 2-entry levelOverride covers any number of families.
+
+    Without --profile, callers use the top-level modeApiConfigs (production binding);
+    this function is the pilot lane: it swaps in a declared profile's bindings.
+    Raises ValueError with the available profile names when profile_name is unknown.
+    """
+    profiles = model_configs.get("profiles", [])
+    profile = next((p for p in profiles if p.get("name") == profile_name), None)
+    if profile is None:
+        available = ", ".join(p.get("name", "?") for p in profiles) or "(none)"
+        raise ValueError(f"profile '{profile_name}' not found. Available: {available}")
+
+    mode_map = dict(profile.get("modeOverrides") or {})
+
+    level_overrides = profile.get("levelOverrides") or {}
+    if level_overrides:
+        if not isinstance(modes_config, dict):
+            raise ValueError("levelOverrides require --modes-config (levels[] x families)")
+        levels = [l["name"] for l in modes_config.get("levels", []) if isinstance(l, dict) and l.get("name")]
+        families = list(modes_config.get("families", {}).keys())
+        for level_name, config_name in level_overrides.items():
+            if level_name not in levels:
+                raise ValueError(
+                    f"levelOverrides key '{level_name}' is not a level declared in "
+                    f"modes-config levels[] ({', '.join(levels) or 'none'})"
+                )
+            for family in families:
+                slug = f"{family}-{level_name}"
+                mode_map.setdefault(slug, config_name)  # modeOverrides win per-mode
+    return mode_map
+
+
+def build_new_blob(model_configs, env, current_blob, strict, mode_api=None):
     """
     Build the providerProfiles blob from model-configs.json, resolving secrets from env.
     Preserves existing config `id`s (so existing modeApiConfigs refs stay valid) and the
     `migrations` block; generates new ids for new configs; rebuilds modeApiConfigs from
-    model-configs (translating config NAME -> internal id).
+    model-configs (translating config NAME -> internal id). mode_api overrides the
+    top-level modeApiConfigs (resolved by resolve_profile_mode_map for --profile).
     """
     api_configs_src = model_configs.get("apiConfigs", {})
-    mode_api_src = model_configs.get("modeApiConfigs", {})
+    mode_api_src = mode_api if mode_api is not None else model_configs.get("modeApiConfigs", {})
 
     # Preserve existing ids by config name; new ids generated.
     existing_ids = {}
@@ -643,6 +687,11 @@ def main():
     ap.add_argument("--model-configs", default=os.path.join(repo_root(), "roo-config", "model-configs.json"))
     ap.add_argument("--env", default=os.path.join(repo_root(), ".env"))
     ap.add_argument("--target", choices=["zoo", "roo"], default="zoo")
+    ap.add_argument("--profile", default=None, metavar="NAME",
+        help="deploy this profiles[] entry's bindings instead of the top-level modeApiConfigs "
+             "(#4115 pilot lane; levelOverrides entries are expanded via --modes-config)")
+    ap.add_argument("--modes-config", default=os.path.join(repo_root(), "roo-config", "modes", "modes-config.json"),
+        help="modes-config.json path, read only for --profile levelOverrides expansion")
     ap.add_argument("--vscdb", default=None)
     ap.add_argument("--local-state", default=None)
     ap.add_argument("--strict", action="store_true", help="abort on unresolved secrets (default: warn)")
@@ -691,8 +740,19 @@ def main():
 
     with open(args.model_configs, encoding="utf-8") as f:
         model_configs = json.load(f)
+
+    mode_api = None
+    if args.profile:
+        with open(args.modes_config, encoding="utf-8") as f:
+            modes_config = json.load(f)
+        try:
+            mode_api = resolve_profile_mode_map(model_configs, args.profile, modes_config)
+        except ValueError as e:
+            sys.exit(f"[FATAL] --profile: {e}")
+        print(f"[*] profile mode bindings: {args.profile} ({len(mode_api)} modes)")
+
     env = load_env(args.env)
-    new_blob = build_new_blob(model_configs, env, current_blob, args.strict)
+    new_blob = build_new_blob(model_configs, env, current_blob, args.strict, mode_api=mode_api)
     global_settings = build_global_settings(model_configs, env, args.strict)
     index_secrets = attach_index_secrets(new_blob, model_configs, env, args.strict)
     global_settings = preflight_index_credentials(global_settings, index_secrets)
