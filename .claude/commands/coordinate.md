@@ -387,6 +387,34 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
 
 **Pour les issues differees :** Representer systematiquement a la session suivante tant que non tranchees.
 
+### Sortie de tour — quand il ne reste que du marginal (#3647)
+
+**Condition, les trois requises — alors le tour s'arrete et le prochain cron est la frontiere de fraicheur :**
+
+1. **Lanes provisionnees** : chacune a une deep-queue executable pour plusieurs cycles autonomes.
+   C'est le critere historique deja present dans ce fichier (une file doit tenir pendant l'absence
+   d'ai-01) — pas un nouveau quota.
+2. **Obligations courantes soldees** : terminees, **bloquees avec leur condition de reprise nommee**,
+   ou passees. « En attente d'une relecture de plus » n'est pas un etat.
+3. **Aucune action restante a valeur attendue superieure au marginal** : ce qui reste, c'est relire un
+   etat inchange, narrer, ou repasser sur un candidat dont l'evenement de reprise n'a pas eu lieu.
+
+**Ce que cette regle n'autorise PAS** — le harnais a deja paye ce pendule :
+
+- s'arreter avec une lane a sec, ou une obligation en vol non nommee ;
+- transformer « valeur marginale » en permission generale de finir apres une PR bloquee :
+  `always-pick-next` **reste obligatoire** — on prend une **autre** issue en souffrance, et on ne
+  s'arrete que lorsqu'il n'en reste plus d'actionnable **et** que les trois conditions tiennent ;
+- supprimer une lecture de securite : surface complete de PR avant review/merge, fraicheur avant
+  livraison, assertion d'identite dans la commande qui agit, verification post-action, relecture
+  differee de fermeture.
+
+**Pourquoi** (arbitrage user 14/09, #3647) : *« le probleme, pour le coordinateur, est de ne pas
+s'arreter et d'attendre le prochain cron quand les lanes sont deja bien provisionnees en son absence
+et qu'il ne reste que des gains de coordination marginaux »*. L'equilibre vise : continuer sur un
+travail utile **different** ; attendre sur le candidat **inchange** ; et, pour un coordinateur
+suffisamment provisionne, s'arreter jusqu'a la prochaine frontiere de fraicheur.
+
 ### Fin de Session / Avant Saturation Contexte
 
 **OBLIGATOIRE avant de terminer ou quand le contexte approche sa limite :**

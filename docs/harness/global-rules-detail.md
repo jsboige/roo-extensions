@@ -137,6 +137,15 @@ Attribuer une mesure par `session_id` avant toute agrégation machine ; distingu
 quelle session, quel parent ou quel sous-agent l'a produite. Les messages font 3-5 lignes par défaut ;
 les décisions, blocages et preuves discriminantes peuvent dépasser cette borne.
 
+### La limite du harnais
+
+Retirer l'amplification du harnais ne promet pas de supprimer la verbosité côté modèle : la
+croissance de sortie par requête et de *thinking* observée à l'été 2026 est un effet modèle, que le
+harnais ne peut ni expliquer ni corriger. Le succès de #3647 se mesure donc en **observations
+dupliquées, compactions et sortie par obligation terminée** — pas en nombre d'appels d'outils — et
+une verbosité modèle résiduelle n'invalide pas le travail fait ici. Le versant télémétrique
+avant/après appartient à l'issue claudish, pas à ce dépôt.
+
 ---
 
 ## User Arbitration — Registre des questions
