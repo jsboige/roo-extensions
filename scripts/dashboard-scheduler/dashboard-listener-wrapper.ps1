@@ -69,12 +69,30 @@ function Write-Heartbeat {
     }
 }
 
+function Add-LogFileLine {
+    # #3761 residue (b): Tee-Object's -FilePath encoding follows the ENGINE —
+    # PS 7 writes UTF-8 no BOM, PS 5.1 writes UTF-16LE. Measured on po-2023:
+    # the same log dir holds UTF-8 days and one UTF-16LE day (listener-20261004
+    # vs -20261005), and readers grep these files raw (vibe-feeder.ps1 looks
+    # for PROMPT_OK lines). One byte-exact writer for every engine — the same
+    # UTF8Encoding($false) pattern as the listener's other write sites.
+    param([string]$Path, [string]$Line)
+    try {
+        [System.IO.File]::AppendAllText($Path, $Line + [Environment]::NewLine,
+            [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        # Non-blocking — logging must never kill the listener chain.
+    }
+}
+
 function Write-WrapLog {
     param([string]$Message)
     # Date evaluated per call so each write targets the current day's file.
     $logFile = Join-Path $LogDir ("listener-{0}.log" -f (Get-Date).ToUniversalTime().ToString("yyyyMMdd"))
     $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-    "$Message [$ts]" | Tee-Object -FilePath $logFile -Append
+    $line = "$Message [$ts]"
+    Add-LogFileLine $logFile $line
+    Write-Host $line
 }
 
 . (Join-Path $RepoRoot "scripts\common\single-instance-mutex.ps1")
@@ -96,7 +114,13 @@ try {
             # Previously used 2>&1 which missed Write-Host output, making logs nearly empty (#2186 Bug 1).
             $dateStamp = (Get-Date).ToUniversalTime().ToString("yyyyMMdd")
             $logFile = Join-Path $LogDir "listener-$dateStamp.log"
-            & $listenerScript *>&1 | Tee-Object -FilePath $logFile -Append
+            & $listenerScript *>&1 | ForEach-Object {
+                # Engine-portable sink (Add-LogFileLine) instead of Tee-Object:
+                # same capture semantics, byte-exact UTF-8 regardless of engine
+                # (#3761 residue b). $_ passes through for interactive runs.
+                Add-LogFileLine $logFile "$_"
+                $_
+            }
             $exitCode = $LASTEXITCODE
         } catch {
             Write-WrapLog "ERROR uncaught: $_"
