@@ -633,6 +633,43 @@ class CandidateSkipRules(unittest.TestCase):
         self.assertEqual(data["urn"], "delivered")
         self.assertFalse(data["candidates"][0]["skipped"])
 
+    def test_same_machine_other_workspace_claim_skips(self):
+        # AC #4114 : le claim de l'AUTRE workspace de SA machine ecarte le
+        # grain -- le picker classifie sur l'identite LANE, pas la machine.
+        item = picker.normalize_rest_item(rest_issue(63, ["approved"]), REPOS[0])
+        claimed = {"state": "OPEN",
+                   "comments": [claim_comment("myia-po-2027:CoursIA-2", hours=1.0)]}
+        with mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=claimed):
+            skip, reason = picker.check_candidate(
+                "grain", item, "myia-po-2027", "myia-po-2027:roo-extensions"
+            )
+        self.assertTrue(skip)
+        self.assertIn("myia-po-2027:CoursIA-2", reason)
+
+    def test_own_lane_claim_same_workspace_is_resumable(self):
+        # Miroir : le claim de SA lane (meme machine, meme workspace) n'ecarte
+        # pas le grain -- reprise, pas collision.
+        item = picker.normalize_rest_item(rest_issue(64, ["approved"]), REPOS[0])
+        claimed = {"state": "OPEN",
+                   "comments": [claim_comment("myia-po-2027:roo-extensions", hours=1.0)]}
+        with mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=claimed):
+            skip, _reason = picker.check_candidate(
+                "grain", item, "myia-po-2027", "myia-po-2027:roo-extensions"
+            )
+        self.assertFalse(skip)
+
+    def test_own_lane_id_composes_machine_and_workspace(self):
+        # #4114 : l'identite de lecture de claims est la lane, workspace par
+        # walk-up toplevel ; degrade en machine seule hors depot.
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}), \
+                mock.patch.object(picker.check_issue_claim, "detect_workspace",
+                                  return_value="roo-extensions"):
+            self.assertEqual(picker.own_lane_id(), "myia-po-2027:roo-extensions")
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}), \
+                mock.patch.object(picker.check_issue_claim, "detect_workspace",
+                                  return_value=""):
+            self.assertEqual(picker.own_lane_id(), "myia-po-2027")
+
 
 class LaneSeedDivergence(unittest.TestCase):
     """#4103 : deux machines tirent des listes differentes sur le meme pool."""

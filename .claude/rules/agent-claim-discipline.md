@@ -1,7 +1,7 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 2.1.0 (slim 2 — récits fondateurs relocalisés, #2368)
-**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue)
+**Version:** 2.2.0 (identité de claim = lane `machine:workspace`, #4114)
+**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue), #4114 (identité lane)
 
 ---
 
@@ -23,15 +23,16 @@
    — si une PR existe deja dans l'un des deux, STOP. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, pas de `\b` — fragilise par les couches de quoting bash→gh) : le filtre `--search "#NNN"` de GitHub est flou (mesure 05/09 : `#34` ramene des PRs sans rapport, meme quoté) et `#109` matche `#1091` — sans frontiere, une issue est skippee a tort.
 2. **Verifier et poser le verrou SUR L'ISSUE** (locus canon depuis v2.0, ADR 017) :
    ```bash
-   python scripts/github/check_issue_claim.py NNN                 # exit 1 = une AUTRE machine tient un claim actif
+   python scripts/github/check_issue_claim.py NNN                 # exit 1 = une AUTRE lane tient un claim actif
    python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
    ```
    Le check precede l'**edition**, pas le push. Pas de timestamp dans le corps du claim : le `createdAt` serveur fait foi (défaut local-time-en-Z impossible par construction). Claim sans machine identifiable = fail-closed (bloque). Péremption `--stale-threshold` (défaut 24 h) : un claim étranger périmé avertit sans bloquer, mais le nouveau claimant pose quand même son `[CLAIMED]`.
+   **Identité de claim = lane `machine:workspace` (#4114)** : par défaut COMPUTERNAME + basename du toplevel git (`--workspace` surcharge le suffixe, `--agent` remplace l'id entier). Même machine + workspace différent = claim **étranger** (deux lanes partagent une machine, seul le workspace les distingue) ; un claim ancien format machine-seule (`[CLAIMED] myia-po-2026 -- ...`) vu d'une lane de sa machine = **étranger fail-closed** avec avertissement `LEGACY_CLAIM`. La **levée doit porter la même identité que la pose** : un `[RELEASED]`/`[DONE]` machine-seule ne ferme pas un verrou posé sous identité lane (et réciproquement) — lever avec l'identité sous laquelle le verrou a été posé.
    **Depot (#3768) :** `--repo` n'a plus de defaut fige. Absent, le guard classe le numero dans les **deux** depots (cle `pull_request` de l'API REST) : un seul le porte comme issue -> resolu ; les deux -> **`AMBIGUOUS`, exit 3**, desambiguisation exigee ; **un seul depot injoignable -> exit 2**, il refuse au lieu de resoudre vers celui qui a repondu. Il ne devine jamais, **y compris quand la mesure echoue** : un mauvais choix **pose le verrou sur l'autre depot** et laisse le vrai grain libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien rendu » n'est jamais « il n'y a rien ». (Mesures fondatrices : doc detaillee.)
 3. **Narration dashboard (bienvenue, non autoritaire)** : `roosync_dashboard(action: "append", tags: ["CLAIMED"], content: "#NNN — myia-poXXXX commencing work")` — le récit de cycle reste sur le dashboard ; le **registre de verrous** est le commentaire d'issue.
 4. **Tie-break (HARD)** : un claim-issue **prime sur un claim-dashboard, même antérieur** — un seul locus fait foi (incident CoursIA #10169 : 12 min d'avance perdues sur deux locus concurrents).
 5. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` **sur l'issue** (createdAt serveur) prime.
-6. **Levier du verrou** : `--release` ou commentaire `[DONE] <machine>` quand la PR atterrit.
+6. **Levier du verrou** : `--release` ou commentaire `[DONE] <lane>` quand la PR atterrit — sous la MÊME identité que la pose (#4114).
 
 ## Pre-Delivery Discipline (#3224) — le claim garde le DEPART, pas la LIVRAISON
 

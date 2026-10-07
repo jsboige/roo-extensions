@@ -1,23 +1,33 @@
 #!/usr/bin/env python3
-"""test_check_issue_claim.py — tests unitaires pour #3676 (ADR 017).
+"""test_check_issue_claim.py — tests unitaires pour #3676 (ADR 017) + #4114.
 
 Couverture :
   - parse_iso_utc : stamps serveur Z et +00:00
-  - extract_machine : token machine sur la ligne, absent, casse
+  - extract_lane : identité lane machine[:workspace] (#4114), token machine
+    seul, absent, casse, workspace case-preserved
   - scan_comment_events : line-anchored (prose = non-événement, #10228),
     tolérance décoration (**, ##, liste), multi-marqueurs multi-lignes,
     insensible à la casse
   - reduce_claims : dernier marqueur gagne, tri par createdAt serveur
-    (pas l'ordre d'entrée), close sans open = no-op, sentinel unowned
-  - classify : blocage autre machine, STALE au-delà du seuil, propre claim
-    = reprise, claim sans propriétaire = fail-closed
-  - main : end-to-end bloqué / clear / reprise, issue fermée
+    (pas l'ordre d'entrée), close sans open = no-op, sentinel unowned,
+    release legacy ne ferme pas un verrou lane (#4114 fail-closed)
+  - classify : blocage autre lane, STALE au-delà du seuil, propre claim
+    = reprise, claim sans propriétaire = fail-closed, sémantique
+    machine:workspace (#4114) : même machine+même workspace = self, même
+    machine+workspace différent = foreign, legacy sans workspace = foreign
+    + LEGACY_CLAIM (fail-closed)
+  - default_agent / detect_workspace : composition lane, walk-up toplevel,
+    dégradation machine seule hors dépôt
+  - main : end-to-end bloqué / clear / reprise, issue fermée, composition
+    --workspace depuis COMPUTERNAME
 """
 
 import contextlib
 import io
 import json
+import os
 import sys
+import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -31,7 +41,9 @@ from check_issue_claim import (
     SUBMODULE_REPO,
     classify,
     classify_number,
-    extract_machine,
+    default_agent,
+    detect_workspace,
+    extract_lane,
     fetch_issue,
     main,
     parse_iso_utc,
@@ -63,18 +75,40 @@ class TestParseIsoUtc(unittest.TestCase):
         self.assertEqual(parsed.tzinfo, timezone.utc)
 
 
-class TestExtractMachine(unittest.TestCase):
+class TestExtractLane(unittest.TestCase):
     def test_fleet_tokens(self):
         for token in ("myia-ai-01", "myia-po-2026", "myia-web1"):
             self.assertEqual(
-                extract_machine(f"[CLAIMED] {token} -- work"), token
+                extract_lane(f"[CLAIMED] {token} -- work"), token
             )
 
     def test_case_insensitive(self):
-        self.assertEqual(extract_machine("[CLAIMED] MYIA-PO-2026 -- work"), "myia-po-2026")
+        self.assertEqual(extract_lane("[CLAIMED] MYIA-PO-2026 -- work"), "myia-po-2026")
 
     def test_absent(self):
-        self.assertIsNone(extract_machine("[CLAIMED] starting work now"))
+        self.assertIsNone(extract_lane("[CLAIMED] starting work now"))
+
+    def test_machine_workspace_suffix(self):
+        # #4114 : l'identité de claim est la lane machine:workspace
+        self.assertEqual(
+            extract_lane("[CLAIMED] myia-po-2026:roo-extensions -- work"),
+            "myia-po-2026:roo-extensions",
+        )
+
+    def test_workspace_case_preserved_machine_lowered(self):
+        # La casse du workspace est conservée (affichage) ; seule la machine
+        # est normalisée -- les COMPARAISONS sont insensibles à la casse.
+        self.assertEqual(
+            extract_lane("[CLAIMED] MYIA-PO-2026:CoursIA-2 -- work"),
+            "myia-po-2026:CoursIA-2",
+        )
+
+    def test_colon_without_workspace_token_is_machine_only(self):
+        # "myia-po-2026: 12:00" (horodatage en prose) : le ':' non suivi d'un
+        # token workspace ne fabrique pas une lane fantôme.
+        self.assertEqual(
+            extract_lane("[CLAIMED] myia-po-2026: pending review"), "myia-po-2026"
+        )
 
     def test_machine_on_other_line_not_attributed(self):
         # la machine citée sur une AUTRE ligne que le marqueur n'est pas
@@ -241,6 +275,28 @@ class TestReduceClaims(unittest.TestCase):
         events = [e[0] for e in scan_comment_events(body)]
         self.assertEqual(events, ["CLAIMED"])
 
+    def test_lane_scoped_claim_release_roundtrip(self):
+        # #4114 : pose et levée sous la MÊME identité lane se suivent.
+        comments = [
+            comment("[CLAIMED] myia-po-2026:roo-extensions -- start", T0),
+            comment("[RELEASED] myia-po-2026:roo-extensions -- shipped", T0 + timedelta(hours=1)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "released")
+
+    def test_legacy_release_does_not_close_lane_claim(self):
+        # #4114 fail-closed : une levée au format historique (machine seule)
+        # ne libère PAS un verrou posé sous identité lane -- le releaser sans
+        # suffixe n'est pas prouvé être la lane qui a posé le verrou.
+        comments = [
+            comment("[CLAIMED] myia-po-2026:roo-extensions -- start", T0),
+            comment("[DONE] myia-po-2026 -- shipped", T0 + timedelta(hours=1)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "active")
+        # ... et la clé legacy, distincte, n'existe pas (close sans open = no-op)
+        self.assertNotIn("myia-po-2026", state)
+
 
 class TestClassify(unittest.TestCase):
     def _state(self, machine, since):
@@ -284,6 +340,151 @@ class TestClassify(unittest.TestCase):
             state, "myia-po-2026", 24.0, now=T0 + timedelta(hours=1)
         )
         self.assertEqual((blocking, warnings, notes), ([], [], []))
+
+
+class TestClassifyLaneIdentity(unittest.TestCase):
+    """#4114 : l'identité de claim est la lane machine[:workspace].
+
+    AC de l'issue : même machine + même workspace = self ; même machine +
+    workspace différent = foreign ; machine différente = foreign ; claim
+    legacy sans workspace vu d'une lane de sa machine = foreign +
+    avertissement (fail-closed).
+    """
+
+    def _state(self, lane, since=T0):
+        return {lane: {"state": "active", "since": since, "line": "[CLAIMED] x"}}
+
+    def test_same_machine_same_workspace_is_self(self):
+        blocking, warnings, notes = classify(
+            self._state("myia-po-2026:roo-extensions"),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual((blocking, warnings), ([], []))
+        self.assertEqual(len(notes), 1)
+        self.assertIn("resuming", notes[0])
+
+    def test_same_machine_different_workspace_is_foreign(self):
+        # Deux lanes partagent une machine : seul le workspace les distingue.
+        blocking, warnings, notes = classify(
+            self._state("myia-po-2026:CoursIA-2"),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(blocking[0][0], "myia-po-2026:CoursIA-2")
+        self.assertEqual(notes, [])
+        # foreign "simple" : pas de warning LEGACY (le claim porte un workspace)
+        self.assertEqual([w for w in warnings if "LEGACY" in w], [])
+
+    def test_different_machine_is_foreign(self):
+        blocking, _w, notes = classify(
+            self._state("myia-po-2025:roo-extensions"),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(notes, [])
+
+    def test_legacy_claim_without_workspace_is_foreign_fail_closed(self):
+        # AC #4114 : un claim pré-#4114 (machine seule) vu d'une lane de SA
+        # machine est un TIERS -- on ne sait pas quelle lane l'a posé.
+        blocking, warnings, notes = classify(
+            self._state("myia-po-2026"),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(blocking[0][0], "myia-po-2026")
+        self.assertEqual(notes, [])
+        legacy = [w for w in warnings if w.startswith("LEGACY_CLAIM")]
+        self.assertEqual(len(legacy), 1)
+        self.assertIn("myia-po-2026", legacy[0])
+
+    def test_legacy_agent_seeing_workspace_claim_is_foreign_too(self):
+        # Converse : l'agent sans workspace (machine seule) face à un claim
+        # lane de sa machine -- même fail-closed.
+        blocking, warnings, _n = classify(
+            self._state("myia-po-2026:roo-extensions"),
+            "myia-po-2026",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(len([w for w in warnings if w.startswith("LEGACY_CLAIM")]), 1)
+
+    def test_both_legacy_same_machine_is_self(self):
+        # Compat : agent ET claim au format historique machine seule -- le
+        # guard d'origine (pré-#4114) doit garder sa sémantique de reprise.
+        blocking, warnings, notes = classify(
+            self._state("myia-po-2026"),
+            "myia-po-2026",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual((blocking, warnings), ([], []))
+        self.assertEqual(len(notes), 1)
+        self.assertIn("resuming", notes[0])
+
+    def test_legacy_claim_past_threshold_is_stale_not_blocking(self):
+        # La péremption domine le fail-closed : un claim legacy de 30 h ne
+        # bloque plus (STALE), le claimant pose son propre [CLAIMED].
+        blocking, warnings, _n = classify(
+            self._state("myia-po-2026", since=T0 - timedelta(hours=30)),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0,
+        )
+        self.assertEqual(blocking, [])
+        self.assertEqual(len([w for w in warnings if w.startswith("STALE_CLAIM")]), 1)
+        self.assertEqual(len([w for w in warnings if w.startswith("LEGACY_CLAIM")]), 1)
+
+    def test_lane_comparison_is_case_insensitive(self):
+        # Le workspace en casse différente désigne la MÊME lane (la casse y
+        # est de l'affichage, pas de l'identité).
+        blocking, _w, notes = classify(
+            self._state("myia-po-2026:Roo-Extensions"),
+            "myia-po-2026:roo-extensions",
+            24.0,
+            now=T0 + timedelta(hours=2),
+        )
+        self.assertEqual(blocking, [])
+        self.assertEqual(len(notes), 1)
+        self.assertIn("resuming", notes[0])
+
+
+class TestLaneIdentityHelpers(unittest.TestCase):
+    """default_agent / detect_workspace (#4114) : composition de la lane."""
+
+    def test_detect_workspace_walks_up_to_git_toplevel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "my-repo"
+            (root / "sub" / "dir").mkdir(parents=True)
+            (root / ".git").mkdir()
+            with patch("check_issue_claim.Path.cwd", return_value=root / "sub" / "dir"):
+                self.assertEqual(detect_workspace(), "my-repo")
+
+    def test_detect_workspace_empty_outside_any_repo(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("check_issue_claim.Path.cwd", return_value=Path(tmp)):
+                self.assertEqual(detect_workspace(), "")
+
+    def test_default_agent_composes_machine_and_workspace(self):
+        with patch.dict(os.environ, {"COMPUTERNAME": "MYIA-WEB2"}):
+            # workspace case-preserved : tel que passé/détecté
+            self.assertEqual(default_agent("roo-extensions"), "myia-web2:roo-extensions")
+
+    def test_default_agent_empty_workspace_degrades_to_machine(self):
+        with patch.dict(os.environ, {"COMPUTERNAME": "MYIA-WEB2"}):
+            self.assertEqual(default_agent(""), "myia-web2")
+
+    def test_default_agent_none_off_fleet(self):
+        with patch.dict(os.environ, {"COMPUTERNAME": "WIN-QM11U56L393"}):
+            self.assertIsNone(default_agent("roo-extensions"))
 
 
 class TestMain(unittest.TestCase):
@@ -335,6 +536,39 @@ class TestMain(unittest.TestCase):
         ):
             rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 2)
+
+    def test_workspace_flag_composes_agent_and_resumes_own_lane(self):
+        # #4114 : sans --agent, l'identité se compose COMPUTERNAME + --workspace ;
+        # le claim de SA propre lane est une reprise (exit 0), pas un blocage.
+        issue = self._issue([
+            comment("[CLAIMED] myia-web2:roo-extensions -- mine", T0)
+        ])
+        with patch.dict("os.environ", {"COMPUTERNAME": "MYIA-WEB2"}):
+            with patch("check_issue_claim.fetch_issue", return_value=issue):
+                with patch(
+                    "check_issue_claim.now_utc",
+                    return_value=T0 + timedelta(hours=1),
+                ):
+                    rc = main(
+                        ["123", "--repo", DEFAULT_REPO, "--workspace", "roo-extensions"]
+                    )
+        self.assertEqual(rc, 0)
+
+    def test_workspace_flag_same_machine_other_workspace_blocks(self):
+        # Miroir : même machine, autre workspace -> claim étranger, exit 1.
+        issue = self._issue([
+            comment("[CLAIMED] myia-web2:CoursIA-2 -- other lane", T0)
+        ])
+        with patch.dict("os.environ", {"COMPUTERNAME": "MYIA-WEB2"}):
+            with patch("check_issue_claim.fetch_issue", return_value=issue):
+                with patch(
+                    "check_issue_claim.now_utc",
+                    return_value=T0 + timedelta(hours=1),
+                ):
+                    rc = main(
+                        ["123", "--repo", DEFAULT_REPO, "--workspace", "roo-extensions"]
+                    )
+        self.assertEqual(rc, 1)
 
 
 def gh_router(graphql, issue_state, comments):

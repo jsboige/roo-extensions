@@ -41,8 +41,11 @@ registre vivant, et le plus fragile.
 **Le verrou déménage sur l'issue ; le dashboard reste le canal de narration.**
 
 1. **Claim = commentaire d'issue.** Forme canonique : ligne débutant par
-   `[CLAIMED] <machine> — <intention en une ligne>`. Pas de timestamp dans le corps : le
-   `createdAt` serveur fait foi. Levée : `[RELEASED]` (ou `[DONE]` à la livraison).
+   `[CLAIMED] <lane> — <intention en une ligne>` où `<lane>` est l'identité
+   `machine[:workspace]` (amendement #4114 ci-dessous ; format historique pré-#4114 :
+   machine seule). Pas de timestamp dans le corps : le
+   `createdAt` serveur fait foi. Levée : `[RELEASED]` (ou `[DONE]` à la livraison),
+   sous la même identité que la pose.
 2. **Organe de check AVANT mutation** :
    ```bash
    python scripts/github/check_issue_claim.py <N>            # exit 1 si une AUTRE machine tient un claim actif
@@ -66,7 +69,7 @@ registre vivant, et le plus fragile.
 4. **Fail-closed** : un `[CLAIMED]` sans machine identifiable bloque (claim « sans propriétaire »)
    — on répare le marqueur, on ne l'ignore pas. Un marker cité en milieu de prose n'est PAS un
    événement (line-anchored, incident #10228 côté CoursIA) ; « dernier marqueur gagne » par
-   machine.
+   lane.
 5. **Migration par surface, pas de big-bang.** Surface couverte dès maintenant : la discipline
    pre-claim de `agent-claim-discipline.md` (tout travail rattaché à une issue GitHub). Le
    `[CLAIMED]` dashboard reste **bienvenu comme narration** ; il cesse d'être le registre de
@@ -77,6 +80,33 @@ registre vivant, et le plus fragile.
    (« Use dashboard `[CLAIMED]` tags ») est périmée par la présente décision — le message du
    registre devra pointer vers le locus issue lors de la prochaine PR submod touchant
    `registry.ts` (follow-up noté, hors périmètre #3676 : pas de bump submodule pour un message).
+
+## Amendement #4114 (2026-10-07) — l'identité de claim devient la lane `machine:workspace`
+
+**Motif mesuré :** l'identité machine-seule rend deux workspaces d'une même machine
+indiscernables pour le garde — un claim posé par `myia-po-2026:roo-extensions` est « self »
+vu depuis `myia-po-2026:CoursIA-2`, qui reprend alors le grain et travaille en collision.
+La flotte multi-workspaces (po-2026 notamment) rend le cas réel, pas théorique.
+
+**Sémantique :**
+
+- L'identité lue sur le marqueur est `machine[:workspace]` (workspace optionnel au sens
+  syntaxique : les claims antérieurs à #4114 n'en portent pas). Extraction : machine
+  lowercasée, workspace casse préservée (affichage), **comparaisons insensibles à la casse**.
+- L'identité de l'agent par défaut : `COMPUTERNAME` + basename du toplevel git (walk-up pur,
+  sans subprocess — un worktree résout vers SON toplevel : la lane qui y travaille claim sous
+  son nom). Surcharges : `--workspace NAME` (suffixe seul), `--agent id` (id entier).
+- `classify` : même lane → reprise ; machine différente OU même machine + workspace
+  différent → étranger (blocage si frais, `STALE_CLAIM` au-delà du seuil) ; **claim sans
+  workspace vu d'une lane de la même machine → étranger fail-closed + avertissement
+  `LEGACY_CLAIM`** — on ne sait pas quelle lane l'a posé ; compat : agent ET claim
+  machine-seuls (les deux pré-#4114) → self.
+- La levée porte la même identité que la pose : un `[RELEASED]`/`[DONE]` machine-seul ne
+  ferme pas un verrou posé sous identité lane (et réciproquement) — fail-closed symétrique,
+  borné par la péremption 24 h.
+- Le picker (`pick_idle_grain.py`) hérite du changement par réutilisation : `classify`
+  reçoit l'identité lane (`own_lane_id()`), la graine du tirage et les étiquettes de lane
+  restent sur la machine.
 
 ## Conséquences
 
