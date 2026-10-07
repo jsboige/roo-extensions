@@ -221,9 +221,15 @@ Selon planification Task Scheduler / Cron
         return
     }
 
-    # TODO: Implémenter envoi RooSync réel
-    # Pour l'instant, juste logger
-    Write-Log "Rapport préparé (envoi RooSync à implémenter)"
+    # #4106 : ce TODO est tranché — l'envoi RooSync ne sera PAS implémenté ici.
+    # Ce script est un stub Phase 1 sans appelant : aucune tâche planifiée ne
+    # l'invoque (schtasks /query : rien sur ai-01), aucun script du dépôt ne
+    # l'enregistre, et son corps est une simulation (Invoke-SyncTour ne lance rien).
+    # Le chemin vivant du sync-tour est le skill `.claude/skills/sync-tour` +
+    # `start-claude-worker.ps1`. La suppression du fichier — précondition
+    # `git grep → zéro` NON remplie, des docs actives le mentionnent — relève d'un
+    # arbitrage utilisateur (registre #3656), pas d'une suppression unilatérale.
+    Write-Log "Rapport préparé (stub sans appelant — envoi non implémenté, #4106)"
     Write-Log $ReportMessage
 }
 

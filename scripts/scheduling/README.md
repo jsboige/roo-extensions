@@ -27,7 +27,7 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 |--------|-------------|-------|
 | `start-claude-worker.ps1` | Main worker with escalation + sub-agents | Manual or via Task Scheduler |
 | `setup-scheduler.ps1` | Install/remove/list/test Windows Task Scheduler | Setup and management |
-| `sync-tour-scheduled.ps1` | Sync-tour wrapper (legacy Phase 1) | Manual |
+| `sync-tour-scheduled.ps1` | Sync-tour wrapper — **stub non fonctionnel** (Phase 1, simulation) ; sans appelant, envoi RooSync non implémenté (#4106). Chemin vivant : skill `sync-tour` + `start-claude-worker.ps1` | Manual |
 | `test-escalation.ps1` | 33 unit tests (escalation, wait state, idle) | Validation |
 | `test-integration.ps1` | 3 integration tests (live Claude calls) | Validation |
 | `setup-copilot-dispatcher.ps1` | Install/remove/list/test Copilot dispatcher scheduled task | Copilot scheduler bridge |
