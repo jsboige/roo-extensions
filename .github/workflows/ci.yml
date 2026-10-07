@@ -32,6 +32,10 @@ on:
       # scripts/testing/unit/; its runner and the production sources that suite
       # guards must re-trigger it on main pushes (same principle as above).
       - 'scripts/testing/unit/**'
+      # #2992: the unit suite guards scripts/diagnostic/log-commit-charge.ps1
+      # (locale-proof CIM logger); the guarded script itself must re-trigger
+      # it on main pushes (same rule as the entries above).
+      - 'scripts/diagnostic/log-commit-charge.ps1'
       - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
       # #833: the audit-grader Pester fixture below runs the REAL

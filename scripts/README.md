@@ -114,7 +114,7 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `diagnostic/` | 23 | Diagnostic environnement (MCP, GDrive, Qdrant, submodules, tool_use dupliqués #3276) |
+| `diagnostic/` | 24 | Diagnostic environnement (MCP, GDrive, Qdrant, submodules, tool_use dupliqués #3276, commit charge #2992) |
 | `monitoring/` | 13 | Monitoring continu (health checks, metrics, alerts) |
 | `inventory/` | 6 | Inventaire machines et configurations |
 

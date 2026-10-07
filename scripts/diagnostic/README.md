@@ -78,3 +78,22 @@ Get-ChildItem ~/.claude/projects/*/*.jsonl | ForEach-Object {
 ```
 
 Les deux outils sont **complémentaires**, pas redondants : le scanner Python fait le balayage de masse (exit codes CI-friendly), le script PowerShell est l'analyseur forensic d'un transcript précis (sortie structurée pour triage).
+
+## Compteurs mémoire
+
+### `log-commit-charge.ps1` (#2992)
+
+Logger read-only du commit charge Windows (`CommittedBytes` / `CommitLimit`), écrit pour mesurer le **pic de commit pendant le chargement d'un modèle vLLM** — jamais mesuré car rien sur l'hôte ne logge ces compteurs en continu. Une ligne JSON par échantillon (`samples.jsonl`) + un `_summary.json` écrit en sortie **y compris sur Ctrl+C** (bloc `finally`), avec pour chaque échantillon : commit, limite, `FreeVirtualMemory` (KB), pagefile alloué, pools, somme du commit privé des processus, et le solde **non attribué** (commit − processus − pools — page tables, sections, driver-locked).
+
+- **Locale-proof par construction :** lit uniquement des classes CIM aux noms de propriétés anglais sur toute locale (`Win32_PerfFormattedData_PerfOS_Memory`, `Win32_OperatingSystem`, `Win32_PageFileUsage`). L'original archivé (`_archive/cleanup-3323-2026-08-31/`) lisait les compteurs perf par nom anglais via `Get-Counter` → silencieusement vide sur locale FR (défaut connu #2992). `Get-Counter` est ici interdit par les tests.
+- **Auto-validation :** chaque échantillon porte les deux sources de l'identité `FreeVirtualMemory ≈ CommitLimit − CommittedBytes` (vérifiée sur machine FR : écart ~0,14 % de la limite) — un échantillon incohérent se voit sans instrument externe.
+
+```powershell
+# Runbook #2992 (avant le prochain restart vLLM sur ai-01) :
+powershell -ExecutionPolicy Bypass -File scripts\diagnostic\log-commit-charge.ps1 `
+    -OutputDir C:\temp\memdiag\peak -IntervalSec 10
+# puis, dans un autre terminal : docker start myia_vllm-...
+# stop par Ctrl+C une fois le modèle chargé ; poster samples.jsonl sur #2992.
+```
+
+Tests Pester : `scripts/testing/unit/log-commit-charge.Tests.ps1` (13 tests — contrat statique toutes plateformes + micro-run live Windows avec l'identité sémantique à 2 % de tolérance).
