@@ -1155,11 +1155,38 @@ $lastPollTime = [DateTime]::MinValue
 $HeartbeatIntervalSeconds = if ($env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS) { [int]$env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS } else { 300 }
 $lastHeartbeatTime = [DateTime]::MinValue
 $lastWriteCache = @{}
-foreach ($ws in $wsList) {
-    $f = Join-Path $dashboardDir "workspace-$ws.md"
-    if (Test-Path $f) {
-        $lastWriteCache[$ws] = (Get-Item $f).LastWriteTimeUtc
+
+# #3761 (exit-99, po-2027 07/10 00:43Z): the dashboard-file reads used to build the path and
+# probe it inline. A null on either step raised an uncaught parameter-binding error
+# ("Cannot bind argument to parameter 'Path' because it is null") that killed the process: the
+# wrapper logs "exit code 99" and restarts after 60s, re-running the startup sweep every time.
+# The exact null source was never established and is not needed - the read simply had no guard.
+# Both steps now live behind the guard below, so a transient hiccup costs one skipped tick,
+# never a process death. An absent file stays silent, exactly as before; a null/empty path is
+# an anomaly and warns - throttled, so a persistent one cannot become a hot WARN loop (#3761
+# remedy 2).
+$script:lastPollPathWarnAt = [DateTime]::MinValue
+function Get-DashboardFileLWT {
+    param([string]$DashboardDir, [string]$Workspace)
+    $path = $null
+    try { $path = Join-Path $DashboardDir "workspace-$Workspace.md" } catch { $path = $null }
+    if ([string]::IsNullOrEmpty($path)) {
+        $nowUtc = (Get-Date).ToUniversalTime()
+        if (($nowUtc - $script:lastPollPathWarnAt).TotalMinutes -ge 5) {
+            $script:lastPollPathWarnAt = $nowUtc
+            Write-Log "WARN" "Dashboard path resolved to null/empty - read skipped, not fatal (#3761 exit-99)."
+        }
+        return $null
     }
+    try {
+        if (Test-Path $path) { return (Get-Item $path).LastWriteTimeUtc }
+    } catch { return $null }
+    return $null
+}
+
+foreach ($ws in $wsList) {
+    $lwt = Get-DashboardFileLWT $dashboardDir $ws
+    if ($null -ne $lwt) { $lastWriteCache[$ws] = $lwt }
 }
 
 # ========== LIVENESS HEARTBEAT (#2431) ==========
@@ -1271,9 +1298,8 @@ try {
         if (($now - $lastPollTime).TotalSeconds -ge $PollIntervalSeconds) {
             $lastPollTime = $now
             foreach ($ws in $wsList) {
-                $f = Join-Path $dashboardDir "workspace-$ws.md"
-                if (Test-Path $f) {
-                    $currentLWT = (Get-Item $f).LastWriteTimeUtc
+                $currentLWT = Get-DashboardFileLWT $dashboardDir $ws
+                if ($null -ne $currentLWT) {
                     $cachedLWT = if ($lastWriteCache.ContainsKey($ws)) { $lastWriteCache[$ws] } else { [DateTime]::MinValue }
                     if ($currentLWT -ne $cachedLWT) {
                         # File was modified — add to pending if not already
