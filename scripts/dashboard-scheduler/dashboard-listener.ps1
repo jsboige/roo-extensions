@@ -344,6 +344,105 @@ function Set-LastAck($ws, $ts) {
     [System.IO.File]::WriteAllText($f, $ts, [System.Text.UTF8Encoding]::new($false))
 }
 
+# ========== #3761 REMEDIES 2+3 — definitive-skip escalation + skip tally ==========
+# Decision coordinator 07/10 11:21Z (issue #3761), conditions 1-2:
+# - Remedy 2 : un skip DEFINITIF (chemin workspace non resolvable) escalade UNE fois
+#   par (machine, workspace, message de reveil) sur le dashboard MACHINE (WARN, jamais
+#   ERROR, jamais global), puis avance lastAck pour CE message — la boucle chaude de
+#   re-detection meurt. Un echec TRANSITOIRE (chemin resolu, spawn echoue) garde le
+#   comportement actuel : pas d'avance, pas d'escalade.
+# - Remedy 3 : compteur de skips quotidien par workspace, ecrit a cote du heartbeat
+#   partage (lecture fleet health : check-all-listeners.ps1).
+
+function Get-EscalationKeyFile($ws) {
+    # Cle de dedupe a cote du .lastack qu'elle garde (condition 1 de la decision).
+    return Join-Path $LockDir "watcher-$ws.escalated"
+}
+
+function New-EscalationEntry($machineId, $ws, $msgTs, $msgAuthor) {
+    # Identite = tuple de la condition 1 : (machine, workspace, message de reveil).
+    return "$machineId|$ws|$msgTs|$msgAuthor"
+}
+
+function Test-Escalated($keyFile, $key) {
+    if (-not (Test-Path $keyFile)) { return $false }
+    try {
+        $lines = [System.IO.File]::ReadAllLines($keyFile)
+        return ($lines -contains $key)
+    } catch {
+        return $false
+    }
+}
+
+function Add-EscalatedKey($keyFile, $key, $keepDays) {
+    # Append + prune : les entrees plus vieilles que $keepDays jours (champ 3/4 =
+    # timestamp ISO du reveil) tombent — le fichier reste borne sans 2e mecanisme.
+    $cutoff = [DateTime]::UtcNow.AddDays(-$keepDays).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    $kept = @()
+    if (Test-Path $keyFile) {
+        foreach ($line in [System.IO.File]::ReadAllLines($keyFile)) {
+            if ([string]::IsNullOrEmpty($line)) { continue }
+            $parts = $line -split '\|', 4
+            if ($parts.Count -ge 3 -and $parts[2] -ge $cutoff) { $kept += $line }
+        }
+    }
+    $kept += $key
+    $dir = Split-Path $keyFile -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    [System.IO.File]::WriteAllText($keyFile, ($kept -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
+}
+
+function Write-MachineDashboardMessage($dashboardFile, $machineId, $content) {
+    # Append Intercom canonique (meme forme que le FLEET-ALERT de check-all-listeners.ps1) :
+    # ### [ts] auteur / [msg: id] / contenu. Dashboard MACHINE uniquement — le contrat
+    # d'escalade (#3761 condition 1) interdit global et interdit ERROR.
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
+    $msgId = $machineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmm') + '-' + $randSuffix
+    $newMessage = "`r`n### [$ts] $machineId|listener`r`n[msg: $msgId]`r`n`r`n$content`r`n"
+    $dir = Split-Path $dashboardFile -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    if (Test-Path $dashboardFile) {
+        $existing = [System.IO.File]::ReadAllText($dashboardFile)
+        $existing = $existing.TrimEnd() + "`r`n" + $newMessage
+        # Bump du compteur + pluralisation : "(1 message)" doit devenir "(2 messages)",
+        # pas "(2 message)" (le bump chiffre-seul du FLEET-ALERT laisse le singulier).
+        $existing = [regex]::Replace($existing, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', { param($m) ([int]$m.Value + 1).ToString() })
+        $existing = [regex]::Replace($existing, '(## Intercom \(\d+) message\)', '$1 messages)')
+    } else {
+        $existing = "---`r`ntype: machine`r`nlastModified: '$ts'`r`nlastModifiedBy:`r`n  machineId: $machineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 message)`r`n$newMessage"
+    }
+    [System.IO.File]::WriteAllText($dashboardFile, $existing, [System.Text.UTF8Encoding]::new($false))
+    return $msgId
+}
+
+function Update-DailySkipCount($skipsFile, $ws, $dateUtc) {
+    # Tally remede 3 : format ligne `date|workspace|count` — UTF-8 no BOM, lisible par
+    # fleet health sans le piege UTF-16LE mesure sur le log listener (datapoint po-2027).
+    # Prune : seules aujourd'hui et la veille survivent (fichier borne, 1 ligne/ws/jour).
+    $kept = @()
+    $found = $false
+    if (Test-Path $skipsFile) {
+        $yesterday = [DateTime]::ParseExact($dateUtc, 'yyyy-MM-dd', $null).AddDays(-1).ToString('yyyy-MM-dd')
+        foreach ($line in [System.IO.File]::ReadAllLines($skipsFile)) {
+            if ([string]::IsNullOrEmpty($line)) { continue }
+            $parts = $line -split '\|', 3
+            if ($parts.Count -lt 3) { continue }
+            if ($parts[0] -ne $dateUtc -and $parts[0] -ne $yesterday) { continue }
+            if ($parts[0] -eq $dateUtc -and $parts[1] -eq $ws) {
+                $kept += "$dateUtc|$ws|$([int]$parts[2] + 1)"
+                $found = $true
+            } else {
+                $kept += $line
+            }
+        }
+    }
+    if (-not $found) { $kept += "$dateUtc|$ws|1" }
+    $dir = Split-Path $skipsFile -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    [System.IO.File]::WriteAllText($skipsFile, ($kept -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
+}
+
 function Get-LastSpawn($ws) {
     $f = Join-Path $LockDir "listener-$ws.lastrun"
     if (Test-Path $f) {
@@ -797,11 +896,41 @@ function Invoke-ProcessWorkspace($ws) {
     $actionable = $vibeKept
 
     # Resolve workspace path so claude -p starts in the correct CWD.
-    # If unresolvable, skip spawn AND keep lastAck unchanged so the message gets
-    # a fresh chance after the operator adds the mapping.
+    # #3761 remède 2 (décision coord 07/10 11:21Z) : irrésolvable = skip DÉFINITIF —
+    # escalade UNE fois par (machine, workspace, message de réveil) sur le dashboard
+    # machine (WARN), puis avance lastAck POUR CE message : la boucle chaude de
+    # re-détection meurt, et le réveil n'est pas perdu (escaladé avec son id).
+    # La file se vide en FIFO, un message par poll, une escalade chacun. Un échec
+    # TRANSITOIRE (chemin résolu, spawn échoué) garde le comportement d'avant :
+    # pas d'escalade, lastAck inchangé.
     $wsPath = Resolve-WorkspacePath $ws
     if ([string]::IsNullOrEmpty($wsPath)) {
-        Write-Log "WARN" "[$ws] No on-disk workspace path resolved (file/env/self/auto-detect all failed). Skipping spawn — add an entry to $WorkspacePathsFile."
+        $triggerSkipMsg = $actionable | Sort-Object timestamp | Select-Object -First 1
+        $escAuthor = $triggerSkipMsg.author.machineId
+        $escKey = New-EscalationEntry $HeartbeatMachineId $ws $triggerSkipMsg.timestamp $escAuthor
+        $escKeyFile = Get-EscalationKeyFile $ws
+        if (-not (Test-Escalated $escKeyFile $escKey)) {
+            $escContent = "[WARN][LISTENER][#3761] Réveil non délivrable, définitivement consommé." + "`r`n" +
+                "- Workspace : ``$ws`` — aucun chemin résolu (map/env/self/auto-detect en échec). Ajouter une entrée dans ``$WorkspacePathsFile`` pointant vers un arbre DÉDIÉ au listener (remède 1, jamais un arbre de session)." + "`r`n" +
+                "- Réveil consommé : ``[$($triggerSkipMsg.timestamp)] $escAuthor`` — lastAck avancé à ce message, pas de re-détection en boucle." + "`r`n" +
+                "- Escalade unique par (machine, workspace, réveil) — ce message ne sera pas reposté."
+            if ($DryRun) {
+                Write-Log "DRYRUN" "[$ws] Would escalate on machine dashboard ($MachineDashboardFile): $escContent"
+            } else {
+                Add-EscalatedKey $escKeyFile $escKey 7
+                try {
+                    Write-MachineDashboardMessage $MachineDashboardFile $HeartbeatMachineId $escContent
+                    Write-Log "WARN" "[$ws] Definitive skip escalated once on machine dashboard (dedupe key on disk)."
+                } catch {
+                    Write-Log "WARN" "[$ws] Escalation post failed (best-effort, tally still counted): $_"
+                }
+                Update-DailySkipCount $ListenerSkipsFile $ws ([DateTime]::UtcNow.ToString('yyyy-MM-dd'))
+            }
+        } elseif ($DryRun) {
+            Write-Log "DRYRUN" "[$ws] Already escalated (dedupe key present) — no new message for [$($triggerSkipMsg.timestamp)] $escAuthor."
+        }
+        Write-Log "WARN" "[$ws] No on-disk workspace path resolved (file/env/self/auto-detect all failed). Definitive skip: escalated above, lastAck advanced to $($triggerSkipMsg.timestamp)."
+        Set-LastAck $ws $triggerSkipMsg.timestamp
         return
     }
 
@@ -1027,6 +1156,9 @@ $HeartbeatMachineId = if ($env:ROOSYNC_MACHINE_ID) {
 $LocalHeartbeatFile = Join-Path $LockDir "dashboard-listener.heartbeat"
 $SharedHeartbeatDir = Join-Path $SharedPath "listener-heartbeats"
 $SharedHeartbeatFile = Join-Path $SharedHeartbeatDir "$HeartbeatMachineId.heartbeat"
+# #3761 remèdes 2+3 : cible d'escalade (dashboard MACHINE — jamais global) + tally skips.
+$MachineDashboardFile = Join-Path (Join-Path $SharedPath "dashboards") "machine-$HeartbeatMachineId.md"
+$ListenerSkipsFile = Join-Path $LockDir "listener-skips.txt"
 
 function Write-ListenerHeartbeat {
     $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -1044,6 +1176,18 @@ function Write-ListenerHeartbeat {
         [System.IO.File]::WriteAllText($SharedHeartbeatFile, $ts, [System.Text.UTF8Encoding]::new($false))
     } catch {
         Write-Log "WARN" "Failed to write shared heartbeat ($SharedHeartbeatFile): $_"
+    }
+    # #3761 remède 3 : miroir du tally de skips à côté du heartbeat partagé — lecture
+    # fleet health (check-all-listeners.ps1). Best-effort, comme le heartbeat lui-même.
+    try {
+        if (Test-Path $ListenerSkipsFile) {
+            if (-not (Test-Path $SharedHeartbeatDir)) {
+                New-Item -ItemType Directory -Path $SharedHeartbeatDir -Force | Out-Null
+            }
+            Copy-Item $ListenerSkipsFile (Join-Path $SharedHeartbeatDir "$HeartbeatMachineId.skips") -Force
+        }
+    } catch {
+        Write-Log "WARN" "Failed to mirror skips tally: $_"
     }
 }
 

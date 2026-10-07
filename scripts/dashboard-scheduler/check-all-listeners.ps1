@@ -83,11 +83,28 @@ foreach ($machineEntry in $machineList) {
         if ($age -gt 7200) { $totalDead++ }
     }
 
+    # #3761 remède 3 : compteur de skips du jour, écrit par le listener à côté du
+    # heartbeat (listener-heartbeats/<machine>.skips, UTF-8 no BOM, lignes
+    # `date|workspace|count`). Absent = listener sans remède 3 ou 0 skip mesuré.
+    $skipsToday = $null
+    $skipsFile = if ($sharedPath) {
+        Join-Path (Join-Path $sharedPath "listener-heartbeats") "$machineId.skips"
+    } else { $null }
+    if ($skipsFile -and (Test-Path $skipsFile)) {
+        $today = $nowUtc.ToString("yyyy-MM-dd")
+        $skipsToday = 0
+        foreach ($line in [System.IO.File]::ReadAllLines($skipsFile)) {
+            $parts = $line -split '\|'
+            if ($parts.Count -ge 3 -and $parts[0] -eq $today) { $skipsToday += [int]$parts[2] }
+        }
+    }
+
     $results += [PSCustomObject]@{
         machineId    = $machineId
         workspace    = $workspace
         heartbeat    = $heartbeatStatus
         ageSeconds   = $heartbeatAge
+        skipsToday   = $skipsToday
         isDead       = $heartbeatStatus -eq "STALE"
     }
 }
@@ -106,12 +123,13 @@ if ($Json) {
 # ---------- Markdown report ----------
 Write-Output "### Fleet listener health check — $nowUtc UTC"
 Write-Output ""
-Write-Output "| Machine | Heartbeat | Age | Status |"
-Write-Output "|---------|-----------|-----|--------|"
+Write-Output "| Machine | Heartbeat | Age | Skips today | Status |"
+Write-Output "|---------|-----------|-----|-------------|--------|"
 foreach ($r in $results) {
     $ageStr = if ($null -ne $r.ageSeconds) { "$($r.ageSeconds)s" } else { "N/A" }
+    $skipsStr = if ($null -ne $r.skipsToday) { "$($r.skipsToday)" } else { "N/A" }
     $statusStr = if ($r.heartbeat -eq "ALIVE") { "**OK**" } elseif ($r.heartbeat -eq "STALE") { "**STALE >2h**" } else { "???" }
-    Write-Output "| $($r.machineId) | $($r.heartbeat) | $ageStr | $statusStr |"
+    Write-Output "| $($r.machineId) | $($r.heartbeat) | $ageStr | $skipsStr | $statusStr |"
 }
 Write-Output ""
 Write-Output "Total: $($results.Count) machines checked, $totalDead STALE/DEAD."
