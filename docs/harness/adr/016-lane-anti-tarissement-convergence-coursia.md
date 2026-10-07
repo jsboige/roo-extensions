@@ -48,18 +48,39 @@ Le picker tire dans 3 urnes :
 
 **Parametres :**
 - `--limit 300` (defaut) : corrige #2509, echantillonne le backlog reel.
-- `--seed 42` (defaut) + `--reroll` : graine deterministe reproductible.
+- Graine : par defaut **derivee de la machine et du creneau UTC** (`sha256(machine)[:8] ^ slot`,
+  `slot = epoch_utc // 3600`) — deux lanes tirent des listes differentes sur le meme pool (#4103 ;
+  la graine fixe 42 servait le meme grain a toutes les lanes). `--seed N` explicite pour la
+  reproductibilite (tests) ; `--reroll` decale la graine d'un cran (compat). Jamais `hash()` :
+  le hash Python d'une chaine est sale par processus (PYTHONHASHSEED).
+- `--top K` (defaut 5) : liste ordonnee de K candidats distincts **tirés sans remise** selon les
+  poids des urnes ; la lane parcourt la liste jusqu'au premier grain libre. Tous les K pris ->
+  elargissement au pool entier dans l'ordre du tirage ; rien de libre -> verdict `ALL_CLAIMED`
+  (exit 0, liste des ecarts et raisons) — ni `IDLE_REAL` ni `ERROR`.
 - `--weights "grain:7,umbrella:2,delivered:1"` : override.
+- Collecte **REST** une fois par depot (`gh api repos/{repo}/issues?state=open`, paginee) :
+  issues ET PRs dans la meme reponse (une PR y porte la cle `pull_request`), les 3 urnes et le
+  compteur `unlabelled_open` servis sans appel supplementaire. Le quota GraphQL, partage par
+  toute la flotte, n'est plus consomme (#4103).
 - Scan les 2 depots (anti-double-claim #3407) : `jsboige/roo-extensions` + `jsboige/jsboige-mcp-servers`.
 
-**Fail-closed (reviews #3681) :** toute panne instrument — gh exit non-nul, timeout, JSON invalide —
-rend un verdict `ERROR` avec **exit 2**, jamais un verdict de fond. Un instrument muet ne peut pas
-declarer le pool vide. Le stdout gh est decode en UTF-8 (`errors="replace"`) : les titres accentues
-ne crashent plus le reader sous Windows cp1252.
+**Fail-closed (reviews #3681, etendu #4103) :** toute panne instrument — gh exit non-nul, timeout,
+JSON invalide, sur la collecte OU sur une verification de claim — rend un verdict `ERROR` avec
+**exit 2**, jamais un verdict de fond. Un instrument muet ne peut pas declarer le pool vide, ni un
+claim illisible passer pour un grain libre. Le stdout gh est decode en UTF-8 (`errors="replace"`) :
+les titres accentues ne crashent plus le reader sous Windows cp1252.
 
-**Sans filtre `--machine` :** le champ Machine de ce depot vit dans le Project #67 (fields), pas en
-labels ni assignees — un filtre local ne matchera jamais (mesure po-2027 16/09). L'attribution par
-lane passe par la discipline dashboard `[CLAIMED]`, pas par le picker.
+**Sans filtre machine par flag — exclusion sur donnees qui EXISTENT (#4103) :** le champ Machine de
+ce depot vit dans le Project #67 (fields), pas en labels ni assignees — un filtre local sur ce champ
+ne matchera jamais (mesure po-2027 16/09), et le flag a ete SUPPRIME plutot qu'implemente a moitie
+(section « Non-buts reaffirmes » ci-dessous, garde Pester). Le rework #4103 n'en reintroduit aucun : les exclusions du
+picker s'appuient sur des donnees reellement presentes sur l'issue — le **verrou de claim** (ADR 017,
+commentaires `[CLAIMED]`, peremption 24 h, logique reutilisee depuis `check_issue_claim.py`) et les
+**etiquettes de lane `myia-*`** posees dans le depot. La difference est celle-ci : l'ancien filtre
+cherchait une donnee absente ; la nouvelle exclusion lit des donnees existantes. La machine courante
+vient de l'environnement (`COMPUTERNAME` en minuscules), jamais d'un flag. Le prefixe de titre
+`[CLAUDE-<machine>]` n'est pas consulte : il designe la machine qui a cree l'issue, pas celle qui
+doit la porter.
 
 **Verdict IDLE-REAL :** declenche UNIQUEMENT si `grain + umbrella + delivered = 0` APRES collecte
 reussie sur les 2 depots. Sinon PICK.
@@ -140,7 +161,7 @@ gardes #2185 (cap IDLE 3) et le re-arm cron/WAKE restent la cadence locale de ro
 
 | Fichier | Role |
 |---------|------|
-| `scripts/scheduling/pick_idle_grain.py` | Picker 3 urnes (grain/umbrella/delivered), --limit 300, --seed, --reroll, fail-closed ERROR exit 2 |
+| `scripts/scheduling/pick_idle_grain.py` | Picker 3 urnes (grain/umbrella/delivered), --limit 300, graine machine+creneau (#4103) ou --seed explicite, --top K sans remise, saut claims (ADR 017) + etiquettes myia-*, collecte REST, verdict ALL_CLAIMED, fail-closed ERROR exit 2 |
 | `scripts/scheduling/test_cycle_end.py` | Test-resultat flotte : PASS si 0 backlog grain OU >0 livraison ; FAIL exit 1 ; ERROR exit 2 |
 | `.claude/skills/executor/SKILL.md` | Sections picker + « Test de fin de cycle » : invoquer le test avant I1-I8 |
 | `.claude/commands/executor.md` | Section picker : commande canonique et exemple sortie |

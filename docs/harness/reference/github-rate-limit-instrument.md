@@ -122,7 +122,7 @@ crons Hermes. **Audit du 17/09** (VERIFIÉ firsthand : grep `gh ` croisé avec `
 | `scheduling/start-claude-coordinator.ps1` | 9 | même famille |
 | `scheduling/start-vibe-worker.ps1` | 8 | même famille |
 | `github/review-bot.ps1` | 5 | `gh pr list/view/diff/review` |
-| `scheduling/pick_idle_grain.py` | 2 vivants | `gh issue list`, `gh pr list` (l.83, l.95) |
+| `scheduling/pick_idle_grain.py` | 2 REST + 1/candidat | `gh api repos/{repo}/issues` x2 (REST paginé, #4103 — plus de GraphQL) ; `gh issue view` par candidat parcouru (claim, via `check_issue_claim.py`) |
 | `dashboard-scheduler/dashboard-listener.ps1` | 1 | `gh issue view` (l.628 — le listener de wake) |
 | `scheduler/workflow-meta-analyst.ps1` | 3 | — |
 | `scheduling/start-meta-audit.ps1` | 2 | — |
