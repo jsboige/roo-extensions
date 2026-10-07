@@ -186,4 +186,6 @@ ScheduleWakeup(delaySeconds: 3540, prompt: "/coordinate", reason: "<informatif>"
 
 `ScheduleWakeup` est clampe a `[60, 3600]s` : il ne PEUT PAS porter un cycle multi-heures — quand la cadence depasse 1 h, c'est `CronCreate` qui la porte, **sans** `ScheduleWakeup` par-dessus. Jitter (minute off-`:00`) pour ne pas frapper l'API a la meme seconde. Auto-regulation par cap 3-IDLE (#2185) + override `[WAKE-CLAUDE]`, pas par timer adaptatif.
 
+**Le cron d'une session interactive se ré-arme DANS la session (`CronCreate`), jamais par une tâche planifiée Windows qui relance `claude` sur la même lane** : les deux tirent au même cycle et la lane tourne en double (escalade CoursIA-2, 07/10). Les workers planifiés gardent leur tâche, sans cron de session par-dessus.
+
 Matrice de scope complete + verbatims du mandat : [detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm).
