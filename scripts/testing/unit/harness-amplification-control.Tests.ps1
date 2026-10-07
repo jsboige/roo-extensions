@@ -39,6 +39,25 @@ Describe 'Harness amplification control contract' {
             if ($Text -notmatch '3-5 lignes par defaut') { $violations += 'bounded communication' }
             return $violations
         }
+
+        # The turn-exit clause belongs to the COORDINATOR ONLY: a worker with
+        # available capacity must move to another suffering issue, so requiring
+        # it in every carrier would be wrong. It is therefore a separate check
+        # on the coordinator command, not an addition to the shared contract.
+        function Get-CoordinatorTurnExitViolations {
+            param([Parameter(Mandatory = $true)][string]$Text)
+
+            $violations = @()
+            if ($Text -notmatch '(?i)sortie de tour') { $violations += 'coordinator turn exit' }
+            if ($Text -notmatch '(?i)prochain cron est la frontiere de fraicheur') {
+                $violations += 'freshness boundary'
+            }
+            if ($Text -notmatch '(?i)always-pick-next.{0,12}reste obligatoire') {
+                $violations += 'no blanket stop'
+            }
+            if ($Text -notmatch '(?i)evenement de reprise') { $violations += 'event-gated revisit' }
+            return $violations
+        }
     }
 
     It 'enforces the complete contract in every active carrier' {
@@ -75,5 +94,19 @@ Describe 'Harness amplification control contract' {
         $mutant = $source.Replace('session_id', 'machine_id')
         $mutant | Should -Not -Be $source
         @(Get-AmplificationContractViolations -Text $mutant) | Should -Contain 'session attribution'
+    }
+
+    It 'bounds the coordinator turn exit and keeps the no-blanket-stop guard' {
+        $violations = @(Get-CoordinatorTurnExitViolations -Text $carriers['.claude/commands/coordinate.md'])
+        $violations | Should -BeNullOrEmpty -Because 'the coordinator must be able to stop once its lanes are provisioned and only marginal work remains'
+    }
+
+    It 'rejects a coordinator stop rule that becomes a blanket permission to finish' {
+        # The user steering of 14/09 forbids exactly this mutation: deleting
+        # always-pick-next and calling the result "the coordinator may stop".
+        $source = $carriers['.claude/commands/coordinate.md']
+        $mutant = $source -replace '(?i)`?always-pick-next`?.{0,12}reste obligatoire', 'le coordinateur peut terminer'
+        $mutant | Should -Not -Be $source
+        @(Get-CoordinatorTurnExitViolations -Text $mutant) | Should -Contain 'no blanket stop'
     }
 }
