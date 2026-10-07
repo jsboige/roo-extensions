@@ -370,20 +370,30 @@ function Test-Escalated($keyFile, $key) {
         $lines = [System.IO.File]::ReadAllLines($keyFile)
         return ($lines -contains $key)
     } catch {
+        # Fail-open (la re-escalade reste bornee par lastAck, garde primaire) mais
+        # trace — une erreur IO reste visible sans spammer le WARN a chaque poll.
+        Write-Log "DEBUG" "Test-Escalated read failed (fail-open, lastAck reste la garde primaire): $_"
         return $false
     }
 }
 
 function Add-EscalatedKey($keyFile, $key, $keepDays) {
-    # Append + prune : les entrees plus vieilles que $keepDays jours (champ 3/4 =
-    # timestamp ISO du reveil) tombent — le fichier reste borne sans 2e mecanisme.
-    $cutoff = [DateTime]::UtcNow.AddDays(-$keepDays).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+    # Append + prune : les entrees plus vieilles que $keepDays jours tombent — le
+    # fichier reste borne sans 2e mecanisme. Prune par [DateTime]::TryParse (pas
+    # comparaison de chaines : un format de timestamp inattendu ne doit JAMAIS
+    # vider le fichier) et conservateur : ligne non parsable = gardee.
+    $cutoffDt = [DateTime]::UtcNow.AddDays(-$keepDays)
     $kept = @()
     if (Test-Path $keyFile) {
         foreach ($line in [System.IO.File]::ReadAllLines($keyFile)) {
             if ([string]::IsNullOrEmpty($line)) { continue }
             $parts = $line -split '\|', 4
-            if ($parts.Count -ge 3 -and $parts[2] -ge $cutoff) { $kept += $line }
+            if ($parts.Count -ge 3) {
+                $entryTs = [DateTime]::MinValue
+                $parsed = [DateTime]::TryParse($parts[2], [ref]$entryTs)
+                if ($parsed -and $entryTs.ToUniversalTime() -lt $cutoffDt) { continue }
+            }
+            $kept += $line
         }
     }
     $kept += $key
@@ -398,19 +408,27 @@ function Write-MachineDashboardMessage($dashboardFile, $machineId, $content) {
     # d'escalade (#3761 condition 1) interdit global et interdit ERROR.
     $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
     $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
-    $msgId = $machineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmm') + '-' + $randSuffix
+    # Stamp a la seconde (pas la minute) : deux escalades la meme minute ne se
+    # distinguent que par les 4 aleas sinon (pre-review #4124).
+    $msgId = $machineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $randSuffix
     $newMessage = "`r`n### [$ts] $machineId|listener`r`n[msg: $msgId]`r`n`r`n$content`r`n"
     $dir = Split-Path $dashboardFile -Parent
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
     if (Test-Path $dashboardFile) {
         $existing = [System.IO.File]::ReadAllText($dashboardFile)
         $existing = $existing.TrimEnd() + "`r`n" + $newMessage
-        # Bump du compteur + pluralisation : "(1 message)" doit devenir "(2 messages)",
-        # pas "(2 message)" (le bump chiffre-seul du FLEET-ALERT laisse le singulier).
+        # Bump du compteur + pluralisation : "(1 messages)" -> "(2 messages)" ; le
+        # pattern singulier ne peut venir que d'un autre redacteur (le MCP rend
+        # toujours le pluriel, dashboard.ts:1936 ; le parseur listener l'exige,
+        # l.564). Ceinture+ Bretelle pour les deux.
         $existing = [regex]::Replace($existing, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', { param($m) ([int]$m.Value + 1).ToString() })
         $existing = [regex]::Replace($existing, '(## Intercom \(\d+) message\)', '$1 messages)')
     } else {
-        $existing = "---`r`ntype: machine`r`nlastModified: '$ts'`r`nlastModifiedBy:`r`n  machineId: $machineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 message)`r`n$newMessage"
+        # Seed au PLURIEL "(1 messages)" : convention exacte du MCP (template
+        # literal inconditionnel, dashboard.ts:1936) et exigence du parseur
+        # listener (l.564 exige "messages"). Le singulier rendrait le fichier
+        # illisible pour les deux.
+        $existing = "---`r`ntype: machine`r`nlastModified: '$ts'`r`nlastModifiedBy:`r`n  machineId: $machineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
     }
     [System.IO.File]::WriteAllText($dashboardFile, $existing, [System.Text.UTF8Encoding]::new($false))
     return $msgId
@@ -430,7 +448,12 @@ function Update-DailySkipCount($skipsFile, $ws, $dateUtc) {
             if ($parts.Count -lt 3) { continue }
             if ($parts[0] -ne $dateUtc -and $parts[0] -ne $yesterday) { continue }
             if ($parts[0] -eq $dateUtc -and $parts[1] -eq $ws) {
-                $kept += "$dateUtc|$ws|$([int]$parts[2] + 1)"
+                # Garde TryParse : un compte corrompu ne doit jamais throw — la
+                # remontee abortirait avant Set-LastAck et re-armait la boucle
+                # chaude (pre-review #4124). Ligne ilisible = ecartee.
+                $n = 0
+                if (-not [int]::TryParse($parts[2], [ref]$n)) { continue }
+                $kept += "$dateUtc|$ws|$($n + 1)"
                 $found = $true
             } else {
                 $kept += $line

@@ -81,17 +81,24 @@ Describe 'Listener definitive-skip escalation (#3761 remedies 2+3)' {
             Test-Escalated $f "old|m|$oldTs|x" | Should -BeFalse
             Test-Escalated $f "fresh|m|$freshTs|x" | Should -BeTrue
         }
+
+        It 'Add-EscalatedKey never wipes unparseable-timestamp lines (conservative prune)' {
+            $f = Join-Path $script:Tmp 'prune-conservative.escalated'
+            $weird = 'm|ws|not-a-timestamp|x'
+            Add-EscalatedKey $f $weird 7
+            Test-Escalated $f $weird | Should -BeTrue
+        }
     }
 
     Context 'Machine dashboard message — condition 1: WARN on the machine dashboard, never global' {
-        It 'creates a canonical machine dashboard file with one Intercom message' {
+        It 'creates a canonical machine dashboard file with one Intercom message (plural seed, MCP convention)' {
             $f = Join-Path $script:Tmp 'machine-testx.md'
             Write-MachineDashboardMessage $f 'testx' '[WARN][LISTENER][#3761] content-un' | Out-Null
             $f | Should -Exist
             $raw = [System.IO.File]::ReadAllText($f)
             $raw | Should -Match '\[msg: testx:listener:ic-'
             $raw | Should -Match '### \[.+\] testx\|listener'
-            $raw | Should -Match '## Intercom \(1 message\)'
+            $raw | Should -Match '## Intercom \(1 messages\)'
             $raw | Should -Match '\[WARN\]\[LISTENER\]\[#3761\] content-un'
         }
 
@@ -137,6 +144,14 @@ Describe 'Listener definitive-skip escalation (#3761 remedies 2+3)' {
             $lines = [System.IO.File]::ReadAllLines($f)
             ($lines -match '^2026-10-05\|').Count | Should -Be 0
             ($lines -match '^2026-10-07\|').Count | Should -Be 1
+        }
+
+        It 'a corrupt count line is skipped without throwing (Set-LastAck must not be aborted)' {
+            $f = Join-Path $script:Tmp 'skips-corrupt.txt'
+            [System.IO.File]::WriteAllText($f, "2026-10-07|CoursIA|not-a-number`n", [System.Text.UTF8Encoding]::new($false))
+            { Update-DailySkipCount $f 'CoursIA' '2026-10-07' } | Should -Not -Throw
+            $lines = [System.IO.File]::ReadAllLines($f)
+            ($lines -contains '2026-10-07|CoursIA|1') | Should -BeTrue
         }
     }
 
