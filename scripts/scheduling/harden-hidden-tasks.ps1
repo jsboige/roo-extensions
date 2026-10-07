@@ -50,8 +50,17 @@
     post-param. La forme sans quotes reste la plus sure. Sous
     `-Command "& ... -TaskName 'A','B','C'"`, la forme quotee construit un vrai tableau.
 
+.PARAMETER Lane
+    Lane qui execute l'outil : `roo-extensions` (defaut) ou `Maintenance`. Determine
+    la garde de propriete (les taches du staging d'une AUTRE lane sont exclues par
+    defaut -- `maint-scripts\` vu de roo-extensions, `roo-extensions\` vu de
+    Maintenance) ET le repertoire de lanceurs par defaut. Le defaut roo-extensions
+    est byte-compatible avec le comportement historique (#4118).
+
 .PARAMETER LauncherDir
-    Repertoire des VBS generes et des sauvegardes. Defaut : C:\ProgramData\claude-hidden-launchers
+    Repertoire des VBS generes et des sauvegardes. Defaut selon -Lane :
+    C:\ProgramData\claude-hidden-launchers (roo-extensions) ou
+    C:\ProgramData\maint-hidden-launchers (Maintenance).
 
 .EXAMPLE
     powershell.exe -ExecutionPolicy Bypass -File scripts\scheduling\harden-hidden-tasks.ps1 -DryRun
@@ -74,7 +83,9 @@ param(
     [switch]$DryRun,
     [switch]$Rollback,
     [string[]]$TaskName,
-    [string]$LauncherDir = 'C:\ProgramData\claude-hidden-launchers'
+    [ValidateSet('roo-extensions', 'Maintenance')]
+    [string]$Lane = 'roo-extensions',
+    [string]$LauncherDir
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,6 +101,16 @@ $ErrorActionPreference = 'Stop'
 if ($TaskName -and $TaskName.Count -eq 1 -and $TaskName[0].Contains(',')) {
     $TaskName = @($TaskName[0] -split ',' | ForEach-Object { $_.Trim().Trim("'").Trim('"') } | Where-Object { $_ })
 }
+
+# Fonctions pures d'eligibilite (sous-systeme console PE) et de garde de propriete
+# (defauts A et B, #4118) -- fichier separe pour etre testables sur objets
+# synthetiques en Pester, sans toucher une tache reelle.
+. (Join-Path $PSScriptRoot 'harden-hidden-tasks.lib.ps1')
+
+# Repertoire de lanceurs par defaut SUIVANT LA LANE : Maintenance range ses lanceurs
+# dans son propre repertoire, hors claude-hidden-launchers\ -- le defaut
+# roo-extensions est byte-compatible avec le comportement historique.
+if (-not $LauncherDir) { $LauncherDir = $script:LaneLauncherDir[$Lane] }
 
 function Write-Utf8NoBom {
     param([string]$Path, [string]$Content)
@@ -108,10 +129,13 @@ if (-not (Test-Path $LauncherDir)) {
 }
 
 # --- Selection des taches ------------------------------------------------------------------
-# Eligible = action console (pwsh/powershell/cmd) + Principal Interactive.
-# Un Principal S4U ou Password tourne en session 0 : aucune fenetre n'atteint le bureau,
+# Eligible = action qui lance un executable du sous-systeme CONSOLE (champ Subsystem
+# du header PE, IMAGE_SUBSYSTEM_WINDOWS_CUI=3) + Principal Interactive -- pas une
+# liste de 3 noms : `python.exe`, un chemin quote ou un nom nu (`pwsh`) flashent tout
+# autant (defaut A, #4118). Repli sur la liste de noms historique quand le PE est
+# illisible ou le chemin non resoluble, AVEC rapport des non-resolus. Un Principal
+# S4U ou Password tourne en session 0 : aucune fenetre n'atteint le bureau,
 # rien a corriger.
-$consoleHosts = @('powershell.exe', 'pwsh.exe', 'cmd.exe')
 
 $all = Get-ScheduledTask | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }
 if ($TaskName) { $all = $all | Where-Object { $_.TaskName -in $TaskName } }
@@ -142,15 +166,14 @@ $targetPattern   = '(?i)((?:[A-Za-z]:[/\\]|/[a-z]/)[^"''\r\n]*?\.(?:ps1|py|js|cj
 # distingue en rien d'un audit exhaustif. Un verdict faux se corrige en changeant le verdict ; une
 # omission, seulement en affichant la population sur laquelle le verdict porte.
 $wsTasks = @($all | Where-Object {
-    $a0 = $_.Actions | Select-Object -First 1
-    $a0.Execute -and (Split-Path $a0.Execute -Leaf) -ieq 'wscript.exe'
+    Test-AlreadyHardenedAction -Action ($_.Actions | Select-Object -First 1)
 })
 $launchersRead = 0
 
 $staleLaunchers = @(foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
-    if ((Split-Path $action.Execute -Leaf) -ine 'wscript.exe') { continue }
+    if (-not (Test-AlreadyHardenedAction -Action $action)) { continue }
 
     $vbsMatch = [regex]::Match([string]$action.Arguments, $launcherPattern)
     if (-not $vbsMatch.Success) {
@@ -229,11 +252,13 @@ function Write-LauncherAudit {
 
 # Taches ecartees par la garde de propriete (cf. la boucle) -- rapportees, jamais silencieuses.
 $skippedForeign = @()
+# Taches a chemin d'executable NON RESOLU (PE illisible ou chemin introuvable) --
+# raporttees elles aussi, jamais sautees en silence (defaut A, #4118).
+$unresolved = @()
 
 $plan = foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
-    $exeLeaf = Split-Path $action.Execute -Leaf
 
     $backupPath = Join-Path $LauncherDir ("{0}.orig.json" -f ($t.TaskName -replace '[\\/:*?"<>|]', '_'))
 
@@ -244,30 +269,39 @@ $plan = foreach ($t in $all) {
         continue
     }
 
-    # Garde de PROPRIETE. Une tache pilotee par le deployeur de staging d'une autre lane
-    # (`maint-scripts\`) ne doit pas voir son action routee vers NOTRE repertoire de lanceurs :
-    # cela ajouterait un artefact que l'audit de derive de cette lane n'attribuerait pas a sa
-    # portee, et qu'un nettoyage de claude-hidden-launchers\ casserait en silence. Exclusion par
-    # DEFAUT -- c'est une regle de propriete, pas une liste a maintenir. `-TaskName <nom>` reste
-    # l'opt-in explicite pour durcir une telle tache volontairement.
-    # Les TROIS champs sont testes, pas seulement Arguments : mesure du 17/09 sur cette machine,
-    # `prune_merged_worktrees` porte un chemin de script dans Execute (Execute n'est pas toujours
-    # un hote nu) et `MCP-Chain-Healthcheck` un chemin dans WorkingDirectory. Ne tester qu'un champ
-    # ferait dependre la garde de la FORME de la tache voisine -- une tache `Execute=<script>.cmd`
-    # passerait la garde et se ferait durcir.
-    $ownerFields = '{0} {1} {2}' -f $action.Execute, $action.Arguments, $action.WorkingDirectory
-    if (-not $TaskName -and $ownerFields -like '*maint-scripts\*') { $skippedForeign += $t.TaskName; continue }
+    # Garde de PROPRIETE + eligibilite console, deleguees aux fonctions pures du .lib
+    # (defauts A et B, #4118). L'ORDRE est voulu : deja-durcie AVANT propriete (une
+    # tache durcie ne doit jamais apparaitre dans « Exclues » -- symptome B2 mesure
+    # sur ai-01 : SystemBlackbox-* listees exclues alors que deja routees wscript),
+    # propriete suivant LA LANE QUI EXECUTE l'outil (`maint-scripts\` est le staging
+    # DE Maintenance sous -Lane Maintenance ; les TROIS champs Execute/Arguments/
+    # WorkingDirectory sont testes, mesure 17/09 -- un seul champ rendrait la garde
+    # dependante de la forme de la tache voisine), puis sous-systeme console, puis
+    # Principal Interactive. `-TaskName <nom>` reste l'opt-in explicite qui
+    # contourne la garde.
+    $decision = Get-HardenDecision -Task $t -Lane $Lane -TaskNameFilter $TaskName
 
-    if ($exeLeaf -ieq 'wscript.exe') { continue }                       # deja durcie
-    if ($exeLeaf -notin $consoleHosts) { continue }                     # pas de console -> pas de flash
-    if ($t.Principal.LogonType -ne 'Interactive') { continue }          # session 0 -> invisible deja
+    if ($decision.Decision -eq 'hardened')        { continue }          # deja durcie
+    if ($decision.Decision -eq 'foreign')         { $skippedForeign += $t.TaskName; continue }
+    if ($decision.Decision -eq 'no-console') {
+        if ($decision.Unresolved) { $unresolved += $t.TaskName }
+        continue                                                        # pas de console -> pas de flash
+    }
+    if ($decision.Decision -eq 'non-interactive') { continue }          # session 0 -> invisible deja
+
+    if ($decision.Unresolved) { $unresolved += $t.TaskName }
 
     [PSCustomObject]@{ Task = $t; Action = $action; Backup = $backupPath; Reason = 'harden' }
 }
 
 if ($skippedForeign.Count -gt 0) {
-    Write-Host ("Exclues (deployeur d'une autre lane, maint-scripts\) : {0}" -f ($skippedForeign -join ', ')) -ForegroundColor DarkGray
+    Write-Host ("Exclues (deployeur d'une autre lane, {0}) : {1}" -f ($script:LaneForeignMarkers[$Lane] -join '" ou '), ($skippedForeign -join ', ')) -ForegroundColor DarkGray
     Write-Host "  Pour les durcir volontairement : relancer avec -TaskName <nom>" -ForegroundColor DarkGray
+}
+
+if ($unresolved.Count -gt 0) {
+    Write-Host ("Chemins d'executable non resolus (eligibilite jugee sur la liste de noms) : {0}" -f ($unresolved -join ', ')) -ForegroundColor DarkYellow
+    Write-Host "  Sous-systeme PE illisible ou chemin introuvable : verifier ces taches a la main." -ForegroundColor DarkGray
 }
 
 if (-not $plan) {
