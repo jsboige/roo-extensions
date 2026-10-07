@@ -5,8 +5,10 @@
 # workspace dashboard via a headless `claude -p` (model haiku, MCP roosync_dashboard).
 #
 # Never builds (vitest only reads src/ — the live-marker memory rule bans `npm run build`
-# in the main checkout, not tests). Storm guard is handled INSIDE the harness
-# (INCONCLUSIVE verdicts, no spurious FAILs).
+# in the main checkout, not tests). The storm guard is handled INSIDE the harness: it emits
+# INCONCLUSIVE verdicts (no spurious FAILs), and this wrapper reports them as INCONCLUSIVE —
+# a storm-guarded scenario is green in vitest, so counting it as a pass would publish a run
+# that measured nothing as a success (measured 2026-10-08, see eval-harness-verdicts.ps1).
 #
 # Scheduled by install-eval-harness-scheduled-task.ps1 (Roo-Eval-Harness-2609, daily).
 # Issue: #2609 (Epic V1 — "eval-harness cadencé, verdict dashboard")
@@ -22,6 +24,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Storm-guard-aware verdict classification (pure functions, unit-tested). See its header
+# for why a storm-guarded scenario must never be counted as a pass.
+. "$PSScriptRoot\eval-harness-verdicts.ps1"
 
 # Scenario map: eval test file -> @{ label; tool } where tool names the `[<tool>] verdict=`
 # log line whose latency/first-failing-check is appended as dashboard detail (empty = none).
@@ -127,27 +133,34 @@ try {
             $detailByTool[$currentTool].detail = $Matches[1]
         }
     }
-    # (b) Vitest per-file results = authoritative scenario verdicts.
+    # (b) Per-scenario verdicts. The classification lives in the dot-sourced helper because
+    # the vitest per-file marker alone is NOT authoritative: a storm-guarded test is green
+    # (it asserts the guard is active, then returns), so a run that issued no query at all
+    # would otherwise be summarised and exited as a pass.
+    $classified = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $scenarioMap
+    $passCount = $classified.PassCount
+    $failCount = $classified.FailCount
+    $inconclusiveCount = $classified.InconclusiveCount
+    $missingCount = $classified.MissingCount
+
     $scenarioLines = @()
-    $passCount = 0; $failCount = 0; $missingCount = 0
-    foreach ($kv in $scenarioMap.GetEnumerator()) {
-        $file = $kv.Key; $meta = $kv.Value
-        $result = 'MISSING'
-        foreach ($ln in $lines) {
-            if ($ln -match "^\s*FAIL\s+tests/eval-harness/tools/$([regex]::Escape($file))(\s|$)") { $result = 'FAIL'; break }
-            if ($ln -match "^\s*✓\s+tests/eval-harness/tools/$([regex]::Escape($file))(\s|$)") { $result = 'PASS'; break }
-        }
+    foreach ($s in $classified.Scenarios) {
         $extra = ''
-        if ($meta.tool -and $detailByTool.ContainsKey($meta.tool)) {
-            $d = $detailByTool[$meta.tool]
-            if ($result -eq 'FAIL' -and $d.detail) { $extra = " — $($d.detail)" }
-            elseif ($result -eq 'PASS') { $extra = " ($($d.latency)ms)" }
+        if ($s.Verdict -eq 'INCONCLUSIVE') {
+            if ($s.Detail) { $extra = " — $($s.Detail)" }
         }
-        if ($result -eq 'PASS') { $passCount++ } elseif ($result -eq 'FAIL') { $failCount++ } else { $missingCount++ }
-        $scenarioLines += "- $($meta.label): ${result}${extra}"
+        elseif ($s.Tool -and $detailByTool.ContainsKey($s.Tool)) {
+            $d = $detailByTool[$s.Tool]
+            if ($s.Verdict -eq 'FAIL' -and $d.detail) { $extra = " — $($d.detail)" }
+            elseif ($s.Verdict -eq 'PASS') { $extra = " ($($d.latency)ms)" }
+        }
+        $scenarioLines += "- $($s.Label): $($s.Verdict)${extra}"
     }
 
-    $summary = "**[EVAL-HARNESS #2609] $stamp — $passCount PASS / $failCount FAIL / $missingCount MISSING** (${durationSec}s, submod $vintage, log ``$logFile``)"
+    $summary = "**[EVAL-HARNESS #2609] $stamp — $passCount PASS / $failCount FAIL / $inconclusiveCount INCONCLUSIVE / $missingCount MISSING** (${durationSec}s, submod $vintage, log ``$logFile``)"
+    if ($passCount -eq 0 -and $inconclusiveCount -gt 0) {
+        $summary += "`n> NO MEASUREMENT — every scenario was storm-guarded, no query reached the engines. This is NOT a pass."
+    }
     $body = (@($summary) + $scenarioLines) -join "`n"
 
     Write-Info $summary
@@ -217,9 +230,11 @@ $body
         }
         Write-Info 'Dashboard post done.'
     }
-    # .cmd shim ExitCode is unreliable (reads null through Start-Process) — the parsed
-    # per-file vitest results are the authoritative signal for the wrapper's own exit.
-    if ($failCount -gt 0 -or $missingCount -gt 0 -or $timedOut) { exit 1 } else { exit 0 }
+    # .cmd shim ExitCode is unreliable (reads null through Start-Process) — the classified
+    # scenario verdicts are the authoritative signal for the wrapper's own exit. A run that
+    # measured nothing (every scenario storm-guarded) is not a success.
+    $runOk = Test-EvalHarnessRunSuccess -PassCount $passCount -FailCount $failCount -InconclusiveCount $inconclusiveCount -MissingCount $missingCount -TimedOut:$timedOut
+    if ($runOk) { exit 0 } else { exit 1 }
 }
 finally {
     Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
