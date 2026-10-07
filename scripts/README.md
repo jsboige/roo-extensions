@@ -89,6 +89,8 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 | `claude/analyze-harness-tokens.ps1` | Analyse complète de l'empreinte token du harnais Claude Code (#1026) — cible canonique de l'analyse, que `diagnose-harness.ps1` wrappe : compte chars/tokens par composant (CLAUDE.md global/projet/worktree, rules, docs, settings) et liste les opportunités d'optimisation estimées |
 | `claude/worktree-cleanup.ps1` | Nettoyage automatisé des worktrees orphelins, des branches locales périmées et des branches distantes mortes (#856, #1076, gardes suppression submodule #2772/#2123) — famille F3 : exécuté par la schtask `Roo-Worktree-Cleanup` (daily 02:00) et les skills debrief/git-sync |
 | `claude/install-worktree-cleanup-scheduled-task.ps1` | Installe (ou retire via `-Remove`) la schtask Windows `Roo-Worktree-Cleanup` (SYSTEM, daily 02:00) qui exécute `worktree-cleanup.ps1 -Force` (#895) — installeur de la famille F3 |
+| `claude/run-eval-harness.ps1` | Wrapper de cadence pour `tests/eval-harness` (#2609 V1) — exécute `npm run eval:harness` dans le checkout principal du submodule (Qdrant/PG réels via `.env`), parse les verdicts par scénario et poste le résumé sur le dashboard workspace via `claude -p` (modèle haiku) |
+| `claude/install-eval-harness-scheduled-task.ps1` | Installe (ou retire via `-Remove`) la schtask Windows `Roo-Eval-Harness-2609` (daily 03:37, utilisateur courant, non élevée) qui exécute `run-eval-harness.ps1` contre le checkout principal |
 
 #### Stack worker Mistral Vibe (`scheduling/`, #3202)
 
