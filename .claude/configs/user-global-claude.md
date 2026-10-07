@@ -106,6 +106,7 @@ Le registre porte les questions **de l'agent vers le user**. Quand c'est **le us
 
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
 - **Join-Path PS 5.1** : 2 args seulement. Preferer `"$a/b/c/d"`.
+- **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (fabrique un faux skew cross-clock). Pour l'UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
 - **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
 
 ## MCP Tools
