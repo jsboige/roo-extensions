@@ -1,24 +1,31 @@
 #!/usr/bin/env python3
-"""Tests unitaires des scripts anti-tarissement (#3675, ADR 016).
+"""Tests unitaires des scripts anti-tarissement (#3675, ADR 016, rework #4103).
 
-Couvre les exigences des reviews PR #3681 :
-  - fail-closed : panne gh (exit non-nul, timeout, JSON invalide) => verdict
-    ERROR exit 2, jamais un verdict de fond (IDLE_REAL / PASS) ;
+Couvre les exigences des reviews PR #3681 et le rework #4103 :
+  - fail-closed : panne gh (exit non-nul, timeout, JSON invalide — collecte OU
+    verification de claim) => verdict ERROR exit 2, jamais un verdict de fond
+    (IDLE_REAL / PASS / grain libre) ;
   - encodage : subprocess.run appele avec encoding="utf-8" errors="replace"
     (fix crash cp1252 Windows sur titres accentues, po-2027 16/09) ;
-  - --machine supprime : argparse doit rejeter l'option ;
-  - verdicts : IDLE_REAL / PICK / PASS / FAIL avec les exit codes associes ;
-  - le compteur backlog ne mesure que l'urne grain (approved/bug/investigation).
+  - filtre machine par flag : SUPPRIME (ADR 016), argparse doit rejeter ;
+  - verdicts : IDLE_REAL / PICK / ALL_CLAIMED / PASS / FAIL, exit codes associes ;
+  - le compteur backlog ne mesure que l'urne grain (approved/bug/investigation) ;
+  - #4103 : graine par lane et creneau (sha256, jamais hash()), liste ordonnee
+    sans remise, saut des claims etrangers (reutilise check_issue_claim) et des
+    etiquettes de lane myia-*, elargissement ALL_CLAIMED, unlabelled_open.
 
 Stdlib uniquement (unittest + mock) — invoque par
 scripts/testing/unit/lane-antitarissement.Tests.ps1 (job CI unit-pester).
 """
+import hashlib
 import io
 import json
+import os
+import random
 import subprocess
 import sys
 import unittest
-from contextlib import redirect_stdout
+from contextlib import contextmanager, redirect_stdout
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -35,7 +42,7 @@ REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
 
 
 def ok_result(payload):
-    """Fake subprocess.CompletedProcess avec stdout JSON valide."""
+    """Fake subprocess.CompletedProcess avec stdout JSON valide (test_cycle_end)."""
     return SimpleNamespace(stdout=json.dumps(payload), stderr="", returncode=0)
 
 
@@ -48,6 +55,54 @@ def issue(number, labels, title="issue"):
         "createdAt": "2026-09-01T00:00:00Z",
         "updatedAt": "2026-09-15T00:00:00Z",
     }
+
+
+# --- fixtures REST du picker (#4103 : une collecte par depot) -----------------
+
+
+def rest_page(items):
+    """Fake `gh api --paginate --jq '.[]'` : un objet JSON compact par ligne."""
+    return SimpleNamespace(
+        stdout="\n".join(json.dumps(i) for i in items), stderr="", returncode=0
+    )
+
+
+def rest_issue(number, labels, title="issue"):
+    """Item REST brut (snake_case) tel que repos/{repo}/issues le sert."""
+    return {
+        "number": number,
+        "title": title,
+        "labels": [{"name": l} for l in labels],
+        "assignees": [],
+        "created_at": "2026-09-01T00:00:00Z",
+        "updated_at": "2026-09-15T00:00:00Z",
+    }
+
+
+def rest_pr(number, title="pr", labels=()):
+    """Item REST brut d'une PR : la cle `pull_request` la distingue d'une issue."""
+    return {**rest_issue(number, list(labels), title),
+            "pull_request": {"url": f"https://api.github.com/repos/x/pulls/{number}"}}
+
+
+def claim_comment(machine, hours=1.0):
+    """Commentaire [CLAIMED] horodate serveur, age de `hours` heures."""
+    return {
+        "createdAt": (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(),
+        "body": f"[CLAIMED] {machine} -- work in progress",
+    }
+
+
+NO_CLAIM = {"state": "OPEN", "comments": []}
+
+
+@contextmanager
+def no_claims():
+    """Aucun claim actif sur les candidats parcourus (fetch issue borde)."""
+    with mock.patch.object(
+        picker.check_issue_claim, "fetch_issue", return_value=NO_CLAIM
+    ):
+        yield
 
 
 def run_main(module, argv):
@@ -81,7 +136,9 @@ class PickerFailClosed(unittest.TestCase):
         self.assertEqual(json.loads(out)["verdict"], "ERROR")
 
     def test_invalid_json_yields_error_exit2(self):
-        code, out = self._run_with([SimpleNamespace(stdout="gh: not json", stderr="", returncode=0)] * 8)
+        code, out = self._run_with(
+            [SimpleNamespace(stdout="gh: not json", stderr="", returncode=0)] * 2
+        )
         self.assertEqual(code, 2)
         self.assertEqual(json.loads(out)["verdict"], "ERROR")
 
@@ -89,12 +146,24 @@ class PickerFailClosed(unittest.TestCase):
         # R1 collecte OK, R2 en panne => aucun verdict de fond (fail-closed
         # sur panne PARTIELLE : le pool n'est pas declare vide).
         seq = [
-            ok_result([issue(1, ["approved"])]),   # R1 issues
-            ok_result([]),                          # R1 prs
-            subprocess.CalledProcessError(128, ["gh"], stderr="network"),  # R2 issues
-            subprocess.CalledProcessError(128, ["gh"], stderr="network"),  # R2 prs
+            rest_page([rest_issue(1, ["approved"])]),  # R1
+            subprocess.CalledProcessError(128, ["gh"], stderr="network"),  # R2
         ]
         with mock.patch("subprocess.run", side_effect=seq):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 2)
+        self.assertEqual(json.loads(out)["verdict"], "ERROR")
+
+    def test_claim_check_failure_is_error_not_free(self):
+        # #4103 : un claim ILLISIBLE est une panne d'instrument, jamais un
+        # grain libre - sinon le picker recommanderait une collision certaine.
+        seq = [rest_page([rest_issue(31, ["approved"])]), rest_page([])]
+
+        def boom(number, repo):
+            raise RuntimeError("gh issue view failed (exit 1): rate limit")
+
+        with mock.patch("subprocess.run", side_effect=seq), \
+                mock.patch.object(picker.check_issue_claim, "fetch_issue", side_effect=boom):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 2)
         self.assertEqual(json.loads(out)["verdict"], "ERROR")
@@ -104,24 +173,35 @@ class PickerVerdicts(unittest.TestCase):
     """Collecte reussie : verdicts de fond uniquement."""
 
     def test_empty_success_yields_idle_real_exit0(self):
-        with mock.patch("subprocess.run", side_effect=[ok_result([])] * 4):
+        with mock.patch("subprocess.run", side_effect=[rest_page([])] * 2):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
         self.assertEqual(data["verdict"], "IDLE_REAL")
         self.assertEqual(data["grain"], 0)
 
+    def test_unlabelled_open_counts_open_issues_without_urn_label(self):
+        # #4103 : le trou du pool rendu visible. Une issue `harness` (pas un
+        # label d'urne), non gatee, non epic -> comptee. Une issue gatee ne
+        # gonfle pas le compteur ; une PR n'est pas une issue ouverte.
+        page = [
+            rest_issue(1, ["harness"]),
+            rest_issue(2, ["needs-approval"]),
+            rest_issue(3, ["approved"]),
+            rest_pr(9, "fix"),
+        ]
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), no_claims():
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["unlabelled_open"], 1)
+
     def test_grain_pick_with_accented_title(self):
         # Titre UTF-8 accentue + fleche : doit traverser sans crash et
         # ressortir intact dans le JSON (classe de defaut cp1252).
         title = "Issue périmée → corriger le pool"
-        seq = [
-            ok_result([issue(42, ["approved"], title)]),  # R1 issues
-            ok_result([]),                                 # R1 prs
-            ok_result([]),                                 # R2 issues
-            ok_result([]),                                 # R2 prs
-        ]
-        with mock.patch("subprocess.run", side_effect=seq):
+        seq = [rest_page([rest_issue(42, ["approved"], title)]), rest_page([])]
+        with mock.patch("subprocess.run", side_effect=seq), no_claims():
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -130,13 +210,8 @@ class PickerVerdicts(unittest.TestCase):
         self.assertEqual(data["pick"]["title"], title)
 
     def test_epic_label_goes_to_umbrella_not_grain(self):
-        seq = [
-            ok_result([issue(7, ["epic"])]),
-            ok_result([]),
-            ok_result([]),
-            ok_result([]),
-        ]
-        with mock.patch("subprocess.run", side_effect=seq):
+        seq = [rest_page([rest_issue(7, ["epic"])]), rest_page([])]
+        with mock.patch("subprocess.run", side_effect=seq), no_claims():
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -145,12 +220,7 @@ class PickerVerdicts(unittest.TestCase):
         self.assertEqual(data["urn"], "umbrella")
 
     def test_needs_approval_is_in_no_urn(self):
-        seq = [
-            ok_result([issue(9, ["needs-approval"])]),
-            ok_result([]),
-            ok_result([]),
-            ok_result([]),
-        ]
+        seq = [rest_page([rest_issue(9, ["needs-approval"])]), rest_page([])]
         with mock.patch("subprocess.run", side_effect=seq):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
@@ -160,12 +230,8 @@ class PickerVerdicts(unittest.TestCase):
     def test_frozen_is_in_no_urn_even_with_a_grain_label(self):
         # #3381 : `frozen` gele l'issue par decision ; un label actionnable
         # porte en meme temps ne doit pas la remettre dans l'urne grain.
-        seq = [
-            ok_result([issue(11, ["approved", "frozen"]), issue(12, ["epic", "frozen"])]),
-            ok_result([]),
-            ok_result([]),
-            ok_result([]),
-        ]
+        seq = [rest_page([rest_issue(11, ["approved", "frozen"]),
+                          rest_issue(12, ["epic", "frozen"])]), rest_page([])]
         with mock.patch("subprocess.run", side_effect=seq):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
@@ -177,17 +243,12 @@ class PickerVerdicts(unittest.TestCase):
         # au 1er tirage alors que le contrat du module met les labels
         # d'attente hors de toute urne. Le cas label-seul etait couvert ;
         # la CO-OCCURRENCE ne l'etait pas (symetrique du cas frozen).
-        seq = [
-            ok_result([
-                issue(21, ["bug", "needs-approval"]),
-                issue(22, ["investigation", "deferred"]),
-                issue(23, ["approved", "blocked-on-gate"]),
-                issue(24, ["epic", "needs-approval"]),
-            ]),
-            ok_result([]),
-            ok_result([]),
-            ok_result([]),
-        ]
+        seq = [rest_page([
+            rest_issue(21, ["bug", "needs-approval"]),
+            rest_issue(22, ["investigation", "deferred"]),
+            rest_issue(23, ["approved", "blocked-on-gate"]),
+            rest_issue(24, ["epic", "needs-approval"]),
+        ]), rest_page([])]
         with mock.patch("subprocess.run", side_effect=seq):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
@@ -199,13 +260,9 @@ class PickerVerdicts(unittest.TestCase):
         # depots avec des contenus differents - un pick sans champ repo envoie
         # l'agent faire son grounding sur la mauvaise issue (reflexe gh issue
         # view sur le depot parent).
-        seq = [
-            ok_result([]),  # R1 issues
-            ok_result([]),  # R1 prs
-            ok_result([issue(608, ["bug"], "fix(infrastructure): Move qdrant-snapshots")]),  # R2 issues
-            ok_result([]),  # R2 prs
-        ]
-        with mock.patch("subprocess.run", side_effect=seq):
+        seq = [rest_page([]),
+               rest_page([rest_issue(608, ["bug"], "fix(infrastructure): Move qdrant-snapshots")])]
+        with mock.patch("subprocess.run", side_effect=seq), no_claims():
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -218,13 +275,9 @@ class PickerVerdicts(unittest.TestCase):
         # Miroir du cas grain pour l'urne delivered : les PRs submod vivent
         # dans le depot fils - un pick delivered sans champ repo envoie
         # l'agent reviewer la PR au mauvais depot (suite #4047, snippet
-        # promis en review par web2).
-        seq = [
-            ok_result([]),  # R1 issues
-            ok_result([]),  # R1 prs
-            ok_result([]),  # R2 issues
-            ok_result([issue(77, [], "fix(server): condensation guard")]),  # R2 prs
-        ]
+        # promis en review par web2). #4103 : la PR arrive dans la MEME
+        # reponse REST (cle `pull_request`), pas d'appel pr list.
+        seq = [rest_page([]), rest_page([rest_pr(77, "fix(server): condensation guard")])]
         with mock.patch("subprocess.run", side_effect=seq):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
@@ -238,9 +291,9 @@ class PickerVerdicts(unittest.TestCase):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
         # text=True decode stdout en cp1252 sous Windows => UnicodeDecodeError
         # sur tout titre accentue. Le fix vit dans les kwargs de l'appel.
-        with mock.patch("subprocess.run", side_effect=[ok_result([])] * 4) as run:
+        with mock.patch("subprocess.run", side_effect=[rest_page([])] * 2) as run:
             run_main(picker, ["--json"])
-        self.assertGreaterEqual(len(run.call_args_list), 4)
+        self.assertGreaterEqual(len(run.call_args_list), 2)
         for call in run.call_args_list:
             self.assertEqual(call.kwargs.get("encoding"), "utf-8")
             self.assertEqual(call.kwargs.get("errors"), "replace")
@@ -467,22 +520,184 @@ class PickerConsoleEncoding(unittest.TestCase):
 
     def test_dry_run_text_output_survives_cp1252_console(self):
         title = "Stack audio OWUI : 2e panne post-reboot → restart-policy"
-        seq = [
-            ok_result([issue(3896, ["bug"], title)]),  # R1 issues
-            ok_result([]),                              # R1 prs
-            ok_result([]),                              # R2 issues
-            ok_result([]),                              # R2 prs
-        ]
+        seq = [rest_page([rest_issue(3896, ["bug"], title)]), rest_page([])]
         raw, console = self._cp1252_console()
         # Pas de redirect_stdout ici : il masquerait l'encodage reel derriere
         # un StringIO, qui accepte tout et rendrait le test faussement vert.
-        with mock.patch("subprocess.run", side_effect=seq), \
+        with mock.patch("subprocess.run", side_effect=seq), no_claims(), \
                 mock.patch.object(sys, "argv", ["prog", "--dry-run"]), \
                 mock.patch.object(sys, "stdout", console):
             code = picker.main()
             console.flush()
         self.assertEqual(code, 0)
         self.assertIn("3896", raw.getvalue().decode("cp1252", "replace"))
+
+
+class CandidateSkipRules(unittest.TestCase):
+    """#4103 : la lane parcourt la liste ordonnee jusqu'au premier grain libre.
+
+    Claims etrangers actifs (ADR 017, reutilises via check_issue_claim) et
+    etiquettes de lane myia-* ecartent un candidat ; la liste rend la raison.
+    """
+
+    def test_foreign_claim_is_skipped_and_next_candidate_returned(self):
+        # Fixture sans reseau : 51 claimed par myia-po-2025 (1 h, actif),
+        # 52 libre -> pick = 52 quelle que soit l'ordre du tirage, et l'entree
+        # de 51 porte la raison des qu'elle est parcourue.
+        page = [rest_issue(51, ["approved"]), rest_issue(52, ["approved"])]
+        claimed = {"state": "OPEN", "comments": [claim_comment("myia-po-2025", hours=1.0)]}
+
+        def fetch(number, repo):
+            return claimed if int(number) == 51 else NO_CLAIM
+
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                mock.patch.object(picker.check_issue_claim, "fetch_issue", side_effect=fetch), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            code, out = run_main(picker, ["--json", "--top", "2", "--seed", "7"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["pick"]["number"], 52)
+        c51 = next(c for c in data["candidates"] if c["number"] == 51)
+        self.assertTrue(c51["skipped"])
+        self.assertIn("myia-po-2025", c51["reason"])
+
+    def test_stale_claim_does_not_skip(self):
+        # > 24 h : STALE au sens du guard (ADR 017), pas bloquant - le nouveau
+        # claimant pose son propre [CLAIMED], il ne doit pas etre prive du grain.
+        page = [rest_issue(53, ["approved"])]
+        stale = {"state": "OPEN", "comments": [claim_comment("myia-po-2025", hours=30.0)]}
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=stale), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            code, out = run_main(picker, ["--json", "--seed", "3"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertFalse(data["candidates"][0]["skipped"])
+
+    def test_machine_labelled_issue_is_skipped(self):
+        # Etiquette de lane etrangere : ecarte SANS lecture de claim (donnee
+        # locale, pas d'appel API). 62 est l'unique grain libre -> pick = 62.
+        page = [rest_issue(61, ["approved", "myia-po-2026"]), rest_issue(62, ["approved"])]
+
+        def fetch(number, repo):
+            # 62 (libre, sans etiquette de lane) a droit a sa lecture de claim ;
+            # 61 doit etre ecarte AVANT toute lecture.
+            self.assertNotEqual(number, "61", "61 doit etre ecarte sans lecture de claim")
+            return NO_CLAIM
+
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                mock.patch.object(picker.check_issue_claim, "fetch_issue", side_effect=fetch), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            # seed 1 verifie deterministiquement que 61 est PARCOURU avant 62 :
+            # l'ecart doit se produire, pas seulement etre possible.
+            code, out = run_main(picker, ["--json", "--top", "2", "--seed", "1"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["pick"]["number"], 62)
+        c61 = next(c for c in data["candidates"] if c["number"] == 61)
+        self.assertTrue(c61["skipped"])
+        self.assertIn("myia-po-2026", c61["reason"])
+
+    def test_all_claimed_verdict_when_pool_fully_taken(self):
+        # Les K candidats pris -> elargissement au pool entier dans l'ordre du
+        # tirage ; rien de libre -> ALL_CLAIMED exit 0 (ni IDLE_REAL ni ERROR),
+        # chaque ecart rendu avec sa raison. --top 1 force l'elargissement.
+        page = [rest_issue(71, ["approved"]), rest_issue(72, ["approved"])]
+        claimed = {"state": "OPEN", "comments": [claim_comment("myia-po-2024", hours=2.0)]}
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=claimed), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            code, out = run_main(picker, ["--json", "--top", "1", "--seed", "5"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "ALL_CLAIMED")
+        self.assertIsNone(data["pick"])
+        self.assertEqual(len(data["candidates"]), 2)
+        self.assertTrue(all(c["skipped"] for c in data["candidates"]))
+        self.assertTrue(all("claim" in (c["reason"] or "") for c in data["candidates"]))
+
+    def test_delivered_pr_is_never_skipped_by_machine_label(self):
+        # Urne delivered : pas de verrou ni d'etiquette de lane ecartee (ADR
+        # 016) - la review cross-lane EST le but de cette urne. Une PR portant
+        # l'etiquette d'une autre lane reste prenable.
+        page = [rest_pr(91, "fix(#x): lane po-2026 work", labels=["myia-po-2026"])]
+        with mock.patch("subprocess.run", side_effect=[rest_page([]), rest_page(page)]), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            code, out = run_main(picker, ["--json", "--seed", "13"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["urn"], "delivered")
+        self.assertFalse(data["candidates"][0]["skipped"])
+
+
+class LaneSeedDivergence(unittest.TestCase):
+    """#4103 : deux machines tirent des listes differentes sur le meme pool."""
+
+    @classmethod
+    def setUpClass(cls):
+        items = [picker.normalize_rest_item(rest_issue(n, ["approved"]), "jsboige/roo-extensions")
+                 for n in (101, 102, 103, 104)]
+        items.append(picker.normalize_rest_item(rest_issue(201, ["epic"]), "jsboige/roo-extensions"))
+        items.append(picker.normalize_rest_item(rest_pr(301, "fix"), "jsboige/roo-extensions"))
+        cls.buckets, _unlabelled, _total = picker.bucketize_items(items)
+
+    def test_derive_seed_is_stable_sha256_not_hash(self):
+        # Precisation analyst #4103 : le condense doit etre la formule sha256
+        # documentee (stable d'un processus a l'autre), JAMAIS hash() - le
+        # hash Python d'une chaine est sale par processus (PYTHONHASHSEED).
+        digest = hashlib.sha256(b"myia-po-2027").digest()
+        expected = int.from_bytes(digest[:8], "big") ^ 512034
+        self.assertEqual(picker.derive_seed("myia-po-2027", 512034), expected)
+        self.assertNotEqual(
+            picker.derive_seed("myia-po-2025", 100),
+            picker.derive_seed("myia-po-2026", 100),
+        )
+
+    def test_two_machines_diverge_over_slots(self):
+        # AC #4103 : sur un pool fixe, deux machines donnent des premiers
+        # tirages differents au moins une fois sur un echantillon >= 20
+        # creneaux. Deterministe : seeds fixes (sha256 + slot), rng fixe.
+        diverged = False
+        for slot in range(5000, 5024):
+            picks = {}
+            for machine in ("myia-po-2025", "myia-po-2026"):
+                rng = random.Random(picker.derive_seed(machine, slot))
+                order = picker.draw_candidates(self.buckets, picker.DEFAULT_WEIGHTS, rng, 1)
+                picks[machine] = order[0][1]["number"]
+            if picks["myia-po-2025"] != picks["myia-po-2026"]:
+                diverged = True
+                break
+        self.assertTrue(diverged, "deux lanes n'ont jamais diverge sur 24 creneaux")
+
+    def test_json_output_carries_seed_and_slot(self):
+        # Tracabilite #4103 : la sortie rend la graine effective et le creneau
+        # pour rejouer un tirage a partir des logs.
+        page = [rest_issue(81, ["approved"])]
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                no_claims(), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}), \
+                mock.patch.object(picker, "current_slot", return_value=424242):
+            code, out = run_main(picker, ["--json"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["machine"], "myia-po-2027")
+        self.assertEqual(data["slot"], 424242)
+        self.assertEqual(data["seed"], picker.derive_seed("myia-po-2027", 424242))
+
+    def test_explicit_seed_overrides_derivation(self):
+        # Reproductibilite : --seed N court-circuite machine+creneau (tests).
+        page = [rest_issue(82, ["approved"])]
+        with mock.patch("subprocess.run", side_effect=[rest_page(page), rest_page([])]), \
+                no_claims(), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}), \
+                mock.patch.object(picker, "current_slot", return_value=424242):
+            code, out = run_main(picker, ["--json", "--seed", "99"])
+        data = json.loads(out)
+        self.assertEqual(data["seed"], 99)
 
 
 if __name__ == "__main__":

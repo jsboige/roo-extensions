@@ -149,24 +149,34 @@ Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-
 
 > **Garde-fou anti-faux-drain (#2509)** : avant de declarer « aucune tache disponible », confirmer que le **backlog filtre complet** (`--limit 100` + labels actionnables, Phase 1 etape 3) a bien ete examine — pas seulement les 15 issues les plus recentes. Les priorites 3-5 (Machine=Any, TODO detaille, bug reproductible) sont quasi toujours servies par ce backlog. Passer aux idle tasks UNIQUEMENT si ce sous-ensemble est genuinement vide.
 
-#### Picker 3 urnes — option avancee (#3675, ADR 016)
+#### Picker 3 urnes — option avancee (#3675, ADR 016 ; rework #4103)
 
 Pour les cycles ou le pool est suspecte etire (notamment en executeur isole sans coordinateur frais), preferer le **picker 3 urnes** au bare `gh issue list` :
 
 ```bash
-# Tirage deterministe, verdict IDLE-REAL strict
+# Liste ordonnee de K candidats distincts (defaut --top 5), graine derivee machine+creneau UTC
 python scripts/scheduling/pick_idle_grain.py --dry-run --json
 
-# Re-tirage si le 1er candidat est deja CLAIMED ailleurs
+# Re-tirage (graine decalee, compat) si le tirage doit etre rejoue
 python scripts/scheduling/pick_idle_grain.py --reroll --json
 ```
 
-Le picker scanne **les 2 depots** (anti-double-claim #3407) avec `--limit 300` (corrige #2509), repartit
-dans 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et declare `IDLE-REAL` UNIQUEMENT
-si toutes les urnes sont vides. **Fail-closed :** toute panne gh (exit non-nul, timeout, JSON invalide)
-rend un verdict `ERROR` avec **exit 2** — un instrument muet ne declare jamais le pool vide ; reparer
-gh puis relancer. Sans filtre machine : le champ Machine vit dans le Project #67, pas en labels —
-l'attribution par lane passe par la discipline `[CLAIMED]` dashboard. **Detail et rationale :** ADR 016.
+Le picker collecte **une fois par depot en REST** (`gh api repos/{repo}/issues`, pagine — le quota
+GraphQL flotte n'est plus consomme), scanne **les 2 depots** (anti-double-claim #3407), repartit dans
+3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et rend une **liste ordonnee de K
+candidats tires sans remise** (`--top K`, defaut 5) : **parcours la liste jusqu'au premier grain
+LIBRE** — un candidat portant un claim etranger actif (ADR 017, peremption 24 h) ou une etiquette de
+lane `myia-*` autre que la tienne est ecarte, avec la raison rendue dans la sortie. Tous les K pris →
+elargissement au pool entier ; rien de libre → verdict `ALL_CLAIMED` (exit 0, ni IDLE_REAL ni ERROR).
+`IDLE-REAL` reste declenche UNIQUEMENT si toutes les urnes sont vides ; la sortie `--json` rend
+`machine`, `seed`, `slot` (tracabilite du tirage) et `unlabelled_open` (issues prenables sans
+etiquette d'urne — le trou visible pour le coordinateur). **Fail-closed :** toute panne gh (exit
+non-nul, timeout, JSON invalide — collecte OU verification de claim) rend un verdict `ERROR` avec
+**exit 2** — un instrument muet ne declare jamais le pool vide, ni un claim illisible un grain libre ;
+reparer gh puis relancer. Toujours pas de filtre machine par flag (ADR 016) : les exclusions lisent
+des donnees qui existent (claims, etiquettes), la machine vient de `COMPUTERNAME`. Le pre-claim
+`check_issue_claim.py NNN --claim` avant edition reste LA barriere — le picker ne la remplace pas.
+**Detail et rationale :** ADR 016.
 
 #### Catalogue Idle Tasks (#1417)
 
