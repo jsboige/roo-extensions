@@ -32,7 +32,7 @@ cd mcps/internal/servers/roo-state-manager && npm run build && npx vitest run --
 | Config | Usage |
 |--------|-------|
 | `vitest.config.ts` | Local (dev) |
-| `vitest.config.ci.ts` | CI (exclut 31 fichiers de tests déclarés — recensement #3322 : `mcps/internal/servers/roo-state-manager/docs/CI-EXCLUSIONS-CENSUS.md`) |
+| `vitest.config.ci.ts` | CI (exclut 8 fichiers de tests déclarés — recensement courant : `mcps/internal/servers/roo-state-manager/docs/CI-EXCLUSIONS-CENSUS.md`) |
 
 Nouveaux tests : verifier avec `--config vitest.config.ci.ts`.
 
