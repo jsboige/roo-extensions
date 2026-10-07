@@ -49,8 +49,8 @@ Verified by `test_inventory_validation.py::test_template_counts_match_expected_b
 
 | Metric | Count | Notes |
 |--------|-------|-------|
-| **Models** | 8 | 8 enabled, 0 disabled (GLM via fleet hub 2, vLLM direct 2, OWUI 4) — dead entries purged by submod #1197 |
-| **Top-level agents** | 37 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI); core gained the no-thinking `summarizer-local`, `classifier-local`, `formatter-local` in submod #1211; LOT E presets `terminal-analyst`, `coordination-agent` added in submod #1294 (vllm#63) |
+| **Models** | 9 | 9 enabled, 0 disabled (fleet hub 3 incl. `frognano-4b` added in submod #1401, vLLM direct 2, OWUI 4) — dead entries purged by submod #1197 |
+| **Top-level agents** | 42 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI); core gained the no-thinking `summarizer-local`, `classifier-local`, `formatter-local` in submod #1211; LOT E presets `terminal-analyst`, `coordination-agent` added in submod #1294 (vllm#63); mini presets `mini-coder-fix`, `mini-repo-scan`, `mini-summarizer`, `mini-web-research` and the delegating `swift-delegator` added in submod #1401 (#4107) |
 | **Inline agents** (conversation-scoped) | 15 | Defined inside `code-review`, `research-debate`, `config-harmonization`, `pr-review-tier1/2/3` |
 | **Memory-enabled agents** | 5 | `analyst`, `analyst-glm5`, `researcher`, `guardian-sentinel`, `owui-analyst` |
 | **MCP plugins** | 6 | `searxng`, `playwright`, `sk_agent` (self-inclusion), `open_terminal`, `markitdown`, `roo_state_manager` (submod #1294) |
