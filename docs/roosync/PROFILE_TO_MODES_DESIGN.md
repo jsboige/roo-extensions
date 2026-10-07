@@ -64,7 +64,7 @@ The profile-to-modes workflow allows propagating model configuration changes (e.
 
 | Component | Type | Status |
 |-----------|------|--------|
-| `generate-modes.js --profile` | Node.js script | Working. Applies modeOverrides, generates .roomodes |
+| `generate-modes.js --profile` | Node.js script | Working. Applies modeOverrides (per-slug) and levelOverrides (per level, expanded to every family — #4115), generates .roomodes |
 | `generate-modes.js --deploy` | Node.js script | Working. Copies output to project root .roomodes |
 | `generate-modes.js --format yaml` | Node.js script | Working. For Roo 3.51.1+ global deploy |
 | `ConfigSharingService.applyProfile()` | TS MCP service | Working. Full local pipeline |

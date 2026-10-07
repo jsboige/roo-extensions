@@ -15,6 +15,14 @@
         "orchestrator-simple": "simple",
         "orchestrator-complex": "default"
       }
+    },
+    {
+      "name": "Pilote Zoo (FrogNano L1 + Swift L2, tout-local)",
+      "description": "Pilote Zoo #4115 (vllm#82 decision A) : FrogNano pour le niveau simple, Swift pour le niveau complexe — AUX COTES du profil Production, pas a sa place. levelOverrides cles par NOM de niveau (generate-modes.js + sync-zoo-provider-profiles.py --profile les etendent a toutes les familles). Activation po-2025 UNIQUEMENT : python roo-config/scripts/sync-zoo-provider-profiles.py --apply --profile 'Pilote Zoo (FrogNano L1 + Swift L2, tout-local)'. Le pilote ne part PAS avant (1) l'exposition de l'alias swift-1.5-27b au hub (lane ai-01:vllm — absent de /v1/models au 07/10) et (2) la levee du verrou scheduler + le fix de la boucle MODEL_NO_ASSISTANT_MESSAGES (#4025).",
+      "levelOverrides": {
+        "simple": "frognano",
+        "complex": "swift"
+      }
     }
   ],
   "apiConfigs": {
@@ -49,7 +57,7 @@
       },
       "openAiHeaders": {},
       "id": "default",
-      "description": "GLM-5.3 via le hub claudish (192.168.0.50:3000/v1) — remplace glm-5.1/glm-5.2 (mandat user 22/09 : 5.3 pour les rôles qualité). Endpoint OpenAI-compatible : avec apiProvider:openai, Roo POSTe vers .../chat/completions ; un endpoint Anthropic-style renvoie 404 et le profil complex échoue silencieusement (#2455). Contexte 200k (catalogue hub)."
+      "description": "GLM-5.3 via le hub claudish (192.168.0.50:3000/v1) — remplace glm-5.1/glm-5.2 (mandat user 22/09 : 5.3 pour les rôles qualité). Endpoint OpenAI-compatible : avec apiProvider:openai, Roo POSTe vers .../chat/completions ; un endpoint Anthropic-style renvoie 404 et le profil complex échoue silencieusement (PR #2620, commit 50dceafd6b). Contexte 200k (catalogue hub)."
     },
     "owui-think": {
       "diffEnabled": true,
@@ -94,6 +102,38 @@
       "openAiModelId": "Qwen_instruct",
       "id": "owui-instruct",
       "description": "Qwen 3.5 via OWUI — Instruct (temp=0.7, pp=1.5, top_p=0.8, top_k=20). Sans thinking, réponses directes."
+    },
+    "frognano": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "http://192.168.0.50:3000/v1",
+      "openAiApiKey": "{{SECRET:CLAUDISH_PROXY_KEY}}",
+      "openAiModelId": "frognano-4b",
+      "openAiLegacyFormat": true,
+      "id": "frognano",
+      "description": "FrogNano-4B (alias hub frognano-4b, vLLM po-2025) — pilote Zoo L1 #4115, tout-local. L'alias hub DOIT imposer enable_thinking=false (vllm#82 decision 4) : un profil Zoo ne peut probablement pas le passer, sinon le thinking mange le budget (mesure po-2025). Machine pilote po-2025 uniquement."
+    },
+    "swift": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "http://192.168.0.50:3000/v1",
+      "openAiApiKey": "{{SECRET:CLAUDISH_PROXY_KEY}}",
+      "openAiModelId": "swift-1.5-27b",
+      "openAiCustomModelInfo": {
+        "maxTokens": -1,
+        "contextWindow": 262000,
+        "supportsImages": true,
+        "supportsPromptCache": true,
+        "inputPrice": 0,
+        "outputPrice": 0,
+        "reasoningEffort": "medium"
+      },
+      "id": "swift",
+      "description": "Swift-1.5-27B (fleet vLLM medium, ai-01 ; sert aussi sous l'id historique qwen3.6-35b-a3b depuis 25/09) — pilote Zoo L2 #4115, joint par le hub. Alias swift-1.5-27b en cours d'exposition au hub par la lane ai-01:vllm (absent de /v1/models au 07/10) : le pilote ne part pas avant."
     }
   },
   "modeApiConfigs": {
@@ -118,7 +158,8 @@
     "default": 80
   },
   "notes": [
-    "Dernière mise à jour: 2026-10-02",
+    "Dernière mise à jour: 2026-10-07",
+    "Profils pilote Zoo #4115 (07/10) : frognano (L1 simple) + swift (L2 complex), actives sur po-2025 uniquement via sync-zoo-provider-profiles.py --profile — le top-level modeApiConfigs reste le binding Production",
     "Profil 'simple': Qwen 3.6 35B A3B (vLLM local) via le hub claudish depuis le 2026-10-02 (#4025) — une seule clé client, la rotation vLLM ne casse plus Zoo",
     "Profil 'default': GLM-5.3 via le hub claudish (#3574, #918 — remplace glm-5.1/glm-5.2)",
     "glm-5.3 appliqué au profil default le 2026-09-23 (#918)",

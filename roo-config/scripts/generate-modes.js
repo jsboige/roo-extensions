@@ -7,9 +7,19 @@
  *         roo-config/model-configs.json (optional, for --profile)
  * Writes: roo-config/modes/generated/simple-complex.roomodes
  *
+ * The level ladder is declared in modes-config.json levels[] (#4115): the generator
+ * iterates that ordered declaration — one mode per family x level. Each level entry
+ * carries a name (family key + slug suffix), a profileId (default model-configs
+ * binding), and an escalationInstruction (toward the next rung; the last entry's
+ * instruction escalates beyond the ladder, e.g. Claude CLI).
+ *
  * Options:
  *   --output <path>      Output file path (default: simple-complex.roomodes)
- *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode)
+ *   --config <path>      modes-config.json path (default: roo-config/modes/modes-config.json;
+ *                        used for N-level dry-runs that must not touch the repo config)
+ *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode;
+ *                        profile.modeOverrides keys mode slugs, profile.levelOverrides keys
+ *                        level names and expand to every family)
  *   --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)
  *   --deploy             Also copy to .roomodes at project root
  *   --deploy-global      Also copy to the Roo global custom_modes.yaml (#595)
@@ -141,6 +151,7 @@ function jsonToYaml(obj) {
 function parseArgs() {
   var args = {
     output: DEFAULT_OUTPUT,
+    config: CONFIG_PATH,
     profile: null,
     modelConfigs: DEFAULT_MODEL_CONFIGS,
     deploy: false,
@@ -152,6 +163,8 @@ function parseArgs() {
   for (var i = 2; i < process.argv.length; i++) {
     if (process.argv[i] === '--output' && i + 1 < process.argv.length) {
       args.output = process.argv[++i];
+    } else if (process.argv[i] === '--config' && i + 1 < process.argv.length) {
+      args.config = process.argv[++i];
     } else if (process.argv[i] === '--profile' && i + 1 < process.argv.length) {
       args.profile = process.argv[++i];
     } else if (process.argv[i] === '--model-configs' && i + 1 < process.argv.length) {
@@ -200,15 +213,64 @@ function resolveGlobalModesPath(explicit) {
 
 // --- Main ---
 
+// --- Levels ladder (#4115) ---
+// Ordered declaration in modes-config.json. Each entry: name (key inside each
+// family + slug suffix), profileId (default binding), escalationInstruction.
+// The LAST entry is the terminal rung: its instruction escalates beyond the
+// ladder (today: Claude CLI). Replaces the hardcoded ['simple','complex'].
+
+function loadLevels(config) {
+  var levels = config.levels;
+  if (!Array.isArray(levels) || levels.length === 0) {
+    console.error('ERROR: modes-config.json must declare an ordered "levels" array (at least 1 entry).');
+    process.exit(1);
+  }
+  var seen = {};
+  for (var i = 0; i < levels.length; i++) {
+    var l = levels[i];
+    if (!l || typeof l.name !== 'string' || !l.name) {
+      console.error('ERROR: levels[' + i + '] is missing a non-empty "name".');
+      process.exit(1);
+    }
+    if (seen[l.name]) {
+      console.error('ERROR: duplicate level name "' + l.name + '" in levels[].');
+      process.exit(1);
+    }
+    seen[l.name] = true;
+  }
+  return levels;
+}
+
 function main() {
   var args = parseArgs();
 
   // Load config and template
-  var config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+  var config = JSON.parse(fs.readFileSync(args.config, 'utf8'));
   var template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
+
+  var levels = loadLevels(config);
+  var familyNames = Object.keys(config.families);
+
+  // Every family must define one block per declared level (families[level.name]).
+  for (var fi = 0; fi < familyNames.length; fi++) {
+    var famName = familyNames[fi];
+    for (var li = 0; li < levels.length; li++) {
+      if (!config.families[famName][levels[li].name]) {
+        console.error('ERROR: family "' + famName + '" has no "' + levels[li].name + '" block (levels[] declares it).');
+        process.exit(1);
+      }
+    }
+  }
+
+  var levelSuffixes = levels.map(function(l) { return '-' + l.name; }).join(' ou ');
+  var modeList = familyNames.reduce(function(acc, f) {
+    return acc.concat(levels.map(function(l) { return f + '-' + l.name; }));
+  }, []).join(', ');
+  var firstLevelName = levels[0].name;
 
   // Load model-configs if profile specified
   var modeApiConfigs = null;
+  var levelApiConfigs = null;
   if (args.profile) {
     console.log('Loading profile: ' + args.profile);
     try {
@@ -221,9 +283,10 @@ function main() {
       }
       console.log('Profile found: ' + profile.name);
       console.log('Description: ' + (profile.description || 'N/A'));
-      // modeApiConfigs comes from profile.modeOverrides
       modeApiConfigs = profile.modeOverrides || {};
-      console.log('Mode overrides: ' + Object.keys(modeApiConfigs).length + ' modes');
+      levelApiConfigs = profile.levelOverrides || {};
+      console.log('Mode overrides: ' + Object.keys(modeApiConfigs).length + ' modes'
+        + (Object.keys(levelApiConfigs).length ? ', level overrides: ' + Object.keys(levelApiConfigs).join(', ') : ''));
     } catch (e) {
       console.error('ERROR: Failed to load model-configs.json: ' + e.message);
       process.exit(1);
@@ -234,10 +297,19 @@ function main() {
 
   var modes = [];
 
-  for (var family of Object.keys(config.families)) {
+  for (var family of familyNames) {
     var fam = config.families[family];
 
-    for (var level of ['simple', 'complex']) {
+    for (var li = 0; li < levels.length; li++) {
+      var level = levels[li].name;
+      var isTerminal = li === levels.length - 1;
+      var nextLevelName = isTerminal ? null : levels[li + 1].name;
+      // Pre-render the level's escalation instruction ({{FAMILY}}/{{NEXT_LEVEL}}
+      // are resolved here, not by renderTemplate, so instruction text cannot be
+      // re-processed by a later variable pass).
+      var escalationText = String(levels[li].escalationInstruction || '')
+        .replace(/\{\{FAMILY\}\}/g, family)
+        .replace(/\{\{NEXT_LEVEL\}\}/g, nextLevelName || '');
       var levelDef = fam[level];
 
       // Detect capability groups (per-level override or family-level fallback)
@@ -268,8 +340,14 @@ function main() {
         FAMILY: family,
         LEVEL: level,
         LEVEL_LABEL: capitalize(level),
-        IS_SIMPLE: level === 'simple',
-        IS_COMPLEX: level === 'complex',
+        // Ladder position, not level name: every non-terminal rung gets the
+        // economical block, the last rung gets the powerful/terminal one.
+        IS_ECONOMICAL: !isTerminal,
+        IS_TERMINAL: isTerminal,
+        NEXT_LEVEL_NAME: nextLevelName,
+        FIRST_LEVEL_NAME: firstLevelName,
+        LEVEL_SUFFIXES: levelSuffixes,
+        MODE_LIST: modeList,
         // NO_COMMAND: only show redirect message for pure-delegate modes (no win-cli)
         NO_COMMAND: !hasCommand && !hasWinCli,
         WIN_CLI_FALLBACK: hasWinCli,
@@ -279,7 +357,10 @@ function main() {
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
         ADDITIONAL_INSTRUCTIONS: fam.additionalInstructions || '',
-        COMPLEX_ESCALATION: config.complexEscalationInstructions || '',
+        // Instruction-derived vars LAST: renderTemplate substitutes in insertion
+        // order, so a value must never be re-processed by a later key's pass.
+        ESCALATION_INSTRUCTION: isTerminal ? '' : escalationText,
+        TERMINAL_ESCALATION: isTerminal ? escalationText : '',
       };
 
       var customInstructions = renderTemplate(template, vars);
@@ -294,12 +375,14 @@ function main() {
         customInstructions: customInstructions,
       };
 
-      // Add apiConfigId if profile is specified
+      // Add apiConfigId if profile is specified (slug override wins over level override)
       if (modeApiConfigs) {
-        var apiConfigId = modeApiConfigs[mode.slug];
+        var apiConfigId = modeApiConfigs[mode.slug] || levelApiConfigs[level];
         if (apiConfigId) {
           mode.apiConfigId = apiConfigId;
           console.log('    -> apiConfigId: ' + apiConfigId);
+        } else {
+          console.warn('WARNING: profile has no binding for ' + mode.slug + ' (neither modeOverrides["' + mode.slug + '"] nor levelOverrides["' + level + '"]).');
         }
       }
       console.log('  ' + mode.slug.padEnd(24) + ' ' + customInstructions.length + ' chars');
@@ -325,7 +408,7 @@ function main() {
   fs.writeFileSync(args.output, outputContent, 'utf8');
 
   var totalKB = (Buffer.byteLength(outputContent, 'utf8') / 1024).toFixed(1);
-  console.log('\nGenerated ' + modes.length + ' modes (' + Object.keys(config.families).length + ' families x 2 levels)');
+  console.log('\nGenerated ' + modes.length + ' modes (' + familyNames.length + ' families x ' + levels.length + ' levels)');
   console.log('Format: ' + args.format.toUpperCase());
   if (args.profile) {
     console.log('With profile: ' + args.profile);
