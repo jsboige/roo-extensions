@@ -645,7 +645,7 @@ git push origin main
 ### Ledger turn-local et observateur unique (#3647)
 
 - Tenir un **ledger turn-local** des obligations demarrees dans ce tour : `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`, `observer`, `evidence`. Il vit dans le raisonnement du tour, pas dans un nouveau fichier ou service persistant.
-- Avant tout sweep ou nouvelle exploration, chaque obligation en vol doit etre `done`, `blocked` avec condition de reprise nommee, ou `handed-off` avec destinataire explicite.
+- Avant tout sweep ou nouvelle exploration, chaque obligation en vol doit etre `done`, `blocked` avec condition de reprise nommee, ou `handed-off` avec destinataire explicite. **Scans de dette obligatoires** (catalogue I1-I8, patrouilles planifiees) : ils restent dus et ne sont pas gates par la valeur marginale. **Exploration speculative** : gatee — une recherche large dont la reponse ne changerait aucune decision ne s'ouvre pas. Le discriminant est l'**objet** (une dette nommee et due vs une reponse sans effet sur une decision), jamais l'ampleur.
 - Reutiliser toute lecture deja faite dans le tour. Rafraichir seulement apres une action susceptible d'avoir change l'etat, un acteur independant pertinent, ou une frontiere de securite.
 - Une condition asynchrone a **un seul observateur**. Ne pas ajouter de polling parallele quand `Monitor`, une tache de fond ou `gh run watch` notifiera deja. L'observateur couvre `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
 - Attribuer d'abord par `session_id`, puis par machine ; quand disponible, distinguer `parent_session_id` et `subagent_id`. Une agregation machine-only n'est pas une attribution de cause.
