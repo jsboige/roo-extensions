@@ -28,7 +28,7 @@ Change:
 - `scripts/scheduling/start-claude-worker.ps1`
 - `scripts/scheduling/start-claude-coordinator.ps1`
 - `scripts/scheduling/start-meta-audit.ps1`
-- `scripts/scheduling/sync-tour-scheduled.ps1`
+- `scripts/scheduling/sync-tour-scheduled.ps1` *(supprimé le 2026-10-07, #4106)*
 - `scripts/scheduling/setup-scheduler.ps1` (status message)
 - `scripts/scheduling/README.md` (worker log sections)
 
