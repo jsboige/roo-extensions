@@ -37,7 +37,7 @@ npm run test:mcp
 | Config | Usage |
 |--------|-------|
 | `vitest.config.ts` | Local (dev) |
-| `vitest.config.ci.ts` | CI (exclut 9 fichiers de tests déclarés — recensement courant : `mcps/internal/servers/roo-state-manager/docs/CI-EXCLUSIONS-CENSUS.md`) |
+| `vitest.config.ci.ts` | CI (exclut 8 fichiers de tests déclarés — recensement courant : `mcps/internal/servers/roo-state-manager/docs/CI-EXCLUSIONS-CENSUS.md`) |
 
 Nouveaux tests : verifier avec `--config vitest.config.ci.ts`.
 
