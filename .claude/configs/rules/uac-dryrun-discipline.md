@@ -25,16 +25,16 @@ Scripts concernés : schtasks (`Register/Unregister-ScheduledTask`), ACL/sécuri
 
 Ce qui s'exécute en élevé n'est pas le script du dépôt, c'est **le lanceur que l'agent vient d'écrire**. Un dry-run qui ne valide que la cible laisse le maillon neuf non testé — et c'est lui qui porte les erreurs de syntaxe. Plus de la moitié des UAC de la flotte contiennent des erreurs de syntaxe (constat user 2026-10-07) : c'est exactement ce trou.
 
-- **Écrire le lanceur pour l'interpréteur qui l'exécutera.** L'élévation Windows lance **Windows PowerShell 5.1**, jamais `pwsh` 7. Un paramètre de cmdlet qui n'existe qu'en 7.x tue le script au parse — avant la première ligne utile. Cas mesuré : `Out-File -Encoding utf8NoBOM` est **PS7 seulement** ; en 5.1 l'ensemble valide est `unknown;string;unicode;bigendianunicode;utf8;utf7;utf32;ascii;default;oem`. UTF-8 sans BOM en 5.1 = `[System.IO.File]::WriteAllText($p,$c,(New-Object System.Text.UTF8Encoding($false)))`.
+- **Écrire le lanceur pour l'interpréteur qui l'exécutera.** Le lanceur est exécuté par l'interpréteur que la commande d'élévation nomme — dans nos gestes `powershell.exe` (5.1), et `pwsh` est absent de certaines machines : écrire pour 5.1. Un paramètre de cmdlet qui n'existe qu'en 7.x tue le script au parse — avant la première ligne utile. Cas mesuré : `Out-File -Encoding utf8NoBOM` est **PS7 seulement** ; en 5.1 l'ensemble valide est `unknown;string;unicode;bigendianunicode;utf8;utf7;utf32;ascii;default;oem`. UTF-8 sans BOM en 5.1 = `[System.IO.File]::WriteAllText($p,$c,(New-Object System.Text.UTF8Encoding($false)))`.
 - **Lancer la chaîne ENTIÈRE en non-élevé** — lanceur inclus, exactement la commande qui sera élevée. Le run doit aller jusqu'au bout et **échouer sur la seule privilège** (`Register-ScheduledTask` -> `Accès refusé` / `HRESULT 0x80070005`). Échec sur autre chose = bug du geste, pas de l'élévation : corriger et refaire, la fenêtre user n'est pas ouverte.
 - Un `-WhatIf` sur la cible ne dispense pas de ce run : la syntaxe du lanceur ne s'y trouve pas.
 
 ## Règle 3 — Verifier avec un instrument qui VOIT le resultat
 
-Une tâche enregistrée en `SYSTEM`/`RunLevel Highest` est **invisible au jeton standard** : `Get-ScheduledTask` (énumération), `schtasks /query /tn`, et `Test-Path C:\Windows\System32\Tasks\<nom>` rendent tous `Accès refusé`. « Absente » en non-élevé est alors un **artefact de visibilité**, pas un échec — et le rapporter comme un échec déclenche une seconde fenêtre UAC pour rien.
+Une tâche enregistrée en `SYSTEM`/`RunLevel Highest` est **invisible au jeton standard**, et les instruments ne le disent pas tous : `Get-ScheduledTask` (par nom ou par énumération) rend « aucun objet trouvé » **exactement comme pour une tâche inexistante** ; `Test-Path C:\Windows\System32\Tasks\<nom>` rend `False` dans les deux cas (seul le flux d'erreur porte `Accès refusé`, effacé par `-ErrorAction SilentlyContinue`). « Absente » en non-élevé n'est donc **pas une mesure** — et la rapporter comme un échec déclenche une seconde fenêtre UAC pour rien.
 
 - La confirmation valide vient d'un contexte qui peut lire l'objet : la **sortie du processus élevé lui-même** (lecture du service par CIM, `State=Ready`), ou toute lecture de même portée.
-- Distinguer les deux causes d'un « absent » : **refus d'accès** (l'ACL cache l'objet -> il peut exister) vs **introuvable**. Un instrument muet ne prouve rien.
+- **Le seul instrument non élevé qui distingue les deux causes** : `schtasks /query /tn "\<nom>"` → `Accès refusé` (l'objet existe, l'ACL le cache) vs `Le fichier spécifié est introuvable` (absent). Un instrument muet ne prouve rien.
 - L'**effet réel** (démarrage au boot, service up) se vérifie à son propre déclencheur : noter ce qui reste à confirmer au prochain boot plutôt que de le déclarer acquis.
 
 **Si friction** (script sans flag dry-run au source) : poster `[FRICTION]` avec le diff — rendre impossible le prochain incident.
