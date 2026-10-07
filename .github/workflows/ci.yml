@@ -83,6 +83,13 @@ on:
       - 'scripts/infra/check-disk-free.Tests.ps1'
       - 'scripts/scheduling/start-claude-worker.ps1'
       - 'scripts/scheduling/start-claude-worker.Tests.ps1'
+      # #2609: the marshall-scripts job also carries the eval-harness verdict classifier.
+      # Its regression (measured 2026-10-08 on ai-01) was a fully storm-guarded run —
+      # embedding backend down, zero queries issued — summarised "7 PASS / 0 FAIL" with
+      # exit 0. The guarded script, its helper and its suite must re-trigger the job.
+      - 'scripts/claude/run-eval-harness.ps1'
+      - 'scripts/claude/eval-harness-verdicts.ps1'
+      - 'scripts/claude/eval-harness-verdicts.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
@@ -517,6 +524,9 @@ jobs:
       - name: Run start-claude-worker suite (#3905, static)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/start-claude-worker.Tests.ps1 -CI
+      - name: Run eval-harness verdict classifier suite (#2609)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/claude/eval-harness-verdicts.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
