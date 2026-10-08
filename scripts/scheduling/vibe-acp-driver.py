@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Vibe ACP headless driver — drives vibe-acp.exe (Mistral Vibe VS Code extension
-bundle) over the Zed agent-client-protocol (ndjson JSON-RPC on stdio).
+"""Vibe ACP headless driver — drives vibe-acp.exe (standalone Mistral Vibe CLI,
+or the VS Code extension bundle as fallback) over the Zed agent-client-protocol
+(ndjson JSON-RPC on stdio).
 
-Lane #3202 (GO user 2026-08-22 via ai-01). No `mistral` one-shot CLI exists; the
-extension bundles vibe-acp.exe, an ACP *server*. This driver is the missing
-client: initialize -> session/new -> session/prompt -> report.
+Lane #3202 (GO user 2026-08-22 via ai-01). The official standalone CLI
+(`uv tool install mistral-vibe`, docs.mistral.ai/vibe/code/cli/install-setup)
+ships the same ACP server binaries (vibe, vibe-acp, vibe-app-server) and is the
+preferred source since 08/10 (user mandate); the VS Code extension bundle is
+the legacy fallback. This driver is the missing client:
+initialize -> session/new -> session/prompt -> report.
 
-Auth model: vibe-acp.exe consumes the credential store established once by
-interactive browser-auth in VS Code (verified 2026-08-22: full prompt round-trip
-headless, stopReason end_turn).
+Auth model: vibe-acp.exe consumes the credential store at ~/.vibe, established
+once by interactive browser-auth (verified 2026-08-22 extension bundle AND
+2026-10-08 standalone CLI 2.26.0: full prompt round-trip headless, stopReason
+end_turn, same store — no re-auth needed across the migration).
 
 Usage:
   python vibe-acp-driver.py --cwd D:/CoursIA --prompt "do the thing"
@@ -35,6 +40,7 @@ import json
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -102,11 +108,29 @@ def timeout_diagnostics(notifications, t_prompt, timeout):
 
 
 def find_vibe_acp(explicit: str) -> str:
-    """Locate vibe-acp.exe: explicit path, else newest mistral extension."""
+    """Locate vibe-acp.exe: explicit path, else standalone CLI, else extension.
+
+    Discovery order (CLI migration, user mandate 08/10):
+      1. explicit --exe (unchanged, strongest operator intent);
+      2. `vibe-acp` on PATH (uv tool install / pip install mistral-vibe);
+      3. uv default location (~/.local/bin — `uv tool install` on Windows);
+      4. newest mistral VS Code extension dir (legacy source, kept as
+         fallback so machines without the standalone CLI keep working).
+    The standalone CLI (2.26.0) is maintained and survives the extension
+    uninstall; the extension bundle (1.23.0) is a stale binary source.
+    Same credential store either way (~/.vibe, measured 08/10: full
+    headless round-trip on the CLI binary with pre-existing auth).
+    """
     if explicit:
         if os.path.isfile(explicit):
             return explicit
         return ""
+    exe = shutil.which("vibe-acp")
+    if exe and os.path.isfile(exe):
+        return exe
+    uv_default = os.path.expandvars(r"%USERPROFILE%\.local\bin\vibe-acp.exe")
+    if os.path.isfile(uv_default):
+        return uv_default
     pattern = os.path.expandvars(
         r"%USERPROFILE%\.vscode\extensions\mistralai.mistral-vibe-code-*"
     )
