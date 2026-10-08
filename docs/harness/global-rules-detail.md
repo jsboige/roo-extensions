@@ -315,9 +315,9 @@ Le propriétaire sait ce que la lane de passage ignore : qui consomme le service
 
 ---
 
-## Split-Brain — demander au user en clôture
+## Split-Brain — demander au user en cloture
 
-**Mandat user du 2026-08-10**, rapporté par `po-2025:Maintenance` (porteur du fil d'organisation sur le dashboard global) et porté côté instructions par roo-extensions (`.claude/configs/user-global-claude.md`, section éponyme).
+**Mandat user du 2026-10-08**, rapporté par `po-2025:Maintenance` (porteur du fil d'organisation sur le dashboard global) et porté côté instructions par roo-extensions (`.claude/configs/user-global-claude.md`, section éponyme).
 
 ### Pourquoi l'intérieur ne peut pas trancher
 
@@ -328,6 +328,8 @@ Deux instances d'une même lane partagent le dépôt, les dashboards et le works
 1. L'agent qui ne peut pas prouver son statut **demande au user** dans son message de **clôture** (forme `[SPLIT-BRAIN?] <machine>:<workspace> — …`) — l'arbitrage est par **pull**, jamais une interruption en cours de cycle.
 2. Le user répond aux agents **en front** : ceux-là savent alors qu'ils sont front.
 3. Le user peut **redémarrer** les instances identifiées en split-brain — sur indication de l'agent, s'il passe sur la machine.
+
+**Sans réponse, rien ne change** : la ligne reste ouverte, l'agent **repose le `[SPLIT-BRAIN?]` à sa clôture suivante** et poursuit son cycle normalement — aucune extinction ordonnée, aucune session créée pour « reprendre » la lane, aucun travail suspendu en attendant.
 
 ### Ce que cette modalité ne change pas
 
