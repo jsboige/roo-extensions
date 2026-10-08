@@ -294,9 +294,35 @@ class TestTellcContract(unittest.TestCase):
         self.assertIs(c["family_fn"], rvq.tellc_family)
         self.assertEqual(c["floor"], 1)
         self.assertEqual(c["branch_prefix"], "wt/mistral-tellc-")
+        self.assertEqual(c["concluded_families"], {"qc", "tests", "notebook_tools"})
         self.assertNotIn("frozen", c)
         self.assertFalse(c["branch_prefix"].startswith("wt/vibe-"),
                          "un prefixe wt/vibe- gele #17712 en #13410")
+
+    def test_concluded_families_subtract_only_closed_families(self):
+        """End-of-life 08/10 : les familles conclues sortent de la file, une
+        famille vivante survit. Chemins classes par test_tellc_family."""
+        free = {
+            "scripts/tests/test_a.py": ["f1"],
+            "scripts/notebook_tools/detect_b.py": ["f2"],
+            "MyIA.AI.Notebooks/QuantConnect/projects/Fut/c.py": ["f3"],
+            "MyIA.AI.Notebooks/GameTheory/cooperative_games/assistance_games.py": ["f4"],
+        }
+        filtered = rvq.subtract_concluded_families(free, rvq.CONTRACTS[17712])
+        self.assertEqual(sorted(filtered),
+                         ["MyIA.AI.Notebooks/GameTheory/cooperative_games/assistance_games.py"])
+
+    def test_concluded_families_no_key_leaves_contract_untouched(self):
+        """Le non-effet sur un contrat SANS la cle protege #15719/#16472/
+        #13410 d'une regression future — rien d'autre que la lecture ne le
+        garantit aujourd'hui. Contrat AVEC la cle mais sans family_fn :
+        intact aussi (garde du call-site)."""
+        free = {"MyIA.AI.Notebooks/GenAI/Audio/a.ipynb": ["f1"]}
+        for issue in (15719, 16472, 13410):
+            self.assertIs(rvq.subtract_concluded_families(free, rvq.CONTRACTS[issue]), free)
+        contract = dict(rvq.CONTRACTS[17712])
+        contract.pop("family_fn")
+        self.assertIs(rvq.subtract_concluded_families(free, contract), free)
 
     def test_payload_tellc_carries_contract_essentials(self):
         p = rvq.CONTRACTS[17712]["payload"]

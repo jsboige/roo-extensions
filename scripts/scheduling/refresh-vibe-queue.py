@@ -705,6 +705,17 @@ def payload_paths(g):
     return out
 
 
+def subtract_concluded_families(free, contract):
+    """`concluded_families` (end-of-life, 08/10) : retire de `free` les
+    fichiers des familles closes, APRES deconfliction. Les contrats sans la
+    cle (ou sans family_fn) sortent INTACTS — meme objet, aucun filtrage."""
+    concluded = contract.get("concluded_families")
+    if not (concluded and contract.get("family_fn")):
+        return free
+    family_fn = contract["family_fn"]
+    return {p: f for p, f in free.items() if family_fn(p) not in concluded}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default="D:/dev/CoursIA", help="clone CoursIA (jamais le cwd de session)")
@@ -760,10 +771,10 @@ def main():
         # contrats qui portent `concluded_families`.
         concluded = contract.get("concluded_families")
         if concluded and contract.get("family_fn"):
-            family_fn = contract["family_fn"]
-            free = {p: f for p, f in free.items() if family_fn(p) not in concluded}
-            print("#%d: familles conclues soustraites: %s"
-                  % (issue, ", ".join(sorted(concluded))))
+            n_before = len(free)
+            free = subtract_concluded_families(free, contract)
+            print("#%d: familles conclues soustraites: %d fichier(s) — %s"
+                  % (issue, n_before - len(free), ", ".join(sorted(concluded))))
         print("#%d: scan %d fichiers avec findings | %d libres apres deconfliction"
               % (issue, len(found), len(free)))
         if not free:
