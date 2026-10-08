@@ -93,9 +93,9 @@ La flotte multi-workspaces (po-2026 notamment) rend le cas réel, pas théorique
 - L'identité lue sur le marqueur est `machine[:workspace]` (workspace optionnel au sens
   syntaxique : les claims antérieurs à #4114 n'en portent pas). Extraction : machine
   lowercasée, workspace casse préservée (affichage), **comparaisons insensibles à la casse**.
-- L'identité de l'agent par défaut : `COMPUTERNAME` + basename du toplevel git (walk-up pur,
-  sans subprocess — un worktree résout vers SON toplevel : la lane qui y travaille claim sous
-  son nom). Surcharges : `--workspace NAME` (suffixe seul), `--agent id` (id entier).
+- L'identité de l'agent par défaut : `COMPUTERNAME` + basename du toplevel git (walk-up pur, sans subprocess — un worktree lié résout vers le toplevel du
+  checkout principal via son `.git` fichier/gitdir, #4122 : la lane y travaille mais n'y
+  est pas chez elle). Surcharges : `--workspace NAME` (suffixe seul), `--agent id` (id entier).
 - `classify` : même lane → reprise ; machine différente OU même machine + workspace
   différent → étranger (blocage si frais, `STALE_CLAIM` au-delà du seuil) ; **claim sans
   workspace vu d'une lane de la même machine → étranger fail-closed + avertissement

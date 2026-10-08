@@ -503,20 +503,53 @@ def post_comment(issue_number: str, repo: str, body: str) -> None:
 # --- main ---------------------------------------------------------------------
 
 
+def _resolve_gitfile_toplevel(gitfile: Path) -> Path | None:
+    """Main-checkout toplevel from a linked worktree's `.git` file (#4122).
+
+    The file holds `gitdir: <main>/.git/worktrees/<name>`; stripping the
+    `worktrees/<name>` tail reaches the common `.git` dir, whose parent is
+    the main toplevel. A pointer without a worktrees segment (submodule:
+    `.git/modules/<name>`) or an unreadable file returns None -- the caller
+    keeps walking instead of guessing.
+    """
+    try:
+        text = gitfile.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+    if not text.startswith("gitdir:"):
+        return None
+    gitdir = Path(text[len("gitdir:"):].strip())
+    if not gitdir.is_absolute():
+        gitdir = (gitfile.parent / gitdir).resolve()
+    parts = gitdir.parts
+    for i in range(len(parts) - 2):
+        if parts[i] == ".git" and parts[i + 1] == "worktrees":
+            return Path(*parts[:i])
+    return None
+
+
 def detect_workspace() -> str:
     """Default workspace: basename of the git toplevel (#4114).
 
     A pure-filesystem walk-up -- NO subprocess: the picker's tests mock all
     of subprocess.run with exact call sequences, and a stray `git` call would
-    both consume a mocked response and return garbage as a workspace. The
-    walk also resolves a worktree to ITS OWN toplevel: the lane that works
-    there claims under the worktree's name.
+    both consume a mocked response and return garbage as a workspace. A
+    linked worktree's `.git` is a FILE (gitdir pointer): it resolves back to
+    the main checkout's toplevel -- a worktree is where a lane works, not a
+    workspace of its own, so claiming from a worktree must not fragment the
+    lane identity (#4122 review). A `.git` file that does not parse
+    (submodule pointer, corrupt) falls through and the walk-up continues.
     """
     try:
         cwd = Path.cwd().resolve()
         for candidate in (cwd, *cwd.parents):
-            if (candidate / ".git").exists():
+            git = candidate / ".git"
+            if git.is_dir():
                 return candidate.name
+            if git.is_file():
+                resolved = _resolve_gitfile_toplevel(git)
+                if resolved is not None:
+                    return resolved.name
     except OSError:
         pass
     return ""

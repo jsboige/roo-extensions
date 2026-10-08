@@ -473,6 +473,49 @@ class TestLaneIdentityHelpers(unittest.TestCase):
             with patch("check_issue_claim.Path.cwd", return_value=Path(tmp)):
                 self.assertEqual(detect_workspace(), "")
 
+    def test_detect_workspace_resolves_linked_worktree_gitfile(self):
+        # #4122 review : dans un worktree lié, `.git` est un FICHIER (pointeur
+        # gitdir). L'identité doit rester celle du checkout principal -- sinon
+        # le re-check pré-livraison depuis le worktree voit « un autre
+        # workspace » et bloque sur son PROPRE claim.
+        with tempfile.TemporaryDirectory() as tmp:
+            main = Path(tmp) / "roo-extensions"
+            wt = main / ".claude" / "worktrees" / "wt-4114-claim-lane-id"
+            wt.mkdir(parents=True)
+            (main / ".git").mkdir()
+            (wt / ".git").write_text(
+                f"gitdir: {main / '.git' / 'worktrees' / 'wt-4114-claim-lane-id'}",
+                encoding="utf-8",
+            )
+            with patch("check_issue_claim.Path.cwd", return_value=wt):
+                self.assertEqual(detect_workspace(), "roo-extensions")
+
+    def test_detect_workspace_submodule_pointer_falls_through(self):
+        # Pointeur sans segment worktrees (submodule `.git/modules/<name>`)
+        # : non résolu vers un toplevel, la remontée continue et atteint le
+        # dépôt parent.
+        with tempfile.TemporaryDirectory() as tmp:
+            main = Path(tmp) / "roo-extensions"
+            sub = main / "mcps" / "internal"
+            sub.mkdir(parents=True)
+            (main / ".git").mkdir()
+            (sub / ".git").write_text(
+                f"gitdir: {main / '.git' / 'modules' / 'internal'}",
+                encoding="utf-8",
+            )
+            with patch("check_issue_claim.Path.cwd", return_value=sub):
+                self.assertEqual(detect_workspace(), "roo-extensions")
+
+    def test_detect_workspace_unparseable_gitfile_falls_through(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            main = Path(tmp) / "roo-extensions"
+            stray = main / "tools"
+            stray.mkdir(parents=True)
+            (main / ".git").mkdir()
+            (stray / ".git").write_text("garbage", encoding="utf-8")
+            with patch("check_issue_claim.Path.cwd", return_value=stray):
+                self.assertEqual(detect_workspace(), "roo-extensions")
+
     def test_default_agent_composes_machine_and_workspace(self):
         with patch.dict(os.environ, {"COMPUTERNAME": "MYIA-WEB2"}):
             # workspace case-preserved : tel que passé/détecté
