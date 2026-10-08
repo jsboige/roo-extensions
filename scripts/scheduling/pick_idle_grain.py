@@ -214,14 +214,30 @@ def bucketize_items(items: list):
 
 
 def own_machine_id() -> str:
-    """Identite de lane : COMPUTERNAME, sinon hostname, en minuscules.
+    """Identite de MACHINE : COMPUTERNAME, sinon hostname, en minuscules.
 
     La machine vient de l'environnement, jamais d'un flag CLI (ADR 016 :
     le filtre par machine a ete SUPPRIME ; #4103 reutilise des donnees qui
-    existent - claims et etiquettes - sans le reintroduire).
+    existent - claims et etiquettes - sans le reintroduire). Sert a la graine
+    du tirage, aux etiquettes de lane et au champ `machine` de la sortie ;
+    la comparaison de claims, elle, passe par own_lane_id() (#4114).
     """
     name = os.environ.get("COMPUTERNAME") or socket.gethostname() or "unknown"
     return name.strip().lower()
+
+
+def own_lane_id() -> str:
+    """Identite LANE pour la lecture de claims : machine[:workspace] (#4114).
+
+    Le suffixe workspace vient de check_issue_claim.detect_workspace() (walk-up
+    pur, sans subprocess) : deux workspaces partagent une machine, seul le
+    workspace les distingue - un claim pose par l'AUTRE workspace de SA machine
+    doit ecarter le grain. Sans toplevel detecte, on retombe sur la machine
+    seule (le guard classera alors le claim etranger legacy ou foreign).
+    """
+    machine = own_machine_id()
+    workspace = check_issue_claim.detect_workspace()
+    return f"{machine}:{workspace}" if workspace else machine
 
 
 def current_slot(now: float | None = None) -> int:
@@ -286,15 +302,18 @@ def draw_candidates(buckets: dict, weights: dict, rng: random.Random, k, pool: d
     return order
 
 
-def check_candidate(urn: str, item: dict, own_machine: str) -> tuple:
+def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None) -> tuple:
     """(skip, raison) pour un candidat. Leve GhCommandError sur panne instrument.
 
     - Urne delivered : jamais ecartee (ADR 016 : pas de lecture de verrou sur
       une PR ouverte - elle n'est pas encore un grain transforme ; la review
       cross-lane est le but de cette urne).
-    - Etiquette de lane etrangere : ecarte sans appel API (donnee locale).
+    - Etiquette de lane etrangere : ecarte sans appel API (donnee locale),
+      comparee sur la MACHINE (les etiquettes du depot portent la machine).
     - Claim etranger actif : REUTILISE check_issue_claim (ADR 017, peremption
       24 h) - fetch_issue + reduce_claims + classify, pas de reecriture.
+      classify recoit l'identite LANE (#4114 : machine[:workspace]) - le claim
+      de l'AUTRE workspace de sa propre machine est un claim etranger.
       Une claim illisible est une panne d'instrument (fail-closed), jamais un
       grain libre : lever GhCommandError laisse le verdict ERROR tranche.
     """
@@ -310,7 +329,7 @@ def check_candidate(urn: str, item: dict, own_machine: str) -> tuple:
         raise GhCommandError(item["repo"], f"claim check #{item['number']}: {e}") from e
     state = check_issue_claim.reduce_claims(issue.get("comments", []))
     blocking, _warnings, _notes = check_issue_claim.classify(
-        state, own_machine, CLAIM_STALE_THRESHOLD_H
+        state, own_lane or own_machine, CLAIM_STALE_THRESHOLD_H
     )
     if blocking:
         who = ", ".join(sorted({m for m, _, _ in blocking}))
@@ -397,6 +416,7 @@ def main() -> int:
 
     # Graine : explicite (reproductibilite, tests) ou derivee machine+creneau
     machine = own_machine_id()
+    lane = own_lane_id()
     slot = current_slot()
     seed = args.seed if args.seed is not None else derive_seed(machine, slot)
     if args.reroll:
@@ -455,14 +475,14 @@ def main() -> int:
     pick = None
     try:
         for urn, item in candidates:
-            skip, reason = check_candidate(urn, item, machine)
+            skip, reason = check_candidate(urn, item, machine, lane)
             checked.append(_candidate_entry(urn, item, skip, reason))
             if not skip:
                 pick = (urn, item)
                 break
         if pick is None:
             for urn, item in draw_candidates(buckets, weights, rng, None, pool=draw_pool):
-                skip, reason = check_candidate(urn, item, machine)
+                skip, reason = check_candidate(urn, item, machine, lane)
                 checked.append(_candidate_entry(urn, item, skip, reason))
                 if not skip:
                     pick = (urn, item)
