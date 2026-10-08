@@ -196,10 +196,20 @@ fixture de test (des tests B.0 emploient le motif comme DONNEE — y toucher
 changerait ce que le test prouve), prose .md, JSON. Chaque occurrence non
 traitable = NOOP JUSTIFIE cite (fichier + ligne + motif) : c'est une REUSSITE,
 pas un echec de grain.
-Regle editoriale : retirer la mention SANS reecrire la phrase — supprimer la
-citation (ex. "(Tell c. #1234)") et l'espace surnumeraire, rien d'autre.
-Aucun mot change, aucun reformatage, aucune ligne deplacee, aucun import
-retrie.
+Regle editoriale (corrigee 08/10, decision ai-01) : la phrase doit rester
+GRAMMATICALE apres retrait. La regle precedente (« supprimer la citation et
+l'espace surnumeraire, rien d'autre ») a produit des fragments orphelins
+mesures : "(cf Tell c.4 strict : ...)" -> "(cf strict : ...)" et
+"Tell c.1493 strict fondateur nuance -- ..." -> "strict fondateur nuance --
+...". Trois cas :
+1. La mention cite une issue => le numero d'issue REMPLACE la mention.
+2. Sinon, la CLAUSE DE PROVENANCE ENTIERE sort proprement : la citation ET les
+   classifications qui s'y rapportent partent ENSEMBLE, avec le tiret qui les
+   reliait a la note. Jamais de fragment orphelin, jamais de double espace,
+   jamais de parenthese vide ; la note qui suit reste mot pour mot.
+3. La provenance dans les commentaires de workflow (.github/workflows/*.yml)
+   RESTE : la clause ne sort jamais d'un fichier de workflow.
+Aucun reformatage, aucune ligne deplacee, aucun import retrie.
 Tests OBLIGATOIRES avant commit : `python -m pytest <fichiers de test touches>`
 depuis le worktree, vert attendu. Un test ROUGE sur un fichier NON modifie =
 echec preexistant : ne PAS modifier ce fichier, le signaler en NOOP dans le
@@ -356,9 +366,14 @@ def scan_tellc_citations(wt):
 
     Perimetre du GO ai-01 26/09 : TOUT hors .ipynb, hors docs/, hors .claude/
     (la tranche notebooks .ipynb est tenue par po-2025:CoursIA, #17881).
-    Le scanner ne prejuge pas de l'actionabilite : une occurrence en chaine
-    litterale, regex ou fixture reste un finding — c'est le payload qui en
-    fait un NOOP justifie, la decision restant citee par fichier.
+    Ajout 08/10, decision ai-01 : hors .github/workflows/ — « dans les
+    commentaires de workflow, la provenance reste ». Un fichier de workflow
+    est donc un NOOP permanent par la REGLE, pas par le contenu : le laisser
+    au perimetre consommait un slot de targetPath dans chaque fournee pour un
+    retrait interdit.
+    Le scanner ne prejuge pas de l'actionabilite du RESTE : une occurrence en
+    chaine litterale, regex ou fixture reste un finding — c'est le payload qui
+    en fait un NOOP justifie, la decision restant citee par fichier.
     """
     out = sh(["git", "-C", wt, "grep", "-n", "-E", r"Tell c\."], check=False)
     found = collections.defaultdict(list)
@@ -367,7 +382,7 @@ def scan_tellc_citations(wt):
         if len(parts) < 3:
             continue
         path = parts[0].replace("\\", "/")
-        if path.endswith(".ipynb") or path.startswith(("docs/", ".claude/")):
+        if path.endswith(".ipynb") or path.startswith(("docs/", ".claude/", ".github/workflows/")):
             continue
         found[path].append("L%s %s" % (parts[1], parts[2].strip()))
     return dict(found)
@@ -416,8 +431,20 @@ CONTRACTS = {
     # source pour que Mistral ne s'arrete plus faute de travail. GO ai-01
     # 26/09 : hors .ipynb (tranche tenue par po-2025:CoursIA #17881),
     # hors docs/, hors .claude/.
+    # `concluded_families` (end-of-life, 08/10) : le scanner #17712 voit TOUTES
+    # les occurrences, y compris hors perimetre (prose .md, chaines litterales,
+    # fixtures) qui ne partiront jamais. Sans ce filtre, chaque epuisement de
+    # file re-seme un grain d'une famille deja conclue NOOP — qui SKIP-stale a
+    # vie (worktree existant + baseSha qui bouge). Mesure 08/10 : les 3 familles
+    # vides (qc, tests, notebook_tools) retirees sur ordre ai-01 sont revenues a
+    # la file des le premier rafraichissement. Preuves NOOP : commits de branche
+    # qc a7ffc9452 / tests 7a5f72139 / notebook_tools 659fae042 + tip 371224c20
+    # (0 retrait, occurrences toutes hors perimetre). Liste SNAPSHOT : une
+    # occurrence EN perimetre nouvelle dans une famille conclue exige de la
+    # retirer ici (et de nommer --issue 17712 explicitement).
     17712: {"scan": scan_tellc_citations, "payload": PAYLOAD_TELLC,
             "family_fn": tellc_family, "floor": 1,
+            "concluded_families": {"qc", "tests", "notebook_tools"},
             "branch_prefix": "wt/mistral-tellc-"},
 }
 
@@ -725,6 +752,16 @@ def main():
         found = contract["scan"](scan_wt)
         free = {p: f for p, f in found.items()
                 if p not in held and p not in kept_paths and p not in claims}
+        # Familles CONCLUES (end-of-life, 08/10) : soustraites APRES la
+        # deconfliction, pour que le compte imprime distingue « plus rien de
+        # libre » de « libre mais famille close ». Le filtre ne touche que les
+        # contrats qui portent `concluded_families`.
+        concluded = contract.get("concluded_families")
+        if concluded and contract.get("family_fn"):
+            family_fn = contract["family_fn"]
+            free = {p: f for p, f in free.items() if family_fn(p) not in concluded}
+            print("#%d: familles conclues soustraites: %s"
+                  % (issue, ", ".join(sorted(concluded))))
         print("#%d: scan %d fichiers avec findings | %d libres apres deconfliction"
               % (issue, len(found), len(free)))
         if not free:
