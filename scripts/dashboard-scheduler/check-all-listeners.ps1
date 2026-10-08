@@ -203,13 +203,19 @@ if ($totalDead -gt 0 -and -not $NoAlert) {
                 if (Test-Path $sharedDashFile) {
                     $content = Get-Content $sharedDashFile -Raw -Encoding UTF8
                     $content = $content.TrimEnd() + "`r`n" + $newMessage
-                    # Update message count in ## Intercom (N messages) header
-                    $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+', {
+                    # Bump du compteur + pluralisation (même fix que Write-MachineDashboardMessage,
+                    # #4124) : le MCP rend toujours "(N messages)" (dashboard.ts:1936) et le parseur
+                    # listener l'exige (l.564). Un bump chiffre-seul laisserait "(2 message)" si le
+                    # fichier avait été semé au singulier.
+                    $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', {
                         param($m); ([int]$m.Value + 1).ToString()
                     })
+                    $content = [regex]::Replace($content, '(## Intercom \(\d+) message\)', '$1 messages)')
                 } else {
-                    # Dashboard doesn't exist — create minimal file
-                    $content = "---`r`ntype: workspace`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: $workspaceName`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 message)`r`n$newMessage"
+                    # Dashboard doesn't exist — create minimal file. Seed au PLURIEL
+                    # "(1 messages)" : convention du MCP (dashboard.ts:1936) et exigence du
+                    # parseur listener (l.564) — même règle que Write-MachineDashboardMessage.
+                    $content = "---`r`ntype: workspace`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: $workspaceName`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
                 }
 
                 [System.IO.File]::WriteAllText($sharedDashFile, $content, [System.Text.UTF8Encoding]::new($false))
