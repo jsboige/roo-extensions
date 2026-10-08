@@ -196,19 +196,22 @@ fixture de test (des tests B.0 emploient le motif comme DONNEE — y toucher
 changerait ce que le test prouve), prose .md, JSON. Chaque occurrence non
 traitable = NOOP JUSTIFIE cite (fichier + ligne + motif) : c'est une REUSSITE,
 pas un echec de grain.
-Regle editoriale (corrigee 08/10, decision ai-01) : la phrase doit rester
-GRAMMATICALE apres retrait. La regle precedente (« supprimer la citation et
-l'espace surnumeraire, rien d'autre ») a produit des fragments orphelins
-mesures : "(cf Tell c.4 strict : ...)" -> "(cf strict : ...)" et
-"Tell c.1493 strict fondateur nuance -- ..." -> "strict fondateur nuance --
-...". Trois cas :
-1. La mention cite une issue => le numero d'issue REMPLACE la mention.
-2. Sinon, la CLAUSE DE PROVENANCE ENTIERE sort proprement : la citation ET les
-   classifications qui s'y rapportent partent ENSEMBLE, avec le tiret qui les
-   reliait a la note. Jamais de fragment orphelin, jamais de double espace,
-   jamais de parenthese vide ; la note qui suit reste mot pour mot.
-3. La provenance dans les commentaires de workflow (.github/workflows/*.yml)
-   RESTE : la clause ne sort jamais d'un fichier de workflow.
+Regle editoriale (#17712 point 1, precisee par ai-01 le 08/10) : jamais de
+retrait par simple effacement de jeton — la phrase doit rester GRAMMATICALE.
+La regle precedente (« supprimer la citation et l'espace surnumeraire, rien
+d'autre ») a produit des fragments orphelins mesures : "(cf Tell c.4 strict :
+...)" -> "(cf strict : ...)" et "Tell c.1493 strict fondateur nuance -- ..."
+-> "strict fondateur nuance -- ...". Quatre cas :
+1. Une reference qui PORTE une regle devient le LIEN vers cette regle
+   (.claude/rules/... ou docs/...) ou vers l'ISSUE qui la fonde.
+2. Une reference DECORATIVE (strict, "**", fondateur) est retiree EN
+   REECRIVANT la phrase. Exemple : "(cf Tell c.4 strict : le temoin doit etre
+   discriminant)" -> "le temoin doit etre discriminant".
+3. Dans un COMMENTAIRE DE WORKFLOW, une provenance "Tell c.16866" devient
+   "#16866" quand ce numero est une vraie issue (verifier avant de convertir) :
+   la provenance est GARDEE, sous une forme resolvable — jamais effacee.
+4. Jamais de fragment orphelin en sortie : ni "(cf strict : ...)" ni "strict
+   fondateur nuance --" isoles, ni double espace, ni parenthese vide.
 Aucun reformatage, aucune ligne deplacee, aucun import retrie.
 Tests OBLIGATOIRES avant commit : `python -m pytest <fichiers de test touches>`
 depuis le worktree, vert attendu. Un test ROUGE sur un fichier NON modifie =
@@ -366,14 +369,13 @@ def scan_tellc_citations(wt):
 
     Perimetre du GO ai-01 26/09 : TOUT hors .ipynb, hors docs/, hors .claude/
     (la tranche notebooks .ipynb est tenue par po-2025:CoursIA, #17881).
-    Ajout 08/10, decision ai-01 : hors .github/workflows/ — « dans les
-    commentaires de workflow, la provenance reste ». Un fichier de workflow
-    est donc un NOOP permanent par la REGLE, pas par le contenu : le laisser
-    au perimetre consommait un slot de targetPath dans chaque fournee pour un
-    retrait interdit.
-    Le scanner ne prejuge pas de l'actionabilite du RESTE : une occurrence en
-    chaine litterale, regex ou fixture reste un finding — c'est le payload qui
-    en fait un NOOP justifie, la decision restant citee par fichier.
+    Les fichiers de WORKFLOW restent DANS le perimetre (arbitrage ai-01 08/10,
+    point 3) : leur provenance n'est pas effacee mais convertie en forme
+    resolvable ("Tell c.16866" -> "#16866" quand le numero est une vraie
+    issue). Le payload du contrat porte cette regle ; le scanner, lui, ne
+    prejuge pas de l'actionabilite : une occurrence en chaine litterale, regex
+    ou fixture reste un finding — c'est le payload qui en fait un NOOP
+    justifie, la decision restant citee par fichier.
     """
     out = sh(["git", "-C", wt, "grep", "-n", "-E", r"Tell c\."], check=False)
     found = collections.defaultdict(list)
@@ -382,7 +384,7 @@ def scan_tellc_citations(wt):
         if len(parts) < 3:
             continue
         path = parts[0].replace("\\", "/")
-        if path.endswith(".ipynb") or path.startswith(("docs/", ".claude/", ".github/workflows/")):
+        if path.endswith(".ipynb") or path.startswith(("docs/", ".claude/")):
             continue
         found[path].append("L%s %s" % (parts[1], parts[2].strip()))
     return dict(found)
