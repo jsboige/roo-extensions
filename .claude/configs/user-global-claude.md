@@ -189,3 +189,13 @@ ScheduleWakeup(delaySeconds: 3540, prompt: "/coordinate", reason: "<informatif>"
 **Le cron d'une session interactive se ré-arme DANS la session (`CronCreate`), jamais par une tâche planifiée Windows qui relance `claude` sur la même lane** : les deux tirent au même cycle et la lane tourne en double (escalade CoursIA-2, 07/10). Les workers planifiés gardent leur tâche, sans cron de session par-dessus.
 
 Matrice de scope complete + verbatims du mandat : [detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm).
+
+## Split-Brain — demander au user en cloture (mandat user 08/10)
+
+Le split-brain est **indetectable de l'interieur** : deux sessions de la meme lane voient le meme depot, les memes dashboards, le meme workspace, et **chacune se croit legitime**. Les indices internes ne tranchent pas (mesure po-2025 08/10 : 89 process node/claude, 78 process `Code`, plusieurs `claude` nes dans la meme fenetre horaire — **aucun discriminant**). Le seul signal fiable est **externe** : le user voit une fenetre, pas l'autre.
+
+**Modalite** — l'agent qui ne peut **pas etablir** s'il est la session *front* (celle que le user voit) ou un *fantome* le **demande au user dans son message de cloture**, en une ligne — jamais en cours de cycle (arbitrage par pull) :
+
+`[SPLIT-BRAIN?] <machine>:<workspace> — je ne peux pas prouver si je suis front ou fantome ; si tu me vois, reponds ici (et redemarre l'instance en trop).`
+
+Corollaire deja en vigueur : **aucun cron ni tache planifiee pour « reprendre » une lane douteuse** (deux tireurs refont le meme cycle — escalade CoursIA-2 du 07/10). L'extinction d'une session est un arbitrage user, jamais un ordre d'une session a l'autre. [Detail](../../docs/harness/global-rules-detail.md#split-brain--demander-au-user-en-cloture)

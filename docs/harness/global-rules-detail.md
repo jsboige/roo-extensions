@@ -315,6 +315,28 @@ Le propriétaire sait ce que la lane de passage ignore : qui consomme le service
 
 ---
 
+## Split-Brain — demander au user en cloture
+
+**Mandat user du 2026-10-08**, rapporté par `po-2025:Maintenance` (porteur du fil d'organisation sur le dashboard global) et porté côté instructions par roo-extensions (`.claude/configs/user-global-claude.md`, section éponyme).
+
+### Pourquoi l'intérieur ne peut pas trancher
+
+Deux instances d'une même lane partagent le dépôt, les dashboards et le workspace — et **chacune se croit légitime**. Mesure po-2025, 08/10 : **89 process node/claude**, **78 process `Code`**, plusieurs `claude` nés dans la **même fenêtre horaire** : aucun discriminant interne. Le seul signal fiable est **externe** — le user voit une fenêtre, pas l'autre.
+
+### Les trois gestes
+
+1. L'agent qui ne peut pas prouver son statut **demande au user** dans son message de **clôture** (forme `[SPLIT-BRAIN?] <machine>:<workspace> — …`) — l'arbitrage est par **pull**, jamais une interruption en cours de cycle.
+2. Le user répond aux agents **en front** : ceux-là savent alors qu'ils sont front.
+3. Le user peut **redémarrer** les instances identifiées en split-brain — sur indication de l'agent, s'il passe sur la machine.
+
+**Sans réponse, rien ne change** : la ligne reste ouverte, l'agent **repose le `[SPLIT-BRAIN?]` à sa clôture suivante** et poursuit son cycle normalement — aucune extinction ordonnée, aucune session créée pour « reprendre » la lane, aucun travail suspendu en attendant.
+
+### Ce que cette modalité ne change pas
+
+Jamais de cron ni de tâche planifiée pour « reprendre » une lane douteuse : deux tireurs refont le même cycle (escalade CoursIA-2, 07/10). L'**extinction** d'une session reste un arbitrage user — aucune session n'en ordonne une autre.
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)
