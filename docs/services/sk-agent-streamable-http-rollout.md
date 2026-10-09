@@ -158,7 +158,7 @@ consumer regardless of proxy/container timeouts behind. LAN legs (`:8100` /
 Registration above is the **transport** half. The **application** half carries two
 rules a consumer must know — both measured, neither visible from the API surface:
 
-**1. In OWUI, only the native endpoint honors `tool_ids`.**
+**1. On the measured OWUI instance (po-2027, 09/10), only the native endpoint honors `tool_ids`.**
 
 | Endpoint | Payload | Result |
 |---|---|---|
@@ -181,10 +181,13 @@ screenshot) **must carry its own confinement instruction** in the prompt.
 **Capacity vs surface.** The 4-modalities PASS (text / conversation / vision /
 document, po-2026 08/10, ground truth established by an independent instrument per
 modality) was measured through **local stdio** — it proves the agents' capacity,
-not the remote surface. The authenticated remote-surface smoke (AC1 second half)
-remains gated on the proxy bearer (po-2026 [RESULT] 08/10: WAIT_FOR bearer deposit
-per seat, or ai-01-side execution). The container bearer does not cross the proxy
-boundary — two frontiers, two keys (#4085, 09/10).
+not the remote surface. The authenticated remote-surface smoke itself is **done**
+(§4 line 0.5: DONE 2026-09-22, 5/5 checks via `/sk-agent/mcp` with the proxy
+`authTokens`; re-verified from ai-01 after the 24/09 rebuild, #3412
+c.5806559531). What has not been re-run since that rebuild is its replay **from a
+consumer seat** (po-2026 08/10, po-2027 09/10): those seats hold the container
+key (`SK_AGENT_API_KEY`), which the proxy leg refuses — the proxy smoke needs the
+proxy's own `authTokens` (§3 — two frontiers, two keys, #4085, 09/10).
 
 ---
 
@@ -361,6 +364,7 @@ recreate from versioned image + config file so state stays reproducible.
 |---|---|
 | 401 sans auth + smoke authentifié via proxy | Done po-2026 (§1) for proxy legs; repeated ai-01 08/09 on both legs (3-leg 401 matrix, authenticated smoke, positive + negative auth controls); healthz 200 re-verified po-2026 09/09; **full 5-check smoke re-run with clean attribution po-2026 11/09** (local leg 5/5; production leg handshake OK but LLM calls broken — finding F); **3-leg 401 matrix + `/healthz` 200 re-verified po-2025 12/09** (0.03 s / 0.06 s / 0.002 s — the 06/09 hairpin latency variance did not reproduce; relay target `:8100` 200 in 3.5 ms); **re-verified 15/09 from the ARR-edge machine itself (myia-po-2023)**: `healthz` 200 public + 401 on all four legs including `:8100` direct, public-leg routing read in the live IIS config (finding H); **re-verified po-2025 17/09 (J+10)**: `healthz` 200 public (`models_enabled: 11`, `manager: not_initialized` — lazy normal), 401 on all four legs (0.047–0.127 s public, 0.004–0.013 s LAN), no latency excursion |
 | OWUI interne + école pilote appellent texte, vision/document, conversation | Steps 1–2 evidence (ai-01 lane) |
+| Contrat consommateur (endpoint natif vs façade, confinement des pièces jointes non fiables) | §3 « Consumer contract » — endpoints OWUI mesurés po-2027 08–09/10 ; canari confinement po-2026 08/10 (1 couple agent/modèle) |
 | Aucun ID physique requis côté consommateur | By construction (§2): consumers use agent IDs; verified in config + code (`get_model` / `model_id` indirection) |
 | Plan séquentiel validé pour les sept écoles | This doc — **awaiting ai-01/user validation**; tenant checklist confirmed firsthand from the ARR edge (myia-po-2023 15/09, finding H): interne `:2090`, epf `:3010`, esg `:3011`, ece `:3012`, genai.epf `:3013`, epita `:3014`, pauwels `:3016` (+`demo` aliasing `:3016`); **backend count resolved firsthand from LAN (po-2025 17/09, finding J)**: interne + **six** school backends listening (`:3010–:3014`, `:3016` — all `uvicorn`, HTTP 200), `:3015` unreachable, `demo` = second public name on `:3016` → **six registrations cover the seven school names**; intended 7th school (if any) pending ai-01/user confirmation |
 
