@@ -484,6 +484,21 @@ def fetch_issue(issue_number: str, repo: str):
 
 
 def post_comment(issue_number: str, repo: str, body: str) -> None:
+    """Post a comment, REST fallback on a GraphQL quota error (write leg of
+    #3899).
+
+    fetch_issue has fallen back to REST since #3899, but posting stayed on
+    `gh issue comment` (GraphQL): during a fleet quota window a lane could
+    READ the verdict yet not TAKE the lock -- measured 2026-10-09, a bare
+    check answered CLEAR while `--claim` died, leaving the collision guard
+    silently disarmed exactly when the fleet is most active. Same
+    recognition rule as fetch_issue: explicitly recognised quota errors only
+    (a network error propagates untouched), and if REST is limited too the
+    error surfaces -- fail-closed, no silent no-op claim.
+
+    A double post cannot corrupt the ledger: both legs carry the SAME marker
+    for the SAME lane, and the reducer is last-marker-wins per lane.
+    """
     # --body-file from a temp file: bodies carry backticks that --body would
     # let the shell mangle (pr-mandatory.md, #2368).
     import tempfile
@@ -495,7 +510,22 @@ def post_comment(issue_number: str, repo: str, body: str) -> None:
         handle.write(body)
         path = handle.name
     try:
-        run_gh(["issue", "comment", issue_number, "--repo", repo, "--body-file", path])
+        try:
+            run_gh(["issue", "comment", issue_number, "--repo", repo, "--body-file", path])
+            return
+        except RuntimeError as err:
+            if not RATE_LIMIT_RE.search(str(err)):
+                raise
+        run_gh(
+            [
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/issues/{issue_number}/comments",
+                "-f",
+                f"body={body}",
+            ]
+        )
     finally:
         Path(path).unlink(missing_ok=True)
 

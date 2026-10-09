@@ -47,6 +47,7 @@ from check_issue_claim import (
     fetch_issue,
     main,
     parse_iso_utc,
+    post_comment,
     reduce_claims,
     resolve_repo,
     scan_comment_events,
@@ -699,6 +700,64 @@ class TestFetchIssueRestFallback(unittest.TestCase):
         with patch("check_issue_claim._gh_exec", stub):
             with self.assertRaises(RuntimeError):
                 fetch_issue("123", DEFAULT_REPO)
+
+
+class TestPostCommentRestFallback(unittest.TestCase):
+    """Write leg of the #3899 contract: a claim must be POSTable while the
+    GraphQL quota window is open (measured 2026-10-09: read answered CLEAR
+    while `--claim` died on `gh issue comment`)."""
+
+    @staticmethod
+    def _posts(calls):
+        return [a for a in calls if a[1:3] == ["--method", "POST"]]
+
+    def test_happy_path_stays_graphql_only(self):
+        stub = gh_router((0, "", ""), (0, "{}", ""), (0, "", ""))
+        with patch("check_issue_claim._gh_exec", stub):
+            post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
+        self.assertEqual(len(stub.calls), 1)
+        self.assertEqual(stub.calls[0][0], "issue")
+
+    def test_rate_limit_falls_back_to_rest_post(self):
+        stub = gh_router(GRAPHQL_LIMITED, (0, "{}", ""), (0, '{"id": 1}', ""))
+        with patch("check_issue_claim._gh_exec", stub):
+            post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
+        posts = self._posts(stub.calls)
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(
+            posts[0][3], f"repos/{DEFAULT_REPO}/issues/123/comments"
+        )
+        # the marker survives the fallback leg verbatim
+        self.assertEqual(posts[0][5], "body=[CLAIMED] myia-po-2025 -- on it")
+
+    def test_secondary_rate_limit_also_falls_back(self):
+        stub = gh_router(
+            GRAPHQL_SECONDARY_LIMITED, (0, "{}", ""), (0, '{"id": 1}', "")
+        )
+        with patch("check_issue_claim._gh_exec", stub):
+            post_comment("123", DEFAULT_REPO, "[RELEASED] myia-po-2025")
+        self.assertEqual(len(self._posts(stub.calls)), 1)
+
+    def test_non_quota_error_propagates_without_rest_post(self):
+        # Same contract as the read leg: a 5xx/network error is not a quota
+        # condition, no second API is tried, the failure surfaces.
+        stub = gh_router(GRAPHQL_OTHER_ERROR, (0, "{}", ""), (0, "", ""))
+        with patch("check_issue_claim._gh_exec", stub):
+            with self.assertRaises(RuntimeError):
+                post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
+        self.assertEqual(len(stub.calls), 1)  # GraphQL leg only, no POST
+
+    def test_rest_also_limited_raises_no_silent_claim(self):
+        # Both legs limited: the error must surface (caller exits non-zero) --
+        # never a silent no-op that would let the caller believe it claimed.
+        stub = gh_router(
+            GRAPHQL_LIMITED,
+            (0, "{}", ""),
+            (1, "", "gh: API rate limit exceeded (HTTP 403)"),
+        )
+        with patch("check_issue_claim._gh_exec", stub):
+            with self.assertRaises(RuntimeError):
+                post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
 
 
 class TestRestFallbackEndToEnd(unittest.TestCase):
