@@ -566,11 +566,13 @@ _AUTOIMPORT_KEY_RE = r'"zoo-code\.autoImportSettingsPath"\s*:\s*"([^"]*)"'
 
 def _find_autoimport_value(raw):
     """First NON-COMMENTED occurrence of the key (#4139 review: the plain regex used to return
-    a line commented out in JSONC). A '//' before the key on its own line disqualifies the hit;
-    minified JSON (key not at line start) stays supported."""
+    a line commented out in JSONC). A '//' BEFORE THE FIRST QUOTE of the line prefix counts as
+    a comment; a '//' inside a sibling string value on the same line ("https://...") does not.
+    Minified JSON (key not at line start) stays supported."""
     for m in re.finditer(_AUTOIMPORT_KEY_RE, raw):
-        line_start = raw.rfind("\n", 0, m.start()) + 1
-        if "//" in raw[line_start:m.start()]:
+        prefix = raw[raw.rfind("\n", 0, m.start()) + 1:m.start()]
+        c, q = prefix.find("//"), prefix.find('"')
+        if c != -1 and (q == -1 or c < q):
             continue
         return m
     return None
@@ -598,6 +600,10 @@ def _portable_setting_value(path_str):
     absolute path. An absolute home path carries a username that exists on ONE seat only."""
     expanded = os.path.expanduser(path_str)
     home = os.path.expanduser("~")
+    if not os.path.isabs(expanded):
+        # Relative inputs anchor at the home dir — same rule Zoo applies when READING the
+        # value, so writing must not silently resolve them against the process CWD.
+        expanded = os.path.join(home, expanded)
     try:
         rel = os.path.relpath(expanded, home)
     except ValueError:  # Windows: target on another drive

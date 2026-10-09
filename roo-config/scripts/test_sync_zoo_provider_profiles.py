@@ -371,6 +371,44 @@ def test_autoimport_commented_out_occurrence_counts_as_absent():
         assert _json_esc(_portable(emitted)) in text
 
 
+def test_autoimport_sibling_slash_slash_on_same_line_is_not_a_comment():
+    # A '//' inside a sibling string VALUE (e.g. a URL) sharing the line with the key must not
+    # disqualify the hit — that would append a duplicate key. Only '//' before the first quote
+    # of the line prefix is a JSONC comment (analyst pre-review, 10/10).
+    with tempfile.TemporaryDirectory() as d:
+        emitted = os.path.join(d, "emitted.json")
+        open(emitted, "w").close()
+        settings = _write_settings(
+            d,
+            '{\n    "repoUrl": "https://github.com/org/repo", '
+            '"zoo-code.autoImportSettingsPath": "' + _json_esc(emitted) + '"\n}\n',
+        )
+        before = open(settings, encoding="utf-8").read()
+        out, _ = _call_with_appdata(d, emitted)
+        assert "leaving untouched" in out and "[WARN]" not in out
+        assert open(settings, encoding="utf-8").read() == before  # no duplicate appended
+
+
+def test_autoimport_relative_input_lands_under_home_portably():
+    # A RELATIVE input anchors at the home dir (the rule Zoo applies when reading the value),
+    # never at the process CWD: "cfg/zoo.json" must become "~/cfg/zoo.json" (analyst pre-review).
+    with tempfile.TemporaryDirectory() as d:
+        home = os.path.join(d, "fakehome")
+        os.makedirs(os.path.join(home, "cfg"))
+        emitted = os.path.join(home, "cfg", "zoo.json")
+        open(emitted, "w").close()
+        settings = _write_settings(d, '{\n    "editor.fontSize": 14\n}\n')
+        prev_cwd = os.getcwd()
+        os.chdir(d)  # a different CWD must not leak into the written value
+        try:
+            out, _ = _call_with_appdata(d, "cfg/zoo.json", home=home)
+        finally:
+            os.chdir(prev_cwd)
+        assert "[OK]" in out
+        got = json.load(open(settings, encoding="utf-8"))["zoo-code.autoImportSettingsPath"]
+        assert got == "~/cfg/zoo.json"
+
+
 def test_autoimport_jsonc_drift_preserves_comments():
     # settings.json is a hand-maintained file: a JSONC comment must survive the correction.
     with tempfile.TemporaryDirectory() as d:
