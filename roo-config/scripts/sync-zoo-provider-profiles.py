@@ -557,57 +557,109 @@ def emit_import_file(path_str, new_blob, global_settings, set_vscode_setting):
 # #4139: the autoImport pointer is validated on its TARGET, never on the sole presence of the
 # key. A value inherited from another machine's synced settings — or pointing at a file that no
 # longer exists — makes VS Code import ZERO profiles while every log line reads "already present".
+# The key is declared WITHOUT a "scope" in Zoo 3.86.0, so Settings Sync replicates it fleet-wide:
+# whatever this script writes travels to every seat (#4139 review — a dead "C:\Users\Jesse\..."
+# was measured arriving on ai-01 exactly that way). Hence the portable '~/' value below.
+
 _AUTOIMPORT_KEY_RE = r'"zoo-code\.autoImportSettingsPath"\s*:\s*"([^"]*)"'
 
 
+def _find_autoimport_value(raw):
+    """First NON-COMMENTED occurrence of the key (#4139 review: the plain regex used to return
+    a line commented out in JSONC). A '//' before the key on its own line disqualifies the hit;
+    minified JSON (key not at line start) stays supported."""
+    for m in re.finditer(_AUTOIMPORT_KEY_RE, raw):
+        line_start = raw.rfind("\n", 0, m.start()) + 1
+        if "//" in raw[line_start:m.start()]:
+            continue
+        return m
+    return None
+
+
+def _normalize_for_compare(p):
+    """Expand '~' and anchor RELATIVE values at the home dir — Zoo resolves them there
+    (autoImportSettings.ts resolvePath: relative -> join(homedir(), p)), not against the
+    process CWD (#4139 review)."""
+    p = os.path.expanduser(p)
+    if not os.path.isabs(p):
+        p = os.path.join(os.path.expanduser("~"), p)
+    return os.path.normcase(os.path.abspath(p))
+
+
 def _same_path(a, b):
-    """True when two path strings designate the same file (~ expanded; case-insensitive on Windows)."""
-    return os.path.normcase(os.path.abspath(os.path.expanduser(a))) == \
-        os.path.normcase(os.path.abspath(os.path.expanduser(b)))
+    """True when two path strings designate the same file (~ expanded, relative anchored at
+    home; case-insensitive on Windows)."""
+    return _normalize_for_compare(a) == _normalize_for_compare(b)
+
+
+def _portable_setting_value(path_str):
+    """Settings-Sync-portable spelling of the pointer: '~/' when the target lives under the
+    home dir (Zoo expands a leading '~/' itself, autoImportSettings.ts:83-84), otherwise the
+    absolute path. An absolute home path carries a username that exists on ONE seat only."""
+    expanded = os.path.expanduser(path_str)
+    home = os.path.expanduser("~")
+    try:
+        rel = os.path.relpath(expanded, home)
+    except ValueError:  # Windows: target on another drive
+        return path_str
+    if rel == ".." or rel.startswith(".." + os.sep):
+        return path_str
+    return "~/" + rel.replace(os.sep, "/")
 
 
 def set_vscode_autoimport_setting(path_str):
     """Set zoo-code.autoImportSettingsPath in VS Code user settings.json (comment-preserving when possible).
 
     A PRE-EXISTING value is validated, not trusted (#4139). The idempotent "leave untouched" branch
-    now requires that value to resolve to the file we just emitted AND that file to exist. Any other
-    pre-existing value is a silent dead pointer: it is reported (naming both paths, plus whether the
-    old target exists) and corrected — backed up first, with a parseability guard.
+    requires that value to resolve to the file we just emitted AND that file to exist (commented-out
+    JSONC occurrences do not count). Written values use the Settings-Sync-portable '~/' spelling when
+    the target lives under the home dir — the key has no machine scope, so an absolute path would
+    carry this seat's username to every other seat. A pre-existing value pointing at a DIFFERENT
+    file that EXISTS is reported and left alone (a live pointer may be deliberate); one pointing at
+    a missing file is the dead-pointer defect: reported, backed up, corrected.
     """
+    # Compute this once: every write and print below shows the value a synced seat will receive.
+    value_to_write = _portable_setting_value(path_str)
     appdata = os.environ.get("APPDATA", os.path.expanduser("~/AppData/Roaming"))
     settings_path = os.path.join(appdata, "Code", "User", "settings.json")
     if not os.path.exists(settings_path):
         print(f"[WARN] settings.json not found ({settings_path}) — set the key manually.")
         return
     raw = open(settings_path, encoding="utf-8").read()
-    import re
-    if re.search(r'"zoo-code\.autoImportSettingsPath"\s*:', raw):
-        m = re.search(_AUTOIMPORT_KEY_RE, raw)
+    m = _find_autoimport_value(raw)
+    if m is not None:
         try:
             # The captured text is the JSON-escaped form as written in the file; decode it so a
             # Windows path written as "C:\\Users\\..." compares equal to the real path.
-            current = json.loads(f'"{m.group(1)}"') if m else None
+            current = json.loads(f'"{m.group(1)}"')
         except json.JSONDecodeError:
             current = None
         if current is None:
             print("[WARN] zoo-code.autoImportSettingsPath is present but its value is not a plain "
-                  f'string — set manually: "zoo-code.autoImportSettingsPath": "{path_str}"')
+                  f'string — set manually: "zoo-code.autoImportSettingsPath": "{value_to_write}"')
             return
-        target_exists = os.path.exists(os.path.expanduser(current))
+        target_exists = os.path.exists(_normalize_for_compare(current))
         if _same_path(current, path_str) and target_exists:
             print("[i] zoo-code.autoImportSettingsPath already present and pointing at the emitted "
-                  f"file ({path_str}) — leaving untouched.")
+                  f"file ({current}) — leaving untouched.")
+            return
+        if target_exists:
+            # Live pointer at a DIFFERENT file: correcting it would fight a deliberate setup
+            # (another lane's bootstrap, a manual import). Report and let the operator decide.
+            print(f"[WARN] zoo-code.autoImportSettingsPath points at {current} (exists), which "
+                  f"differs from the emitted file {path_str} — leaving untouched: a live pointer "
+                  "may be deliberate. Delete that key or its target if this is drift.")
             return
         # The reported defect: presence was mistaken for validity, so a dead pointer looked healthy.
-        print(f"[WARN] zoo-code.autoImportSettingsPath points at {current} "
-              f"({'exists' if target_exists else 'DOES NOT EXIST'}) but the emitted file is "
-              f"{path_str} — correcting (VS Code would have imported zero profiles).")
+        print(f"[WARN] zoo-code.autoImportSettingsPath points at {current} (DOES NOT EXIST) "
+              f"but the emitted file is {path_str} — correcting (VS Code would have imported "
+              "zero profiles).")
         backup = settings_path + ".bak-autoimport"
         open(backup, "w", encoding="utf-8").write(raw)
         print(f"[i] backup: {backup}")
         # Value-only surgical rewrite: key spelling, indentation, key order and JSONC comments
         # all survive. json.dumps supplies the escaping (raw backslashes would not parse).
-        patched = raw[:m.start(1)] + json.dumps(path_str)[1:-1] + raw[m.end(1):]
+        patched = raw[:m.start(1)] + json.dumps(value_to_write)[1:-1] + raw[m.end(1):]
         # Guard: never degrade parseability. If the file was strict JSON before, it stays strict JSON.
         try:
             json.loads(raw)
@@ -621,7 +673,7 @@ def set_vscode_autoimport_setting(path_str):
                 print(f"[ABORT] edit would break settings.json ({e}) — file left untouched.")
                 return
         open(settings_path, "w", encoding="utf-8").write(patched)
-        print(f"[OK] corrected zoo-code.autoImportSettingsPath = {path_str} in settings.json "
+        print(f"[OK] corrected zoo-code.autoImportSettingsPath = {value_to_write} in settings.json "
               f"({'strict JSON re-validated' if was_json else 'JSONC — verify in VS Code'}).")
         return
     try:
@@ -630,25 +682,26 @@ def set_vscode_autoimport_setting(path_str):
     except json.JSONDecodeError:
         # JSONC (comments / trailing commas) -> regex insert before the final closing brace.
         # Best-effort; cannot fully parse JSONC without a dedicated lib.
+        escaped_value = json.dumps(value_to_write)[1:-1]
         patched = re.sub(
             r"\}\s*$",
-            f',\n  "zoo-code.autoImportSettingsPath": "{path_str}"\n}}',
+            f',\n  "zoo-code.autoImportSettingsPath": "{escaped_value}"\n}}',
             raw.rstrip(),
             count=1,
         )
         if patched == raw:
             print(f"[WARN] could not patch settings.json (JSONC) — set manually: "
-                  f'"zoo-code.autoImportSettingsPath": "{path_str}"')
+                  f'"zoo-code.autoImportSettingsPath": "{value_to_write}"')
             return
         open(settings_path, "w", encoding="utf-8").write(patched)
-        print(f"[OK] set zoo-code.autoImportSettingsPath = {path_str} in settings.json "
+        print(f"[OK] set zoo-code.autoImportSettingsPath = {value_to_write} in settings.json "
               "(JSONC best-effort insert — please verify in VS Code).")
         return
-    data["zoo-code.autoImportSettingsPath"] = path_str
+    data["zoo-code.autoImportSettingsPath"] = value_to_write
     open(settings_path, "w", encoding="utf-8").write(
         json.dumps(data, indent=4, ensure_ascii=False)
     )
-    print(f"[OK] set zoo-code.autoImportSettingsPath = {path_str} in settings.json.")
+    print(f"[OK] set zoo-code.autoImportSettingsPath = {value_to_write} in settings.json.")
 
 
 def remove_vscode_autoimport_setting():

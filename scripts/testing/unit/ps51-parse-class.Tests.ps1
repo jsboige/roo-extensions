@@ -32,6 +32,10 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         # yields the reporter's exact error and line. Remedy per this suite's own precedent: BOM.
         $script:zooProfiles = Join-Path $root 'roo-config\scripts\sync-zoo-provider-profiles.ps1'
         $script:bomTargets = @($script:guardPath, $script:zooProfiles)
+        # NB (#4139 review): CI parses under pwsh 7 (ubuntu), where '??', ternaries and
+        # leading pipes all parse fine — so the parse half below only catches constructs
+        # invalid in BOTH engines. The BOM half above is the effective guard for the
+        # cp1252 em-dash class this suite was created for.
         $script:parseTargets = @(
             $script:guardPath,
             (Join-Path $script:worktreesRoot 'create-worktree.ps1'),

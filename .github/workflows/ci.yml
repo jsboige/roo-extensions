@@ -34,10 +34,11 @@ on:
       - 'scripts/testing/unit/**'
       # Eighth instance of the same gap, closed in the PR that extends the guard
       # (#4139): ps51-parse-class.Tests.ps1 now also covers
-      # roo-config/scripts/sync-zoo-provider-profiles.ps1 (encoding half) and parses
-      # it (grammar half). A BOM stripped from that script -- or a pwsh-7-only
-      # construct added to it -- by a direct main push must re-trigger the suite
-      # asserting it, otherwise the regression lands silently, exactly like
+      # roo-config/scripts/sync-zoo-provider-profiles.ps1 — BOM half plus parse
+      # half. Caveat (#4139 review): CI parses under pwsh 7 (ubuntu), so the parse
+      # half only catches constructs invalid in BOTH engines; the BOM half is the
+      # effective guard for the 5.1 cp1252 class. Either regression landing by a
+      # direct main push must re-trigger the suite asserting it, exactly like
       # mcp-chain-watchdog.ps1 above.
       - 'roo-config/scripts/sync-zoo-provider-profiles.ps1'
       # #2992: the unit suite guards scripts/diagnostic/log-commit-charge.ps1
