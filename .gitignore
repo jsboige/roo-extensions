@@ -196,6 +196,15 @@ mcps/wt-*/
 # Claude Code temporary working directories
 tmpclaude-*/
 
+# Agent scratch (harness rule v2, global CLAUDE.md "Scratch d'agent"):
+# .tmp/ is the in-repo scratch location; the two other patterns catch
+# path-resolution accidents no rule can see (an absolute path whose
+# separators were eaten becomes a file name, CoursIA-3: 28.9 MB;
+# `scratchpad_*` resolved against the CWD).
+.tmp/
+scratchpad_*
+C:Users*
+
 # Claude Code local overrides (machine-specific, never commit)
 CLAUDE.local.md
 *.local.md
