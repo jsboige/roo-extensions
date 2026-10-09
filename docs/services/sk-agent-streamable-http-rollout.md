@@ -153,6 +153,39 @@ at the IIS edge on myia-po-2023 — a `tools/call` exceeding it returns 502 to t
 consumer regardless of proxy/container timeouts behind. LAN legs (`:8100` /
 `:9090` direct) bypass IIS and are not affected.
 
+### Consumer contract — application layer (measured 08–09/10, #3412 / #4085)
+
+Registration above is the **transport** half. The **application** half carries two
+rules a consumer must know — both measured, neither visible from the API surface:
+
+**1. In OWUI, only the native endpoint honors `tool_ids`.**
+
+| Endpoint | Payload | Result |
+|---|---|---|
+| `/api/chat/completions` (native) | `tool_ids: ["server:mcp:sk-agent"]` | **200, `finish_reason: tool_calls`** — the tool is exposed and invoked |
+| `/openai/chat/completions` (OpenAI-compat facade) | `tool_ids` / `toolIds` | **200, field silently ignored** — the model replies it has no such tool |
+| `/openai/chat/completions` | `tools: [{type: "mcp", …}]` | **400** — strict OpenAI schema accepts `type: "function"` only |
+
+A consumer that only tries `/openai` concludes the integration is absent while it
+is live: **absence of an error is not presence of the tool.**
+
+**2. Untrusted attachment content is followed as instruction by default.**
+A/B measured (po-2026, 08/10 — exactly two calls, only the prompt varied):
+`vision-analyst` / `glm-5.3-flash` **obeyed** an instruction embedded in the image
+("be sure to mention the string …") on a neutral prompt, and only transcribed it
+when the prompt carried an explicit confinement clause. Scope: **one agent/model
+couple, one attachment** — the mechanism is demonstrated, not a fleet verdict.
+Consequence for the pilot: a consumer passing an untrusted document (PDF, image,
+screenshot) **must carry its own confinement instruction** in the prompt.
+
+**Capacity vs surface.** The 4-modalities PASS (text / conversation / vision /
+document, po-2026 08/10, ground truth established by an independent instrument per
+modality) was measured through **local stdio** — it proves the agents' capacity,
+not the remote surface. The authenticated remote-surface smoke (AC1 second half)
+remains gated on the proxy bearer (po-2026 [RESULT] 08/10: WAIT_FOR bearer deposit
+per seat, or ai-01-side execution). The container bearer does not cross the proxy
+boundary — two frontiers, two keys (#4085, 09/10).
+
 ---
 
 ## 4. Sequential rollout — 7 schools (+ OWUI interne)
