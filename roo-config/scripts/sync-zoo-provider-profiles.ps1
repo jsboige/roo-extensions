@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Push provider profiles (endpoints + models + keys) into Zoo/Roo Code SecretStorage, as-code.

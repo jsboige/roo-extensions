@@ -32,6 +32,14 @@ on:
       # scripts/testing/unit/; its runner and the production sources that suite
       # guards must re-trigger it on main pushes (same principle as above).
       - 'scripts/testing/unit/**'
+      # Eighth instance of the same gap, closed in the PR that extends the guard
+      # (#4139): ps51-parse-class.Tests.ps1 now also covers
+      # roo-config/scripts/sync-zoo-provider-profiles.ps1 (encoding half) and parses
+      # it (grammar half). A BOM stripped from that script -- or a pwsh-7-only
+      # construct added to it -- by a direct main push must re-trigger the suite
+      # asserting it, otherwise the regression lands silently, exactly like
+      # mcp-chain-watchdog.ps1 above.
+      - 'roo-config/scripts/sync-zoo-provider-profiles.ps1'
       # #2992: the unit suite guards scripts/diagnostic/log-commit-charge.ps1
       # (locale-proof CIM logger); the guarded script itself must re-trigger
       # it on main pushes (same rule as the entries above).

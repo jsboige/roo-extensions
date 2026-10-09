@@ -26,9 +26,16 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         $script:guardPath = Join-Path $root 'scripts\mcp\deploy-preop-guard.ps1'
         $script:worktreesRoot = Join-Path $root 'scripts\worktrees'
 
+        # #4139: sync-zoo-provider-profiles.ps1 carried 7 em-dashes with NO BOM. On a seat whose
+        # ACP is not UTF-8 that is fatal (po-2027: "terminateur manquant" l.143) while a 65001 seat
+        # reads it happily -- reproduced 2026-10-09 by parsing the cp1252-decoded bytes, which
+        # yields the reporter's exact error and line. Remedy per this suite's own precedent: BOM.
+        $script:zooProfiles = Join-Path $root 'roo-config\scripts\sync-zoo-provider-profiles.ps1'
+        $script:bomTargets = @($script:guardPath, $script:zooProfiles)
         $script:parseTargets = @(
             $script:guardPath,
-            (Join-Path $script:worktreesRoot 'create-worktree.ps1')
+            (Join-Path $script:worktreesRoot 'create-worktree.ps1'),
+            $script:zooProfiles
         )
         # create-worktree.ps1 joined the targets after #3745 (leading-pipe
         # repair, 1-char backtick) merged — it now parses under 5.1.
@@ -41,10 +48,13 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         )
     }
 
-    It 'deploy-preop-guard.ps1 carries a UTF-8 BOM (5.1 decodes no-BOM files as cp1252)' {
-        $bytes = [System.IO.File]::ReadAllBytes($script:guardPath)
-        $bytes.Length | Should -BeGreaterThan 3
-        '{0:X2} {1:X2} {2:X2}' -f $bytes[0], $bytes[1], $bytes[2] | Should -Be 'EF BB BF'
+    It 'every non-ASCII .ps1 target carries a UTF-8 BOM (5.1 decodes no-BOM files as cp1252)' {
+        foreach ($p in $script:bomTargets) {
+            $bytes = [System.IO.File]::ReadAllBytes($p)
+            $bytes.Length | Should -BeGreaterThan 3
+            '{0:X2} {1:X2} {2:X2}' -f $bytes[0], $bytes[1], $bytes[2] |
+                Should -Be 'EF BB BF' -Because "$p must decode as UTF-8 on a cp1252 seat"
+        }
     }
 
     It 'no script starts a pipeline with a leading pipe (5.1 rejects, pwsh 7 accepts)' {
