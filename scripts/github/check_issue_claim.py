@@ -499,8 +499,10 @@ def post_comment(issue_number: str, repo: str, body: str) -> None:
     A double post cannot corrupt the ledger: both legs carry the SAME marker
     for the SAME lane, and the reducer is last-marker-wins per lane.
     """
-    # --body-file from a temp file: bodies carry backticks that --body would
-    # let the shell mangle (pr-mandatory.md, #2368).
+    # --body-file from a temp file. No shell is involved (subprocess.run gets
+    # an argv list), so backticks are safe either way: the file only keeps the
+    # body off a command line that Windows caps at 32 767 chars. The REST leg
+    # below passes it inline with -f, which is fine for a two-line claim body.
     import tempfile
     from pathlib import Path
 
