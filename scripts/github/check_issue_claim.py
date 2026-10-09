@@ -109,12 +109,14 @@ GH_UNRUNNABLE = -1
 # The quota-exhaustion vocabulary GitHub itself uses, primary ("API rate limit
 # exceeded") and secondary ("You have exceeded a secondary rate limit"). Unlike
 # the 404 trap above, this phrase family only ever appears in an actual limit
-# error, so matching it is safe. It gates the ONE automatic fallback this tool
-# allows (#3899): when the GraphQL read (`gh issue view --json`) dies on a
-# recognised quota error, the read is retried over REST (`gh api`), whose budget
-# is separate. Any OTHER failure (network, auth, 5xx) still raises as-is --
-# a timeout is not a quota condition, and retrying it on a second API would
-# just move the outage around.
+# error, so matching it is safe. It gates the two automatic fallbacks this tool
+# allows: when the GraphQL read (`gh issue view --json`, #3899) or the GraphQL
+# write (`gh issue comment`, #4155) dies on a recognised quota error, the call
+# is retried over REST (`gh api`), whose budget is separate. Any OTHER failure
+# (network, auth, 5xx) still raises as-is -- a timeout is not a quota
+# condition, and retrying it on a second API would just move the outage around.
+# The match runs on run_gh's error text, which quotes the command's args: free
+# text must never travel as an arg of a classified call (see post_comment).
 RATE_LIMIT_RE = re.compile(r"rate limit", re.IGNORECASE)
 
 # --- markers -----------------------------------------------------------------
@@ -499,8 +501,12 @@ def post_comment(issue_number: str, repo: str, body: str) -> None:
     A double post cannot corrupt the ledger: both legs carry the SAME marker
     for the SAME lane, and the reducer is last-marker-wins per lane.
     """
-    # --body-file from a temp file: bodies carry backticks that --body would
-    # let the shell mangle (pr-mandatory.md, #2368).
+    # --body-file from a temp file, not --body: run_gh quotes the command's
+    # args in its error text and RATE_LIMIT_RE scans that text, so an inline
+    # body that says "rate limit" would turn a 5xx into a REST retry. (No shell
+    # is involved -- subprocess.run gets an argv list -- so backticks are not
+    # the concern.) The REST leg below passes the body inline with -f: its
+    # error is terminal, never classified, and a claim body is two lines.
     import tempfile
     from pathlib import Path
 
