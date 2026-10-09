@@ -107,7 +107,7 @@ Le registre porte les questions **de l'agent vers le user**. Quand c'est **le us
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
 - **Join-Path PS 5.1** : 2 args seulement. Preferer `"$a/b/c/d"`.
 - **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (fabrique un faux skew cross-clock). Pour l'UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
-- **TickCount64** : indisponible/fiérable sous PS 5.1 (a bloqué définitivement une garde Docker, Maintenance#72, 06/10) — préférer `[Environment]::TickCount` ou `Get-Date`.
+- **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72, 06/10). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j d'uptime).
 - **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
 
 ## MCP Tools
