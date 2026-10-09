@@ -554,8 +554,26 @@ def emit_import_file(path_str, new_blob, global_settings, set_vscode_setting):
           "-> self-heals the provider config every restart.")
 
 
+# #4139: the autoImport pointer is validated on its TARGET, never on the sole presence of the
+# key. A value inherited from another machine's synced settings — or pointing at a file that no
+# longer exists — makes VS Code import ZERO profiles while every log line reads "already present".
+_AUTOIMPORT_KEY_RE = r'"zoo-code\.autoImportSettingsPath"\s*:\s*"([^"]*)"'
+
+
+def _same_path(a, b):
+    """True when two path strings designate the same file (~ expanded; case-insensitive on Windows)."""
+    return os.path.normcase(os.path.abspath(os.path.expanduser(a))) == \
+        os.path.normcase(os.path.abspath(os.path.expanduser(b)))
+
+
 def set_vscode_autoimport_setting(path_str):
-    """Set zoo-code.autoImportSettingsPath in VS Code user settings.json (comment-preserving when possible)."""
+    """Set zoo-code.autoImportSettingsPath in VS Code user settings.json (comment-preserving when possible).
+
+    A PRE-EXISTING value is validated, not trusted (#4139). The idempotent "leave untouched" branch
+    now requires that value to resolve to the file we just emitted AND that file to exist. Any other
+    pre-existing value is a silent dead pointer: it is reported (naming both paths, plus whether the
+    old target exists) and corrected — backed up first, with a parseability guard.
+    """
     appdata = os.environ.get("APPDATA", os.path.expanduser("~/AppData/Roaming"))
     settings_path = os.path.join(appdata, "Code", "User", "settings.json")
     if not os.path.exists(settings_path):
@@ -563,9 +581,48 @@ def set_vscode_autoimport_setting(path_str):
         return
     raw = open(settings_path, encoding="utf-8").read()
     import re
-    # Already present? Leave as-is (idempotent).
     if re.search(r'"zoo-code\.autoImportSettingsPath"\s*:', raw):
-        print(f"[i] zoo-code.autoImportSettingsPath already present in settings.json — leaving untouched.")
+        m = re.search(_AUTOIMPORT_KEY_RE, raw)
+        try:
+            # The captured text is the JSON-escaped form as written in the file; decode it so a
+            # Windows path written as "C:\\Users\\..." compares equal to the real path.
+            current = json.loads(f'"{m.group(1)}"') if m else None
+        except json.JSONDecodeError:
+            current = None
+        if current is None:
+            print("[WARN] zoo-code.autoImportSettingsPath is present but its value is not a plain "
+                  f'string — set manually: "zoo-code.autoImportSettingsPath": "{path_str}"')
+            return
+        target_exists = os.path.exists(os.path.expanduser(current))
+        if _same_path(current, path_str) and target_exists:
+            print("[i] zoo-code.autoImportSettingsPath already present and pointing at the emitted "
+                  f"file ({path_str}) — leaving untouched.")
+            return
+        # The reported defect: presence was mistaken for validity, so a dead pointer looked healthy.
+        print(f"[WARN] zoo-code.autoImportSettingsPath points at {current} "
+              f"({'exists' if target_exists else 'DOES NOT EXIST'}) but the emitted file is "
+              f"{path_str} — correcting (VS Code would have imported zero profiles).")
+        backup = settings_path + ".bak-autoimport"
+        open(backup, "w", encoding="utf-8").write(raw)
+        print(f"[i] backup: {backup}")
+        # Value-only surgical rewrite: key spelling, indentation, key order and JSONC comments
+        # all survive. json.dumps supplies the escaping (raw backslashes would not parse).
+        patched = raw[:m.start(1)] + json.dumps(path_str)[1:-1] + raw[m.end(1):]
+        # Guard: never degrade parseability. If the file was strict JSON before, it stays strict JSON.
+        try:
+            json.loads(raw)
+            was_json = True
+        except json.JSONDecodeError:
+            was_json = False
+        if was_json:
+            try:
+                json.loads(patched)
+            except json.JSONDecodeError as e:
+                print(f"[ABORT] edit would break settings.json ({e}) — file left untouched.")
+                return
+        open(settings_path, "w", encoding="utf-8").write(patched)
+        print(f"[OK] corrected zoo-code.autoImportSettingsPath = {path_str} in settings.json "
+              f"({'strict JSON re-validated' if was_json else 'JSONC — verify in VS Code'}).")
         return
     try:
         # Clean JSON -> round-trip preserves structure (comments rare in this file).
