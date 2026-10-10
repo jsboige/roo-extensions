@@ -117,6 +117,39 @@ try {
     exit 1
 }
 
+# Determine destination BEFORE regenerating: on an empty host the refusal (exit 2)
+# must fire without the generator rewriting the tracked yaml first (#595 review
+# note, ai-01 2026-10-10 -- resolution used to run after generation).
+$extensionTarget = ""
+if ($DeploymentType -eq "local") {
+    $destination = Join-Path $repoRoot ".roomodes"
+} else {
+    . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
+    # #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
+    # INSTALLED (directory probe). Roo recreates its settings/mcp_settings.json at every
+    # startup and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of moving it, so a
+    # migrated or dual host has both files and the config-file probe (Get-ActiveExtension,
+    # #3135 -- contract unchanged for its other callers) answers Roo while Zoo is the
+    # extension that runs: modes deployed to Roo stay invisible, the defect #595 fixes.
+    $extensionTarget = if ($TargetExtension -eq "Auto") {
+        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" }
+        elseif (Test-ExtensionInstalled -Extension RooCode) { "RooCode" }
+        else {
+            # #595 review follow-up (ai-01, 2026-10-10 afternoon queue): the Roo
+            # fallback used to CREATE the Roo globalStorage on hosts with no extension
+            # at all -- a directory nothing reads, and one that answers "installed" to
+            # every later probe. Refuse instead (#3639 precedent: exit 2). An explicit
+            # -TargetExtension bypasses this resolution by design.
+            Write-Host "ERROR: neither Roo Code nor Zoo Code is installed on this host." -ForegroundColor Red
+            Write-Host "A global deploy would create a globalStorage no extension reads -- and one that answers 'installed' to every later probe." -ForegroundColor Red
+            Write-Host "Install one of them first, or pin -TargetExtension explicitly to force." -ForegroundColor Yellow
+            exit 2
+        }
+    } else { $TargetExtension }
+    $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
+    $destination = Join-Path $globalDir "custom_modes.yaml"
+}
+
 # For global deployment, regenerate as YAML using generate-modes.js --format yaml
 # This avoids the YAML empty-array bug where [] becomes null
 $globalYamlContent = $null
@@ -163,37 +196,6 @@ Write-Host "`nModes to deploy:" -ForegroundColor Cyan
 foreach ($name in $modeNames) {
     $suffix = if ($name -match '-simple$') { " (economique)" } elseif ($name -match '-complex$') { " (puissant)" } else { "" }
     Write-Host "  - $name$suffix" -ForegroundColor White
-}
-
-# Determine destination
-$extensionTarget = ""
-if ($DeploymentType -eq "local") {
-    $destination = Join-Path $repoRoot ".roomodes"
-} else {
-    . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
-    # #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
-    # INSTALLED (directory probe). Roo recreates its settings/mcp_settings.json at every
-    # startup and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of moving it, so a
-    # migrated or dual host has both files and the config-file probe (Get-ActiveExtension,
-    # #3135 -- contract unchanged for its other callers) answers Roo while Zoo is the
-    # extension that runs: modes deployed to Roo stay invisible, the defect #595 fixes.
-    $extensionTarget = if ($TargetExtension -eq "Auto") {
-        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" }
-        elseif (Test-ExtensionInstalled -Extension RooCode) { "RooCode" }
-        else {
-            # #595 review follow-up (ai-01, 2026-10-10 afternoon queue): the Roo
-            # fallback used to CREATE the Roo globalStorage on hosts with no extension
-            # at all -- a directory nothing reads, and one that answers "installed" to
-            # every later probe. Refuse instead (#3639 precedent: exit 2). An explicit
-            # -TargetExtension bypasses this resolution by design.
-            Write-Host "ERROR: neither Roo Code nor Zoo Code is installed on this host." -ForegroundColor Red
-            Write-Host "A global deploy would create a globalStorage no extension reads -- and one that answers 'installed' to every later probe." -ForegroundColor Red
-            Write-Host "Install one of them first, or pin -TargetExtension explicitly to force." -ForegroundColor Yellow
-            exit 2
-        }
-    } else { $TargetExtension }
-    $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
-    $destination = Join-Path $globalDir "custom_modes.yaml"
 }
 
 Write-Host "`nDeployment:" -ForegroundColor Cyan
