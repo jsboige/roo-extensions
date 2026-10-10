@@ -25,8 +25,8 @@
  *   --deploy-global      Also copy to the Roo/Zoo global custom_modes.yaml (#595)
  *   --global-path <path> Explicit target file for --deploy-global (default: VS Code globalStorage custom_modes.yaml)
  *   --target-extension <auto|roo|zoo> Extension whose globalStorage receives --deploy-global
- *                        (default: auto -- probes the settings/mcp_settings.json of each id,
- *                        Roo first when both exist; explicit 'roo'/'zoo' overrides the probe)
+ *                        (default: auto -- Zoo as soon as Zoo is installed, Roo otherwise;
+ *                        explicit 'roo'/'zoo' overrides the probe)
  *   --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.
  */
 const fs = require('fs');
@@ -198,8 +198,12 @@ function parseArgs() {
   }
 
   // #595 phase 3: validated after the loop too, so flag order does not matter.
+  // hasOwnProperty guard (ai-01 review point 4): 'constructor'/'__proto__' pass
+  // !EXTENSION_IDS[x] through the prototype chain, and the script would later
+  // die in TypeError AFTER --output was already written.
   args.targetExtension = String(args.targetExtension).toLowerCase();
-  if (args.targetExtension !== 'auto' && !EXTENSION_IDS[args.targetExtension]) {
+  if (args.targetExtension !== 'auto' &&
+      !Object.prototype.hasOwnProperty.call(EXTENSION_IDS, args.targetExtension)) {
     console.error('ERROR: --target-extension must be "auto", "roo" or "zoo" (got "' + args.targetExtension + '").');
     process.exit(1);
   }
@@ -226,20 +230,39 @@ function globalStorageBase() {
   return path.join(configBase, 'Code', 'User', 'globalStorage');
 }
 
+function extensionInstalled(id) {
+  // Installed = the extension's globalStorage directory exists, or its extension
+  // directory under ~/.vscode/extensions does (an installed but never-activated
+  // extension has no globalStorage yet).
+  if (fs.existsSync(path.join(globalStorageBase(), id))) {
+    return true;
+  }
+  var home = process.env.USERPROFILE || process.env.HOME || '';
+  if (!home) {
+    return false;
+  }
+  var extRoot = path.join(home, '.vscode', 'extensions');
+  var entries;
+  try {
+    entries = fs.readdirSync(extRoot);
+  } catch (e) {
+    return false;
+  }
+  return entries.some(function(entry) { return entry.indexOf(id + '-') === 0; });
+}
+
 function resolveExtensionId(requested) {
   if (requested && requested !== 'auto') {
     return EXTENSION_IDS[requested];
   }
-  // Mirror of Get-ActiveExtension (scripts/common/extension-paths.ps1, #3135) and of the
-  // TS probe it mirrors: the probe targets the settings/mcp_settings.json FILE, not the
-  // extension directory -- a migrated host keeps the roo-cline globalStorage as an empty
-  // shell, and a directory-based probe would pick Roo despite Zoo carrying the live config.
-  // Preference when BOTH files exist: Roo (back-compat with dual-install hosts).
-  var base = globalStorageBase();
-  if (fs.existsSync(path.join(base, EXTENSION_IDS.roo, 'settings', 'mcp_settings.json'))) {
-    return EXTENSION_IDS.roo;
-  }
-  if (fs.existsSync(path.join(base, EXTENSION_IDS.zoo, 'settings', 'mcp_settings.json'))) {
+  // #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
+  // INSTALLED. Roo recreates its settings/mcp_settings.json at every startup
+  // (roo-code McpHub.ts) and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of
+  // moving it, so a migrated or dual host has both files and the mcp_settings.json
+  // probe (Get-ActiveExtension, #3135 -- contract unchanged for its other callers)
+  // resolves it back to Roo: modes deployed to Roo stay invisible, the exact
+  // defect #595 fixes.
+  if (extensionInstalled(EXTENSION_IDS.zoo)) {
     return EXTENSION_IDS.zoo;
   }
   return EXTENSION_IDS.roo;

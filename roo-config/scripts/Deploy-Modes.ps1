@@ -12,10 +12,12 @@
     Run 'node roo-config/scripts/generate-modes.js' first to regenerate from templates.
 
     The GLOBAL target extension is resolved, not hardcoded (#595 phase 3): with
-    -TargetExtension Auto (default) the settings dir of the extension actually
-    configured on this host is used -- Zoo Code on a Zoo-only seat, where the
-    deploy used to write into the Roo globalStorage that nothing reads. Pass
-    -TargetExtension RooCode/ZooCode to pin it explicitly.
+    -TargetExtension Auto (default) the global deploy targets Zoo Code as soon as
+    Zoo is installed, Roo Code otherwise. On a migrated or dual host both
+    extensions have a settings/mcp_settings.json and a config-file probe answers
+    Roo -- leaving the modes where the running extension never reads them, the
+    exact defect #595 fixes. Pass -TargetExtension RooCode/ZooCode to pin it
+    explicitly.
 
 .PARAMETER DeploymentType
     'local' = workspace .roomodes (default, JSON format)
@@ -26,8 +28,10 @@
 
 .PARAMETER TargetExtension
     Extension whose globalStorage receives the global deploy: Auto (default), RooCode
-    or ZooCode. Auto probes each extension's settings/mcp_settings.json (Get-ActiveExtension,
-    the #3135 probe); Roo wins when both exist (dual-install back-compat).
+    or ZooCode. Auto targets Zoo as soon as Zoo is installed (directory probe,
+    Test-ExtensionInstalled), Roo otherwise -- see .DESCRIPTION for why it is not the
+    mcp_settings.json probe (Get-ActiveExtension, whose contract is unchanged for its
+    other callers: Sync-AlwaysAllow, inventories, meta-audit).
 
 .PARAMETER ApiProfile
     API profile to apply from model-configs.json (e.g., "Production (Qwen 3.6 local + GLM-5.3 cloud)")
@@ -152,11 +156,15 @@ if ($DeploymentType -eq "local") {
     $destination = Join-Path $repoRoot ".roomodes"
 } else {
     . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
-    # #595 phase 3: resolve the target instead of hardcoding RooCode. Get-ActiveExtension
-    # probes each extension's settings/mcp_settings.json -- the #3135 arbitrage for the same
-    # family (a migrated host keeps the roo-cline globalStorage as an empty shell, so a
-    # directory probe would pick Roo while Zoo carries the live config).
-    $extensionTarget = if ($TargetExtension -eq "Auto") { Get-ActiveExtension } else { $TargetExtension }
+    # #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
+    # INSTALLED (directory probe). Roo recreates its settings/mcp_settings.json at every
+    # startup and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of moving it, so a
+    # migrated or dual host has both files and the config-file probe (Get-ActiveExtension,
+    # #3135 -- contract unchanged for its other callers) answers Roo while Zoo is the
+    # extension that runs: modes deployed to Roo stay invisible, the defect #595 fixes.
+    $extensionTarget = if ($TargetExtension -eq "Auto") {
+        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" } else { "RooCode" }
+    } else { $TargetExtension }
     $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
     if (-not (Test-Path $globalDir)) {
         Write-Host "WARNING: VS Code $extensionTarget extension settings dir not found: $globalDir" -ForegroundColor Yellow
