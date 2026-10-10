@@ -34,6 +34,14 @@
 #>
 
 BeforeAll {
+    # Save the caller's APPDATA FIRST -- before anything that can throw. AfterAll
+    # restores it under a flag: were a later line here (the copy loop, the
+    # ConvertFrom-Json) to raise, an ungated AfterAll would Remove-Item APPDATA on
+    # the Pester process and silently strip it for every suite running after this
+    # one in the same launch (review follow-up, ai-01 on #4160).
+    $script:SavedAppData = $env:APPDATA
+    $script:AppDataSaved = $true
+
     $repoRoot = (Resolve-Path -LiteralPath ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', '..'))).Path
     $sandbox = (New-Item -ItemType Directory -Path ([System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), [guid]::NewGuid().ToString('N')))).FullName
     $script:Sandbox = $sandbox
@@ -68,7 +76,6 @@ BeforeAll {
     # dot-sources): fixture paths and deploy destinations share ONE resolution.
     $extPaths = Join-Path $sandbox (Join-Path 'scripts' (Join-Path 'common' 'extension-paths.ps1'))
     $script:FakeAppData = Join-Path $sandbox 'fake-appdata'
-    $script:SavedAppData = $env:APPDATA
     $env:APPDATA = $script:FakeAppData
     . $extPaths
     $script:SettingsDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) 'settings'
@@ -123,10 +130,15 @@ BeforeAll {
 }
 
 AfterAll {
-    if ($null -ne $script:SavedAppData) {
-        $env:APPDATA = $script:SavedAppData
-    } else {
-        Remove-Item env:APPDATA -ErrorAction SilentlyContinue
+    # Gated on the flag set by BeforeAll's first line: restoring when nothing was
+    # ever captured would Remove-Item APPDATA on the Pester process itself
+    # (review follow-up, ai-01 on #4160).
+    if ($script:AppDataSaved) {
+        if ($null -ne $script:SavedAppData) {
+            $env:APPDATA = $script:SavedAppData
+        } else {
+            Remove-Item env:APPDATA -ErrorAction SilentlyContinue
+        }
     }
     if ($script:Sandbox -and (Test-Path -LiteralPath $script:Sandbox)) {
         Remove-Item -LiteralPath $script:Sandbox -Recurse -Force -ErrorAction SilentlyContinue
