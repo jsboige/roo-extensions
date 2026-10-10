@@ -241,8 +241,9 @@ function Remove-ItemWithRetry {
         return $false
     }
 
-    # Junction guard: Remove-Item -Recurse follows junctions into their target (a
-    # gitignored node_modules junctioned to the main checkout passes every check above).
+    # Junction guard (defence in depth: Remove-Item -Recurse did not follow junctions
+    # on PS 5.1.26100, but robocopy /MIR and git worktree remove do). A gitignored
+    # node_modules junctioned to the main checkout passes every check above.
     # Unlink them first; if one survives, delete nothing.
     $links = Remove-ReparsePointsUnder -Path $Path
     foreach ($l in $links.Unlinked) { Write-Log "  Unlinked reparse point before removal: $l" }

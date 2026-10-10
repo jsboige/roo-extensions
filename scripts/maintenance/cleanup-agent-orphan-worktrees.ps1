@@ -232,6 +232,16 @@ foreach ($wt in $matched) {
             Write-Log "  NOTE: cross-repo orphan (-AllowCrossRepo) — physical tree is outside the repo root"
         }
 
+        # Junction guard, before unlock so a refusal leaves the entry untouched:
+        # `git worktree remove` follows a junction into its target, and a gitignored
+        # node_modules junction passes git's dirty check (worktree-lifecycle.md v1.1.0).
+        $links = Remove-ReparsePointsUnder -Path $wtPath
+        foreach ($l in $links.Unlinked) { Write-Log "  unlinked reparse point before removal: $l" }
+        if (-not $links.AllUnlinked) {
+            Write-Log "  SKIP (junction-guard): could not unlink $($links.Failed -join '; ') -- nothing removed"
+            continue
+        }
+
         Write-Log "  -> git worktree unlock '$wtPath'"
         $unlockOut = git -C $RepoRoot worktree unlock $wtPath 2>&1
         if ($LASTEXITCODE -ne 0) {

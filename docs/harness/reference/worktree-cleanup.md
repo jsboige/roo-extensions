@@ -263,15 +263,20 @@ Runs `git gc --prune=now` automatically when orphans or stale branches are remov
 
 On Windows, long paths and locked files can prevent removal. The script uses a 4-strategy fallback.
 
-**Junction guard first.** Every strategy below follows junctions into their target: PS 5.1
-`Remove-Item -Recurse`, `rmdir /s` and `robocopy /MIR` delete the target's tree, not just the
-link. A deregistered worktree whose gitignored `node_modules` is junctioned to the main checkout
-passes the dirty guard (`git status` sees nothing). So, before strategy 1, both cleaners
-(`scripts/claude/worktree-cleanup.ps1`, `scripts/maintenance/cleanup-orphan-worktrees.ps1`) call
-`Remove-ReparsePointsUnder` (`scripts/common/path-guards.ps1`): it walks the tree without
-descending into reparse points and unlinks each one with `[IO.Directory]::Delete($link, $false)`.
-If a link survives, the target is refused and nothing is deleted. Same rule as
-`.claude/rules/worktree-lifecycle.md` (« Jonction = frontière ») and the worker-side guard #3936.
+**Junction guard first.** `robocopy /MIR` (strategy 4) and `git worktree remove` (with or
+without `--force`) follow a junction and delete its target's tree, not just the link (measured
+10/10 on PS 5.1.26100; `Remove-Item -Recurse` and `rmdir /s` did not reproduce it there, so for
+them the guard is defence in depth). A worktree whose gitignored `node_modules` is junctioned to
+the main checkout passes the dirty guard (`git status` sees nothing). So, before any deletion,
+the four cleaners (`scripts/claude/worktree-cleanup.ps1`,
+`scripts/maintenance/cleanup-orphan-worktrees.ps1`,
+`scripts/maintenance/cleanup-agent-orphan-worktrees.ps1`,
+`scripts/maintenance/audit-worktrees-fleet.ps1`) call `Remove-ReparsePointsUnder`
+(`scripts/common/path-guards.ps1`): it walks the tree without descending into reparse points and
+unlinks each one with `[IO.Directory]::Delete($link, $false)`. A target that is itself a junction
+is refused, not walked. If a link survives, the target is refused and nothing is deleted. Same
+rule as `.claude/rules/worktree-lifecycle.md` (« Jonction = frontière ») and the worker-side guard
+#3936.
 
 1. **Standard `Remove-Item -Recurse -Force`** — works in most cases
 2. **Long path prefix `\\?\`** — handles paths exceeding MAX_PATH (260 chars)

@@ -229,19 +229,21 @@ function Remove-ReparsePointsUnder {
     .SYNOPSIS
         Unlinks every junction / directory symlink under $Path, without following any.
     .DESCRIPTION
-        PS 5.1 `Remove-Item -Recurse`, `cmd rmdir /s`, `robocopy /MIR` and
-        `git worktree remove --force` all descend into a junction and delete its
-        TARGET's tree. A worktree whose gitignored node_modules is junctioned to the
-        main checkout looks clean to `git status`, so the dirty guard lets it through
-        (incident 05/10, worktree-lifecycle.md v1.1.0: 144 tracked files of the main
-        RSM server deleted; ai-01 29/09: .env, build/ and 147 files — the worker-side
-        fix is #3936).
+        `git worktree remove` (with or without --force) and `robocopy /MIR` descend
+        into a junction and delete its TARGET's tree (measured 10/10 on PS 5.1.26100;
+        `Remove-Item -Recurse` and `cmd rmdir /s` did not reproduce it there, so for
+        them this is defence in depth). A worktree whose gitignored node_modules is
+        junctioned to the main checkout looks clean to `git status`, so the dirty guard
+        lets it through (incident 05/10, worktree-lifecycle.md v1.1.0: 144 tracked files
+        of the main RSM server deleted; ai-01 29/09: .env, build/ and 147 files — the
+        worker-side fix is #3936).
 
         Walks the tree WITHOUT descending into reparse points and unlinks each one with
         [IO.Directory]::Delete($link, $false), which removes the link only
-        (worktree-lifecycle.md, « Jonction = frontière »). Callers run it after every
-        refusal guard and BEFORE any recursive deletion strategy; when AllUnlinked is
-        false they must not delete.
+        (worktree-lifecycle.md, « Jonction = frontière »). A $Path that is itself a
+        reparse point is refused, not walked: its listing is the target's. Callers run
+        it after every refusal guard and BEFORE any deletion; when AllUnlinked is false
+        they must not delete.
     .OUTPUTS
         Hashtable @{ AllUnlinked = [bool]; Unlinked = [string[]]; Failed = [string[]] }
     #>
@@ -254,8 +256,15 @@ function Remove-ReparsePointsUnder {
         return @{ AllUnlinked = $true; Unlinked = $unlinked; Failed = $failed }
     }
 
+    try { $root = Get-Item -LiteralPath $Path -Force -ErrorAction Stop }
+    catch { return @{ AllUnlinked = $false; Unlinked = $unlinked; Failed = @("$Path (cannot read: $($_.Exception.Message))") } }
+    if ($root.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        # Walking it would unlink the junctions of its TARGET, outside the container.
+        return @{ AllUnlinked = $false; Unlinked = $unlinked; Failed = @("$Path (is itself a reparse point; its target is not walked)") }
+    }
+
     $stack = New-Object System.Collections.Stack
-    $stack.Push((Get-Item -LiteralPath $Path -Force))
+    $stack.Push($root)
     while ($stack.Count -gt 0) {
         $dir = $stack.Pop()
         try { $subDirs = $dir.GetDirectories() }
