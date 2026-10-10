@@ -6,10 +6,16 @@
 
 .DESCRIPTION
     Deploys the generated modes file to the workspace root (.roomodes)
-    or to the VS Code global settings (custom_modes.yaml for Roo 3.51.1+).
+    or to the VS Code global settings (custom_modes.yaml for Roo/Zoo 3.51.1+).
     For global deployment, regenerates from source using --format yaml to avoid
     the YAML empty-array bug ([] becomes null in naive JSON-to-YAML conversion).
     Run 'node roo-config/scripts/generate-modes.js' first to regenerate from templates.
+
+    The GLOBAL target extension is resolved, not hardcoded (#595 phase 3): with
+    -TargetExtension Auto (default) the settings dir of the extension actually
+    configured on this host is used -- Zoo Code on a Zoo-only seat, where the
+    deploy used to write into the Roo globalStorage that nothing reads. Pass
+    -TargetExtension RooCode/ZooCode to pin it explicitly.
 
 .PARAMETER DeploymentType
     'local' = workspace .roomodes (default, JSON format)
@@ -17,6 +23,11 @@
 
 .PARAMETER Source
     Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
+
+.PARAMETER TargetExtension
+    Extension whose globalStorage receives the global deploy: Auto (default), RooCode
+    or ZooCode. Auto probes each extension's settings/mcp_settings.json (Get-ActiveExtension,
+    the #3135 probe); Roo wins when both exist (dual-install back-compat).
 
 .PARAMETER ApiProfile
     API profile to apply from model-configs.json (e.g., "Production (Qwen 3.6 local + GLM-5.3 cloud)")
@@ -40,6 +51,10 @@
     Deploy modes with profile and sync API configs to Roo settings
 
 .EXAMPLE
+    .\Deploy-Modes.ps1 -DeploymentType global -TargetExtension ZooCode
+    Deploy explicitly into the Zoo Code globalStorage (skips auto-detection)
+
+.EXAMPLE
     .\Deploy-Modes.ps1 -DryRun
     Preview deployment without changes
 #>
@@ -49,6 +64,9 @@ param(
     [string]$DeploymentType = "local",
 
     [string]$Source = "",
+
+    [ValidateSet("Auto", "RooCode", "ZooCode")]
+    [string]$TargetExtension = "Auto",
 
     [string]$ApiProfile = "",
 
@@ -129,13 +147,19 @@ foreach ($name in $modeNames) {
 }
 
 # Determine destination
+$extensionTarget = ""
 if ($DeploymentType -eq "local") {
     $destination = Join-Path $repoRoot ".roomodes"
 } else {
     . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
-    $globalDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
+    # #595 phase 3: resolve the target instead of hardcoding RooCode. Get-ActiveExtension
+    # probes each extension's settings/mcp_settings.json -- the #3135 arbitrage for the same
+    # family (a migrated host keeps the roo-cline globalStorage as an empty shell, so a
+    # directory probe would pick Roo while Zoo carries the live config).
+    $extensionTarget = if ($TargetExtension -eq "Auto") { Get-ActiveExtension } else { $TargetExtension }
+    $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
     if (-not (Test-Path $globalDir)) {
-        Write-Host "WARNING: VS Code Roo extension settings dir not found: $globalDir" -ForegroundColor Yellow
+        Write-Host "WARNING: VS Code $extensionTarget extension settings dir not found: $globalDir" -ForegroundColor Yellow
         Write-Host "Creating directory..." -ForegroundColor Gray
         New-Item -ItemType Directory -Path $globalDir -Force | Out-Null
     }
@@ -146,6 +170,10 @@ Write-Host "`nDeployment:" -ForegroundColor Cyan
 Write-Host "  Source:      $Source" -ForegroundColor White
 Write-Host "  Destination: $destination" -ForegroundColor White
 Write-Host "  Type:        $DeploymentType" -ForegroundColor White
+if ($extensionTarget) {
+    $targetHow = if ($TargetExtension -eq "Auto") { "auto-detected" } else { "explicit" }
+    Write-Host "  Target:      $extensionTarget ($targetHow)" -ForegroundColor White
+}
 
 if ($DryRun) {
     Write-Host "`nDRY RUN - No changes made." -ForegroundColor Yellow

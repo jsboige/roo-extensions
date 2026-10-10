@@ -60,8 +60,13 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
             ($script:content -match "if\s*\(explicit\)\s*\{\s*return explicit;") | Should -Be $true
         }
 
-        It "le defaut vise custom_modes.yaml sous rooveterinaryinc.roo-cline/settings" {
+        It "le defaut resout l'extension active (Roo en repli), pas un id fige" {
+            # #595 phase 3: the Roo id used to BE the default target. It is now the probe's
+            # fallback, so the guard asserts the probe's ingredients instead of a single id:
+            # both extension ids, and the settings file the probe actually reads.
             ($script:content -match "rooveterinaryinc\.roo-cline") | Should -Be $true
+            ($script:content -match "zoocodeorganization\.zoo-code") | Should -Be $true
+            ($script:content -match "mcp_settings\.json") | Should -Be $true
             ($script:content -match [regex]::Escape("'custom_modes.yaml'")) | Should -Be $true
         }
 
@@ -101,7 +106,9 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
 
         It "la doc du header mentionne les deux cibles distinctement" {
             ($script:content -match [regex]::Escape("--deploy             Also copy to .roomodes at project root")) | Should -Be $true
-            ($script:content -match [regex]::Escape("--deploy-global      Also copy to the Roo global custom_modes.yaml")) | Should -Be $true
+            ($script:content -match [regex]::Escape("--deploy-global      Also copy to the Roo/Zoo global custom_modes.yaml")) | Should -Be $true
+            # #595 phase 3: the global target is selectable -- the header has to document it.
+            ($script:content -match [regex]::Escape("--target-extension <auto|roo|zoo>")) | Should -Be $true
         }
     }
 }

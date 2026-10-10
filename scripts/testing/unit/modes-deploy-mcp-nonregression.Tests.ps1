@@ -80,10 +80,15 @@ BeforeAll {
     . $extPaths
     $script:SettingsDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) 'settings'
     $script:McpSettingsPath = Get-McpSettingsPath -Extension RooCode
+    # #595 phase 3: both extensions' paths, from the SAME production helpers -- the
+    # target-selection tests below need the Zoo side to assert on.
+    $script:ZooSettingsDir = Join-Path (Get-GlobalStoragePath -Extension ZooCode) 'settings'
+    $script:ZooMcpSettingsPath = Get-McpSettingsPath -Extension ZooCode
 
-    function New-McpFixture {
+    function New-McpFixtureAt {
+        param([string]$SettingsDir, [string]$McpPath)
         # A distinctive, hash-sensitive MCP config: the exact bytes matter.
-        New-Item -ItemType Directory -Force -Path $script:SettingsDir | Out-Null
+        New-Item -ItemType Directory -Force -Path $SettingsDir | Out-Null
         @'
 {
   "mcpServers": {
@@ -94,7 +99,11 @@ BeforeAll {
     }
   }
 }
-'@ | Set-Content -Path $script:McpSettingsPath -Encoding utf8 -NoNewline
+'@ | Set-Content -Path $McpPath -Encoding utf8 -NoNewline
+    }
+
+    function New-McpFixture {
+        New-McpFixtureAt -SettingsDir $script:SettingsDir -McpPath $script:McpSettingsPath
     }
 
     function Get-TreeSnapshot {
@@ -248,6 +257,47 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             foreach ($path in $beforeAppData.Keys) {
                 $afterAppData[$path] | Should -Be $beforeAppData[$path] -Because "local deploy modified a file under APPDATA: $path"
             }
+        }
+    }
+
+    Context 'global deploy target selection' {
+
+        BeforeEach {
+            # Both extension trees start empty: each test builds only what it needs,
+            # because the probe under test reads exactly those two files.
+            foreach ($d in @($script:SettingsDir, $script:ZooSettingsDir)) {
+                if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
+            }
+        }
+
+        It 'auto-detects Zoo when only the Zoo settings file exists' {
+            New-McpFixtureAt -SettingsDir $script:ZooSettingsDir -McpPath $script:ZooMcpSettingsPath
+            $zooMcpHashBefore = (Get-FileHash -LiteralPath $script:ZooMcpSettingsPath -Algorithm SHA256).Hash
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes)
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'Target:\s+ZooCode \(auto-detected\)'
+
+            # The regression this closes: the deploy landed in the Roo globalStorage, which a
+            # Zoo-only seat never reads -- the modes silently never appeared.
+            (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $script:SettingsDir 'custom_modes.yaml')) | Should -BeFalse
+            # The MCP neighbor file is untouched on the Zoo side too.
+            (Get-FileHash -LiteralPath $script:ZooMcpSettingsPath -Algorithm SHA256).Hash | Should -Be $zooMcpHashBefore
+        }
+
+        It 'honours an explicit ZooCode target while Roo is the configured extension' {
+            New-McpFixture   # Roo configured: the probe alone would answer RooCode
+            New-McpFixtureAt -SettingsDir $script:ZooSettingsDir -McpPath $script:ZooMcpSettingsPath
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes,
+                                      '-TargetExtension', 'ZooCode')
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'Target:\s+ZooCode \(explicit\)'
+            (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $script:SettingsDir 'custom_modes.yaml')) | Should -BeFalse
         }
     }
 }
