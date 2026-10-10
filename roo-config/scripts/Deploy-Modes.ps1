@@ -31,7 +31,9 @@
     or ZooCode. Auto targets Zoo as soon as Zoo is installed (directory probe,
     Test-ExtensionInstalled), Roo otherwise -- see .DESCRIPTION for why it is not the
     mcp_settings.json probe (Get-ActiveExtension, whose contract is unchanged for its
-    other callers: Sync-AlwaysAllow, inventories, meta-audit).
+    other callers: Sync-AlwaysAllow, inventories, meta-audit). When NEITHER extension
+    is installed, Auto refuses (exit 2) instead of creating a ghost Roo globalStorage;
+    pin RooCode/ZooCode to force.
 
 .PARAMETER ApiProfile
     API profile to apply from model-configs.json (e.g., "Production (Qwen 3.6 local + GLM-5.3 cloud)")
@@ -40,7 +42,9 @@
     Sync API configs from model-configs.json to Roo VS Code settings after deployment
 
 .PARAMETER DryRun
-    Show what would be done without making changes
+    Show what would be done without making changes -- no file is written and no
+    directory is created; the YAML preview is generated into a temp file that is
+    deleted after reading (the tracked generated yaml is not touched).
 
 .EXAMPLE
     .\Deploy-Modes.ps1
@@ -119,7 +123,17 @@ $globalYamlContent = $null
 if ($DeploymentType -eq "global") {
     Write-Host "`nRegenerating as YAML for global deployment..." -ForegroundColor Cyan
     $generateScript = Join-Path $repoRoot 'roo-config/scripts/generate-modes.js'
-    $tempYamlPath = Join-Path $repoRoot 'roo-config/modes/generated/simple-complex.yaml'
+    # #595 review follow-up (ai-01, 2026-10-10 afternoon queue): the tracked generated
+    # file is not a scratchpad. Generating into it on a -DryRun dirtied checkouts with
+    # a diff the operator never asked for -- and because the tracked file was stale
+    # (+114/-27) vs the generator, EVERY DryRun rewrote it. A DryRun now generates
+    # into a temp file it deletes after reading; a real deploy keeps refreshing the
+    # tracked artifact, as before.
+    $tempYamlPath = if ($DryRun) {
+        Join-Path ([System.IO.Path]::GetTempPath()) "deploy-modes-dryrun-$PID.yaml"
+    } else {
+        Join-Path $repoRoot 'roo-config/modes/generated/simple-complex.yaml'
+    }
 
     $genArgs = @("$generateScript", "--output", "$tempYamlPath", "--format", "yaml")
     if ($ApiProfile) {
@@ -135,6 +149,7 @@ if ($DeploymentType -eq "global") {
 
     Write-Host ($genResult | Out-String) -ForegroundColor Gray
     $globalYamlContent = [System.IO.File]::ReadAllText($tempYamlPath, $utf8NoBom)
+    if ($DryRun) { Remove-Item -LiteralPath $tempYamlPath -Force -ErrorAction SilentlyContinue }
     Write-Host "YAML generated: $($globalYamlContent.Length) bytes" -ForegroundColor Green
 }
 
@@ -163,14 +178,21 @@ if ($DeploymentType -eq "local") {
     # #3135 -- contract unchanged for its other callers) answers Roo while Zoo is the
     # extension that runs: modes deployed to Roo stay invisible, the defect #595 fixes.
     $extensionTarget = if ($TargetExtension -eq "Auto") {
-        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" } else { "RooCode" }
+        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" }
+        elseif (Test-ExtensionInstalled -Extension RooCode) { "RooCode" }
+        else {
+            # #595 review follow-up (ai-01, 2026-10-10 afternoon queue): the Roo
+            # fallback used to CREATE the Roo globalStorage on hosts with no extension
+            # at all -- a directory nothing reads, and one that answers "installed" to
+            # every later probe. Refuse instead (#3639 precedent: exit 2). An explicit
+            # -TargetExtension bypasses this resolution by design.
+            Write-Host "ERROR: neither Roo Code nor Zoo Code is installed on this host." -ForegroundColor Red
+            Write-Host "A global deploy would create a globalStorage no extension reads -- and one that answers 'installed' to every later probe." -ForegroundColor Red
+            Write-Host "Install one of them first, or pin -TargetExtension explicitly to force." -ForegroundColor Yellow
+            exit 2
+        }
     } else { $TargetExtension }
     $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
-    if (-not (Test-Path $globalDir)) {
-        Write-Host "WARNING: VS Code $extensionTarget extension settings dir not found: $globalDir" -ForegroundColor Yellow
-        Write-Host "Creating directory..." -ForegroundColor Gray
-        New-Item -ItemType Directory -Path $globalDir -Force | Out-Null
-    }
     $destination = Join-Path $globalDir "custom_modes.yaml"
 }
 
@@ -186,6 +208,15 @@ if ($extensionTarget) {
 if ($DryRun) {
     Write-Host "`nDRY RUN - No changes made." -ForegroundColor Yellow
     exit 0
+}
+
+# #595 review follow-up (ai-01, 2026-10-10 afternoon queue): moved BELOW the DryRun
+# exit -- the New-Item used to run before the $DryRun test, so a DryRun left an empty
+# settings/ directory behind (measured on ai-01's seat).
+if ($DeploymentType -eq "global" -and -not (Test-Path $globalDir)) {
+    Write-Host "WARNING: VS Code $extensionTarget extension settings dir not found: $globalDir" -ForegroundColor Yellow
+    Write-Host "Creating directory..." -ForegroundColor Gray
+    New-Item -ItemType Directory -Path $globalDir -Force | Out-Null
 }
 
 # Backup existing file

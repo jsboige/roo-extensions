@@ -265,7 +265,18 @@ function resolveExtensionId(requested) {
   if (extensionInstalled(EXTENSION_IDS.zoo)) {
     return EXTENSION_IDS.zoo;
   }
-  return EXTENSION_IDS.roo;
+  if (extensionInstalled(EXTENSION_IDS.roo)) {
+    return EXTENSION_IDS.roo;
+  }
+  // #595 review follow-up (ai-01, 2026-10-10 afternoon queue): the Roo fallback used
+  // to CREATE the Roo globalStorage on hosts with no extension at all -- a directory
+  // nothing reads, and one that answers "installed" to every later probe. Refuse
+  // instead (#3639 precedent: exit 2). An explicit --target-extension returns early
+  // above and bypasses this resolution by design; --global-path never gets here.
+  console.error('ERROR: neither Roo Code nor Zoo Code is installed on this host.');
+  console.error('A global deploy would create a globalStorage no extension reads -- and one that answers "installed" to every later probe.');
+  console.error('Install one of them first, or pass --target-extension explicitly to force.');
+  process.exit(2);
 }
 
 function resolveGlobalModesPath(explicit, targetExtension) {
