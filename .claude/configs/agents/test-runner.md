@@ -2,7 +2,7 @@
 name: test-runner
 description: Validation des tests unitaires et build. Utilise cet agent pour lancer les tests, verifier le build, et identifier les erreurs a corriger.
 tools: Bash, Read, Grep, Glob, Edit
-model: opus
+model: haiku
 ---
 
 # Test Runner
