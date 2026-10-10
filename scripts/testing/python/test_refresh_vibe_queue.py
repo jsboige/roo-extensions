@@ -294,23 +294,25 @@ class TestTellcContract(unittest.TestCase):
         self.assertIs(c["family_fn"], rvq.tellc_family)
         self.assertEqual(c["floor"], 1)
         self.assertEqual(c["branch_prefix"], "wt/mistral-tellc-")
-        self.assertEqual(c["concluded_families"], {"qc", "tests", "notebook_tools"})
+        self.assertEqual(c["concluded_families"],
+                         {"qc", "tests", "notebook_tools", "notebooks-support"})
         self.assertNotIn("frozen", c)
         self.assertFalse(c["branch_prefix"].startswith("wt/vibe-"),
                          "un prefixe wt/vibe- gele #17712 en #13410")
 
     def test_concluded_families_subtract_only_closed_families(self):
-        """End-of-life 08/10 : les familles conclues sortent de la file, une
-        famille vivante survit. Chemins classes par test_tellc_family."""
+        """End-of-life 08/10 (+ notebooks-support 11/10) : les familles
+        conclues sortent de la file, une famille vivante survit. Chemins
+        classes par test_tellc_family."""
         free = {
             "scripts/tests/test_a.py": ["f1"],
             "scripts/notebook_tools/detect_b.py": ["f2"],
             "MyIA.AI.Notebooks/QuantConnect/projects/Fut/c.py": ["f3"],
             "MyIA.AI.Notebooks/GameTheory/cooperative_games/assistance_games.py": ["f4"],
+            "scripts/ci/fast_lane_registry.py": ["f5"],
         }
         filtered = rvq.subtract_concluded_families(free, rvq.CONTRACTS[17712])
-        self.assertEqual(sorted(filtered),
-                         ["MyIA.AI.Notebooks/GameTheory/cooperative_games/assistance_games.py"])
+        self.assertEqual(sorted(filtered), ["scripts/ci/fast_lane_registry.py"])
 
     def test_concluded_families_no_key_leaves_contract_untouched(self):
         """Le non-effet sur un contrat SANS la cle protege #15719/#16472/
