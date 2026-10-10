@@ -379,30 +379,35 @@ function ConvertTo-NativeArg {
 # ========== PROMPT PAYLOAD OUT OF ARGV (#622, 10/10) ==========
 # The work prompt travels BY FILE; the argv carries only a short pointer.
 #
-# Measured failure on this host, 4 scheduled runs (08/10 x2, 09/10, 10/10):
+# Measured failure, 4 scheduled runs (08/10 x2, 09/10, 10/10), same lines each:
 #   Phase C execution failed (exit=1)
 #   Dispatch output: La ligne de commande est trop longue.
+# ATTRIBUTION: those runs executed an UNCOMMITTED `gh copilot -p $Prompt`
+# variant of this script that was live in the main checkout (prompt measured
+# at 9,147 chars) -- not the committed call below, whose Get-WorkPrompt prompt
+# is bounded (~2,231 chars) and which, under PS 5.1, resolves `copilot` to the
+# npm copilot.ps1 shim that starts node.exe directly and never crosses cmd.exe
+# (see the shim note at the call site). The chain `gh copilot` -> npm
+# `copilot.cmd` -> cmd.exe is the RESIDUAL's.
 #
-# That text is cmd.exe's, and the cap that binds here is ITS 8,191-character
-# command line -- NOT CreateProcess's 32,767. Measured on this host 10/10 with
-# `cmd /c echo <n chars>`: n=5000 passes, n=8191 already returns this exact
-# message with exit 1, and past 32,767 PowerShell cannot even start cmd.exe and
-# reports a DIFFERENT text ("Nom de fichier ou extension trop long"). The two
-# limits are not interchangeable, and the smaller one is reached first on any
-# chain that crosses a shell -- `gh copilot`, which "executes the Copilot CLI
-# found in your PATH" (gh copilot --help), forwards to the npm `copilot.cmd`
-# shim on Windows and therefore does.
+# The cap that killed them is cmd.exe's 8,191-character command line -- NOT
+# CreateProcess's 32,767. Measured on this host 10/10 (`cmd /c echo <n chars>`):
+# n=5000 passes, n=8191 returns exactly the message above with exit 1, and past
+# 32,767 PowerShell cannot even start cmd.exe and reports a DIFFERENT text
+# ("Nom de fichier ou extension trop long"). The two limits are not
+# interchangeable, and the smaller one binds first on any chain that crosses a
+# shell. The 180-min escalation cooldown then turned each dead run into a
+# SILENT failure (2/day, no escalation, no work): a prompt past the cap never
+# reaches the CLI at all.
 #
-# A prompt past the cap never reaches the CLI, and the 180-min escalation
-# cooldown turns each miss into a SILENT failure (2 failed runs/day, no
-# escalation, no work). Source line is the `& copilot -p <prompt>` call below.
-#
+# This change is PREVENTIVE hardening of the committed path: whatever the
+# prompt weighs (issue content grows) or the spawn chain turns out to be, the
+# argv stays a constant ~100-character pointer, so no command-line cap can be
+# reached by the payload -- the class is removed, not just this instance.
 # Escaping (ConvertTo-NativeArg above) and length are INDEPENDENT defects:
 # escaping can be perfect -- as it is -- and the call still dies on size. The
-# payload-by-file removes the class for EVERY chain: the argv is a constant
-# ~100-character pointer whatever the prompt weighs, so neither cap can be
-# reached by the payload, and the CLI reads the file itself (--allow-all-tools
-# already grants file read, same scope as before).
+# CLI reads the file itself (--allow-all-tools already grants file read, same
+# scope as before).
 #
 # Kept under outputs/scheduling/prompts/ (gitignored, like the logs and reports
 # beside it): issue content never reaches the repository.

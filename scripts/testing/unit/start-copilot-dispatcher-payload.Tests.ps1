@@ -5,8 +5,10 @@
 # 09/10, 10/10):
 #     Phase C execution failed (exit=1)
 #     Dispatch output: La ligne de commande est trop longue.
-# Windows CreateProcess caps the WHOLE command line at 32,767 characters. A
-# work prompt past that never reaches the CLI, and the 180-minute escalation
+# cmd.exe caps its command line at 8,191 characters -- the smaller cap binds
+# FIRST on any chain that crosses a shell (npm .cmd shims; `gh copilot`
+# forwards to copilot.cmd), while CreateProcess alone would allow 32,767. A
+# work prompt past the cap never reaches the CLI, and the 180-minute escalation
 # cooldown turns each miss into a SILENT failure: two dead runs a day, no
 # escalation, no work. Escaping (ConvertTo-NativeArg) and length are INDEPENDENT
 # defects -- escaping can be perfect, as it is, and the call still dies on size.
@@ -83,8 +85,8 @@ Describe 'start-copilot-dispatcher.ps1 — #622 payload lands in a file (behavio
 
         $argv = Get-DispatchArgv -PromptFilePath $path
         $argv.Length | Should -BeLessThan 500
-        # Comfortably under the Windows CreateProcess cap, argv plus flags alike.
-        ($argv.Length + 40) | Should -BeLessThan 32767
+        # Comfortably under cmd.exe's 8,191-char cap, argv plus flags alike.
+        ($argv.Length + 40) | Should -BeLessThan 8191
         $argv | Should -Match ([regex]::Escape($path))
     }
 
