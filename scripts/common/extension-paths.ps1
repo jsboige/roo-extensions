@@ -74,6 +74,48 @@ function Get-ActiveExtension {
     return "RooCode"
 }
 
+function Test-ExtensionInstalled {
+    <#
+    .SYNOPSIS
+        Tests whether an extension is installed on this host (directory probe).
+    .DESCRIPTION
+        Installed = the extension's globalStorage directory exists, OR its
+        extension directory under ~/.vscode/extensions does (an installed but
+        never-activated extension has no globalStorage yet).
+
+        Deliberately a DIFFERENT question than Get-ActiveExtension: that probe
+        asks which extension carries the live config (settings/mcp_settings.json
+        file, #3135); this one asks which extension is installed. The modes
+        deploy (#595 phase 3, review point 1) resolves Zoo as soon as Zoo is
+        installed because Roo recreates its mcp_settings.json at every startup
+        and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of moving it -- on a
+        migrated or dual host the file probe answers Roo while Zoo is the
+        extension that runs, and modes deployed to Roo stay invisible.
+    .OUTPUTS
+        $true when the extension is installed on this host.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet("RooCode", "ZooCode")]
+        [string]$Extension
+    )
+
+    $id = if ($Extension -eq "ZooCode") { $ZooExtensionId } else { $RooExtensionId }
+    $storage = Get-GlobalStoragePath -Extension $Extension
+    if (Test-Path -LiteralPath $storage) { return $true }
+    # Extension dir probe: ~/.vscode/extensions/<marketplace-id>-<version>.
+    # PS 5.1 has no $IsWindows -- $env:OS is the 5.1-safe platform test.
+    $homeDir = if ($env:OS -eq "Windows_NT") { $env:USERPROFILE } else { $env:HOME }
+    if (-not $homeDir) { return $false }
+    $extRoot = Join-Path $homeDir ".vscode\extensions"
+    if (Test-Path -LiteralPath $extRoot) {
+        $match = Get-ChildItem -LiteralPath $extRoot -Directory -Filter "$id-*" -ErrorAction SilentlyContinue
+        if ($match) { return $true }
+    }
+    return $false
+}
+
 function Get-ActiveMcpSettingsPath {
     <#
     .SYNOPSIS

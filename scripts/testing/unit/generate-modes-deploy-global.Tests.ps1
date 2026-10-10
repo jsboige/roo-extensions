@@ -60,9 +60,24 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
             ($script:content -match "if\s*\(explicit\)\s*\{\s*return explicit;") | Should -Be $true
         }
 
-        It "le defaut vise custom_modes.yaml sous rooveterinaryinc.roo-cline/settings" {
+        It "le defaut resout Zoo des l'installation de Zoo, Roo en repli" {
+            # #595 phase 3, review point 1: Zoo-first by INSTALLATION (directory probe),
+            # not by mcp_settings.json -- a migrated host has both files and the file
+            # probe answers Roo. This static layer only pins the probe's ingredients;
+            # the behaviour layer (modes-deploy-mcp-nonregression suite) runs the real
+            # --deploy-global against fixtures and is the actual guard.
             ($script:content -match "rooveterinaryinc\.roo-cline") | Should -Be $true
+            ($script:content -match "zoocodeorganization\.zoo-code") | Should -Be $true
+            ($script:content -match "function extensionInstalled") | Should -Be $true
+            ($script:content -match "extensionInstalled\(EXTENSION_IDS\.zoo\)") | Should -Be $true
             ($script:content -match [regex]::Escape("'custom_modes.yaml'")) | Should -Be $true
+        }
+
+        It "valide --target-extension hors chaine de prototypes" {
+            # #595 phase 3, review point 4: 'constructor'/'__proto__' pass
+            # !EXTENSION_IDS[x] via the prototype chain -- the guard must use
+            # hasOwnProperty.call.
+            ($script:content -match "hasOwnProperty\.call\(EXTENSION_IDS,") | Should -Be $true
         }
 
         It "cree le repertoire cible (recursive) avant la copie" {
@@ -101,7 +116,9 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
 
         It "la doc du header mentionne les deux cibles distinctement" {
             ($script:content -match [regex]::Escape("--deploy             Also copy to .roomodes at project root")) | Should -Be $true
-            ($script:content -match [regex]::Escape("--deploy-global      Also copy to the Roo global custom_modes.yaml")) | Should -Be $true
+            ($script:content -match [regex]::Escape("--deploy-global      Also copy to the Roo/Zoo global custom_modes.yaml")) | Should -Be $true
+            # #595 phase 3: the global target is selectable -- the header has to document it.
+            ($script:content -match [regex]::Escape("--target-extension <auto|roo|zoo>")) | Should -Be $true
         }
     }
 }

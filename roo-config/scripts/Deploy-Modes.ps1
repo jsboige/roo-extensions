@@ -6,10 +6,18 @@
 
 .DESCRIPTION
     Deploys the generated modes file to the workspace root (.roomodes)
-    or to the VS Code global settings (custom_modes.yaml for Roo 3.51.1+).
+    or to the VS Code global settings (custom_modes.yaml for Roo/Zoo 3.51.1+).
     For global deployment, regenerates from source using --format yaml to avoid
     the YAML empty-array bug ([] becomes null in naive JSON-to-YAML conversion).
     Run 'node roo-config/scripts/generate-modes.js' first to regenerate from templates.
+
+    The GLOBAL target extension is resolved, not hardcoded (#595 phase 3): with
+    -TargetExtension Auto (default) the global deploy targets Zoo Code as soon as
+    Zoo is installed, Roo Code otherwise. On a migrated or dual host both
+    extensions have a settings/mcp_settings.json and a config-file probe answers
+    Roo -- leaving the modes where the running extension never reads them, the
+    exact defect #595 fixes. Pass -TargetExtension RooCode/ZooCode to pin it
+    explicitly.
 
 .PARAMETER DeploymentType
     'local' = workspace .roomodes (default, JSON format)
@@ -17,6 +25,13 @@
 
 .PARAMETER Source
     Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
+
+.PARAMETER TargetExtension
+    Extension whose globalStorage receives the global deploy: Auto (default), RooCode
+    or ZooCode. Auto targets Zoo as soon as Zoo is installed (directory probe,
+    Test-ExtensionInstalled), Roo otherwise -- see .DESCRIPTION for why it is not the
+    mcp_settings.json probe (Get-ActiveExtension, whose contract is unchanged for its
+    other callers: Sync-AlwaysAllow, inventories, meta-audit).
 
 .PARAMETER ApiProfile
     API profile to apply from model-configs.json (e.g., "Production (Qwen 3.6 local + GLM-5.3 cloud)")
@@ -40,6 +55,10 @@
     Deploy modes with profile and sync API configs to Roo settings
 
 .EXAMPLE
+    .\Deploy-Modes.ps1 -DeploymentType global -TargetExtension ZooCode
+    Deploy explicitly into the Zoo Code globalStorage (skips auto-detection)
+
+.EXAMPLE
     .\Deploy-Modes.ps1 -DryRun
     Preview deployment without changes
 #>
@@ -49,6 +68,9 @@ param(
     [string]$DeploymentType = "local",
 
     [string]$Source = "",
+
+    [ValidateSet("Auto", "RooCode", "ZooCode")]
+    [string]$TargetExtension = "Auto",
 
     [string]$ApiProfile = "",
 
@@ -129,13 +151,23 @@ foreach ($name in $modeNames) {
 }
 
 # Determine destination
+$extensionTarget = ""
 if ($DeploymentType -eq "local") {
     $destination = Join-Path $repoRoot ".roomodes"
 } else {
     . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
-    $globalDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
+    # #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
+    # INSTALLED (directory probe). Roo recreates its settings/mcp_settings.json at every
+    # startup and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of moving it, so a
+    # migrated or dual host has both files and the config-file probe (Get-ActiveExtension,
+    # #3135 -- contract unchanged for its other callers) answers Roo while Zoo is the
+    # extension that runs: modes deployed to Roo stay invisible, the defect #595 fixes.
+    $extensionTarget = if ($TargetExtension -eq "Auto") {
+        if (Test-ExtensionInstalled -Extension ZooCode) { "ZooCode" } else { "RooCode" }
+    } else { $TargetExtension }
+    $globalDir = Get-GlobalStoragePath -Extension $extensionTarget | Join-Path -ChildPath "settings"
     if (-not (Test-Path $globalDir)) {
-        Write-Host "WARNING: VS Code Roo extension settings dir not found: $globalDir" -ForegroundColor Yellow
+        Write-Host "WARNING: VS Code $extensionTarget extension settings dir not found: $globalDir" -ForegroundColor Yellow
         Write-Host "Creating directory..." -ForegroundColor Gray
         New-Item -ItemType Directory -Path $globalDir -Force | Out-Null
     }
@@ -146,6 +178,10 @@ Write-Host "`nDeployment:" -ForegroundColor Cyan
 Write-Host "  Source:      $Source" -ForegroundColor White
 Write-Host "  Destination: $destination" -ForegroundColor White
 Write-Host "  Type:        $DeploymentType" -ForegroundColor White
+if ($extensionTarget) {
+    $targetHow = if ($TargetExtension -eq "Auto") { "auto-detected" } else { "explicit" }
+    Write-Host "  Target:      $extensionTarget ($targetHow)" -ForegroundColor White
+}
 
 if ($DryRun) {
     Write-Host "`nDRY RUN - No changes made." -ForegroundColor Yellow

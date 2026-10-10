@@ -22,8 +22,11 @@
  *                        level names and expand to every family)
  *   --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)
  *   --deploy             Also copy to .roomodes at project root
- *   --deploy-global      Also copy to the Roo global custom_modes.yaml (#595)
+ *   --deploy-global      Also copy to the Roo/Zoo global custom_modes.yaml (#595)
  *   --global-path <path> Explicit target file for --deploy-global (default: VS Code globalStorage custom_modes.yaml)
+ *   --target-extension <auto|roo|zoo> Extension whose globalStorage receives --deploy-global
+ *                        (default: auto -- Zoo as soon as Zoo is installed, Roo otherwise;
+ *                        explicit 'roo'/'zoo' overrides the probe)
  *   --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.
  */
 const fs = require('fs');
@@ -157,6 +160,7 @@ function parseArgs() {
     deploy: false,
     deployGlobal: false,
     globalPath: null,
+    targetExtension: 'auto',
     format: 'json'
   };
 
@@ -175,6 +179,8 @@ function parseArgs() {
       args.deployGlobal = true;
     } else if (process.argv[i] === '--global-path' && i + 1 < process.argv.length) {
       args.globalPath = process.argv[++i];
+    } else if (process.argv[i] === '--target-extension' && i + 1 < process.argv.length) {
+      args.targetExtension = process.argv[++i];
     } else if (process.argv[i] === '--format' && i + 1 < process.argv.length) {
       args.format = process.argv[++i];
       if (args.format !== 'json' && args.format !== 'yaml') {
@@ -191,24 +197,84 @@ function parseArgs() {
     process.exit(1);
   }
 
+  // #595 phase 3: validated after the loop too, so flag order does not matter.
+  // hasOwnProperty guard (ai-01 review point 4): 'constructor'/'__proto__' pass
+  // !EXTENSION_IDS[x] through the prototype chain, and the script would later
+  // die in TypeError AFTER --output was already written.
+  args.targetExtension = String(args.targetExtension).toLowerCase();
+  if (args.targetExtension !== 'auto' &&
+      !Object.prototype.hasOwnProperty.call(EXTENSION_IDS, args.targetExtension)) {
+    console.error('ERROR: --target-extension must be "auto", "roo" or "zoo" (got "' + args.targetExtension + '").');
+    process.exit(1);
+  }
+
   return args;
 }
 
-// --- Global deploy path resolution (#595) ---
+// --- Global deploy path resolution (#595, #595 phase 3) ---
 
-function resolveGlobalModesPath(explicit) {
+// #595 phase 3: the destination used to be the Roo globalStorage id HARDCODED,
+// while Zoo is the only extension on ai-01 and po-2025 -- the global deploy then
+// wrote where the running extension never reads. Both ids now live here, and the
+// target is resolved (auto) or selected (--target-extension).
+var EXTENSION_IDS = {
+  roo: 'rooveterinaryinc.roo-cline',
+  zoo: 'zoocodeorganization.zoo-code'
+};
+
+function globalStorageBase() {
+  if (process.platform === 'win32') {
+    return path.join(process.env.APPDATA || '', 'Code', 'User', 'globalStorage');
+  }
+  var configBase = process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || '', '.config');
+  return path.join(configBase, 'Code', 'User', 'globalStorage');
+}
+
+function extensionInstalled(id) {
+  // Installed = the extension's globalStorage directory exists, or its extension
+  // directory under ~/.vscode/extensions does (an installed but never-activated
+  // extension has no globalStorage yet).
+  if (fs.existsSync(path.join(globalStorageBase(), id))) {
+    return true;
+  }
+  var home = process.env.USERPROFILE || process.env.HOME || '';
+  if (!home) {
+    return false;
+  }
+  var extRoot = path.join(home, '.vscode', 'extensions');
+  var entries;
+  try {
+    entries = fs.readdirSync(extRoot);
+  } catch (e) {
+    return false;
+  }
+  return entries.some(function(entry) { return entry.indexOf(id + '-') === 0; });
+}
+
+function resolveExtensionId(requested) {
+  if (requested && requested !== 'auto') {
+    return EXTENSION_IDS[requested];
+  }
+  // #595 phase 3, review point 1: for the MODES deploy, Zoo wins as soon as Zoo is
+  // INSTALLED. Roo recreates its settings/mcp_settings.json at every startup
+  // (roo-code McpHub.ts) and migrate-roo-to-zoo.ps1 COPIES it to Zoo instead of
+  // moving it, so a migrated or dual host has both files and the mcp_settings.json
+  // probe (Get-ActiveExtension, #3135 -- contract unchanged for its other callers)
+  // resolves it back to Roo: modes deployed to Roo stay invisible, the exact
+  // defect #595 fixes.
+  if (extensionInstalled(EXTENSION_IDS.zoo)) {
+    return EXTENSION_IDS.zoo;
+  }
+  return EXTENSION_IDS.roo;
+}
+
+function resolveGlobalModesPath(explicit, targetExtension) {
   if (explicit) {
     return explicit;
   }
-  // Roo 3.51.1+ global modes file lives in the VS Code extension globalStorage.
-  var settingsDir;
-  if (process.platform === 'win32') {
-    settingsDir = path.join(process.env.APPDATA || '', 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings');
-  } else {
-    var configBase = process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || '', '.config');
-    settingsDir = path.join(configBase, 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings');
-  }
-  return path.join(settingsDir, 'custom_modes.yaml');
+  // Roo/Zoo 3.51.1+ global modes file lives in the VS Code extension globalStorage.
+  var id = resolveExtensionId(targetExtension);
+  return path.join(globalStorageBase(), id, 'settings', 'custom_modes.yaml');
 }
 
 // --- Main ---
@@ -423,14 +489,20 @@ function main() {
     console.log('Deployed to: ' + roomodesPath);
   }
 
-  // Deploy to the Roo global custom_modes.yaml if requested (#595)
+  // Deploy to the Roo/Zoo global custom_modes.yaml if requested (#595, #595 phase 3)
   if (args.deployGlobal) {
-    var globalModesPath = resolveGlobalModesPath(args.globalPath);
+    var globalModesPath = resolveGlobalModesPath(args.globalPath, args.targetExtension);
     var globalModesDir = path.dirname(globalModesPath);
     if (!fs.existsSync(globalModesDir)) {
       fs.mkdirSync(globalModesDir, { recursive: true });
     }
     fs.copyFileSync(args.output, globalModesPath);
+    // #595 phase 3: name the resolution in the log -- a wrong pick (Zoo installed,
+    // Roo globalStorage left over) used to be invisible: the deploy succeeded and
+    // the modes simply never appeared.
+    console.log('Target: ' + (args.globalPath
+      ? 'explicit --global-path'
+      : '--target-extension ' + args.targetExtension));
     console.log('Deployed to global: ' + globalModesPath);
   }
 }
