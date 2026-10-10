@@ -444,9 +444,16 @@ CONTRACTS = {
     # (0 retrait, occurrences toutes hors perimetre). Liste SNAPSHOT : une
     # occurrence EN perimetre nouvelle dans une famille conclue exige de la
     # retirer ici (et de nommer --issue 17712 explicitement).
+    # notebooks-support (conclue 11/10) : 15 occurrences / 9 fichiers a
+    # origin/main, 14 NOOP (prose .md, JSON, CSV, chaines litterales) + 1
+    # docstring convertie par CoursIA PR #20281. Sans elle, le grain
+    # g1-notebooks-support etait re-seme a chaque rafraichissement (~80 runs
+    # NOOP payes le 10/10). Adjudication : CoursIA#17712 c.6102660409 +
+    # correction c.6102724597.
     17712: {"scan": scan_tellc_citations, "payload": PAYLOAD_TELLC,
             "family_fn": tellc_family, "floor": 1,
-            "concluded_families": {"qc", "tests", "notebook_tools"},
+            "concluded_families": {"qc", "tests", "notebook_tools",
+                                   "notebooks-support"},
             "branch_prefix": "wt/mistral-tellc-"},
 }
 
