@@ -86,7 +86,7 @@ roo-code/          # Submodule git (REFERENCE SEULEMENT)
 roo-config/        # Modes Roo (modes-config.json + scripts)
 ```
 
-**Submodule `roo-code/` :** Reference pour lire le code source Roo. PAS un env de build. Pipeline modes : `modes-config.json` → `generate-modes.js` → `.roomodes` ; `--deploy-global --format yaml` copie en plus vers le `custom_modes.yaml` global (Roo/Zoo 3.51.1+) — cible résolue automatiquement : **Zoo dès que Zoo est installé, Roo sinon** (`--target-extension auto|roo|zoo` pour forcer, `--global-path` garde la priorité) — #595/#3766.
+**Submodule `roo-code/` :** Reference pour lire le code source Roo. PAS un env de build. Pipeline modes : `modes-config.json` → `generate-modes.js` → `.roomodes` ; `--deploy-global --format yaml` copie en plus vers le `custom_modes.yaml` global (Roo/Zoo 3.51.1+) — cible résolue automatiquement : **Zoo dès que Zoo est installé, Roo sinon** (`--target-extension auto|roo|zoo` pour forcer, `--global-path` garde la priorité) ; **aucune extension installée → refus exit 2** (pas de globalStorage fantôme) ; `-DryRun` n'écrit rien (même pas un répertoire) — #595/#3766.
 
 ---
 

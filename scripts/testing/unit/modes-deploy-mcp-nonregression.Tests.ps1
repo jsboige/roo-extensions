@@ -112,6 +112,32 @@ BeforeAll {
         }
     }
 
+    function Reset-ExtensionDirs {
+        # The extension-dir leg of the probes, in BOTH shapes they build it: the PS
+        # probe joins the LITERAL ".vscode\extensions" (one directory on Linux),
+        # the JS probe path.join's two components (real nesting there). Removing
+        # the exact paths covers both without touching anything else.
+        $shapes = @(
+            (Join-Path $script:FakeHome '.vscode\extensions'),
+            ([System.IO.Path]::Combine($script:FakeHome, '.vscode', 'extensions'))
+        )
+        foreach ($p in $shapes) {
+            if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force }
+        }
+    }
+
+    function New-ExtensionDirFixture {
+        # An "installed but never activated" extension: a directory under
+        # <extRoot>/<marketplace-id>-<version> and NO globalStorage -- the exact
+        # seat shape the folder leg of the probes exists for. The caller passes the
+        # extRoot in the shape of the engine under test (PS vs JS path building).
+        param([string]$ExtRoot, [string]$ExtensionId)
+        $dir = Join-Path $ExtRoot "$ExtensionId-3.86.0"
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        Set-Content -Path (Join-Path $dir 'package.json') -Value '{"name":"fixture"}' -NoNewline
+        return $dir
+    }
+
     function New-McpFixtureAt {
         param([string]$SettingsDir, [string]$McpPath)
         # A distinctive, hash-sensitive MCP config: the exact bytes matter.
@@ -332,8 +358,10 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             # Both extension trees start empty (ROOT-level reset: the probe reads the
             # globalStorage root, not the settings/ child): each test builds only what
             # it needs, because the probe under test reads exactly those trees (plus
-            # the extension dir under the redirected HOME, which stays empty).
+            # the extension dir under the redirected HOME -- reset too, the folder
+            # fixtures below install through it and must not leak into the next test).
             Reset-ExtensionTrees
+            Reset-ExtensionDirs
         }
 
         It 'auto-detects Zoo when only the Zoo settings file exists' {
@@ -397,6 +425,45 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             (Test-Path -LiteralPath (Join-Path $script:SettingsDir 'custom_modes.yaml')) | Should -BeTrue
             (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
         }
+
+        It 'auto-detects Zoo installed only via its extension dir (no globalStorage yet)' {
+            # Surviving-mutant guard (ai-01, 2026-10-10 afternoon queue): no test
+            # exercised the extension-dir leg of Test-ExtensionInstalled -- a mutant
+            # deleting that probe stayed green because every fixture installed via
+            # globalStorage. An installed-but-never-activated extension has none.
+            New-ExtensionDirFixture -ExtRoot (Join-Path $script:FakeHome '.vscode\extensions') -ExtensionId 'zoocodeorganization.zoo-code' | Out-Null
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes)
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'Target:\s+ZooCode \(auto-detected\)'
+            (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $script:SettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'auto falls back to Roo installed only via its extension dir' {
+            New-ExtensionDirFixture -ExtRoot (Join-Path $script:FakeHome '.vscode\extensions') -ExtensionId 'rooveterinaryinc.roo-cline' | Out-Null
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes)
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'Target:\s+RooCode \(auto-detected\)'
+            (Test-Path -LiteralPath (Join-Path $script:SettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'refuses with exit 2 when neither extension is installed (no ghost globalStorage)' {
+            # ai-01 afternoon queue item 3: the Roo fallback used to CREATE the Roo
+            # globalStorage on an empty host -- a directory nothing reads, and one
+            # that answers "installed" to every later probe. Trees and extension
+            # dirs are empty (BeforeEach reset), so Auto has nothing to resolve.
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes)
+
+            $r.ExitCode | Should -Be 2 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'neither Roo Code nor Zoo Code is installed'
+            (Test-Path -LiteralPath $script:RooStorageDir) | Should -BeFalse -Because 'a refused deploy must not leave a ghost Roo globalStorage'
+            (Test-Path -LiteralPath $script:ZooStorageDir) | Should -BeFalse
+        }
     }
 
     Context 'generate-modes.js deploy-global target selection (behaviour)' {
@@ -413,10 +480,13 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             $jsZooStorageDir = Join-Path $script:JsGlobalStorageBase 'zoocodeorganization.zoo-code'
             $jsRooSettingsDir = Join-Path $jsRooStorageDir 'settings'
             $jsZooSettingsDir = Join-Path $jsZooStorageDir 'settings'
-            # ROOT-level reset on the JS side too (see Reset-ExtensionTrees).
+            # ROOT-level reset on the JS side too (see Reset-ExtensionTrees), plus the
+            # JS-shaped extension dirs (the PS Context above installs folder fixtures
+            # -- same physical path as the JS shape on Windows).
             foreach ($d in @($jsRooStorageDir, $jsZooStorageDir)) {
                 if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force }
             }
+            Reset-ExtensionDirs
         }
 
         It 'auto picks Zoo on a Zoo-only fixture and writes the modes file there' {
@@ -471,6 +541,91 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             (Test-Path -LiteralPath $out) | Should -BeFalse
             (Test-Path -LiteralPath (Join-Path $jsZooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
             (Test-Path -LiteralPath (Join-Path $jsRooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'auto picks Zoo installed only via its extension dir' {
+            # Surviving-mutant guard (ai-01, 2026-10-10 afternoon queue): the JS
+            # extension-dir leg (readdirSync under ~/.vscode/extensions) was never
+            # exercised -- the JS-shaped root differs from the PS one on Linux, so
+            # the fixture must be built with .Combine like the JS path.join does.
+            New-ExtensionDirFixture -ExtRoot ([System.IO.Path]::Combine($script:FakeHome, '.vscode', 'extensions')) -ExtensionId 'zoocodeorganization.zoo-code' | Out-Null
+            $out = Join-Path $script:Sandbox 'js-out-zoofolder.yaml'
+
+            $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $out, '--deploy-global')
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            (Test-Path -LiteralPath (Join-Path $jsZooSettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $jsRooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'honours an explicit roo target while Zoo is installed' {
+            # Surviving-mutant guard (ai-01): a mutant making resolveExtensionId
+            # ignore the requested target (always auto) stayed green -- no test
+            # pinned the explicit override on the JS side.
+            New-McpFixtureAt -SettingsDir $jsZooSettingsDir -McpPath (Join-Path $jsZooSettingsDir 'mcp_settings.json')
+            $out = Join-Path $script:Sandbox 'js-out-explicitroo.yaml'
+
+            $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $out, '--deploy-global',
+                                        '--target-extension', 'roo')
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            (Test-Path -LiteralPath (Join-Path $jsRooSettingsDir 'custom_modes.yaml')) | Should -BeTrue
+            (Test-Path -LiteralPath (Join-Path $jsZooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'refuses with exit 2 when neither extension is installed' {
+            # ai-01 afternoon queue item 3, JS side: no ghost Roo globalStorage on an
+            # empty host. The --output file is written during generation (before the
+            # deploy step) and is not part of the refusal.
+            $out = Join-Path $script:Sandbox 'js-out-none.yaml'
+
+            $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $out, '--deploy-global')
+
+            $r.ExitCode | Should -Be 2 -Because "generate-modes output was: $($r.Output)"
+            $r.Output | Should -Match 'neither Roo Code nor Zoo Code is installed'
+            (Test-Path -LiteralPath $jsRooStorageDir) | Should -BeFalse -Because 'a refused deploy must not leave a ghost Roo globalStorage'
+            (Test-Path -LiteralPath $jsZooStorageDir) | Should -BeFalse
+        }
+    }
+
+    Context 'global deploy DryRun (writes nothing)' {
+
+        BeforeEach {
+            Reset-ExtensionTrees
+            Reset-ExtensionDirs
+        }
+
+        It 'DryRun creates no directory and writes no destination file' {
+            # ai-01 afternoon queue item 2: the New-Item used to run BEFORE the
+            # $DryRun test -- a DryRun left an empty settings/ behind (measured on
+            # ai-01's seat). Fixture: the storage ROOT only (the probe answers Zoo),
+            # settings/ deliberately absent so creation is observable.
+            New-Item -ItemType Directory -Force -Path $script:ZooStorageDir | Out-Null
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes, '-DryRun')
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'DRY RUN'
+            $r.Output | Should -Match 'Target:\s+ZooCode \(auto-detected\)'
+            (Test-Path -LiteralPath $script:ZooSettingsDir) | Should -BeFalse -Because 'DryRun must not create the settings dir'
+            (Test-Path -LiteralPath (Join-Path $script:ZooSettingsDir 'custom_modes.yaml')) | Should -BeFalse
+        }
+
+        It 'DryRun leaves the tracked generated yaml untouched (writes to a temp path)' {
+            # ai-01 afternoon queue item 2: regeneration used to target the TRACKED
+            # simple-complex.yaml -- on a checkout where it is stale vs the generator
+            # (measured +114/-27) every DryRun rewrote it. Sentinel: the file the
+            # buggy path would overwrite must come back byte-identical.
+            New-Item -ItemType Directory -Force -Path $script:ZooStorageDir | Out-Null
+            $trackedYaml = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'modes' (Join-Path 'generated' 'simple-complex.yaml')))
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $trackedYaml) | Out-Null
+            'sentinel-not-a-real-yaml' | Set-Content -LiteralPath $trackedYaml -NoNewline
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes, '-DryRun')
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'YAML generated:'
+            (Get-Content -LiteralPath $trackedYaml -Raw) | Should -Be 'sentinel-not-a-real-yaml' -Because 'DryRun regenerated into the tracked file instead of a temp path'
         }
     }
 }
