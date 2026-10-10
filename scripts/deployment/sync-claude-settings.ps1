@@ -44,7 +44,7 @@ if (-not $BaseUrl) { throw "Machine inconnue '$MachineName' et -BaseUrl absent. 
 $RefEnv = [ordered]@{
   'ANTHROPIC_AUTH_TOKEN'                            = ''
   'ANTHROPIC_BASE_URL'                              = $BaseUrl
-  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable-5-1'
+  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable-5-1[1m]'
   'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'              = 'Fable 5.1'
   'ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION'       = 'Anthropic Fable 5.1 (SOTA)'
   'ANTHROPIC_DEFAULT_OPUS_MODEL'                    = 'claude-opus-5-5[1m]'

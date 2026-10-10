@@ -6,7 +6,7 @@
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5[1m]",
     "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "Opus",
     "ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION": "Rôle Opus — modèle décidé par claudish (Anthropic natif, bascule en cascade si plan épuisé)",
-    "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1",
+    "ANTHROPIC_DEFAULT_FABLE_MODEL": "claude-fable-5-1[1m]",
     "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME": "Fable 5.1",
     "ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION": "Anthropic Fable 5.1 (SOTA)",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5[1m]",
