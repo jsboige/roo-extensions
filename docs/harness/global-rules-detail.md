@@ -315,6 +315,33 @@ Le propriétaire sait ce que la lane de passage ignore : qui consomme le service
 
 ---
 
+## Scratch d'agent — emplacement et nettoyage
+
+**Origine** : proposition po-2024:claudish (09/10 15:43Z), discutée par ai-01, CoursIA-3 et web2, synthèse v2 à 19:04Z (dashboard `global`). Le user avait demandé qu'elle soit inscrite dans le harnais global.
+
+**Incident fondateur (po-2024, 09/10)** : une commande qui n'écrivait que dans le scratchpad (extraire des archives du GDrive) est restée **1 h 24 min 28 s** en attente de confirmation. Les horodatages viennent du transcript (`14:09:31.982Z` → `15:33:59.916Z`) et le user a dû débloquer à la main. On a comparé deux commandes presque identiques, lancées à quelques minutes d'intervalle :
+
+| Commande | Issue |
+|---|---|
+| `mkdir -p` + extraction 7z vers `%TEMP%\claude\…` | passe (~4 min) |
+| **`rm -rf`** + `mkdir` + même extraction | **bloquée 84 min** |
+
+La seule différence est le `rm -rf`. **L'emplacement n'était pas la cause**, puisque la même écriture dans `%TEMP%\claude\…` a réussi. D'où le texte de la règle : le scratchpad de session que le harnais désigne lui-même (Claude Code l'annonce dans son prompt système et l'isole par session) reste un emplacement légitime. Ce qui est interdit, c'est d'écrire du scratch **ailleurs** sous `~/.claude/` (configuration, mémoire, règles) ou sous `%TEMP%\claude\`. La règle de nettoyage vise donc le geste : on supprime ses fichiers nommés, sans `rm -rf`, quelle que soit la cible.
+
+**Archive de préservation ≠ scratch** (pré-review 10/10) : l'étape 3 de la [postcondition de fin de cycle](reference/clean-cycle-exit.md) range une archive hors dépôt (manifeste NUL + SHA-256) sous `~/.claude/scratch/…`. Elle doit survivre à la session, elle n'est pas jetable : elle garde son emplacement documenté.
+
+**Amendement web2 (19:26Z)** : la règle porte sur l'**écriture**. Les sorties que le harnais range sous `%TEMP%\claude\<projet>\<session>\tasks\*.output` (tâches en arrière-plan) se lisent normalement. Un agent qui interpréterait la règle trop largement refuserait de les lire, et perdrait ainsi son propre observateur asynchrone.
+
+**Filet `.gitignore` (amendement CoursIA-3)** : les règles gouvernent l'**intention**. Les accidents de **résolution de chemin**, eux, ne déclenchent ni commande destructive ni demande de confirmation, donc aucune règle ne les voit :
+- famille A : un chemin absolu dont les séparateurs ont été avalés devient un nom de fichier (`C:Users…`, 28,9 Mo chez CoursIA-3) ;
+- famille B : `scratchpad_*` résolu contre le répertoire courant.
+
+Les motifs `.tmp/`, `scratchpad_*` et `C:Users*` attrapent les deux familles, y compris celles qu'on n'a pas encore vues. Ils sont posés dans claudish (`a5a7ce54`) et dans roo-extensions ; chaque dépôt les ajoute de son côté. Réserve mesurée par po-2024 : sous Windows, on ne peut pas tester `C:Users*` avec `git check-ignore`, car le CLI lit `C:` comme une lettre de lecteur. Le motif reste valide : le matching gitignore est purement textuel.
+
+**Durcissement possible côté user** (non requis) : mettre le scratchpad en allowlist dans la configuration des permissions, si le coût des gardes persiste malgré la règle.
+
+---
+
 ## Split-Brain — demander au user en cloture
 
 **Mandat user du 2026-10-08**, rapporté par `po-2025:Maintenance` (porteur du fil d'organisation sur le dashboard global) et porté côté instructions par roo-extensions (`.claude/configs/user-global-claude.md`, section éponyme).

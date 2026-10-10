@@ -48,6 +48,7 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - **Tests** : `npx vitest run` / `npx jest --ci` (jamais `npm test` — le watch mode bloque).
 - **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
 - **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet OK ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
+- **Scratch d'agent (v2, 09/10)** : ecrire ses artefacts jetables de preference dans le **scratchpad de session que le harnais designe**, sinon dans `<repo>/.tmp/` (a gitignorer si absent) ou dans `%TEMP%`/`/tmp` hors `claude/`. Ne jamais ecrire de scratch ailleurs sous `~/.claude/` ou `%TEMP%\claude\`. Les sorties que le harnais y range (`…\tasks\*.output`) se **lisent** normalement ; une archive de preservation ([postcondition de fin de cycle](../../docs/harness/reference/clean-cycle-exit.md), manifeste + empreintes) n'est pas du scratch et garde son emplacement. Nettoyer en supprimant ses fichiers **nommes**, sans `rm -rf` : c'est ce geste, pas l'emplacement, qui a fige un tour 84 min. Chaque depot ignore `.tmp/`, `scratchpad_*` et `C:Users*`. [Detail](../../docs/harness/global-rules-detail.md#scratch-dagent--emplacement-et-nettoyage)
 
 ## Harnais serré (15/09, #3657)
 
