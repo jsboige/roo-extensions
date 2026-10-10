@@ -2,7 +2,7 @@
 name: code-explorer
 description: Exploration read-only du codebase. Utilise cet agent pour rechercher du code, comprendre l'architecture, trouver des fichiers, ou analyser la structure du projet.
 tools: Read, Glob, Grep, Bash
-model: opus
+model: haiku
 permissionMode: plan
 ---
 

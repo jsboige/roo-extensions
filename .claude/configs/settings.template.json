@@ -24,6 +24,7 @@
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "95",
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "<<preserve-local>>",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku",
     "ENABLE_TOOL_SEARCH": "true"
   },
   "permissions": {
