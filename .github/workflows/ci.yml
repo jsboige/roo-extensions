@@ -145,6 +145,14 @@ on:
       # credentials. Without this path, the masking could be broken by a main
       # push and re-run nothing, exactly like mcp-chain-watchdog.ps1 above.
       - 'scripts/inventory/**'
+      # Ninth instance, closed in the same PR that creates the guard (#603
+      # phase 4): modes-deploy-mcp-nonregression.Tests.ps1 (unit-pester job)
+      # executes the REAL Deploy-Modes.ps1 pipeline (incl. generate-modes.js)
+      # in an APPDATA-redirected sandbox -- the guarded deploy script and the
+      # generator it invokes must re-trigger the job on main pushes.
+      # scripts/common/** above already covers extension-paths.ps1.
+      - 'roo-config/scripts/Deploy-Modes.ps1'
+      - 'roo-config/scripts/generate-modes.js'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
