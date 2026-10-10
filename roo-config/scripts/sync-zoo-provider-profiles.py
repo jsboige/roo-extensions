@@ -578,11 +578,23 @@ def _find_autoimport_value(raw):
     return None
 
 
+def _expand_like_zoo(p):
+    """Expand ONLY a leading '~/' — the one form Zoo's resolvePath expands
+    (`startsWith("~/") ? join(homedir(), t.slice(2)) : t`). Deliberately NOT
+    os.path.expanduser: on Windows the latter also expands a '~\\' prefix, so a hand-typed
+    '~\\e.json' would compare equal to the home path here while Zoo resolves it to
+    '<home>\\~\\e.json' — a dead pointer of exactly the family #4139 removes
+    (#4139 review, follow-up 2)."""
+    if p.startswith("~/"):
+        return os.path.join(os.path.expanduser("~"), p[2:])
+    return p
+
+
 def _normalize_for_compare(p):
-    """Expand '~' and anchor RELATIVE values at the home dir — Zoo resolves them there
+    """Resolve the value the way Zoo will, then anchor RELATIVE values at the home dir
     (autoImportSettings.ts resolvePath: relative -> join(homedir(), p)), not against the
     process CWD (#4139 review)."""
-    p = os.path.expanduser(p)
+    p = _expand_like_zoo(p)
     if not os.path.isabs(p):
         p = os.path.join(os.path.expanduser("~"), p)
     return os.path.normcase(os.path.abspath(p))
@@ -611,6 +623,25 @@ def _portable_setting_value(path_str):
     if rel == ".." or rel.startswith(".." + os.sep):
         return path_str
     return "~/" + rel.replace(os.sep, "/")
+
+
+def _atomic_write_text(path, text):
+    """Write settings.json via a sibling temp file + os.replace: a plain open(path, "w") truncates
+    the file before writing, so a crash mid-write leaves it empty or half-written (the pre-write
+    .bak-autoimport exists as recovery; this closes the window itself — #4139 review, follow-up 3).
+    os.replace is atomic on the same filesystem and overwrites on Windows too, unlike os.rename.
+    Encoding and line endings are unchanged from the open(..., "w", encoding="utf-8") it replaces."""
+    tmp = f"{path}.tmp-{os.getpid()}"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 def set_vscode_autoimport_setting(path_str):
@@ -678,7 +709,7 @@ def set_vscode_autoimport_setting(path_str):
             except json.JSONDecodeError as e:
                 print(f"[ABORT] edit would break settings.json ({e}) — file left untouched.")
                 return
-        open(settings_path, "w", encoding="utf-8").write(patched)
+        _atomic_write_text(settings_path, patched)
         print(f"[OK] corrected zoo-code.autoImportSettingsPath = {value_to_write} in settings.json "
               f"({'strict JSON re-validated' if was_json else 'JSONC — verify in VS Code'}).")
         return
@@ -699,14 +730,12 @@ def set_vscode_autoimport_setting(path_str):
             print(f"[WARN] could not patch settings.json (JSONC) — set manually: "
                   f'"zoo-code.autoImportSettingsPath": "{value_to_write}"')
             return
-        open(settings_path, "w", encoding="utf-8").write(patched)
+        _atomic_write_text(settings_path, patched)
         print(f"[OK] set zoo-code.autoImportSettingsPath = {value_to_write} in settings.json "
               "(JSONC best-effort insert — please verify in VS Code).")
         return
     data["zoo-code.autoImportSettingsPath"] = value_to_write
-    open(settings_path, "w", encoding="utf-8").write(
-        json.dumps(data, indent=4, ensure_ascii=False)
-    )
+    _atomic_write_text(settings_path, json.dumps(data, indent=4, ensure_ascii=False))
     print(f"[OK] set zoo-code.autoImportSettingsPath = {value_to_write} in settings.json.")
 
 
@@ -762,7 +791,7 @@ def remove_vscode_autoimport_setting():
             print(f"[ABORT] edit would break settings.json ({e}) — file left untouched.")
             return
 
-    open(settings_path, "w", encoding="utf-8").write(patched)
+    _atomic_write_text(settings_path, patched)
     print("[OK] removed zoo-code.autoImportSettingsPath from settings.json "
           f"({'strict JSON re-validated' if was_json else 'JSONC — verify in VS Code'}).")
 
