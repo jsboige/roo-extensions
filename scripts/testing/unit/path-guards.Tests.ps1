@@ -346,6 +346,19 @@ Describe "Path Guards - #2772 couche 3b (deletion-time)" {
             ($cleaner1 -match 'REFUSED \(#2772\)') | Should -Be $true
         }
 
+        It "unlinks junctions after the guards and BEFORE the first deletion strategy" {
+            $funcPos     = $cleaner1.IndexOf('function Remove-OrphanWorktreeDir')
+            $whatIfPos   = $cleaner1.IndexOf('[WHATIF] Would remove', $funcPos)
+            $unlinkPos   = $cleaner1.IndexOf('Remove-ReparsePointsUnder -Path $Path', $funcPos)
+            $strategyPos = $cleaner1.IndexOf('Remove-Item -Path $Path -Recurse -Force', $funcPos)
+            $unlinkPos   | Should -BeGreaterThan $whatIfPos
+            $strategyPos | Should -BeGreaterThan $unlinkPos
+        }
+
+        It "deletes nothing when a junction survives" {
+            ($cleaner1 -match '(?s)if \(-not \$links\.AllUnlinked\) \{[^}]*REFUSED \(junction-guard\)[^}]*return') | Should -Be $true
+        }
+
         It "normalizes both sides of the active-worktree comparison (slash-mismatch fix)" {
             # git worktree list emits D:/dev/... while FullName is D:\dev\... — the raw
             # -eq never matched, flagging every ACTIVE worktree as orphan (deletable)
@@ -382,6 +395,130 @@ Describe "Path Guards - #2772 couche 3b (deletion-time)" {
 
         It "refuses with a descriptive REFUSED (#2772) message" {
             ($cleaner2 -match 'REFUSED \(#2772\)') | Should -Be $true
+        }
+
+        It "unlinks junctions after the guard and BEFORE its Remove-Item call" {
+            $funcPos     = $cleaner2.IndexOf('function Remove-ItemWithRetry')
+            $guardPos    = $cleaner2.IndexOf('Test-SafeDeletionPath', $funcPos)
+            $unlinkPos   = $cleaner2.IndexOf('Remove-ReparsePointsUnder -Path $Path', $funcPos)
+            $strategyPos = $cleaner2.IndexOf('Remove-Item -Path $Path -Recurse -Force', $funcPos)
+            $unlinkPos   | Should -BeGreaterThan $guardPos
+            $strategyPos | Should -BeGreaterThan $unlinkPos
+        }
+
+        It "deletes nothing when a junction survives" {
+            ($cleaner2 -match '(?s)if \(-not \$links\.AllUnlinked\) \{[^}]*REFUSED \(junction-guard\)[^}]*return \$false') | Should -Be $true
+        }
+    }
+
+    Context "Wiring - the two cleaners that call git worktree remove" {
+
+        BeforeAll {
+            $agentCleaner = Get-Content (Join-Path $projectRoot "scripts/maintenance/cleanup-agent-orphan-worktrees.ps1") -Raw
+            $fleetAudit   = Get-Content (Join-Path $projectRoot "scripts/maintenance/audit-worktrees-fleet.ps1") -Raw
+        }
+
+        It "cleanup-agent-orphan-worktrees.ps1 unlinks BEFORE unlock and remove, and skips on failure" {
+            $unlinkPos = $agentCleaner.IndexOf('Remove-ReparsePointsUnder -Path $wtPath')
+            $unlockPos = $agentCleaner.IndexOf('worktree unlock $wtPath')
+            $removePos = $agentCleaner.IndexOf('worktree remove $wtPath')
+            $unlinkPos | Should -BeGreaterThan 0
+            $unlockPos | Should -BeGreaterThan $unlinkPos
+            $removePos | Should -BeGreaterThan $unlockPos
+            ($agentCleaner -match '(?s)if \(-not \$links\.AllUnlinked\) \{[^}]*junction-guard[^}]*continue') | Should -Be $true
+        }
+
+        It "audit-worktrees-fleet.ps1 unlinks after the #2772 guard and BEFORE worktree remove, and skips on failure" {
+            $guardPos  = $fleetAudit.IndexOf('Test-SafeDeletionPath -Path $r.Path')
+            $unlinkPos = $fleetAudit.IndexOf('Remove-ReparsePointsUnder -Path $r.Path')
+            $removePos = $fleetAudit.IndexOf("'worktree', 'remove', `$r.Path")
+            $guardPos  | Should -BeGreaterThan 0
+            $unlinkPos | Should -BeGreaterThan $guardPos
+            $removePos | Should -BeGreaterThan $unlinkPos
+            ($fleetAudit -match '(?s)if \(-not \$links\.AllUnlinked\) \{[^}]*junction-guard[^}]*continue') | Should -Be $true
+        }
+    }
+
+    Context "Remove-ReparsePointsUnder - unlink without following (junction guard)" {
+
+        BeforeAll {
+            # Code of the helper only: from its #> (the help text names the hazards)
+            # to the next function, so a later function cannot fake a match.
+            $guardSrc = Get-Content (Join-Path $projectRoot "scripts/common/path-guards.ps1") -Raw
+            $helperBody = $guardSrc.Substring($guardSrc.IndexOf('function Remove-ReparsePointsUnder'))
+            $helperBody = $helperBody.Substring($helperBody.IndexOf('#>'))
+            $nextFunc = $helperBody.IndexOf("`nfunction ")
+            if ($nextFunc -gt 0) { $helperBody = $helperBody.Substring(0, $nextFunc) }
+        }
+
+        It "returns AllUnlinked for a missing path, without error" {
+            $r = Remove-ReparsePointsUnder -Path (Join-Path $script:TempRoot 'does-not-exist')
+            $r.AllUnlinked | Should -Be $true
+            @($r.Failed).Count | Should -Be 0
+        }
+
+        It "tests ReparsePoint BEFORE descending (never walks into a link)" {
+            $test = $helperBody.IndexOf('$sub.Attributes -band [System.IO.FileAttributes]::ReparsePoint')
+            $push = $helperBody.IndexOf('$stack.Push($sub)')
+            $test | Should -BeGreaterThan 0
+            $push | Should -BeGreaterThan $test
+            $helperBody | Should -Match '\[System\.IO\.Directory\]::Delete\(\$sub\.FullName, \$false\)'
+            $helperBody | Should -Not -Match 'Remove-Item|rmdir /s|-Recurse'
+        }
+
+        It "refuses a root that is itself a reparse point BEFORE walking it" {
+            # A junction root lists its TARGET: walking it would unlink links outside the container.
+            $rootTest = $helperBody.IndexOf('$root.Attributes -band [System.IO.FileAttributes]::ReparsePoint')
+            $rootPush = $helperBody.IndexOf('$stack.Push($root)')
+            $rootTest | Should -BeGreaterThan 0
+            $rootPush | Should -BeGreaterThan $rootTest
+            $helperBody | Should -Match '(?s)\$root\.Attributes -band \[System\.IO\.FileAttributes\]::ReparsePoint\) \{[^}]*AllUnlinked = \$false'
+        }
+
+        It "refuses a junction root and leaves the junctions of its target in place" -Skip:($env:OS -ne 'Windows_NT') {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("reparse-root-" + [guid]::NewGuid().ToString('N'))
+            $target = Join-Path $root 'target'
+            New-Item -ItemType Directory -Force (Join-Path $target 'real') | Out-Null
+            New-Item -ItemType Junction -Path (Join-Path $target 'inner-link') -Target (Join-Path $target 'real') | Out-Null
+            $rootLink = Join-Path $root 'rootlink'
+            New-Item -ItemType Junction -Path $rootLink -Target $target | Out-Null
+
+            try {
+                $r = Remove-ReparsePointsUnder -Path $rootLink
+                $r.AllUnlinked | Should -Be $false
+                @($r.Unlinked).Count | Should -Be 0
+                Test-Path (Join-Path $target 'inner-link') | Should -Be $true
+            } finally {
+                foreach ($link in @($rootLink, (Join-Path $target 'inner-link'))) {
+                    if (Test-Path -LiteralPath $link) { [System.IO.Directory]::Delete($link, $false) }
+                }
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It "unlinks a junction without touching its target, even with an npm self-link loop" -Skip:($env:OS -ne 'Windows_NT') {
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("reparse-guard-" + [guid]::NewGuid().ToString('N'))
+            $server = Join-Path $root 'main/server'
+            New-Item -ItemType Directory -Force (Join-Path $server 'node_modules/pkg') | Out-Null
+            Set-Content (Join-Path $server '.env') 'secret'
+            Set-Content (Join-Path $server 'node_modules/pkg/index.js') 'x'
+            New-Item -ItemType Junction -Path (Join-Path $server 'node_modules/server') -Target $server | Out-Null
+            $wt = Join-Path $root 'wt'
+            New-Item -ItemType Directory -Force (Join-Path $wt 'servers/server') | Out-Null
+            New-Item -ItemType Junction -Path (Join-Path $wt 'servers/server/node_modules') -Target (Join-Path $server 'node_modules') | Out-Null
+
+            try {
+                $r = Remove-ReparsePointsUnder -Path $wt
+                $r.AllUnlinked | Should -Be $true
+                @($r.Unlinked).Count | Should -Be 1
+                Test-Path (Join-Path $wt 'servers/server/node_modules') | Should -Be $false
+                Remove-Item -LiteralPath $wt -Recurse -Force
+                Test-Path (Join-Path $server '.env') | Should -Be $true
+                Test-Path (Join-Path $server 'node_modules/pkg/index.js') | Should -Be $true
+            } finally {
+                & cmd /c "rmdir ""$(Join-Path $server 'node_modules\server')""" 2>&1 | Out-Null
+                Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 }

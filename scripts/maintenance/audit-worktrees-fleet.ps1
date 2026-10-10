@@ -444,6 +444,17 @@ if ($Apply) {
             continue
         }
 
+        # Junction guard: `git worktree remove` follows a junction into its target,
+        # and a gitignored node_modules junction passes git's dirty check
+        # (worktree-lifecycle.md v1.1.0). Unlink first; if one survives, skip.
+        $links = Remove-ReparsePointsUnder -Path $r.Path
+        if (-not $links.AllUnlinked) {
+            $r.Applied = "REFUSED (junction-guard): $($links.Failed -join '; ')"
+            Write-Host "  REFUSED $($r.Path) -- could not unlink $($links.Failed -join '; ')" -ForegroundColor Red
+            continue
+        }
+        foreach ($l in $links.Unlinked) { Write-Host "  unlinked reparse point $l" -ForegroundColor Yellow }
+
         # Insurance against a misclassification: make the commits reachable
         # before the worktree that holds them goes away.
         if ($r.NeedsRescueBranch -and $r.Head) {

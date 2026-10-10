@@ -243,6 +243,18 @@ function Remove-OrphanWorktreeDir {
         return
     }
 
+    # Junction guard: robocopy /MIR (strategy 4) follows junctions into their target;
+    # the other strategies are guarded too (defence in depth). A gitignored
+    # node_modules junctioned to the main checkout passes the dirty guard.
+    # Unlink them first; if one survives, delete nothing.
+    $links = Remove-ReparsePointsUnder -Path $Path
+    foreach ($l in $links.Unlinked) { Write-Warn "Unlinked reparse point before removal: $l" }
+    if (-not $links.AllUnlinked) {
+        Write-Err "REFUSED (junction-guard): could not unlink $($links.Failed -join '; ')"
+        Write-Info "  Nothing deleted for this target."
+        return
+    }
+
     # Strategy 1: Standard Remove-Item
     try {
         Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
