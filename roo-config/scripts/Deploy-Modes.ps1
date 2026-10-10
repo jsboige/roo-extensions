@@ -59,14 +59,16 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Resolve paths
-$repoRoot = (Get-Item "$PSScriptRoot\..\.." -ErrorAction SilentlyContinue).FullName
-if (-not $repoRoot) {
-    $repoRoot = (Get-Item "$PSScriptRoot\.." -ErrorAction SilentlyContinue).FullName
+# Resolve paths -- IO.Path Combine+GetFullPath keeps resolution portable across
+# OSes: backslash concatenation ("$PSScriptRoot\..\..") only resolves on Windows,
+# and the CI non-regression suite (#603 phase 4) executes this script on Linux.
+$repoRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..', '..'))
+if (-not (Test-Path -LiteralPath $repoRoot)) {
+    $repoRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PSScriptRoot, '..'))
 }
 
 if (-not $Source) {
-    $Source = Join-Path $repoRoot "roo-config\modes\generated\simple-complex.roomodes"
+    $Source = Join-Path $repoRoot 'roo-config/modes/generated/simple-complex.roomodes'
 }
 
 if (-not (Test-Path $Source)) {
@@ -94,8 +96,8 @@ try {
 $globalYamlContent = $null
 if ($DeploymentType -eq "global") {
     Write-Host "`nRegenerating as YAML for global deployment..." -ForegroundColor Cyan
-    $generateScript = Join-Path $repoRoot "roo-config\scripts\generate-modes.js"
-    $tempYamlPath = Join-Path $repoRoot "roo-config\modes\generated\simple-complex.yaml"
+    $generateScript = Join-Path $repoRoot 'roo-config/scripts/generate-modes.js'
+    $tempYamlPath = Join-Path $repoRoot 'roo-config/modes/generated/simple-complex.yaml'
 
     $genArgs = @("$generateScript", "--output", "$tempYamlPath", "--format", "yaml")
     if ($ApiProfile) {
@@ -130,7 +132,7 @@ foreach ($name in $modeNames) {
 if ($DeploymentType -eq "local") {
     $destination = Join-Path $repoRoot ".roomodes"
 } else {
-    . "$PSScriptRoot\..\..\scripts\common\extension-paths.ps1"
+    . ([System.IO.Path]::Combine($PSScriptRoot, '..', '..', 'scripts', 'common', 'extension-paths.ps1'))
     $globalDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
     if (-not (Test-Path $globalDir)) {
         Write-Host "WARNING: VS Code Roo extension settings dir not found: $globalDir" -ForegroundColor Yellow
@@ -223,7 +225,7 @@ if ($SyncApiConfigs) {
     Write-Host "`n" -NoNewline
     Write-Host "Syncing API configs..." -ForegroundColor Cyan
 
-    $syncScript = Join-Path $repoRoot "roo-config\scripts\Sync-ApiConfigs.ps1"
+    $syncScript = Join-Path $repoRoot 'roo-config/scripts/Sync-ApiConfigs.ps1'
     if (Test-Path $syncScript) {
         $syncArgs = @($syncScript)
         if ($DryRun) {
