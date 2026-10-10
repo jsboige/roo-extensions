@@ -153,6 +153,13 @@ on:
       # scripts/common/** above already covers extension-paths.ps1.
       - 'roo-config/scripts/Deploy-Modes.ps1'
       - 'roo-config/scripts/generate-modes.js'
+      # Same PR, completed after ai-01's review: the sandbox also COPIES
+      # modes-config.json, the mode templates and the generated .roomodes, and
+      # the mode-count parity assertion reads that last one. A main push
+      # changing any of the three has to re-run the suite that asserts on them.
+      - 'roo-config/modes/modes-config.json'
+      - 'roo-config/modes/templates/**'
+      - 'roo-config/modes/generated/simple-complex.roomodes'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks

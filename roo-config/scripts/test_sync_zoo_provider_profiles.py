@@ -369,6 +369,38 @@ def test_autoimport_commented_out_occurrence_counts_as_absent():
         text = open(settings, encoding="utf-8").read()
         assert '// "zoo-code.autoImportSettingsPath"' in text  # comment survives
         assert _json_esc(_portable(emitted)) in text
+        # Discriminating pair (#4139 re-review): neutralize the comment detection and this test
+        # STILL passed — the run printed [OK] and left the comment, it merely rewrote the value
+        # inside the commented line and printed "[OK] corrected". These two assertions are what
+        # actually pin the behaviour: the commented value stays byte-intact, and the output is the
+        # INSERT path. Both fail on that mutant.
+        assert "C:/old/seat.json" in text
+        assert "[OK] set" in out
+
+
+def test_autoimport_tilde_backslash_is_not_the_same_as_tilde_slash():
+    # #4139 re-review, follow-up 2. Zoo expands ONLY a leading '~/' (autoImportSettings.ts:
+    # startsWith("~/") ? join(homedir(), t.slice(2)) : t). os.path.expanduser also expands a
+    # '~\' prefix on Windows, so a hand-typed '~\e.json' compared equal to <home>\e.json and was
+    # declared "already present" — while Zoo resolves it to <home>\~\e.json, imports nothing, and
+    # no log line ever says so. That is the dead-pointer family #4139 exists to remove.
+    with tempfile.TemporaryDirectory() as d:
+        home = os.path.join(d, "fakehome")
+        os.makedirs(home)
+        # Emit UNDER the home dir: the expansion rule is then the ONLY thing that can distinguish
+        # "same file" from "dead pointer" — no second variable can explain the outcome.
+        emitted = os.path.join(home, "e.json")
+        open(emitted, "w").close()
+        dead = "~\\e.json"  # the spelling Zoo does NOT expand
+        settings = _write_settings(
+            d, '{\n    "zoo-code.autoImportSettingsPath": "' + _json_esc(dead) + '"\n}\n'
+        )
+        out, _ = _call_with_appdata(d, emitted, home=home)
+        assert "already present" not in out  # the old comparison said exactly that
+        assert "[WARN]" in out and "DOES NOT EXIST" in out
+        text = open(settings, encoding="utf-8").read()
+        assert _json_esc(dead) not in text  # the dead spelling did not survive
+        assert "~/e.json" in text  # corrected to the portable form Zoo expands
 
 
 def test_autoimport_sibling_slash_slash_on_same_line_is_not_a_comment():
@@ -426,3 +458,24 @@ def test_autoimport_jsonc_drift_preserves_comments():
         assert "// inherited from a synced profile" in text
         assert _json_esc(_portable(emitted)) in text and _json_esc(stale) not in text
         assert "JSONC" in out
+
+
+def test_autoimport_correction_is_written_atomically():
+    # #4139 re-review, follow-up 3: settings.json is now written through a sibling temp file +
+    # os.replace, because a plain open(path, "w") truncates BEFORE writing — a crash mid-write
+    # leaves an empty or half-written settings.json. Atomicity as such is not observable from a
+    # unit test; what IS observable, and what a botched implementation leaves behind, is the temp
+    # file. This also pins that the replacement actually landed.
+    with tempfile.TemporaryDirectory() as d:
+        emitted = os.path.join(d, "emitted.json")
+        open(emitted, "w").close()
+        stale = os.path.join(d, "stale-from-other-seat.json")  # never created
+        _write_settings(
+            d, '{\n    "zoo-code.autoImportSettingsPath": "' + _json_esc(stale) + '"\n}\n'
+        )
+        out, settings = _call_with_appdata(d, emitted)
+        assert "[OK] corrected" in out
+        assert os.path.exists(settings + ".bak-autoimport")  # backup still lands first
+        assert not [n for n in os.listdir(os.path.dirname(settings)) if ".tmp-" in n]
+        got = json.load(open(settings, encoding="utf-8"))["zoo-code.autoImportSettingsPath"]
+        assert got == _portable(emitted)
