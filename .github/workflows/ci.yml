@@ -126,6 +126,15 @@ on:
       # production script's siblings re-runs nothing. scripts/scheduling/**
       # already covers the production script itself.
       - 'scripts/testing/python/**'
+      # #4161 follow-up (ai-01 review): roo-config/scripts/test_sync_zoo_provider_profiles.py
+      # -- pytest cases over sync-zoo-provider-profiles.py -- ran NOWHERE in CI: it sits
+      # outside both dirs the two `unittest discover` lines walk, and no workflow invoked
+      # pytest at all before this. The script it guards rewrites every seat's
+      # settings.json, so a change to either one landing on main has to re-run the job.
+      # NOTE: measured 2026-10-10, it is NOT the only such file -- see the report on
+      # #4161; the four others are left alone here on purpose (surgical scope).
+      - 'roo-config/scripts/sync-zoo-provider-profiles.py'
+      - 'roo-config/scripts/test_sync_zoo_provider_profiles.py'
       # #3410: the sk-agent-inventory job below runs generate_inventory.py --check
       # against these two docs. The counts in them had drifted from the template
       # config for months precisely because no path here matched -- a doc edit
@@ -467,11 +476,18 @@ jobs:
       # the same step; its trigger path joins the filter below (scripts/github/**
       # and scripts/scheduling/** are already triggers, which is why these test
       # files kept evolving while nothing executed them).
-      - name: Run python unit tests (claim discipline + vibe queue)
+      - name: Run python unit tests (claim discipline + vibe queue + zoo profile sync)
         shell: bash
         run: |
           python3 -m unittest discover -s scripts/github/tests
           python3 -m unittest discover -s scripts/testing/python
+          # #4161 follow-up: the zoo-profile suite is PYTEST-style (plain test_
+          # functions + asserts), so `unittest discover` collects NOTHING from it --
+          # a discovery line here would be a silent green void. Invoked explicitly,
+          # and pytest is installed explicitly rather than assumed: this repo pins
+          # no runner image contract for it, so the install has to be in the step.
+          python3 -m pip install --quiet pytest
+          python3 -m pytest roo-config/scripts/test_sync_zoo_provider_profiles.py -q
 
       # #1357 AC#1: the mcp-proxy template's TBXark hop timeout must stay a
       # JSON NUMBER. The deployed image decodes it into a Go time.Duration

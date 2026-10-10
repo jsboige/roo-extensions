@@ -479,3 +479,42 @@ def test_autoimport_correction_is_written_atomically():
         assert not [n for n in os.listdir(os.path.dirname(settings)) if ".tmp-" in n]
         got = json.load(open(settings, encoding="utf-8"))["zoo-code.autoImportSettingsPath"]
         assert got == _portable(emitted)
+
+
+def test_atomic_write_leaves_the_previous_file_intact_when_the_replace_fails():
+    # #4161 follow-up (ai-01 dispatch, "faire un vrai test d'ecriture atomique"). The test above
+    # pins the temp-file hygiene and that the replacement LANDED -- it never exercises the failure
+    # that atomicity exists for. So it passes on an implementation that writes straight into the
+    # target, which is exactly the defect: a plain open(path, "w") truncates BEFORE writing.
+    # Here the failure is injected at the injection point that matters -- os.replace itself.
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "settings.json")
+        previous = '{\n    "zoo-code.autoImportSettingsPath": "C:/old/seat.json"\n}\n'
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(previous)
+
+        real_replace = os.replace
+
+        def boom(src, dst):
+            raise OSError("simulated crash between the temp write and the replace")
+
+        os.replace = boom
+        try:
+            try:
+                _mod._atomic_write_text(path, '{"totally": "new"}\n')
+            except OSError:
+                pass
+            else:
+                # Nothing replaced anything, yet the caller was told it worked: a silent
+                # success here would hide the data loss from the seat that owned the file.
+                raise AssertionError("a failing os.replace must propagate")
+        finally:
+            os.replace = real_replace
+
+        # The discriminating assertion: the PREVIOUS bytes survived, byte for byte. A truncating
+        # write leaves this empty or half-written -- the assertion that separates the two is
+        # therefore the content, not the mere existence of the file.
+        with open(path, encoding="utf-8", newline="") as f:
+            assert f.read() == previous
+        # ... and the sibling temp file did not survive the failure either.
+        assert not [n for n in os.listdir(d) if ".tmp-" in n]
