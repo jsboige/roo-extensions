@@ -376,6 +376,58 @@ function ConvertTo-NativeArg {
     return $Value
 }
 
+# ========== PROMPT PAYLOAD OUT OF ARGV (#622, 10/10) ==========
+# The work prompt travels BY FILE; the argv carries only a short pointer.
+#
+# Measured failure on this host, 4 scheduled runs (08/10 x2, 09/10, 10/10):
+#   Phase C execution failed (exit=1)
+#   Dispatch output: La ligne de commande est trop longue.
+#
+# That text is cmd.exe's, and the cap that binds here is ITS 8,191-character
+# command line -- NOT CreateProcess's 32,767. Measured on this host 10/10 with
+# `cmd /c echo <n chars>`: n=5000 passes, n=8191 already returns this exact
+# message with exit 1, and past 32,767 PowerShell cannot even start cmd.exe and
+# reports a DIFFERENT text ("Nom de fichier ou extension trop long"). The two
+# limits are not interchangeable, and the smaller one is reached first on any
+# chain that crosses a shell -- `gh copilot`, which "executes the Copilot CLI
+# found in your PATH" (gh copilot --help), forwards to the npm `copilot.cmd`
+# shim on Windows and therefore does.
+#
+# A prompt past the cap never reaches the CLI, and the 180-min escalation
+# cooldown turns each miss into a SILENT failure (2 failed runs/day, no
+# escalation, no work). Source line is the `& copilot -p <prompt>` call below.
+#
+# Escaping (ConvertTo-NativeArg above) and length are INDEPENDENT defects:
+# escaping can be perfect -- as it is -- and the call still dies on size. The
+# payload-by-file removes the class for EVERY chain: the argv is a constant
+# ~100-character pointer whatever the prompt weighs, so neither cap can be
+# reached by the payload, and the CLI reads the file itself (--allow-all-tools
+# already grants file read, same scope as before).
+#
+# Kept under outputs/scheduling/prompts/ (gitignored, like the logs and reports
+# beside it): issue content never reaches the repository.
+function Write-CopilotPromptFile {
+    param(
+        [string]$RepositoryRoot,
+        [string]$Prompt,
+        [datetime]$Stamp
+    )
+
+    $promptDir = Join-Path $RepositoryRoot 'outputs\scheduling\prompts'
+    if (-not (Test-Path $promptDir)) { New-Item -ItemType Directory -Path $promptDir -Force | Out-Null }
+    $promptFile = Join-Path $promptDir ('copilot-prompt-' + $Stamp.ToString('yyyyMMdd-HHmmss') + '.md')
+    [System.IO.File]::WriteAllText($promptFile, $Prompt, [System.Text.UTF8Encoding]::new($false))
+    return $promptFile
+}
+
+# Decision core (tested): what the CLI receives is a POINTER to the payload,
+# never the payload. Its own function so the suite can drive it without
+# spawning `copilot`.
+function Get-DispatchArgv {
+    param([string]$PromptFilePath)
+    return ('Read the file at "{0}" and execute the instructions it contains.' -f $PromptFilePath)
+}
+
 function Invoke-PhaseCDispatch {
     param(
         [string]$Profile,
@@ -429,7 +481,16 @@ function Invoke-PhaseCDispatch {
             # on the very same stream (ai-01, 07/09: message invisible in the
             # dispatcher log, readable the moment stdout/stderr were separated).
             # Normalise to text so the lane's own diagnostics survive the trip.
-            $cmdOutput = & copilot -p (ConvertTo-NativeArg $Prompt) --allow-all-tools --no-ask-user 2>&1 |
+            #
+            # Payload out of argv (#622): the prompt goes to a gitignored file and
+            # the CLI receives a short pointer to it. Both lengths are logged, so a
+            # future regression shows in the run's OWN log instead of surfacing only
+            # as a bare "La ligne de commande est trop longue."
+            $promptFile = Write-CopilotPromptFile -RepositoryRoot $RepositoryRoot -Prompt $Prompt -Stamp (Get-Date)
+            $dispatchArgv = Get-DispatchArgv -PromptFilePath $promptFile
+            Write-Log ("Phase C prompt payload: {0} chars -> {1}" -f $Prompt.Length, $promptFile)
+            Write-Log ("Phase C argv: {0} chars" -f $dispatchArgv.Length)
+            $cmdOutput = & copilot -p (ConvertTo-NativeArg $dispatchArgv) --allow-all-tools --no-ask-user 2>&1 |
                 ForEach-Object {
                     if ($_ -is [System.Management.Automation.ErrorRecord]) {
                         if ($_.Exception -and $_.Exception.Message) { $_.Exception.Message } else { $_.ToString() }
