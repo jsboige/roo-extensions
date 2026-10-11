@@ -171,6 +171,11 @@ on:
       - 'roo-config/modes/modes-config.json'
       - 'roo-config/modes/templates/**'
       - 'roo-config/modes/generated/simple-complex.roomodes'
+      # #3724 (suite #4179): the echo-loop-counter suite below guards the
+      # disjoncteur hook -- the hook and its test file must re-trigger the job
+      # that runs them (same rule as every entry above: a guard change landing
+      # on main re-runs nothing without its path here).
+      - 'scripts/hooks/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -504,6 +509,16 @@ jobs:
           # no runner image contract for it, so the install has to be in the step.
           python3 -m pip install --quiet pytest
           python3 -m pytest roo-config/scripts/test_sync_zoo_provider_profiles.py -q
+
+      # #3724 (suite #4179): the echo-loop-counter disjoncteur shipped with a
+      # green suite (20 assertions, 6 cases) that no CI job executed -- the
+      # classic dead-guard hole this file keeps closing. The suite is pure
+      # node (spawnSync of the REAL hook, os.tmpdir() sandbox, per-session
+      # state, zero npm deps), so it joins this static job: ubuntu-latest's
+      # preinstalled node runs it as-is.
+      - name: Run echo-loop-counter hook suite (#3724)
+        shell: bash
+        run: node scripts/hooks/tests/echo-loop-counter.test.js
 
       # #1357 AC#1: the mcp-proxy template's TBXark hop timeout must stay a
       # JSON NUMBER. The deployed image decodes it into a Go time.Duration
