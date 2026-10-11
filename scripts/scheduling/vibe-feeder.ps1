@@ -32,6 +32,17 @@
     Defaut : D:\dev\CoursIA-vibe-runtime. Expose en parametre pour le harnais
     comportemental (test-vibe-feeder-eviction.ps1, review #3756 M1) : sans lui,
     le test ne peut pas executer le feeder reel hors de la machine de prod.
+
+.PARAMETER CooldownAfterN
+    Cooldown gisements : nombre de relances sans progres des findings (meme
+    empreinte de fichiers cibles) qui met un gisement hors rotation. Defaut 2
+    (cas mesure 11/10 : g1-residu-petits-domaines, 4 lancements 05:11->05:55Z,
+    memes 10 findings). Valeur < 1 eteint le mecanisme.
+
+.PARAMETER CooldownHours
+    Duree bornee de la sortie de rotation ; le gisement revient ensuite au
+    pool. Defaut 24. Sert aussi d'horizon memoire des relances comptees.
+    Valeur < 1 eteint le mecanisme.
 #>
 [CmdletBinding()]
 param(
@@ -40,7 +51,14 @@ param(
     [string]$QueuePath = '',
     [int]$TimeoutSec = 150,
     [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime',
-    [int]$MaxParallel = 1
+    [int]$MaxParallel = 1,
+    # Cooldown gisements (mandat coordinateur 11/10, cas mesure g1-residu-
+    # petits-domaines : 4 lancements 05:11->05:55Z, memes 10 findings a chaque
+    # fois). Un gisement relance $CooldownAfterN fois SANS progres des findings
+    # sort de la rotation $CooldownHours, puis revient au pool. N<1 ou
+    # heures<1 = mecanisme eteint.
+    [int]$CooldownAfterN = 2,
+    [int]$CooldownHours = 24
 )
 $ErrorActionPreference = 'Continue'   # Continue : git ecrit du progres sur stderr (fin de pipe), Stop le transformerait en throw
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -165,6 +183,86 @@ function Write-Queue {
         ($Queue | ConvertTo-Json -Depth 8),
         (New-Object System.Text.UTF8Encoding $false)
     )
+}
+
+# ---------- cooldown gisements (rotation bornee des relances sans progres) ----------
+# Cas mesure 11/10 05:11->05:55Z : g1-residu-petits-domaines dispatche 4 fois,
+# chaque run retrouve les MEMES 10 findings (travail NOOP non merge, l'organe
+# re-seme le gisement a chaque re-mesure) — 4 runs payes pour 0 nouveau finding.
+# Le feeder est le seul composant qui voit ET la relance ET l'empreinte
+# re-semee : il porte donc la memoire. Etat dans outputs/vibe/feeder-cooldown.json
+# (possede par ce script, l'organe ne le lit pas).
+#
+# Empreinte de progres = l'ensemble des fichiers cibles (bloc targetPath du
+# payload), exactement ce que refresh-vibe-queue.py relit via payload_paths().
+# Meme ensemble = meme gisement, rien n'a ete fixe ; ensemble change (fichier
+# disparu du re-scan car passe a 0 finding, ou decoupe differente) = le grain
+# est un travail materialement different, compteur remis a zero — meme pendant
+# un cooldown actif : le cooldown ne retient jamais du travail NOUVEAU.
+function Get-GrainFingerprint {
+    param([object]$Grain)
+    $payload = "$($Grain.payload)"
+    $inside = $false
+    $paths = @()
+    foreach ($ln in ($payload -split "`n")) {
+        $s = $ln.Trim()
+        if ($s -like 'targetPath*') { $inside = $true; continue }
+        if ($inside -and ($s -like 'worktree:*' -or $s -like 'branch:*')) { break }
+        if ($inside -and $s.StartsWith('- ')) { $paths += $s.Substring(2).Trim() }
+    }
+    if ($paths.Count -eq 0) { $paths = @($payload) }   # repli : payload entier
+    $text = (($paths | Sort-Object -Unique) -join "`n")
+    $sha1 = [System.Security.Cryptography.SHA1]::Create()
+    try {
+        $hash = ($sha1.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)) | ForEach-Object { $_.ToString('x2') }) -join ''
+    } finally { $sha1.Dispose() }
+    return $hash
+}
+
+# Normalisation UTC d'une valeur d'etat : la String 'o' ecrite par ce script
+# (lue telle quelle sous powershell 5.1) OU le DateTime que ConvertFrom-Json
+# de pwsh 7 deserialise depuis la meme String. Passer par la stringification
+# implicite ("$dt") reformate un DateTimeUtc SANS le suffixe Z -> reparsage en
+# heure locale -> biais de l'offset de TZ (mesure 11/10 : +2h sur po-2025, un
+# cooldown expire depuis <2h ressuscitait). RoundtripKind preserve le Kind ;
+# TryParseExact 'o' couvre nos ecrits, le fallback couvre les formats voisins.
+function ConvertTo-UtcDateTime {
+    param($Value)
+    if ($null -eq $Value) { return [datetime]::MinValue }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    $dt = [datetime]::MinValue
+    $null = [datetime]::TryParseExact("$Value", 'o', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$dt)
+    if ($dt -eq [datetime]::MinValue) {
+        $null = [datetime]::TryParse("$Value", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$dt)
+    }
+    return $dt.ToUniversalTime()
+}
+
+function Read-CooldownState {
+    # Fail-open : un fichier d'etat casse ou absent ne doit JAMAIS arreter le
+    # dispatch — le cooldown est une optimisation de budget, pas une garde de
+    # securite. Rend un etat vide, le tick continue sans memoire.
+    $p = Join-Path $repoRoot 'outputs\vibe\feeder-cooldown.json'
+    if (-not (Test-Path $p)) { return @{ grains = @{} } }
+    try {
+        $raw = Get-Content -Path $p -Raw -Encoding utf8 | ConvertFrom-Json
+        $map = @{}
+        if ($raw.grains) {
+            foreach ($prop in $raw.grains.PSObject.Properties) { $map[$prop.Name] = $prop.Value }
+        }
+        return @{ grains = $map }
+    } catch {
+        Write-FeederLog -Level 'WARN' -Text ("etat cooldown illisible ({0}) — cooldown ignore ce tick" -f $_.Exception.Message)
+        return @{ grains = @{} }
+    }
+}
+
+function Write-CooldownState {
+    param([hashtable]$State)
+    $dir = Join-Path $repoRoot 'outputs\vibe'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $obj = [ordered]@{ _comment = 'cooldown gisements Vibe — possede par vibe-feeder.ps1, ne pas editer a la main'; grains = $State.grains }
+    [System.IO.File]::WriteAllText((Join-Path $dir 'feeder-cooldown.json'), ($obj | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding $false))
 }
 
 # ---------- worktree prep (git -C runtime, jamais reset) ----------
@@ -590,6 +688,14 @@ Write-FeederLog -Level 'INFO' -Text ("burst: {0} vivant(s), budget dispatch {1} 
 # preserver+recaler des grains refuses, puis re-essai. DryRun ne declenche NI la
 # re-mesure NI le sweep (tous deux ecrivent).
 $staleRefused = @()
+# Memoire de rotation chargee une fois par tick. Les mutations de tete de
+# boucle (prune d'anciennete, reset d'empreinte) ne sont PAS persistees : ce
+# sont des fonctions pures des entrees persistees (etat + payload du grain) —
+# un tick suivant les recalcule a l'identique. Seul le chemin de dispatch
+# ecrit (immediatement, avant l'exit 0 de budget possible).
+$cooldownEnabled = ($CooldownAfterN -ge 1 -and $CooldownHours -ge 1)
+$cooldownState = $null
+if ($cooldownEnabled) { $cooldownState = Read-CooldownState }
 for ($pass = 1; $pass -le 3; $pass++) {
     if ($pass -eq 2) {
         if ($DryRun) { break }
@@ -641,6 +747,37 @@ for ($pass = 1; $pass -le 3; $pass++) {
     }
 
     foreach ($g in $grains) {
+        # Cooldown gisements : branchement AVANT tout effet de bord (eviction,
+        # recalage, worktree) — un grain en cooldown ne coute rien, meme pas
+        # une lecture git. Le grain RESTE en file (l'organe re-seme de toute
+        # facon au refresh suivant) ; seul le dispatch payant est retenu.
+        $cd = $null
+        if ($cooldownState -and $cooldownState.grains.ContainsKey($g.id)) { $cd = $cooldownState.grains[$g.id] }
+        if ($null -ne $cd) {
+            $nowCd = (Get-Date).ToUniversalTime()
+            # Horizon memoire = la duree du cooldown elle-meme : apres avoir
+            # purge sa penalite, un gisement repart d'un historique neuf (une
+            # sonde par fenetre, pas un bannissement perpetuel).
+            $recentDispatches = @()
+            foreach ($d in @($cd.dispatches)) {
+                $ddt = ConvertTo-UtcDateTime $d
+                if ($ddt -gt [datetime]::MinValue -and ($nowCd - $ddt).TotalHours -lt $CooldownHours) { $recentDispatches += $d }
+            }
+            if ($recentDispatches.Count -ne @($cd.dispatches).Count) { $cd.dispatches = $recentDispatches }
+            $cdFp = Get-GrainFingerprint -Grain $g
+            if ("$($cd.fingerprint)" -ne $cdFp) {
+                Write-FeederLog -Level 'INFO' -Text ("COOLDOWN {0}: empreinte changee (progres des findings) — compteur remis a zero" -f $g.id)
+                $cd.fingerprint = $cdFp
+                $cd.dispatches = @()
+                $cd.cooldownUntil = $null
+            } elseif ($cd.cooldownUntil) {
+                $cuDt = ConvertTo-UtcDateTime $cd.cooldownUntil
+                if ($cuDt -gt [datetime]::MinValue -and $nowCd -lt $cuDt) {
+                    Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: cooldown actif jusqu'a {1}Z (relances sans progres de findings)" -f $g.id, $cuDt.ToString('yyyy-MM-ddTHH:mm:ss'))
+                    continue
+                }
+            }
+        }
         # Discriminant de generation (#3755) : si le grain porte un wtHead
         # enregistre par l'organe de re-mesure et que la tete reelle du
         # worktree en a diverge, le worktree a ete reutilise pour une
@@ -760,6 +897,21 @@ for ($pass = 1; $pass -le 3; $pass++) {
         $grains = $remaining
         $q.grains = $remaining
         Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
+        # Enregistrement cooldown : la relance payee vient d'avoir lieu (spawn
+        # reussi). Compteur + armement le cas echeant — l'ecrit d'etat suit
+        # immediatement, avant l'exit 0 de budget possible deux lignes plus bas.
+        if ($cooldownState) {
+            if ($null -eq $cd) {
+                $cd = [pscustomobject]@{ fingerprint = (Get-GrainFingerprint -Grain $g); dispatches = @(); cooldownUntil = $null }
+                $cooldownState.grains[$g.id] = $cd
+            }
+            $cd.dispatches = @(@($cd.dispatches) + (Get-Date).ToUniversalTime().ToString('o'))
+            if (@($cd.dispatches).Count -ge $CooldownAfterN) {
+                $cd.cooldownUntil = (Get-Date).ToUniversalTime().AddHours($CooldownHours).ToString('o')
+                Write-FeederLog -Level 'INFO' -Text ("COOLDOWN {0}: {1} relance(s) sans progres — sortie de rotation jusqu'a {2}" -f $g.id, @($cd.dispatches).Count, $cd.cooldownUntil)
+            }
+            Write-CooldownState -State $cooldownState
+        }
         # Visibilite seule, cap 20 s, jamais fatal (levier 3). Le messageId
         # horodate fait la dedup cote dashboard (review #3518 C1).
         # Switch OFF par defaut (review ai-01 08:57Z sur #3953) : le post

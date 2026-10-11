@@ -375,6 +375,20 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-feeder-stale-sweep.ps1
 
+      # Gisement cooldown (mandate 11/10): g1-residu-petits-domaines was
+      # dispatched 4 times in 44 minutes for the SAME 10 findings (NOOP work,
+      # organ re-seeds it at every re-measure) -- 4 paid runs, 0 new finding.
+      # The feeder now keeps a rotation memory (feeder-cooldown.json): N
+      # relaunches without findings progress (same target-file fingerprint)
+      # park the gisement for a bounded duration, then it returns to the
+      # pool. This harness executes the real feeder in real mode (staged
+      # stubs, no Mistral, no network) and replays the measured sequence:
+      # arm after 2, hold launches 3+4, reset on fingerprint progress,
+      # release after the penalty. Offline: no gh, no scheduler.
+      - name: Run vibe feeder cooldown harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-vibe-feeder-cooldown.ps1
+
       - name: Run scheduled-task result filter harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-schtask-result-filter.ps1
