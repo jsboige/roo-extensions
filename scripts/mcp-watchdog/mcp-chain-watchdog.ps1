@@ -25,6 +25,11 @@
          ou le port est fermé → mort : réparation pleine (cas du 15/08
          couvert). MCP-Proxy-RSM relancé il y a < 3 min, par qui que ce
          soit → redémarrage déjà en cours : on n'en empile pas un second.
+      3d. À chaque run, chaîne RSM saine ou non : si TBXark rend 404 sur la
+         route sk-agent alors que sk-agent répond lui-même sur :8100 → même
+         restart TBXark SEUL, même cooldown et même fichier d'état que 3b
+         (boot race 11/10 : deux projets compose, TBXark saute la route pour
+         de bon). sk-agent muet → alerte, pas de restart.
       4. Si encore KO après réparation → ALERT (event log).
       5. Télémétrie flotte (#3394) : réparations/alertes ET un heartbeat
          périodique sont postés sur le MACHINE dashboard de l'hôte via la
@@ -42,6 +47,16 @@
 .PARAMETER LogDir
     Directory for logs. Default: D:\roo-extensions\outputs\mcp-watchdog
 
+.PARAMETER SkAgentRouteUrl
+    sk-agent route through TBXark, probed on every run (step 3d). Empty string
+    disables the sk-agent check (seat without sk-agent behind TBXark).
+    Default: http://127.0.0.1:9090/sk-agent/mcp
+
+.PARAMETER SkAgentBackendUrl
+    sk-agent's own streamable-http endpoint (container 'sk-agent', host :8100).
+    TBXark is restarted for a missing sk-agent route only while this answers.
+    Empty string disables the sk-agent check. Default: http://127.0.0.1:8100/mcp
+
 .EXAMPLE
     .\mcp-chain-watchdog.ps1
     .\mcp-chain-watchdog.ps1 -Mode dry-run
@@ -52,7 +67,11 @@ param(
     [string]$Mode = 'poll',
     [string]$BotEnvFile = 'D:\nanoclaw\.env',
     [string]$LogDir = 'D:\roo-extensions\outputs\mcp-watchdog',
-    [int]$LogRetentionDays = 14
+    [int]$LogRetentionDays = 14,
+    # 127.0.0.1 like $lanUrl, not localhost: the sk-agent compose binds
+    # 127.0.0.1:8100 only, and localhost may try ::1 first.
+    [string]$SkAgentRouteUrl = 'http://127.0.0.1:9090/sk-agent/mcp',
+    [string]$SkAgentBackendUrl = 'http://127.0.0.1:8100/mcp'
 )
 
 $ErrorActionPreference = 'Continue'
@@ -403,6 +422,26 @@ function Test-SparfenyukRoute {
     }
 }
 
+# HTTP status of one bare MCP initialize: 200 served, 401 refused by an auth
+# gate, 404 no such route, 0 no HTTP answer at all (refused, reset, timeout).
+# No session is continued and no tool is called: this runs on every tick, and a
+# tools/call every 2 min would land in sk-agent's usage telemetry (#1387) as
+# traffic nobody made.
+function Get-McpInitializeStatus {
+    param([Parameter(Mandatory)][string]$Url, [string]$Bearer, [int]$TimeoutSec = 10)
+    $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog-route","version":"1"}}}'
+    $headers = @{ 'Content-Type' = 'application/json'; 'Accept' = 'application/json, text/event-stream' }
+    if ($Bearer) { $headers['Authorization'] = "Bearer $Bearer" }
+    try {
+        $r = Invoke-WebRequest -Uri $Url -Method Post -Headers $headers -Body $body `
+                               -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+        return [int]$r.StatusCode
+    } catch {
+        if ($_.Exception.Response) { return [int]$_.Exception.Response.StatusCode }
+        return 0
+    }
+}
+
 # ---------- dead vs slow, before restarting sparfenyuk (#3898) ----------
 # Measured on ai-01, 23/09 -> 28/09: proxy.log recorded 85 starts of mcp-proxy
 # and 0 "exited with code". sparfenyuk never died on its own; every "death" was
@@ -634,6 +673,104 @@ function Wait-ForPostRepairRecovery {
         }
         Start-Sleep -Seconds $PostRepairProbeIntervalSec
     }
+}
+
+# ---------- sk-agent route through TBXark (3d, boot race 11/10) ----------
+# TBXark (compose project 'docker') and sk-agent (compose project 'sk-agent',
+# streamable-http on :8100) are two compose projects, so depends_on cannot
+# order them. At a reboot TBXark comes up first, finds :8100 closed, skips the
+# backend and never retries: /sk-agent/mcp answers 404 for good while sk-agent
+# is healthy. On 11/10 the NanoClaw bot, which health-checks that route,
+# crash-looped for ~11 h; a TBXark restart brought the route back in ~10 s.
+# The RSM probes never touch that route, and the RSM chain was healthy that
+# day, so 3b was never reached: this check runs on every tick, whatever the
+# RSM verdict.
+#
+# Same repair as 3b, with the SAME cooldown and state file: both restart the
+# one TBXark, which drops every session it carries, so together they restart
+# it at most once per $RouteRepairCooldownMin.
+#
+# Measured on ai-01 11/10, no credentials sent: TBXark answers 401 on a route
+# it registered and 404 on one it did not, in ~2 ms (it routes before it
+# authenticates), so 404 means "not registered", not "refused". sk-agent
+# answers 401 on :8100 -- its own bearer gate, in front of every path but
+# /healthz: the server is up, and TBXark, which holds its key, will register
+# it. A closed port (0) is the boot state itself; restarting TBXark then would
+# only skip the backend again. The backend probe carries no bearer: the TBXark
+# token is not sk-agent's, and is never sent to it.
+$SkAgentProbeTimeoutSec = 10
+# TBXark answers again ~10 s after a docker restart (11/10); the cap covers a
+# slow start, and the run budget ends the wait first when the tick is late.
+$SkAgentVerifyCapSec = 60
+$SkAgentVerifyIntervalSec = 5
+
+function Invoke-SkAgentRouteCheck {
+    # Returns one verdict: 'disabled', 'skipped', 'ok', 'not-404',
+    # 'backend-down', 'cooldown', 'deferred', 'dry-run', 'recovered',
+    # 'still-missing', 'unverified'. Reads $lastRouteRepairAt,
+    # $routeRepairStateFile, $RouteRepairCooldownMin and
+    # $RouteRepairWorstCaseSec, which main defines for 3b.
+    if ([string]::IsNullOrEmpty($SkAgentRouteUrl) -or [string]::IsNullOrEmpty($SkAgentBackendUrl)) { return 'disabled' }
+    # TBXark already restarted in this run: it is registering its backends
+    # right now, and the next tick re-reads the route.
+    if (@($script:repairs | Where-Object { "$_" -like 'tbxark-restart*' }).Count -gt 0) { return 'skipped' }
+    if ((Get-RunSecondsLeft) -lt (2 * $SkAgentProbeTimeoutSec + 10)) {
+        Write-Log 'WARN' "sk-agent route check skipped: $([int](Get-RunSecondsLeft))s left before the task's time limit."
+        return 'skipped'
+    }
+    $routeStatus = Get-McpInitializeStatus -Url $SkAgentRouteUrl -Bearer $bearer -TimeoutSec $SkAgentProbeTimeoutSec
+    if ($routeStatus -eq 200) { return 'ok' }
+    if ($routeStatus -ne 404) {
+        Write-Log 'WARN' "sk-agent route through TBXark answered HTTP $routeStatus — not a missing route, nothing to repair here."
+        return 'not-404'
+    }
+    $backendStatus = Get-McpInitializeStatus -Url $SkAgentBackendUrl -TimeoutSec $SkAgentProbeTimeoutSec
+    if ($backendStatus -notin @(200, 401)) {
+        Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again."
+        $script:alerts += 'skagent-route-missing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+        return 'backend-down'
+    }
+    $minutesSinceRouteRepair = ((Get-Date) - $lastRouteRepairAt).TotalMinutes
+    if ($minutesSinceRouteRepair -lt $RouteRepairCooldownMin) {
+        Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) although sk-agent answers, but TBXark was restarted $([math]::Round($minutesSinceRouteRepair,0)) min ago (< $RouteRepairCooldownMin) — waiting, not restarting"
+        $script:alerts += 'skagent-route-missing-restart-on-cooldown'
+        return 'cooldown'
+    }
+    if ((Get-RunSecondsLeft) -lt $RouteRepairWorstCaseSec) {
+        Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) although sk-agent answers, but a TBXark restart needs ${RouteRepairWorstCaseSec}s and $([int](Get-RunSecondsLeft))s are left before the task's time limit — deferring to the next tick."
+        $script:alerts += 'skagent-route-missing-restart-deferred: not enough run time left'
+        return 'deferred'
+    }
+    Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) while sk-agent answers on its own port (HTTP $backendStatus) — restarting TBXark alone."
+    if ($Mode -eq 'dry-run') {
+        Write-Log 'INFO' 'DRY-RUN: would docker restart myia-mcp-proxy (TBXark only, sk-agent route)'
+        return 'dry-run'
+    }
+    & docker restart myia-mcp-proxy 2>&1 | Out-Null
+    $script:repairs += 'tbxark-restart(skagent-route-missing)'
+    # Written before the wait, as in 3b: a run cut by the task limit must still
+    # arm the shared cooldown.
+    @{ lastRouteRepairAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $routeRepairStateFile -Encoding utf8
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $after = $null
+    while ($true) {
+        if ((Get-RunSecondsLeft) -lt ($SkAgentProbeTimeoutSec + 10)) {
+            $script:deferredVerifications += 'skagent-route-repair-unverified: run budget ended before the route answered — next tick re-probes (repair recorded)'
+            Write-Log 'WARN' "TBXark-only restart done for the sk-agent route, which has not answered yet$(if ($null -ne $after) { " (last probe HTTP $after)" }) — verdict deferred to the next tick."
+            return 'unverified'
+        }
+        # 0 while TBXark restarts, 404 until it has registered sk-agent.
+        $after = Get-McpInitializeStatus -Url $SkAgentRouteUrl -Bearer $bearer -TimeoutSec $SkAgentProbeTimeoutSec
+        if ($after -notin @(0, 404)) {
+            Write-Log 'OK' "sk-agent route back through TBXark after a TBXark-only restart (HTTP $after, $([int]$sw.Elapsed.TotalSeconds)s)"
+            return 'recovered'
+        }
+        if ($sw.Elapsed.TotalSeconds -ge $SkAgentVerifyCapSec) { break }
+        Start-Sleep -Seconds $SkAgentVerifyIntervalSec
+    }
+    Write-Log 'ERROR' "sk-agent route STILL MISSING after TBXark-only restart (HTTP $after)"
+    $script:alerts += "skagent-route-still-missing-after-tbxark-restart: http-$after"
+    return 'still-missing'
 }
 
 # ---------- main ----------
@@ -894,6 +1031,10 @@ if ($result.Ok) {
         }
     }
 }
+
+# 3d: outside the RSM branches on purpose -- the 11/10 outage had a healthy
+# RSM chain.
+$null = Invoke-SkAgentRouteCheck
 
 # ---------- summary + event log ----------
 if ($script:repairs.Count -gt 0) {
