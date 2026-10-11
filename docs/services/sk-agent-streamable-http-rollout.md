@@ -29,6 +29,15 @@ through mcp-proxy) and `mcp-tools.myia.io/* → http://192.168.0.47:9090/{R:1}`
 (mcp-proxy). Re-verified 15/09 from that machine: `healthz` 200 public
 (`models_enabled: 11`), 401 on all four legs including `:8100` direct.
 
+**Post-restart re-verification (web1, 2026-10-12 ~00:55Z, third network OVH):**
+after the 22:37Z container restart (43-agent config, #3411), the hardened
+contract held unchanged — `/healthz` **200** public (`models_enabled: 10`,
+`manager: not_initialized` — the lazy-init steady state of a fresh container),
+**401** on `/health`, `/` and `/mcp` (direct leg) and on the public proxy leg.
+The `/healthz` exemption (finding A) survives container restarts, which is what
+the per-school rollout sequence relies on (every school step restarts the
+container for a config change).
+
 ### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09; attribution RESOLVED 11/09
 
 Route smoked: `/sk-agent/mcp` on a proxy leg reached from po-2026, with the proxy
@@ -185,9 +194,13 @@ not the remote surface. The authenticated remote-surface smoke itself is **done*
 (§4 line 0.5: DONE 2026-09-22, 5/5 checks via `/sk-agent/mcp` with the proxy
 `authTokens`; re-verified from ai-01 after the 24/09 rebuild, #3412
 c.5806559531). What has not been re-run since that rebuild is its replay **from a
-consumer seat** (po-2026 08/10, po-2027 09/10): those seats hold the container
-key (`SK_AGENT_API_KEY`), which the proxy leg refuses — the proxy smoke needs the
-proxy's own `authTokens` (§3 — two frontiers, two keys, #4085, 09/10).
+consumer seat** (po-2026 08/10, po-2027 09/10) — and seat credentials are
+uneven: po-2027 holds the container key (`SK_AGENT_API_KEY`; its proxy-leg 401
+of 09/10 was measured with it), while po-2026 (07/10) and web1 (12/10 —
+exhaustive name-scan across `~/.claude.json`, settings env, RSM `.env`,
+`secrets-drop`) hold none. Either way the proxy leg refuses the container key —
+the proxy smoke needs the proxy's own `authTokens` (§3 — two frontiers, two
+keys, #4085, 09/10).
 
 ---
 
