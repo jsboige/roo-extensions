@@ -8,9 +8,9 @@
 
 ---
 
-## Secret A — Clé du hub (x-proxy-key), fuite publique 11/10
+## Secret A — Clé du hub (x-proxy-key), exposée publiquement depuis le 07/10
 
-**Propriétaire:** lane claudish (hub, po-2025). Fuitée dans un repo public le 07/10, rotation décidée (GO user 11/10, plan P0–P4, porteur po-2023:claudish).
+**Propriétaire:** lane claudish (hub, po-2025). **Exposée depuis le 07/10 17:00Z** (commit public `c728a4186d`, repo `jsboige/vllm` — date du commit = fait source) ; découverte et rotation décidées le 11/10 (GO user, plan P0–P4, porteur po-2023:claudish).
 **Usage:** authentification des appels LLM vers le hub (API Anthropic + OpenAI relayées).
 
 | Machine | Fichier(s) porteur(s) | Variable / champ | Type de stockage | Geste de mise à jour | Redémarrage requis |
@@ -26,20 +26,30 @@
 | web1 | `~/.claude/settings.json` | `env.ANTHROPIC_AUTH_TOKEN` | config harnais | swap de la valeur | relance sessions Claude Code |
 | web1 | `<repo>/mcps/internal/servers/roo-state-manager/.env` | `ZAI_API_KEY` | `.env` live du serveur RSM | swap de la valeur | **recyclage de l'hôte RSM** — une valeur changée n'est PAS relue au spawn d'enfant, seul le restart la prend (mesuré, c.439) |
 | web1 | `<repo>/…roo-state-manager/.env.bak-*` (×4) | — | sauvegardes inertes (gitignored) | purge post-coupure | aucun |
+| **ai-01** (plus gros portefeuille flotte, **4 lanes**) | `~/.claude/settings.json` · `~/.claude/settings.claudish.json` | `env.ANTHROPIC_CUSTOM_HEADERS` | config harnais + profil alternatif | swap des deux | sessions Claude Code (profil alt : à son utilisation) |
+| ai-01 (lane claudish) | `<claudish>/.env` | `CLAUDISH_PROXY_KEY` | `.env` non tracké | swap + compose restart | **conteneur `claudish-sidecar`** |
+| ai-01 (lane nanoclaw) | `<nanoclaw>/.env` | `ANTHROPIC_CUSTOM_HEADERS` | `.env` non tracké | swap de la valeur | hôte NanoClaw |
+| ai-01 (lane roo-extensions) | `<repo>/.env` · `<repo>/mcps/internal/servers/roo-state-manager/.env` | `ZAI_API_KEY` (×2) | `.env` root + `.env` live RSM | swap des 2 | spawns lisant le root + **recyclage hôte RSM** (valeur changée non relue au spawn d'enfant) |
+| ai-01 (lane roo-extensions) | `<repo>/…/sk-agent/sk_agent_config.json` | `models[*].api_key` (×3) | config JSON live | swap des 3 champs | hôtes stdio sk-agent (prochain spawn) **+ conteneur public `sk-agent`** (monte ce fichier, le lit au démarrage) |
+| ai-01 | `settings.json.{backup,bak}-*` (×12) · `settings.claudish.json.bak-*` (×1) · `<claudish>/.env.bak-*` (×2) · `~/.claudish/env-*` (×2) · `sk_agent_config.json.bak*` (×4) | idem | **sauvegardes inertes** (~21 fichiers) | purge post-coupure | aucun |
+| po-2026 | — | — | — | — | **hors service (réparateur) — non relevé à date** ; à relever à son retour (dernière ligne attendue pour la rotation) |
 
-**Négatifs vérifiés (11/10, par empreinte):** po-2025 `settings.json` (pas d'en-tête proxy sur ce siège) ; web1 `.claude.json` / win-cli / Zoo / `state.vscdb` ; po-2027 tous `.env` de l'arbre + env des process ; po-2024 `.claude.json` / schtasks / RSM `.env` / template sk-agent.
+**Négatifs vérifiés (11/10, par empreinte):** po-2025 `settings.json` (pas d'en-tête proxy sur ce siège) ; web1 `.claude.json` / win-cli / Zoo / `state.vscdb` ; po-2027 tous `.env` de l'arbre + env des process ; po-2024 `.claude.json` / schtasks / RSM `.env` / template sk-agent ; **ai-01** : `.claude.json`, win-cli, VS Code `User/`, repo+configs vllm, qdrant, searxng, CoursIA/CoursIA-2 (y compris `.secrets/`), Argumentum, Dify, Docker, Jupyter.
 
 **Limite structurelle (toutes machines):** le **stockage secret VS Code/Zoo** est chiffré et invisible à tout grep — seuls les réglages Zoo ou le relevé 401/403 post-coupure (filet prévu) peuvent le révéler.
 
-## Secret B — Clé Open Terminal (open-terminal service, ai-01), fuite publique 11/10
+## Secret B — Clé Open Terminal (open-terminal service, ai-01), exposée publiquement depuis le 07/10
 
-**Propriétaire:** service open-terminal (ai-01).
+**Propriétaire:** service open-terminal (ai-01). Même commit public que le Secret A (`c728a4186d`, 07/10 17:00Z).
 
 | Machine | Fichier(s) porteur(s) | Variable / champ | Type de stockage | Geste de mise à jour | Redémarrage requis |
 |---|---|---|---|---|---|
 | po-2024 | `<repo>/mcps/internal/servers/sk-agent/sk_agent_config.json` (LOCAL, pas le template) | `models[*].api_key` (×2) | fichier config JSON live | swap des 2 champs | hôte MCP sk-agent |
+| ai-01 (propriétaire — lane Open-WebUI) | `<open-webui>/{ece,epf,epf-genai,epita,esg,myia,pauwels}.env` (×7 tenants) | `OPEN_TERMINAL_API_KEY` | `.env` tenants non trackés (le repo public ne tracke que `*.env.example` — vérifié) | swap dans les 7 | **les 7 conteneurs OWUI tenants** |
+| ai-01 (lane roo-extensions) | `<repo>/…/sk-agent/sk_agent_config.json` | `OPEN_TERMINAL_API_KEY` | config JSON live | swap | hôtes sk-agent + conteneur public |
+| ai-01 | `<open-webui>/backups/**/*.env*` (×15) · `sk_agent_config.json.bak*` (×4) | idem | **sauvegardes inertes** | purge post-coupure | aucun |
 
-**Négatifs vérifiés:** po-2023, po-2025, po-2027, web1 — **0 consommateur**.
+**Négatifs vérifiés:** po-2023, po-2025, po-2027, web1 — **0 consommateur**. po-2026 : hors service, non relevé.
 
 ## Secret C — Clés sœurs citées dans le fil (hors périmètre rotation, classées pour mémoire)
 
@@ -60,4 +70,6 @@
 ## Provenance des mesures
 
 - Fil global `ai01-leak-proxykey-vllm-preset-20261011` (dashboard GDrive, 11/10) : relevés po-2024 (c.198), po-2025:roo-extensions (15:17Z), po-2025:vllm (15:07Z), po-2027 (19:17Z), web1 (17:43Z), synthèse condensée po-2023.
+- **ai-01** : c.6114760742 (11/10 ~22:45Z) — 4 lanes de la machine (roo-extensions, claudish, nanoclaw, Open-WebUI), 4 786 fichiers scannés, contrôle positif validé.
+- **Date d'exposition** : commit public `c728a4186d` du repo `jsboige/vllm`, daté **07/10 17:00:32Z** — lu à l'API GitHub le 12/10.
 - Méthode commune: scan par **empreinte sha256[:16]** des valeurs du commit fuité, jamais de valeur manipulée en clair au-delà du strict besoin local.
