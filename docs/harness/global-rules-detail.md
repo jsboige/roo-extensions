@@ -338,7 +338,15 @@ La seule différence est le `rm -rf`. **L'emplacement n'était pas la cause**, p
 
 Les motifs `.tmp/`, `scratchpad_*` et `C:Users*` attrapent les deux familles, y compris celles qu'on n'a pas encore vues. Ils sont posés dans claudish (`a5a7ce54`) et dans roo-extensions ; chaque dépôt les ajoute de son côté. Réserve mesurée par po-2024 : sous Windows, on ne peut pas tester `C:Users*` avec `git check-ignore`, car le CLI lit `C:` comme une lettre de lecteur. Le motif reste valide : le matching gitignore est purement textuel.
 
-**Durcissement possible côté user** (non requis) : mettre le scratchpad en allowlist dans la configuration des permissions, si le coût des gardes persiste malgré la règle.
+**Révision v3 (décision user, 11/10)** : « "Bypass permissions" est globalement bien mis en oeuvre de partout, mais certaines commandes nécessitent quand même mon autorisation, je crois qu'il s'agit des création de répertoires ou supressons de fichier en dehors du workspace. Donc il faut surtout privilégier l'utilisation de répertoires locaux gitignored pour les scritps temporaires, et puis ne pas oublier de nettoyer de temps à autre les différentes surfaces de fichiers temporaires. » D'où deux changements : `<repo>/.tmp/` passe **en premier**, devant le scratchpad du harnais, et le nettoyage périodique des surfaces temporaires devient une consigne.
+
+Ce que dit la documentation de Claude Code sur le mode bypass (pages *permission-modes* et *permissions*, lues le 11/10 par un sous-agent : RAPPORTÉ, pas mesuré sur la flotte) :
+
+- **Écritures et créations de répertoires hors du workspace** : aucune demande.
+- **Suppressions** : `rm`/`rmdir` sur un **chemin critique** demande toujours une autorisation. Sont critiques la racine, un dossier de premier niveau, le dossier utilisateur, une racine de lecteur Windows, **le workspace et ses parents**. `Remove-Item` sur un chemin système ou sur un joker nu est refusé dans tous les modes.
+- **Autres sources** : une règle `permissions.ask`, ou `blockReadsOutsideWorkingDirectories` (lectures hors workspace et commandes non traçables). Les règles `allow` sont **sans effet** en bypass : mettre le scratchpad en allowlist ne sert à rien dans ce mode.
+
+Sur ai-01 (vérifié le 11/10) : pas de `permissions.ask`, pas de `blockReadsOutsideWorkingDirectories`, un seul hook (compteur de boucles, sans `ask`). Cas typique de chemin critique : supprimer le worktree dans lequel la session tourne. Il faut d'abord revenir au checkout principal.
 
 ---
 
