@@ -2,7 +2,7 @@
 name: test-investigator
 description: Agent specialise pour investiguer les tests qui echouent ou sont instables. Analyse les erreurs, identifie les causes (test flaky, regression, config), et propose des corrections ciblees.
 tools: Read, Grep, Glob, Bash, Edit
-model: opus
+model: haiku
 ---
 
 # Test Investigator - Agent d'Investigation de Tests

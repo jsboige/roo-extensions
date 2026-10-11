@@ -2,7 +2,7 @@
 name: git-sync
 description: Synchronisation Git intelligente. Utilise cet agent pour pull, gerer les submodules, verifier l'etat git, et preparer les commits.
 tools: Bash, Read, Grep
-model: opus
+model: haiku
 ---
 
 # Git Sync
