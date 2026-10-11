@@ -309,9 +309,9 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
         }
 
         It 'DryRun writes no destination and no backup; MCP untouched' {
-            # Documented behavior: the YAML regeneration happens BEFORE the DryRun
-            # exit, writing the temp file inside the sandbox REPO tree (never under
-            # APPDATA) — this test asserts the APPDATA side, which is the contract.
+            # Documented behavior: regeneration goes to a PID-keyed temp file under
+            # the SYSTEM temp dir (deleted after reading, never under APPDATA) —
+            # this test asserts the APPDATA side, which is the contract.
             $before = Get-TreeSnapshot -Root $script:FakeAppData
 
             $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes, '-DryRun')
@@ -463,6 +463,22 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             $r.Output | Should -Match 'neither Roo Code nor Zoo Code is installed'
             (Test-Path -LiteralPath $script:RooStorageDir) | Should -BeFalse -Because 'a refused deploy must not leave a ghost Roo globalStorage'
             (Test-Path -LiteralPath $script:ZooStorageDir) | Should -BeFalse
+        }
+
+        It 'refuses BEFORE regenerating: the tracked yaml is not rewritten by a refused deploy' {
+            # ai-01 review note (optional, 2026-10-10): the refusal used to run AFTER
+            # generation, so a REAL deploy on an empty host rewrote the tracked
+            # simple-complex.yaml before exiting 2. Resolution now happens first.
+            # Sentinel: what the old order would overwrite comes back byte-identical.
+            $trackedYaml = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'modes' (Join-Path 'generated' 'simple-complex.yaml')))
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent $trackedYaml) | Out-Null
+            'sentinel-not-a-real-yaml' | Set-Content -LiteralPath $trackedYaml -NoNewline
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes)
+
+            $r.ExitCode | Should -Be 2 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'neither Roo Code nor Zoo Code is installed'
+            (Get-Content -LiteralPath $trackedYaml -Raw) | Should -Be 'sentinel-not-a-real-yaml' -Because 'the refusal fired after regeneration and rewrote the tracked yaml'
         }
     }
 
@@ -626,6 +642,22 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
             $r.Output | Should -Match 'YAML generated:'
             (Get-Content -LiteralPath $trackedYaml -Raw) | Should -Be 'sentinel-not-a-real-yaml' -Because 'DryRun regenerated into the tracked file instead of a temp path'
+        }
+
+        It 'DryRun deletes its PID-keyed temp yaml after reading it' {
+            # ai-01 review note (optional, 2026-10-10): no test guarded the
+            # Remove-Item of the temp file -- a mutant deleting that line stayed
+            # green. Count pattern files before/after: the child shares our TEMP.
+            New-Item -ItemType Directory -Force -Path $script:ZooStorageDir | Out-Null
+            $tempRoot = [System.IO.Path]::GetTempPath()
+            $strays = @(Get-ChildItem -LiteralPath $tempRoot -Filter 'deploy-modes-dryrun-*.yaml' -ErrorAction SilentlyContinue)
+
+            $r = Invoke-DeployModes @('-DeploymentType', 'global', '-Source', $script:SourceRoomodes, '-DryRun')
+
+            $r.ExitCode | Should -Be 0 -Because "deploy output was: $($r.Output)"
+            $r.Output | Should -Match 'YAML generated:'
+            $after = @(Get-ChildItem -LiteralPath $tempRoot -Filter 'deploy-modes-dryrun-*.yaml' -ErrorAction SilentlyContinue)
+            $after.Count | Should -Be $strays.Count -Because 'the DryRun temp yaml was not deleted after reading'
         }
     }
 }
