@@ -11,7 +11,7 @@ Ce répertoire contient les tests et outils de débogage pour le serveur MCP Git
 
 Ces fichiers ont été déplacés depuis la racine du projet lors du nettoyage du 25/05/2025 pour maintenir une structure de projet propre.
 
-(`test_mcp_git_local.py` a été retiré le 10/10/2026 : script de debug 2025 classé mort — cible non peuplée, zéro assert, aucune invocation CI.)
+(`test_mcp_git_local.py` a été retiré le 10/10/2026 : script de debug 2025 classé mort — son `sys.path.insert` visait `tests/mcps/forked/...`, inexistant depuis le déplacement de mai 2025 ; chemins `d:/` codés en dur, zéro assert, aucune invocation CI.)
 
 ## Dépendances
 
