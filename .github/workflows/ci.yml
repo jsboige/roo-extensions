@@ -132,10 +132,9 @@ on:
       # pytest at all before this. The script it guards rewrites every seat's
       # settings.json, so a change to either one landing on main has to re-run the job.
       # NOTE: measured 2026-10-10, it is NOT the only test_*.py invoked by no workflow.
-      # Four others exist, but they are script-style smoke tests (0 `assert`, print plus
-      # `return True/False`, live-server and CWD dependent) -- not guards, and wiring them
-      # would add four red jobs rather than four guards. Left alone on purpose; the
-      # measurement table lives in this PR's comments.
+      # Four other test_*.py files matched pytest's pattern without being guards (0 `assert`,
+      # print plus `return True/False`, live-server and CWD dependent). They were removed in
+      # #4170 with a deletion proof; the measurement table lives in #4167's comments.
       - 'roo-config/scripts/sync-zoo-provider-profiles.py'
       - 'roo-config/scripts/test_sync_zoo_provider_profiles.py'
       # #3410: the sk-agent-inventory job below runs generate_inventory.py --check
