@@ -34,9 +34,16 @@ after the 22:37Z container restart (43-agent config, #3411), the hardened
 contract held unchanged — `/healthz` **200** public (`models_enabled: 10`,
 `manager: not_initialized` — the lazy-init steady state of a fresh container),
 **401** on `/health`, `/` and `/mcp` (direct leg) and on the public proxy leg.
-The `/healthz` exemption (finding A) survives container restarts, which is what
-the per-school rollout sequence relies on (every school step restarts the
-container for a config change).
+The `/healthz` exemption (finding A) survives container restarts — relevant
+because §4's gate-hardening step (rebuild + `--force-recreate`) and any
+config-driven recreate (like this 43-agent reload) pass through exactly that
+state transition.
+
+**`models_enabled` drift, dated readings:** 11 at the §1 readings of 15/09
+(finding H, ARR edge) and 17/09 (po-2025) → **10** from 10/10 (web2,
+c.6093310391) through 12/10 (web1, before and after the 22:37Z restart —
+stable across it). The container-side model config changed between 17/09 and
+10/10; the exact commit is not identified from the health surface alone.
 
 ### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09; attribution RESOLVED 11/09
 
@@ -197,8 +204,9 @@ c.5806559531). What has not been re-run since that rebuild is its replay **from 
 consumer seat** (po-2026 08/10, po-2027 09/10) — and seat credentials are
 uneven: po-2027 holds the container key (`SK_AGENT_API_KEY`; its proxy-leg 401
 of 09/10 was measured with it), while po-2026 (07/10) and web1 (12/10 —
-exhaustive name-scan across `~/.claude.json`, settings env, RSM `.env`,
-`secrets-drop`) hold none. Either way the proxy leg refuses the container key —
+exhaustive name-scan across `~/.claude.json`, settings env, RSM `.env`, and
+the fleet's `secrets-drop` directory on the RooSync shared drive, where
+rotation keys are distributed as `.env` files) hold none. Either way the proxy leg refuses the container key —
 the proxy smoke needs the proxy's own `authTokens` (§3 — two frontiers, two
 keys, #4085, 09/10).
 
