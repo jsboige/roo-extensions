@@ -60,3 +60,29 @@ Distinguer :
 **Mesure du 21/09 (#3768)** : `check_issue_claim.py 980` rendait `BLOCKED: MERGED` en lisant la **PR parent** #980 quand l'issue submod #980 etait OPEN — cas concret du classement via la cle `pull_request` de l'API REST. La flotte rencontre la 403 de limite secondaire aux heures actives : un 403 n'est pas un 404.
 
 **Repli quota (#3899)** : le guard bascule automatiquement sa lecture en **REST** (budget separe) quand l'appel GraphQL meurt sur une erreur de limite **reconnue explicitement** (`rate limit`) ; toute autre erreur (reseau, auth, 5xx) reste fail-closed exit 2. **L'ecriture suit la meme regle depuis #4155** : `--claim` et `--release` postent par `gh issue comment` (GraphQL), puis par `POST repos/<repo>/issues/<n>/comments` (REST) sur la meme erreur reconnue ; si REST est limite aussi, exit 2 — jamais de succes annonce sans verrou pose. Un double post est sans effet : meme marqueur, meme lane, le dernier marqueur par lane fait foi. Si les deux budgets sont epuises, le contournement manuel reste `gh api repos/<repo>/issues/<n>` et `.../comments` a la main, ou attendre le reset (~1 h). (Le mecanisme etant automatique, il n'a pas de ligne dans la rule — #2368.)
+
+## Gardes identité et dépôt — texte intégral (relocalisé de la rule, claudish#445)
+
+**Identité de claim = lane `machine:workspace` (#4114).** Par défaut l'identité est COMPUTERNAME +
+basename du toplevel git — un **worktree lié résout vers le toplevel du checkout principal** : le
+`.git` fichier se résout en common-dir, un worktree est un lieu de travail, pas un workspace
+(#4122). `--workspace` surcharge le suffixe, `--agent` remplace l'id entier. Même machine + workspace
+différent = claim **étranger** : deux lanes partagent une machine, seul le workspace les distingue.
+Un claim ancien format machine-seule (`[CLAIMED] myia-po-2026 -- ...`) vu d'une lane de sa machine =
+**étranger fail-closed** avec avertissement `LEGACY_CLAIM`. La **levée doit porter la même identité
+que la pose** : un `[RELEASED]`/`[DONE]` machine-seule ne ferme pas un verrou posé sous identité lane
+(et réciproquement). **Conséquence post-#4114** : un verrou legacy machine-seul ne se lève PAS avec
+la lane par défaut (`--release` refusé) — lever avec `--agent <machine>` (identité de pose), ou
+laisser la péremption 24 h le libérer.
+
+**Dépôt (#3768).** `--repo` n'a plus de défaut figé. Absent, le guard classe le numéro dans les
+**deux** dépôts (clé `pull_request` de l'API REST) : un seul le porte comme issue → résolu ; les deux
+→ **`AMBIGUOUS`, exit 3**, désambiguïsation exigée ; **un seul dépôt injoignable → exit 2**, il
+refuse au lieu de résoudre vers celui qui a répondu. Il ne devine jamais, **y compris quand la
+mesure échoue** : un mauvais choix **pose le verrou sur l'autre dépôt** et laisse le vrai grain
+libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien rendu » n'est jamais
+« il n'y a rien ».
+
+**Frontière de mot (mesures 05/09).** Le filtre `--search "#NNN"` de GitHub est **flou** : `#34`
+ramène des PRs sans rapport même quoté, et `#109` matche `#1091` — sans frontière, une issue est
+skippée à tort. `\b` est fragilisé par les couches de quoting bash→gh : d'où `([^0-9]|$)`.

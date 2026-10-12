@@ -106,6 +106,13 @@ garder les modèles frais et borner les coûts. **Ne pas « corriger » une fen�
 un choix machine, pas parce que 200k était trop petit. Une valeur choisie se respecte dans les deux
 sens.
 
+**Mesure 2026-08-22 — le suffixe vit hors dépôt.** Deux instruments (recherche plein-texte +
+scan d'arborescence) : `[1m]` n'a **aucune occurrence dans le dépôt** — il ne vit que dans les
+`~/.claude/settings.json` **par machine**. Aucune PR ne peut donc corriger le suffixe à votre
+place ; le seul organe qui le pose est la config machine. C'est cette absence d'occurrence qui a
+fait retirer la phrase de la règle auto-chargée (claudish#445) : la mesure est ici, l'impératif
+(cohérence ID/fenêtre par machine) reste dans la règle.
+
 ## Machine neuve : déployer AVANT le premier spawn
 
 Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1` — les scripts de spawn ne le
