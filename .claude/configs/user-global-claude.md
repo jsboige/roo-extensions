@@ -46,7 +46,7 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer 
 
 ## Harnais serré (15/09, #3657)
 
-`settings.json` : deny `AskUserQuestion`/`EnterPlanMode`/`ExitPlanMode`/`DesignSync`, `mode: auto-approve`, `outputStyle: Proactive`, `ENABLE_TOOL_SEARCH`, `disableBundledSkills`, `disableClaudeAiConnectors`, `disableRemoteControl`. Conséquences :
+`settings.json` : deny `AskUserQuestion`/`EnterPlanMode`/`ExitPlanMode`/`DesignSync`, `mode: auto-approve`, `outputStyle: Proactive`, `ENABLE_TOOL_SEARCH: "true"`, `disableBundledSkills`, `disableClaudeAiConnectors`, `disableRemoteControl`. Conséquences :
 - **Zéro question bloquante** — question non bloquante = registre persistant (`memory/open-questions-ledger.md` par workspace), représenté à chaque fin de cycle, sorti **que sur réponse user**. Détail : [`harnais-tightening.md`](../../.claude/rules/harnais-tightening.md).
 - **Notebooks** via MCP `jupyter-papermill` (activé au besoin) ; `NotebookEdit` est deny, pas de fallback.
 - **Harnais maigre** — schémas MCP en différé ; effet à mesurer par lane.
@@ -80,7 +80,7 @@ Le registre porte les questions **agent -> user**. Quand **le user** ouvre un ec
 
 ## Windows / PowerShell Gotchas
 
-- **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.IO.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
+- **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
 - **Join-Path PS 5.1** : 2 args seulement. Preferer `"$a/b/c/d"`.
 - **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (faux skew cross-clock). UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
 - **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j).
