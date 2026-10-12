@@ -20,7 +20,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 
 - **Langue :** User = francais. Code/commits/docs = anglais OK. INTERCOM = francais.
 - **Scope workspace :** rester dans SON workspace. Ignorer les dispatchs d'autres workspaces.
-- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09). Un `.env`, un `docker-compose` ou un conteneur d'infra partagee ne se modifie que depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Exception urgence** (flotte a l'arret, tours perdus) : agir, puis poster excuse + explication sur le dashboard du workspace proprietaire **dans le meme cycle**. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
+- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09) — `.env`, `docker-compose` ou conteneur d'infra partagee : modifiable uniquement depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Exception urgence** (flotte a l'arret) : agir, puis excuse + explication sur le dashboard proprietaire **dans le meme cycle**. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
 - **Securite :** jamais de suppression sans preuve de preservation. Pas de secrets dans les commits. Preferer les actions reversibles.
 
 ## Git
@@ -29,133 +29,82 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 - **Conflits** : JAMAIS de resolution aveugle. Lire les marqueurs, comprendre les deux cotes, decider deliberement.
 - **Submodules** : commiter DEDANS d'abord, push, puis bump le pointeur parent.
 - **Force push** : interdit sur branches partagees. Rejete -> fetch, merge, retry.
-- **Checkout safety** : `git checkout -- <fichier>` restaure depuis l'INDEX — sur une branche de travail il efface TOUT le non-commite du fichier, pas seulement la derniere manipulation. Pour reverter une mutation de verification : `cp` backup/restore, JAMAIS `git checkout --`. [Detail](../../docs/harness/global-rules-detail.md#git--checkout-safety)
-- **Postcondition Git de fin de cycle** : une session qui a travaille dans un depot ne termine pas tant que son clone principal n'est pas revenu sur la branche par defaut, synchronise en fast-forward avec son upstream, avec index/worktree propres et sous-modules aux gitlinks epingles. Tout contenu utile doit auparavant etre committe et pousse sur une branche avec PR, ou sauvegarde hors depot avec manifeste et empreintes. Jamais de suppression sans preuve de preservation. Organe : `python scripts/check_clean_cycle_exit.py` **depuis un checkout roo-extensions** (le script n'y existe que la ; pour tout autre depot : `python <roo-extensions>/scripts/check_clean_cycle_exit.py --path <depot-inspecte>`). [Detail](../../docs/harness/reference/clean-cycle-exit.md)
+- **Checkout safety** : `git checkout -- <fichier>` restaure depuis l'INDEX — il efface TOUT le non-commite du fichier. Revert d'une mutation de verification : `cp` backup/restore, JAMAIS `git checkout --`. [Detail](../../docs/harness/global-rules-detail.md#git--checkout-safety)
+- **Postcondition Git de fin de cycle** : une session ayant travaille dans un depot ne termine pas tant que son clone principal n'est pas revenu sur la branche par defaut, fast-forward avec son upstream, index/worktree propres, sous-modules aux gitlinks epingles ; contenu utile commite+pousse avec PR, ou sauvegarde hors depot (manifeste + empreintes) ; jamais de suppression sans preuve de preservation. Organe : `python scripts/check_clean_cycle_exit.py` **depuis un checkout roo-extensions** (`--path <depot>` pour tout autre depot). [Detail](../../docs/harness/reference/clean-cycle-exit.md)
 
 ## Read Body Before Any Action (HARD, aucune exception)
 
-Avant de **commenter**, **reviewer**, **merger**, **dispatcher**, ou **commencer un fix** sur une issue/PR, lire : (1) le **body complet**, (2) **tous les commentaires** existants, (3) **toutes les reviews** postees (humains ET bots) avec leur `state`, (4) le **diff**.
-
-Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. **Ne pas merger** si `reviews[].state == "CHANGES_REQUESTED"` non adressee ou commentaires inline non resolus.
-
-L'instrument de lecture peut mentir : `| jq '.comments[]'` (binaire externe, pretty-print) et `--jq '.comments[].body'` rendent 15 a 40 lignes **par** commentaire — `tail -N` y coupe en plein corps et masque des commentaires entiers. `gh --jq '.comments[]'` est compact (1 ligne = 1 commentaire) et sur. Enumerer les en-tetes avant de poster.
-
-Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « je connais le sujet » · « l'issue est ouverte depuis 2 jours, je fix ». Matrice action->lecture + incident fondateur (2026-05-17, reviews en double et en conflit sur PRs etudiantes la veille d'une soutenance) : [detail](../../docs/harness/global-rules-detail.md#read-body-before-any-action).
+Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer un fix** sur une issue/PR : lire (1) le **body complet**, (2) **tous les commentaires**, (3) **toutes les reviews** (humains ET bots, avec leur `state`), (4) le **diff**. **Ne pas merger** si `reviews[].state == "CHANGES_REQUESTED"` non adressee ou commentaires inline non resolus. L'instrument peut mentir : `| jq` et `--jq '.comments[].body'` fragmentent — `tail -N` masque des commentaires entiers ; `gh --jq '.comments[]'` = 1 ligne = 1 commentaire, enumerer les en-tetes avant de poster. Matrice action->lecture, anti-patterns, incident fondateur (2026-05-17) : [detail](../../docs/harness/global-rules-detail.md#read-body-before-any-action).
 
 ## Tool Discipline
 
 - **Read avant Edit** — Edit echoue sans Read prealable. Toujours.
 - **Tests** : `npx vitest run` / `npx jest --ci` (jamais `npm test` — le watch mode bloque).
 - **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
-- **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet OK ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
-- **Scratch d'agent (v3, 11/10)** : ecrire ses artefacts jetables **d'abord dans un repertoire local gitignore du workspace** (`<repo>/.tmp/`, a gitignorer si absent), sinon dans le **scratchpad de session que le harnais designe** ou dans `%TEMP%`/`/tmp` hors `claude/` (decision user 11/10 : en bypass, les demandes d'autorisation restantes viennent des gestes hors workspace). Ne jamais ecrire de scratch ailleurs sous `~/.claude/` ou `%TEMP%\claude\`. Les sorties que le harnais y range (`…\tasks\*.output`) se **lisent** normalement ; une archive de preservation ([postcondition de fin de cycle](../../docs/harness/reference/clean-cycle-exit.md), manifeste + empreintes) n'est pas du scratch et garde son emplacement. Nettoyer en supprimant ses fichiers **nommes**, sans `rm -rf` : c'est ce geste, pas l'emplacement, qui a fige un tour 84 min. **Nettoyer de temps a autre** ces surfaces (`.tmp/`, scratchpad, ses fichiers sous `%TEMP%`) ; ne jamais supprimer le workspace ni un de ses parents (chemin critique : demande d'autorisation meme en bypass). Chaque depot ignore `.tmp/`, `scratchpad_*` et `C:Users*`. [Detail](../../docs/harness/global-rules-detail.md#scratch-dagent--emplacement-et-nettoyage)
+- **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
+- **Scratch d'agent (v3, 11/10)** : artefacts jetables **d'abord** dans un repertoire local gitignore du workspace (`<repo>/.tmp/`), sinon le scratchpad de session du harnais, sinon `%TEMP%`/`/tmp` hors `claude/`. Jamais ailleurs sous `~/.claude/` ou `%TEMP%\claude\`. Les sorties du harnais (`…\tasks\*.output`) se **lisent** normalement ; une archive de preservation n'est pas du scratch et garde son emplacement. Nettoyage : fichiers **nommes**, sans `rm -rf` ; nettoyer de temps a autre `.tmp/` + scratchpad + `%TEMP%` ; jamais supprimer le workspace ni un parent. Chaque depot ignore `.tmp/`, `scratchpad_*`, `C:Users*`. [Detail](../../docs/harness/global-rules-detail.md#scratch-dagent--emplacement-et-nettoyage)
 
 ## Harnais serré (15/09, #3657)
 
-`settings.json` deny `EnterPlanMode`/`ExitPlanMode`/`DesignSync`/`AskUserQuestion` ; `mode: auto-approve` ;
-`outputStyle: Proactive` ; `ENABLE_TOOL_SEARCH: "true"` ; `disableBundledSkills` ; `disableClaudeAiConnectors` ;
-`disableRemoteControl`. Conséquences opérationnelles :
-- **Zéro question bloquante** — toute question non bloquante vit dans un registre persistant
-  (`memory/open-questions-ledger.md` par workspace), représenté à chaque fin de cycle, et n'en sort
-  **que sur réponse user**. Détail : [`harnais-tightening.md`](../../.claude/rules/harnais-tightening.md).
-- **Notebooks** via MCP `jupyter-papermill` (activé au besoin). `NotebookEdit` est deny, pas de fallback.
-- **Harnais maigre** — schémas MCP en différé (mesure #99 du 13/09 : ~64 % du prompt en définitions
-  inline pour 0,4 % d'appels). Effet à mesurer par lane.
+`settings.json` : deny `AskUserQuestion`/`EnterPlanMode`/`ExitPlanMode`/`DesignSync`, `mode: auto-approve`, `outputStyle: Proactive`, `ENABLE_TOOL_SEARCH: "true"`, `disableBundledSkills`, `disableClaudeAiConnectors`, `disableRemoteControl`. Conséquences :
+- **Zéro question bloquante** — question non bloquante = registre persistant (`memory/open-questions-ledger.md` par workspace), représenté à chaque fin de cycle, sorti **que sur réponse user**. Détail : [`harnais-tightening.md`](../../.claude/rules/harnais-tightening.md).
+- **Notebooks** via MCP `jupyter-papermill` (activé au besoin) ; `NotebookEdit` est deny, pas de fallback.
+- **Harnais maigre** — schémas MCP en différé ; effet à mesurer par lane.
 
 ## Harness Amplification Control
 
 - Tenir un **ledger turn-local** des obligations ; avant un sweep, chacune est `done`, `blocked` avec `WAIT_FOR` + `RESUME_WHEN`, ou `handed-off` explicitement. Pas de nouveau registre persistant.
 - **`always-pick-next` reste obligatoire** : exclure la candidate bloquee jusqu'a son evenement de reprise et prendre une autre tache actionnable. L'evenement autorise le reexamen, pas l'action bloquee.
-- Une condition asynchrone a **un seul observateur** ; ne jamais poller en parallele d'une notification existante et couvrir succes, echec, annulation, timeout et terminaison inattendue.
+- Une condition asynchrone a **un seul observateur** ; ne jamais poller en parallele d'une notification existante, et couvrir succes, echec, annulation, timeout et terminaison inattendue.
 - Reutiliser les lectures du tour sauf mutation pertinente, acteur independant pertinent ou frontiere de securite. Attribuer par `session_id` avant machine, puis parent/sous-agent quand disponible.
 - Communication : **3-5 lignes par defaut** ; decision, blocage et preuve peuvent depasser ce format. [Detail](../../docs/harness/global-rules-detail.md#harness-amplification-control)
 
 ## User Arbitration — Questions au registre, pas au fil
 
-Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est posee en cours de session.** Le user arbitre **par pull, pas par push** — une question en plein cycle le force a arbitrer au rythme de l'agent, et sous cron elle part dans un tour qu'il ne lira peut-etre jamais. Le registre remplace une **interruption** par une **restitution**.
+Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est posee en cours de session.** Le user arbitre **par pull, pas par push** — le registre remplace une **interruption** par une **restitution**.
 
-1. Une question a l'arbitrage user s'ecrit **immediatement** dans le registre per-machine : `user-question-registry.md` dans la memoire du workspace (`~/.claude/projects/<hash>/memory/`), indexe dans `MEMORY.md`. Jamais dans le fil de session.
-2. En **fin de session**, le registre est restitue **en bloc** (questions ouvertes) dans le rapport final.
-3. Une question sans reponse **survit aux reprises de cron** : elle se represente au cycle suivant (auto-chargee via `MEMORY.md`), sans se re-poster dans le fil.
-4. Chaque entree porte deux champs obligatoires : **ce qui est attendu du user** et **comment verifier qu'elle est morte** — sans mecanisme de retrait, une question repondue se re-pose indefiniment.
-5. Une entree repondue **sort des ouvertes** (section courte « repondues »).
-6. Un plan demandant validation s'ecrit dans un **scratchpad** (`$TEMP`) ; c'est le **chemin** du scratchpad qui est rendu en fin de session, pas le plan recopie dans le fil.
+1. Question -> **immediatement** le registre per-machine `user-question-registry.md` (memoire du workspace `~/.claude/projects/<hash>/memory/`, indexe dans `MEMORY.md`). Jamais dans le fil.
+2. **Fin de session** : restitution **en bloc** des ouvertes dans le rapport final.
+3. Sans reponse, la question **survit aux reprises de cron** : represee au **cycle suivant** via `MEMORY.md`, sans se re-poster dans le fil.
+4. Champs obligatoires par entree : **ce qui est attendu du user** et **comment verifier qu'elle est morte** — sans retrait, une question repondue se re-pose indefiniment.
+5. Entree repondue -> **sort des ouvertes** (section courte « repondues »).
+6. Plan demandant validation : **scratchpad** (`$TEMP`) ; on rend le **chemin** du scratchpad, jamais le plan recopie dans le fil.
 
-**Format d'ecriture des questions (escalade user 25/09/2026).** Une question rendue en une ligne de jargon est une question qui n'arrive pas : le user doit relancer pour comprendre, puis arbitrer sur une base fausse. Toute question au user — fil, registre ou dashboard — dit en phrases simples, sans numero d'issue, nom de variable ni code d'erreur non explique :
+**Format d'ecriture (escalade user 25/09/2026)** : phrases simples, sans jargon non explique — (1) **ce qui se passe** ; (2) **ce qui est demande** (oui/non, ou un choix a/b/c) ; (3) **ce qui arrive sans reponse** ; (4) **ce que la lane recommande** ; (5) **l'echeance** s'il y en a une. Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce qui a ete mesure.**
 
-1. **Ce qui se passe.**
-2. **Ce qui est demande** — oui/non, ou un choix a/b/c.
-3. **Ce qui arrive sans reponse.**
-4. **Ce que la lane recommande.**
-5. **L'echeance**, s'il y en a une.
-
-Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce qui a ete mesure** — un mot excessif fabrique une inquietude que les faits ne portent pas, et le user arbitre alors un probleme qui n'existe pas. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
-
-Cablage au signalement existant : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
+Cablage : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
 
 ### Quand le user engage la conversation — réponses intermédiaires (mandat user 26/09)
 
-Le registre porte les questions **de l'agent vers le user**. Quand c'est **le user** qui ouvre un échange en cours de session (question, remarque, concern), il faut lui donner de quoi partir ou réagir : la **conclusion vérifiée** reste réservée au **message final**.
-
-1. **Tôt, une poignée de messages** disant la tendance et le **niveau de croyance initial** (mesuré / supposé / à vérifier). **Forme** : un bloc de **texte visible**, dans la langue du user, placé avant l'appel d'outil suivant dans le même message, **sans clore le tour** — une réponse restée dans le raisonnement ne lui parvient pas (mesuré le 26/09 : trois réponses d'étape perdues ainsi, le user a cru à un silence).
-2. **Sans insister** : pas de relance si le user ne revient pas ; la boucle agentique reprend. Un résultat intermédiaire significatif (mesure qui renverse l'hypothèse, décision prise) mérite un court message.
-3. **La conclusion vérifiée va au dernier message** ; si le user ne l'a pas vue avant la session suivante, elle se **réitère** au cycle suivant, portée par la mémoire de reprise, puis sort dès qu'il a réagi.
-
-**Anti-patterns** : garder tout pour le message final pendant que le user attend ; relancer un user silencieux ; présenter une croyance initiale comme une conclusion vérifiée.
+Le registre porte les questions **agent -> user**. Quand **le user** ouvre un echange, lui donner de quoi réagir — la **conclusion vérifiée** reste pour le **message final**. **Tôt, une poignée de messages** : tendance + **niveau de croyance initial** (mesuré / supposé / à vérifier), en **texte visible** avant l'appel d'outil suivant, dans la langue du user, **sans clore le tour** — restée dans le raisonnement, elle ne lui parvient pas. **Sans insister** : jamais relancer un user silencieux ; un résultat intermédiaire significatif (mesure qui renverse l'hypothèse, décision prise) mérite un court message. Conclusion non vue avant la session suivante : **réitérée** au cycle suivant, portée par la mémoire de reprise, puis sortie dès qu'il a réagi. **Anti-patterns** : tout garder pour le message final ; présenter une croyance initiale comme une conclusion vérifiée. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
 
 ## Windows / PowerShell Gotchas
 
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
 - **Join-Path PS 5.1** : 2 args seulement. Preferer `"$a/b/c/d"`.
-- **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (fabrique un faux skew cross-clock). Pour l'UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
-- **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72, 06/10). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j d'uptime).
+- **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (faux skew cross-clock). UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
+- **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j).
 - **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
 
 ## MCP Tools
 
 **roo-state-manager** = MCP critique (coordination, conversations, dashboards, indexation). Config : `~/.claude.json` section `mcpServers.roo-state-manager`.
 
-- **Dashboard (canal PRINCIPAL)** : 3 types — `global`, `machine`, `workspace`. Debut de session -> `roosync_dashboard(action:"read", type:"workspace", section:"all")` (JAMAIS `section:"status"` seul, #2306). Fin -> `append` avec tag `DONE`. Auto-condensation preemptive a 92 %. Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
+- **Dashboard (canal PRINCIPAL)** : 3 types — `global`, `machine`, `workspace`. Debut de session -> `roosync_dashboard(action:"read", type:"workspace", section:"all")` (JAMAIS `section:"status"` seul, #2306). Fin -> `append` avec tag `DONE`. Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
 - **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) -> `view`/`tree`/`summarize`. `smart_truncation:true`, `summarize_type:"trace"` (pas `synthesis`).
 - **Recherche** : `roosync_search(action:"semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace`, requetes en anglais.
 - **RooSync inter-machines** : `roosync_messages(action:"inbox"|"send")`. Dashboard = principal, DM = decision/urgence.
-- **Stale MCP host** : une session vivante sert le build charge au demarrage du process hote — `-32603 "no export named X"` ou outils/comportements anciens alors que source ET `build/` sont frais = hote memoire stale. Restart de session = fix legitime (dernier recours) a DEMANDER a l'utilisateur, jamais suggere d'office — pas hallucination. [Detail](../../docs/harness/global-rules-detail.md#mcp--stale-host-memory)
+- **Stale MCP host** : une session vivante sert le build charge au demarrage du process hote — `-32603 "no export named X"` ou comportements anciens alors que source ET `build/` sont frais = hote memoire stale. Restart de session = fix legitime (dernier recours) a DEMANDER a l'utilisateur, jamais suggere d'office. [Detail](../../docs/harness/global-rules-detail.md#mcp--stale-host-memory)
 
-Inventaire complet : [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
+Inventaire : [`roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md) · [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
 
 ### Escalade cross-workspace — le cross-post donne le point de rendez-vous
 
-**Règle (arbitrage user 06/09/2026, promue depuis `jsboige/Maintenance@b704b52`).** Le dashboard **workspace** est le canal par défaut : tant qu'un sujet reste dans une lane, il y reste. **Dès qu'un problème devient cross-workspace, c'est l'opportunité de le remonter** — sur le dashboard `global`, et potentiellement sur le dashboard `machine` s'il est spécifique à une machine.
-
-**Le mécanisme est le cross-post, et sa fonction est de désigner un point de rendez-vous unique.** Escalader ne veut pas dire recopier le sujet partout : cela veut dire poster **une fois** à l'échelon supérieur, en disant explicitement où la suite se passe, puis n'utiliser les DM que pour pointer vers cet endroit.
-
-| Portée du sujet | Canal | Geste |
-|---|---|---|
-| Une seule lane | dashboard `workspace` | `append` normal |
-| Plusieurs workspaces / plusieurs machines | dashboard **`global`** | `append` + `crossPost` vers les workspaces concernés |
-| Spécifique à une machine mais traversant ses lanes | dashboard **`machine`** | `append`/`update` + `crossPost` |
-
-```
-roosync_dashboard(action:"append", type:"global", content:"...",
-                  crossPost:[{type:"workspace", workspace:"roo-extensions"},
-                             {type:"workspace", workspace:"claudish"}])
-```
-
-**Pourquoi.** Un sujet cross-workspace traité en messages point-à-point produit autant de fils qu'il y a de destinataires : personne ne voit l'état consolidé, les réponses atterrissent dans des inbox disjointes, et le premier qui agit ignore ce que les autres ont déjà fait. Le cross-post inverse la charge — **un seul endroit fait foi, les DM ne font plus qu'y renvoyer.**
-
-**À écrire dans le message d'escalade**, sinon le rendez-vous ne tient pas :
-1. **Qui porte quel volet** (tableau de répartition explicite).
-2. **Ce qui est en cours à l'instant**, pour que personne ne le refasse en double.
-3. **Ce qui est attendu en retour** de chaque lane.
-4. **Les effets de bord annoncés** (ex. « un redémarrage de conteneur va couper les connexions dans les minutes qui viennent ») — un effet de bord non annoncé se lit comme une panne chez le voisin.
-
-**Précédent fondateur** — chantier « pression de ressources » du 06/09/2026 : PostgreSQL saturé côté serveur (Maintenance), pools clients (roo-extensions), mesure fleet-wide (6 lanes Maintenance), trafic proxy (claudish). Quatre porteurs, un seul dashboard `global`.
+**Règle (arbitrage user 06/09/2026)** : sujet dans une seule lane -> dashboard `workspace` ; cross-workspace -> **poster une fois à l'échelon supérieur** — dashboard **`global`**, et **`machine`** si spécifique à une machine — avec `crossPost` vers les workspaces concernés, en disant où la suite se passe. Escaler ≠ recopier partout : les DM ne font plus que renvoyer vers ce point de rendez-vous unique. Le message d'escalade porte : **qui porte quel volet** · **ce qui est en cours à l'instant** (anti-doublon) · **ce qui est attendu de chaque lane** · **les effets de bord annoncés** — non annoncé = lu comme une panne chez le voisin. Pourquoi, table portée->canal, forme du `crossPost`, précédent fondateur : [detail](../../docs/harness/global-rules-detail.md#escalade-cross-workspace--le-point-de-rendez-vous-unique).
 
 ## SDDD — Triple grounding
 
-Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source.
-
-**Pattern Bookend** : `codebase_search` en DEBUT (eviter de refaire, trouver la doc existante) et en FIN (confirmer l'indexation, mettre a jour la doc afferente). Detail : `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
+Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source. **Pattern Bookend** : `codebase_search` en DEBUT (doc existante, ne pas refaire) et en FIN (indexation, MAJ doc afferente). Detail : `~/.claude/rules/sddd-protocol.md` + [`sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
@@ -167,37 +116,22 @@ Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** 
 
 ## Knowledge Preservation
 
-Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avant la fin. Hierarchie : `~/.claude/CLAUDE.md` (global) · `CLAUDE.md` repo (projet) · `~/.claude/projects/<hash>/memory/MEMORY.md` (par machine) · `.claude/rules/*.md` (auto-loaded). Apres chaque tache significative : MAJ CLAUDE.md projet + MEMORY.md, consigner les approches **testees-et-rejetees**.
+Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avant la fin. Hierarchie : `~/.claude/CLAUDE.md` (global) · `CLAUDE.md` repo (projet) · `~/.claude/projects/<hash>/memory/MEMORY.md` (par machine) · `.claude/rules/*.md` (auto-loaded). Le CLAUDE.md projet recoit les **decisions** ; detail, mesures et incidents vont dans `docs/` avec un pointeur d'une ligne. Apres chaque tache significative : MAJ CLAUDE.md projet + MEMORY.md, consigner les approches **testees-et-rejetees**.
 
 ## Multi-Machine Ping-Pong — Re-arm
 
-**Scope STRICT** : sessions Claude Code **interactives** ou l'agent joue **activement** un role coordinateur OU worker dans un workflow multi-machine. **Ne s'applique PAS** aux workers/meta-analystes schedules (cadence externe -> double-firing), aux sessions informationnelles, ad-hoc/debug, workspace single-machine, ou apres handoff documente.
+**Scope STRICT** : sessions Claude Code **interactives** avec role actif coordinateur OU worker dans un workflow multi-machine — PAS les workers/meta-analystes schedules (double-firing), sessions informationnelles, ad-hoc/debug, workspace single-machine, ou post-handoff documente. Heuristique : « un cluster produit-il du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** role coord/worker -> re-armer.
 
-Heuristique : « un cluster produit-il du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** role coord/worker -> re-armer.
-
-**Armement et verification des crons/wakeups : par l'agent PRINCIPAL, jamais delegues.** Un sub-agent n'a pas les tools de scheduling, et un timer cree dans sa session mourrait avec lui (#3722).
-
-**Un sub-agent a qui il manque un tool s'arrete apres une ou deux tentatives et rapporte** — il ne cherche pas de substituts (#3722).
-
-```
-# coordinateur — cadence portee par cron (economie tokens) :
-CronCreate(cron: "<minute off-:00> */<N> * * *", prompt: "/coordinate", recurring: true)
-# session interactive NON-cron (fallback, plafond technique 1 h) :
-ScheduleWakeup(delaySeconds: 3540, prompt: "/coordinate", reason: "<informatif>")
-```
-
-`ScheduleWakeup` est clampe a `[60, 3600]s` : il ne PEUT PAS porter un cycle multi-heures — quand la cadence depasse 1 h, c'est `CronCreate` qui la porte, **sans** `ScheduleWakeup` par-dessus. Jitter (minute off-`:00`) pour ne pas frapper l'API a la meme seconde. Auto-regulation par cap 3-IDLE (#2185) + override `[WAKE-CLAUDE]`, pas par timer adaptatif.
-
-**Le cron d'une session interactive se ré-arme DANS la session (`CronCreate`), jamais par une tâche planifiée Windows qui relance `claude` sur la même lane** : les deux tirent au même cycle et la lane tourne en double (escalade CoursIA-2, 07/10). Les workers planifiés gardent leur tâche, sans cron de session par-dessus.
-
-Matrice de scope complete + verbatims du mandat : [detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm).
+- **Armement et verification des crons/wakeups : par l'agent PRINCIPAL, jamais delegues** — un sub-agent n'a pas les tools de scheduling, et un timer cree dans sa session mourrait avec lui (#3722). Un sub-agent a qui il manque un tool s'arrete apres une ou deux tentatives et **rapporte**, il ne cherche pas de substituts (#3722).
+- **Cadence** : `ScheduleWakeup` est clampe a `[60, 3600]s` — une cadence > 1 h est portee par `CronCreate`, **sans** `ScheduleWakeup` par-dessus ; session interactive NON-cron : `ScheduleWakeup(delaySeconds: 3540)` en repli. Jitter : minute off-`:00`. Auto-regulation par cap 3-IDLE (#2185) + override `[WAKE-CLAUDE]`, pas par timer adaptatif. [Detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm)
+- **Le cron d'une session interactive se ré-arme DANS la session (`CronCreate`), jamais par une tâche planifiée Windows qui relance `claude` sur la même lane** : les deux tirent au même cycle et la lane tourne en double (escalade CoursIA-2, 07/10). Les workers planifiés gardent leur tâche, sans cron de session par-dessus.
 
 ## Split-Brain — demander au user en cloture (mandat user 08/10)
 
-Le split-brain est **indetectable de l'interieur** : deux sessions de la meme lane voient le meme depot, les memes dashboards, le meme workspace, et **chacune se croit legitime**. Les indices internes ne tranchent pas (mesure po-2025 08/10 : 89 process node/claude, 78 process `Code`, plusieurs `claude` nes dans la meme fenetre horaire — **aucun discriminant**). Le seul signal fiable est **externe** : le user voit une fenetre, pas l'autre.
+Le split-brain est **indetectable de l'interieur** : deux sessions de la meme lane voient le meme depot, les memes dashboards, et **chacune se croit legitime** — aucun indice interne ne tranche. Le seul signal fiable est **externe** : le user voit une fenetre, pas l'autre.
 
-**Modalite** — l'agent qui ne peut **pas etablir** s'il est la session *front* (celle que le user voit) ou un *fantome* le **demande au user dans son message de cloture**, en une ligne — jamais en cours de cycle (arbitrage par pull) :
+**Modalite** : l'agent qui ne peut **pas etablir** s'il est *front* ou *fantome* le **demande au user dans son message de cloture**, en une ligne — jamais en cours de cycle (arbitrage par pull) :
 
 `[SPLIT-BRAIN?] <machine>:<workspace> — je ne peux pas prouver si je suis front ou fantome ; si tu me vois, reponds ici (et redemarre l'instance en trop).`
 
-Corollaire deja en vigueur : **aucun cron ni tache planifiee pour « reprendre » une lane douteuse** (deux tireurs refont le meme cycle — escalade CoursIA-2 du 07/10). L'extinction d'une session est un arbitrage user, jamais un ordre d'une session a l'autre. [Detail](../../docs/harness/global-rules-detail.md#split-brain--demander-au-user-en-cloture)
+Corollaire : **aucun cron ni tache planifiee pour « reprendre » une lane douteuse** — deux tireurs refont le meme cycle (escalade CoursIA-2, 07/10). L'extinction d'une session est un arbitrage user, jamais un ordre entre sessions. [Detail](../../docs/harness/global-rules-detail.md#split-brain--demander-au-user-en-cloture)

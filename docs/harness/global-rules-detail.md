@@ -206,6 +206,14 @@ Deux conséquences, et c'est la seconde qui coûte le plus cher :
 
 Le format — **ce qui se passe / ce qui est demandé (oui-non ou a-b-c) / ce qui arrive sans réponse / ce que la lane recommande / l'échéance** — vit dans le porteur [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md), section « User Arbitration ». Il s'applique aux **trois** canaux : fil de session, entrée de registre, message de dashboard. Des chiffres seulement s'ils aident à décider.
 
+### Réponses intermédiaires quand le user engage (mandat 26/09, #3879)
+
+Le registre couvre les questions **de l'agent vers le user**. Quand c'est **le user** qui ouvre un échange en cours de session (question, remarque, concern), il faut lui donner de quoi partir ou réagir : la **conclusion vérifiée** reste réservée au **message final**. La règle opérationnelle (tôt une poignée de messages avec niveau de croyance initial, sans insister, conclusion au dernier message puis réitérée au cycle suivant) vit dans le porteur, section « Quand le user engage la conversation » — portée depuis `jsboige/CoursIA#17955` et gardée par `user-arbitration-registry.Tests.ps1` (#3879) pour qu'une passe de slimming ne la laisse pas tomber en silence.
+
+**Mesure fondatrice (26/09)** : **trois réponses d'étape restées dans le raisonnement** — le user a cru à un silence et a dû relancer pour obtenir la tendance. Une réponse d'étape qui ne passe pas par un bloc de **texte visible** placé avant l'appel d'outil suivant, dans le même message, ne parvient pas au user : c'est la forme, pas seulement le contenu, qui fait arriver la réponse.
+
+**Sans réponse, rien ne change** pour la lane : la boucle agentique reprend, la conclusion se réitère au cycle suivant portée par la mémoire de reprise, puis sort dès que le user a réagi.
+
 ### Outils d'interactivité retirés par le user (déjà fait, côté user)
 
 | Outil retiré | Substitut |
@@ -300,6 +308,36 @@ Le propriétaire sait ce que la lane de passage ignore : qui consomme le service
 
 - Dans **son** workspace, le geste reste libre — mais ses effets de bord sur les consommateurs des autres lanes s'**annoncent** (cf. « Escalade cross-workspace » : les effets de bord annoncés font partie du message).
 - Qui porte quoi : la table de propriété d'infra vit dans la mémoire de chaque machine et sur les dashboards ; en cas de doute sur le porteur, demander sur le dashboard `global`.
+
+---
+
+## Escalade cross-workspace — le point de rendez-vous unique
+
+**Règle (arbitrage user 06/09/2026, promue depuis `jsboige/Maintenance@b704b52`).** Le dashboard **workspace** est le canal par défaut : tant qu'un sujet reste dans une lane, il y reste. **Dès qu'un problème devient cross-workspace, c'est l'opportunité de le remonter** — sur le dashboard `global`, et potentiellement sur le dashboard `machine` s'il est spécifique à une machine.
+
+**Le mécanisme est le cross-post, et sa fonction est de désigner un point de rendez-vous unique.** Escalader ne veut pas dire recopier le sujet partout : cela veut dire poster **une fois** à l'échelon supérieur, en disant explicitement où la suite se passe, puis n'utiliser les DM que pour pointer vers cet endroit.
+
+| Portée du sujet | Canal | Geste |
+|---|---|---|
+| Une seule lane | dashboard `workspace` | `append` normal |
+| Plusieurs workspaces / plusieurs machines | dashboard **`global`** | `append` + `crossPost` vers les workspaces concernés |
+| Spécifique à une machine mais traversant ses lanes | dashboard **`machine`** | `append`/`update` + `crossPost` |
+
+```
+roosync_dashboard(action:"append", type:"global", content:"...",
+                  crossPost:[{type:"workspace", workspace:"roo-extensions"},
+                             {type:"workspace", workspace:"claudish"}])
+```
+
+**Pourquoi.** Un sujet cross-workspace traité en messages point-à-point produit autant de fils qu'il y a de destinataires : personne ne voit l'état consolidé, les réponses atterrissent dans des inbox disjointes, et le premier qui agit ignore ce que les autres ont déjà fait. Le cross-post inverse la charge — **un seul endroit fait foi, les DM ne font plus qu'y renvoyer.**
+
+**À écrire dans le message d'escalade**, sinon le rendez-vous ne tient pas :
+1. **Qui porte quel volet** (tableau de répartition explicite).
+2. **Ce qui est en cours à l'instant**, pour que personne ne le refasse en double.
+3. **Ce qui est attendu en retour** de chaque lane.
+4. **Les effets de bord annoncés** (ex. « un redémarrage de conteneur va couper les connexions dans les minutes qui viennent ») — un effet de bord non annoncé se lit comme une panne chez le voisin.
+
+**Précédent fondateur** — chantier « pression de ressources » du 06/09/2026 : PostgreSQL saturé côté serveur (Maintenance), pools clients (roo-extensions), mesure fleet-wide (6 lanes Maintenance), trafic proxy (claudish). Quatre porteurs, un seul dashboard `global`.
 
 ---
 
