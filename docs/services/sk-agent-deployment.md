@@ -49,7 +49,7 @@ Verified by `test_inventory_validation.py::test_template_counts_match_expected_b
 
 | Metric | Count | Notes |
 |--------|-------|-------|
-| **Models** | 9 | 9 enabled, 0 disabled (fleet hub 3 incl. `frognano-4b` added in submod #1401, vLLM direct 2, OWUI 4) — dead entries purged by submod #1197 |
+| **Models** | 11 | 11 enabled, 0 disabled (fleet hub 3 incl. `frognano-4b` added in submod #1401, vLLM direct 4 incl. canonical `swift-1.5-27b` + no-thinking preset added in submod #1421 — historical `qwen3.6` ids kept as 30-day deprecated aliases, removal ~2026-11-10; OWUI 4) — dead entries purged by submod #1197 |
 | **Top-level agents** | 42 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI); core gained the no-thinking `summarizer-local`, `classifier-local`, `formatter-local` in submod #1211; LOT E presets `terminal-analyst`, `coordination-agent` added in submod #1294 (vllm#63); mini presets `mini-coder-fix`, `mini-repo-scan`, `mini-summarizer`, `mini-web-research` and the delegating `swift-delegator` added in submod #1401 (#4107) |
 | **Inline agents** (conversation-scoped) | 15 | Defined inside `code-review`, `research-debate`, `config-harmonization`, `pr-review-tier1/2/3` |
 | **Memory-enabled agents** | 5 | `analyst`, `analyst-glm5`, `researcher`, `guardian-sentinel`, `owui-analyst` |
