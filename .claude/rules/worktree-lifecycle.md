@@ -1,9 +1,7 @@
 # Cycle de vie des worktrees — pas d'orphelin
 
-**Version:** 1.1.0
+**Version:** 1.2.0 (slim — narratif déporté vers `docs/harness/reference/worktree-lifecycle-detailed.md`, claudish#445)
 **Origine :** [PROPOSAL] po-2026 (20/08), approuvée par l'utilisateur — ancrages (a) + (b)
-**Révisions :** 1.0.1 — points Hermes/jsboige confirmés par web1 sur #3197 : `-d` → `-D` après lecture d'état, worktree sale ≠ orphelin. · 1.1.0 — garde jonction : délier les reparse points AVANT tout `worktree remove` (incident po-203 c.525 du 05/10 : remove à travers une jonction `node_modules` → contenu du checkout principal supprimé, récupéré ; constat jumeau po-2027 `mcps-2639-*` dirs vides le même jour).
-**Coût qui la motive :** ~300 worktrees orphelins purgés à la main en 4 vagues sur la flotte (14→20/08), dont certains portaient du travail jamais livré (un notebook complet, un fix tsync absent de `main`).
 
 ---
 
@@ -14,40 +12,32 @@
 À la fin de chaque session, l'agent est responsable de l'état de **ses** worktrees. Trois issues, pas quatre :
 
 1. **Le contenu a de la valeur → le livrer en PR.** Une PR ouverte conserve le travail, le rend visible et reviewable. Un worktree ne fait aucune des trois.
-2. **Le contenu est supplanté → suppression propre**, preuves d'abord : `git worktree remove`, puis la branche **séparément**, puis `git worktree prune`. L'état de livraison se lit dans `gh pr view --json state` — jamais dans l'ascendance (piège ci-dessous). La preuve porte la sécurité, pas le flag :
-   - `state=MERGED` lu → `git branch -D` ;
-   - branche jamais poussée et sans valeur → `git branch -d` ;
-   - **`-d` ne refuse PAS systématiquement après un squash-merge.** Son critère est « contenue dans HEAD **ou** dans son upstream de suivi » : une branche poussée sur `origin` avant le squash y est contenue par construction, donc `-d` la supprime. Il ne refuse que la branche qui n'est **ni** dans HEAD **ni** poussée. Corollaire : l'échec de `-d` n'est pas un filet de sécurité — la preuve de livraison reste `gh pr view --json state`.
+2. **Le contenu est supplanté → suppression propre**, preuves d'abord : `git worktree remove`, puis la branche **séparément**, puis `git worktree prune`. L'état de livraison se lit dans `gh pr view --json state` — **jamais dans l'ascendance** (le squash la réécrit). `state=MERGED` lu → `git branch -D` ; branche jamais poussée et sans valeur → `git branch -d`. **`-d` ne refuse PAS systématiquement après un squash-merge** (son critère : « contenue dans HEAD **ou** dans son upstream de suivi ») — un `-d` qui passe n'est donc pas une preuve de livraison.
 3. **Doute réel → arbitrage humain.** Le doute n'est pas une raison de laisser traîner, c'est une raison de demander.
 
 ## Le piège qui rend cette règle nécessaire
 
-**Sous squash-merge, aucune propriété du graphe git ne dit « livré ».**
-
-`git log main..<branche>` affiche des commits **même quand le travail est mergé** : le squash a réécrit l'historique, la branche d'origine n'est plus ancêtre de `main`. `git cherry` ment pour la même raison.
-
-**L'état de PR tranche, pas l'ascendance :**
+**Sous squash-merge, aucune propriété du graphe git ne dit « livré »** : `git log main..<branche>` et `git cherry` affichent des commits même quand le travail est mergé — la branche d'origine n'est plus ancêtre de `main`. L'état de PR tranche, pas l'ascendance :
 
 ```bash
 gh pr view <N> --repo <owner>/<repo> --json state,mergedAt
 ```
 
-Un agent qui vérifierait l'ascendance conclurait « travail non livré » sur une PR mergée — et garderait indéfiniment des worktrees morts. C'est exactement ce qui a produit les 4 vagues de purge manuelle.
+Un agent qui vérifierait l'ascendance conclurait « travail non livré » sur une PR mergée, et garderait indéfiniment des worktrees morts (→ 4 vagues de purge manuelle ; récit : doc détaillé).
 
 ## `worktree remove` ne supprime **jamais** la branche
 
-Deux gestes distincts, toujours. Retirer le worktree en croyant avoir supprimé la branche laisse une branche locale de plus à chaque cycle — c'est l'origine des 151 `wt/worker-*` accumulées (#2638, cleanup user-gated).
+Deux gestes distincts, toujours — sinon une branche locale de plus à chaque cycle (#2638 : 151 `wt/worker-*` accumulées, cleanup user-gated).
 
 Seul le cas **detached HEAD** perd réellement du travail au retrait : vérifier `git branch --show-current` **avant** tout commit dans un worktree ; si le résultat est vide, créer une branche de recovery avant de committer.
 
 ## Garde-fous permanents
 
 - **Jamais de `rm -rf` sur un worktree.** Passer par `git worktree remove`.
-- **Jonction = frontière : délier AVANT tout remove.** `git worktree remove` **suit les jonctions** (`mklink /J`) et supprime tout ce qui y est atteignable — y compris dans le checkout principal. Incident fondateur po-203 c.525 (05/10) : le remove d'un worktree submod a suivi `node_modules\roo-state-manager` → serveur RSM du checkout principal, 144 fichiers trackés partis (récupérés : index intact, `.env` depuis GDrive, rebuild). Recette, **avant tout `worktree remove`/`rm`** :
+- **Jonction = frontière : délier AVANT tout remove.** `git worktree remove` **suit les jonctions** (`mklink /J`) et supprime tout ce qui y est atteignable — y compris dans le checkout principal (incident fondateur po-203 c.525 du 05/10, 144 fichiers trackés ; récit : doc détaillé). Recette, **avant tout `worktree remove`/`rm`** :
   1. énumérer les reparse points **par niveau** : `Get-ChildItem -Force | Where-Object LinkType` ;
   2. délier chaque jonction **sans la traverser** : `[IO.Directory]::Delete($j, $false)` (équivalent `rmdir` nu — jamais `Remove-Item -Recurse`, jamais `rm -rf`, jamais `/S`) ;
   3. seulement ensuite remove/rm.
-  Le vecteur est le pattern standard des worktrees submod : jonction `node_modules` depuis le checkout principal pour économiser le disque. Le même jour, po-2027 constatait la même famille sur `mcps-2639-*` (dirs vidées).
 - **Sale ≠ orphelin.** `worktree remove` refuse un worktree avec modifications non commitées sans `--force`. Ce refus est une protection : des modifications non commitées peuvent être du travail jamais livré ailleurs. Examiner le contenu (`git status` + `git diff` dans le worktree) **avant** d'utiliser `--force` — pas l'inverse.
 - **Jonctions `.mathlib-cache` et projet SEED : intouchables.**
 - **Preuves avant suppression de branche** — état de PR lu, ou absence de contenu constatée.
@@ -56,3 +46,7 @@ Seul le cas **detached HEAD** perd réellement du travail au retrait : vérifier
 ## Balayage (ancrage b)
 
 Le tick Maintenance signale à l'agent **propriétaire** les worktrees sans session vivante depuis > 24 h. Il **notifie**, il ne supprime pas : le tick voit la saleté, l'agent connaît l'intention. La décision reste chez celui qui a ouvert le worktree.
+
+---
+
+**Narratif déporté (révisions, coût des 4 vagues, mécanique squash-merge détaillée, incident jonction) :** [`docs/harness/reference/worktree-lifecycle-detailed.md`](../../docs/harness/reference/worktree-lifecycle-detailed.md)

@@ -51,10 +51,10 @@ détaché est orphelin, perdu au cleanup du worktree.
 ## Identite `gh` (#3032)
 
 `gh` n'a aucun modèle de concurrence : l'identité vit dans un `hosts.yml` machine-global que
-d'autres processus réécrivent. **La garde d'identité va dans la MÊME commande que l'action**
+d'autres processus réécrivent — un `gh auth status` de début de session ne dit rien de la commande
+suivante. **La garde d'identité va dans la MÊME commande que l'action**
 (`gh auth switch --user X && [ "$(gh api user --jq .login)" = "X" ] && <action>`). Jamais deux
-actions publiques avec `gh auth switch` en parallèle dans une même session (lectures parallèles
-OK). Un `gh auth status` de début de session ne dit rien de la commande suivante.
+actions publiques avec `gh auth switch` en parallèle (lectures parallèles OK).
 **Détail et pistes écartées :** [`gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md)
 
 ## Economie d'identite review (#2368)

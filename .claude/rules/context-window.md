@@ -35,8 +35,8 @@ doivent être cohérents dans `settings.json` **par machine** :
 "ANTHROPIC_DEFAULT_HAIKU_MODEL":  "claude-haiku-4-5-20251001[1m]"
 ```
 
-Hors documentation, `[1m]` n'a **aucune occurrence dans le dépôt** (vérifié 2026-08-22, deux
-instruments) : aucune PR ne peut corriger le suffixe à votre place.
+Le suffixe vit **hors dépôt** (mesuré 2026-08-22, deux instruments — doc détaillée) : aucune PR ne
+peut corriger le suffixe à votre place.
 
 ## La fenêtre est VOLONTAIREMENT sous le contexte
 
