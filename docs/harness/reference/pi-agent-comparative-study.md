@@ -170,6 +170,41 @@ Ranked by impact/effort ratio:
 
 ---
 
+## 11. Benchmark mesuré (2026-10-13) — Claude Code vs omp vs DeepSeek Harness
+
+**Cadre:** un seul et même task, trois harness, **le même modèle `glm-5.3` au travers du hub** (`https://models.myia.io`, auth proxy). Mesure déroulée sur `myia-po-2027` (c.214, dispatch ai-01 cycle 17).
+
+### 11.1 Protocole
+
+- **Task (identique, verbatim `PROMPT.txt`)** : « Read TASK.md at the repository root and complete the task it describes. Rules: never modify anything under tests/; use only the Python 3 standard library; when you are done, `python -m unittest discover -s tests` must report all 4 tests passing. »
+- **Dépôt jetable** (`D:\dev\bench-2416\repo`, hors flotte) : mini-libre `ledger/ledger.py` avec 2 bugs plantés + 1 feature manquante — `balance()` arrondi bancaire (`ROUND_HALF_EVEN`) au lieu de `ROUND_HALF_UP`; `transactions_in_range()` borne `end` exclusive au lieu d'inclusive; `monthly_summary()` absent. 4 tests (`tests/test_ledger.py`), **3 rouges au départ** (`failures=2, errors=1`), vérifié au HEAD avant chaque run.
+- **Isolation** : chaque harness tourne dans un clone propre sous `USERPROFILE`/`HOME` jetable (`D:\dev\bench-2416\home`) — **aucun MCP flotte, aucun chemin d'écriture vers dashboards/stockages partagés**. Approval : claude `bypassPermissions`, omp `--approval-mode yolo`, dsh headless **sandbox par défaut** (différence mesurée, voir 11.3).
+- **Attribution consommation** : header `X-Claudish-Machine: bench2416-{claude,omp,dsh}` par bras + fenêtre UTC enregistrée ; lecture `claudish_traffic` côté hub (ai-01), po-2027 n'ayant pas de conteneur.
+- **Grading** (identique, externe, exécuté par l'opérateur) : `git diff --exit-code base -- tests/test_ledger.py` (tests intouchés) **puis** `python -m unittest discover -s tests` dans le clone du bras. Le repo track des `__pycache__/*.pyc` que tout run de tests mute — le grading ne compare **que** les `.py`.
+
+### 11.2 Résultats bruts
+
+| Bras | Harness / version | Modèle | Résultat grading | Tests intacts | Wall clock (UTC) | Diff `ledger.py` | Turns | Tokens (fin de run, hub) |
+|---|---|---|---|---|---|---|---|---|
+| claude | Claude Code CLI (`claude -p --output-format json --max-turns 40`) | `glm-5.3` (rôles sonnet/opus/haiku mappés) | **PASS 4/4**, auto-vérifié | ✅ | 67 s (23:02:51→23:03:58Z) | +13/−5 | 9 | in 4 740 · out 1 050 · cache_read 83 200 (modelUsage cumulée : in 4 845 · out 1 877 · cacheRead 83 904) |
+| omp | oh-my-pi 18.10.4 (`omp -p --model claudish/glm-5.3 --approval-mode yolo`) | `glm-5.3` | **PASS 4/4**, auto-vérifié | ✅ | 46 s (23:06:10→23:06:56Z) | +13/−5 | n/d | télémétrie hub (tag `bench2416-omp`) |
+| dsh | `@deepseek-ai/dsh headless` (sandbox défaut) | `glm-5.3` | **PASS 4/4** (grading externe) | ✅ | 136 s (23:08:21→23:10:37Z) | +15/−5 | n/d | télémétrie hub (tag `bench2416-dsh`) |
+
+Les trois bras produisent la même correction fonctionnelle : `ROUND_HALF_UP`, `monthly_summary()` (clés issues des entrées, quantification 2 dp HALF_UP), borne `end` inclusive. Diffs quasi identiques (+13 à +15 lignes).
+
+### 11.3 Observations qualitatives (mesurées, n=1)
+
+1. **dsh n'a pas pu s'auto-vérifier** : son sandbox headless a refusé l'exécution des tests (`grantWrite` / `SetNamedSecurityInfoW failed (Win32 5)` ; « approval was requested but no approval channel is available »). Le code livré était néanmoins correct — validé par le grading externe. Sur ce task, le mode approval par défaut de dsh **n'aboutit pas** en headless sur Windows sans canal d'approvatiou ; claude (`bypassPermissions`) et omp (`yolo`) n'ont pas cette friction.
+2. **Claude Code ne route pas un modèle arbitraire via `--model`** : `--model glm-5.3` → fallback haiku silencieux (`[claude-code:unrecognized_model]`). Le routage passe par le mapping des trois rôles (`ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL=glm-5.3`) + `--model sonnet` — vérifié par `modelUsage` ne contenant que `glm-5.3`.
+3. **omp est le plus rapide en wall clock** (46 s) avec l'overhead d'agent minimal ; claude 67 s pour 9 turns ; dsh 136 s dont une part significative en tentatives sandbox/approval.
+4. **Coût token** : omp et dsh n'exposent pas d'usage en sortie ; la consommation réelle des trois bras se lit côté hub (`claudish_traffic`, tags `bench2416-*`, fenêtres §11.2) — à rapatrier par ai-01.
+
+### 11.4 Limites
+
+n=1 par bras, un seul task de taille modeste, un seul modèle, runs séquentiels (pas d'entrelacement), machine unique (po-2027, mobile). Les fenêtres UTC ci-dessus servent de périmètre exact pour la lecture télémétrique. Aucun bras n'a eu accès aux MCPs ou dashboards flotte (by design).
+
+---
+
 **References:**
 - [Pi Agent](https://github.com/earendil-works/pi) · [pi-subagents](https://github.com/nicobailon/pi-subagents) · [devstack](https://github.com/lhl/devstack)
 - Issue [#2416](https://github.com/jsboige/roo-extensions/issues/2416)
