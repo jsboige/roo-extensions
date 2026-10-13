@@ -270,14 +270,17 @@ tools with the same JSON-RPC schema.
 
 ### Config Sync (Issue #1416)
 
-**IMPORTANT:** After any `git pull` that updates `sk_agent_config.template.json`, sync the active config:
+**IMPORTANT:** After any `git pull` that updates `sk_agent_config.template.json`, sync the active config with the sync tool:
 
 ```powershell
 cd mcps\internal\servers\sk-agent
-.\deploy-sk-agent.ps1 -UpdateFromTemplate
+python sync_from_template.py --dry-run   # preview the diff first
+python sync_from_template.py             # apply: template structure + local API keys
 ```
 
-This preserves your API keys while merging in template changes. See `docs/roosync/deployment/sk-agent.md` for details.
+`sync_from_template.py` regenerates `sk_agent_config.json` from the template while injecting the API keys from the existing local config. Local-only agents (absent from the template) are preserved by default — removal is explicit via `--prune-local`, and oracle additions stay behind `--local-additions`. The exit code is non-zero when at least one `api_key` is still a template placeholder: the config IS written, the code just makes the silent degradation detectable. Full semantics: module docstring and `mcps/internal/servers/sk-agent/README-DEPLOYMENT.md`.
+
+Note: `deploy-sk-agent.ps1` has no config-sync switch. Its parameters are `MachineId`, `SkipVenv` and `SkipConfig` (config **creation** on first run only — it never merges template changes into an existing config). The sync path is the Python tool above.
 
 ### Build Docker image (HTTP transport)
 
