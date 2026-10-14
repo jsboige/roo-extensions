@@ -160,6 +160,10 @@ Mandat user 2026-09-15 (issue #3656), donné en session directe (myia-ai-01, wor
 
 Le user arbitre **par pull, pas par push**. Une question posée en plein cycle le force à arbitrer au rythme de la session de l'agent plutôt qu'au sien. Sous cron c'est pire : la question part dans un tour qu'il ne lira peut-être jamais — et l'agent la perd au cycle suivant. Le registre remplace une **interruption** par une **restitution**.
 
+### Vue mutualisée fin de session (#4196, forme (a) — arbitrage user 14/10)
+
+Demande user du 09/10 (relayée po-2024:CoursIA) : les registres étant morcelés par lane, **personne ne voit l'ensemble des questions ouvertes**. Forme (a) arbitrée (dispatch c.22bis, doc + règle, pas de code) : chaque lane, **en fin de session**, append **une entrée consolidée** taguée `ASK-USER` sur le dashboard **`global`** — questions ouvertes uniquement, format 5 points ci-dessous, **une seule vue par lane** (pas une entrée par question). Le registre local reste la **source de vérité** ; l'entrée globale est une vue reconstruite à chaque fin de session, jamais un second état qui dériverait (même principe que « une seule liste » ci-dessus). **Zéro question ouverte = pas d'entrée** — le canal reste silencieux quand il n'y a rien à arbitrer.
+
 ### Emplacement canonique et format
 
 | Élément | Valeur |
