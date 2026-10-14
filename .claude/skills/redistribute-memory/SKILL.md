@@ -173,7 +173,7 @@ Read: {workspace}/.claude/memory/PROJECT_MEMORY.md
 **Seuils d'alerte :**
 - T2 (CLAUDE.md projet) > 500 lignes → **SATURATION** — candidat extraction vers T3/T4
 - T3 (rules) fichier individuel > 150 lignes → **VERBOSE** — candidat condensation
-- T5 (MEMORY.md) > **17,1 Ko** → **TRUNCATION RISK** — candidat stabilisation vers T4 ou PROJECT_MEMORY
+- T5 (MEMORY.md) > **21 960 o (90 % du plafond 24,4 Ko)** → **TRUNCATION RISK** — le plafond dur est la **read-limit 24,4 Ko** : au-delà, la fin de l'index est silencieusement perdue à chaque chargement. Candidat stabilisation vers T4 ou PROJECT_MEMORY
   - ⚠️ **Mesurer en OCTETS, jamais en lignes.** Les deux nombres ci-dessus (**24,4 Ko** de
     read-limit, **17,1 Ko** de cible) ne sont pas choisis : ils sont **énoncés par le hook
     système `PostToolUse:Edit`** lui-même, verbatim (capté par po-2025 le 2026-08-13) :
@@ -182,6 +182,19 @@ Read: {workspace}/.claude/memory/PROJECT_MEMORY.md
     > index is loaded** — entries at the end are already invisible to readers. Rewrite it to
     > under 17.1KB now: keep one line per entry, move detail into topic files, and merge or
     > drop stale entries.*
+  - **Le 17,1 Ko du hook est inatteignable à couverture complète** (#4192) : chaque entrée coûte
+    au minimum `len(nom)+4` octets plus un séparateur — plancher mesuré **16 749 o pour 358
+    fichiers** (po-2025:CoursIA, 2026-10-12, organe `check_memory_index_coverage.py`). À ce
+    compte il reste < 1 o de libellé par entrée : le seuil n'est atteignable qu'en détruisant la
+    fonction de l'index.
+  - **Budget d'écriture : ≤ 63 o par entrée** (index consolidé mesuré : 62,6 o/entrée ; plancher
+    par nom de fichier : 38,8 o). Le 17,1 Ko du hook correspond donc à **~270 entrées** — pas à
+    un index de 358. Datapoint sain pour comparaison : po-2027:roo-extensions, 12 059 o / 44
+    entrées / 100 % couverture (49 % du plafond, verdict organe `OK`).
+  - **Quand l'alerte tombe, la voie est la réduction du NOMBRE d'entrées** (fusion ou retrait de
+    mémoires), **jamais la compression des libellés** : c'est l'esprit du message du hook, mais
+    l'ordre de ses conseils se lit comme une invite au reformatage — qui ne peut pas suffire,
+    une ligne par entrée valant déjà ~16,7 Ko de structure à 358 fichiers.
   - **L'écriture RÉUSSIT** — il n'y a ni erreur ni troncature visible. Seule la *lecture* perd
     la fin de l'index, à chaque chargement. C'est pourquoi un seuil qui ne se déclenche pas
     ne se remarque jamais. Re-mesure ai-01 le 2026-09-01 : **160 lignes pour 24 994 o**, soit
