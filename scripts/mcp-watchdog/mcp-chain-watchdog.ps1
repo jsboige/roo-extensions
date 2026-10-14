@@ -426,7 +426,10 @@ function Test-SparfenyukRoute {
 # gate, 404 no such route, 0 no HTTP answer at all (refused, reset, timeout).
 # No session is continued and no tool is called: this runs on every tick, and a
 # tools/call every 2 min would land in sk-agent's usage telemetry (#1387) as
-# traffic nobody made.
+# traffic nobody made. That telemetry note no longer applies to the sk-agent
+# ROUTE, which continues to a real tools/call below (#4197): initialize alone
+# was proven blind on 11-12/10 -- the proxy answered it 200 from its cached
+# session for 12 h while every real call failed.
 function Get-McpInitializeStatus {
     param([Parameter(Mandatory)][string]$Url, [string]$Bearer, [int]$TimeoutSec = 10)
     $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog-route","version":"1"}}}'
@@ -440,6 +443,72 @@ function Get-McpInitializeStatus {
         if ($_.Exception.Response) { return [int]$_.Exception.Response.StatusCode }
         return 0
     }
+}
+
+# Real tool call through the sk-agent route (#4197, incident 11-12/10): the
+# proxy served initialize 200 from its cached session for 12 h while the
+# container behind it had been recycled -- every session-bound call failed
+# ("Missing session ID", proxy log "MCP Ping failed count=1455"), and the
+# initialize-only probe above logged 'ok' every 2 min through the whole outage.
+# This is the same "REAL tool call" principle Invoke-McpProbe applies to the
+# RSM chain since 2026-08-15: initialize -> notifications/initialized ->
+# tools/call list_agents, carrying the Mcp-Session-Id the route returned. The
+# call touches no model (list_agents is metadata), and its clientInfo names the
+# watchdog, so what lands in sk-agent's telemetry is attributable, not "traffic
+# nobody made". Success = every leg answers, the call is HTTP 200, and the body
+# carries no JSON-RPC "error" and no MCP "isError":true.
+function Invoke-SkAgentRouteRealCall {
+    # Returns @{ Ok; InitStatus; CallStatus; Detail } -- InitStatus is the
+    # initialize leg alone (the blind signal of 11-12/10, kept for the log),
+    # CallStatus the tools/call leg, Detail a short never-secret why.
+    param([Parameter(Mandatory)][string]$Url, [string]$Bearer, [int]$TimeoutSec = 10)
+    $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog-skagent-real","version":"1"}}}'
+    $initNote = '{"jsonrpc":"2.0","method":"notifications/initialized"}'
+    $callBody = '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}'
+    $headers = @{ 'Content-Type' = 'application/json'; 'Accept' = 'application/json, text/event-stream' }
+    if ($Bearer) { $headers['Authorization'] = "Bearer $Bearer" }
+    try {
+        $init = Invoke-WebRequest -Uri $Url -Method Post -Headers $headers -Body $initBody `
+                                  -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+        $initStatus = [int]$init.StatusCode
+    } catch {
+        if ($_.Exception.Response) { $initStatus = [int]$_.Exception.Response.StatusCode } else { $initStatus = 0 }
+        return @{ Ok = $false; InitStatus = $initStatus; CallStatus = 0; Detail = "initialize failed: http-$initStatus" }
+    }
+    if ($initStatus -ne 200) {
+        return @{ Ok = $false; InitStatus = $initStatus; CallStatus = 0; Detail = "initialize http-$initStatus" }
+    }
+    # Session id: mandatory on the sk-agent leg. When the proxy serves
+    # initialize from a cached session it may still return one; when it does
+    # not, the tools/call below fails with "Missing session ID" -- exactly the
+    # 11-12/10 signature, so the call is sent regardless and the failure is
+    # kept as the signal. Header lookup is case-insensitive (PS 5.1 vs 7).
+    $sid = $null
+    foreach ($k in @($init.Headers.Keys)) { if ("$k" -ieq 'mcp-session-id') { $sid = $init.Headers[$k]; break } }
+    $callHeaders = $headers
+    if ($sid) {
+        $callHeaders = @{} + $headers
+        $callHeaders['mcp-session-id'] = "$sid"
+        $null = Invoke-WebRequest -Uri $Url -Method Post -Headers $callHeaders -Body $initNote `
+                                  -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction SilentlyContinue
+    }
+    try {
+        $resp = Invoke-WebRequest -Uri $Url -Method Post -Headers $callHeaders -Body $callBody `
+                                  -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+    } catch {
+        $callStatus = 0
+        if ($_.Exception.Response) { $callStatus = [int]$_.Exception.Response.StatusCode }
+        $msg = "tools/call failed: http-$callStatus $($_.Exception.Message)"
+        return @{ Ok = $false; InitStatus = $initStatus; CallStatus = $callStatus; Detail = $msg.Substring(0, [Math]::Min(160, $msg.Length)) }
+    }
+    $content = "$($resp.Content)"
+    if ($resp.StatusCode -eq 200 -and $content -notmatch '"error"\s*:' -and $content -notmatch '"isError"\s*:\s*true' -and $content.Length -gt 0) {
+        return @{ Ok = $true; InitStatus = $initStatus; CallStatus = [int]$resp.StatusCode; Detail = $content.Substring(0, [Math]::Min(80, $content.Length)) }
+    }
+    $why = if ($content -match '"error"\s*:') { 'tools/call jsonrpc error member' }
+           elseif ($content -match '"isError"\s*:\s*true') { 'tools/call isError:true' }
+           else { 'tools/call empty body' }
+    return @{ Ok = $false; InitStatus = $initStatus; CallStatus = [int]$resp.StatusCode; Detail = "$why — $($content.Substring(0, [Math]::Min(120, $content.Length)))" }
 }
 
 # ---------- dead vs slow, before restarting sparfenyuk (#3898) ----------
@@ -703,23 +772,115 @@ $SkAgentProbeTimeoutSec = 10
 # slow start, and the run budget ends the wait first when the tick is late.
 $SkAgentVerifyCapSec = 60
 $SkAgentVerifyIntervalSec = 5
+# #4197 (incident 11-12/10): a real-call failure only repairs after N
+# consecutive failing ticks (~6 min at one tick / 2 min). Through that whole
+# signature the route answers initialize 200, so one flaky call must not
+# restart TBXark, which drops every session it carries.
+$SkAgentRealCallFailThreshold = 3
+# 'ok' is logged at INFO at most once per hour. The 11-12/10 hole was a
+# SILENT log — initialize-only 'ok' logged nothing, so a dead check could not
+# be told apart from a healthy one. One line per hour proves the check lives.
+$SkAgentOkLogPeriodMin = 60
 
 function Invoke-SkAgentRouteCheck {
     # Returns one verdict: 'disabled', 'skipped', 'ok', 'not-404',
-    # 'backend-down', 'cooldown', 'deferred', 'dry-run', 'recovered',
-    # 'still-missing', 'unverified'. Reads $lastRouteRepairAt,
-    # $routeRepairStateFile, $RouteRepairCooldownMin and
-    # $RouteRepairWorstCaseSec, which main defines for 3b.
+    # 'backend-down', 'realcall-failing', 'cooldown', 'deferred', 'dry-run',
+    # 'recovered', 'still-missing', 'still-failing', 'unverified'. Reads
+    # $lastRouteRepairAt, $routeRepairStateFile, $RouteRepairCooldownMin and
+    # $RouteRepairWorstCaseSec, which main defines for 3b, plus
+    # $skAgentRealCallFailures, $skAgentRealCallLastOkLogAt and
+    # $skAgentRealCallStateFile (its own consecutive-failure state, #4197).
     if ([string]::IsNullOrEmpty($SkAgentRouteUrl) -or [string]::IsNullOrEmpty($SkAgentBackendUrl)) { return 'disabled' }
     # TBXark already restarted in this run: it is registering its backends
     # right now, and the next tick re-reads the route.
     if (@($script:repairs | Where-Object { "$_" -like 'tbxark-restart*' }).Count -gt 0) { return 'skipped' }
-    if ((Get-RunSecondsLeft) -lt (2 * $SkAgentProbeTimeoutSec + 10)) {
+    if ((Get-RunSecondsLeft) -lt (4 * $SkAgentProbeTimeoutSec + 10)) {
         Write-Log 'WARN' "sk-agent route check skipped: $([int](Get-RunSecondsLeft))s left before the task's time limit."
         return 'skipped'
     }
     $routeStatus = Get-McpInitializeStatus -Url $SkAgentRouteUrl -Bearer $bearer -TimeoutSec $SkAgentProbeTimeoutSec
-    if ($routeStatus -eq 200) { return 'ok' }
+    if ($routeStatus -eq 200) {
+        # #4197: initialize 200 proves nothing on this route. On 11-12/10 the
+        # proxy served initialize 200 from its cached session for 12 h while
+        # every session-bound call failed behind it. The real call below is
+        # the probe; initialize stays as the cheap 404/not-404 gate.
+        $real = Invoke-SkAgentRouteRealCall -Url $SkAgentRouteUrl -Bearer $bearer -TimeoutSec $SkAgentProbeTimeoutSec
+        if ($real.Ok) {
+            $changed = $false
+            $okLogAt = $skAgentRealCallLastOkLogAt.ToString('o')
+            if ([int]$skAgentRealCallFailures -gt 0) { $changed = $true }
+            if (((Get-Date) - $skAgentRealCallLastOkLogAt).TotalMinutes -ge $SkAgentOkLogPeriodMin) {
+                Write-Log 'OK' "sk-agent route real call healthy (initialize + tools/call list_agents)"
+                $okLogAt = (Get-Date).ToString('o')
+                $changed = $true
+            }
+            if ($changed) {
+                @{ consecutiveFailures = 0; lastOkLogAt = $okLogAt } | ConvertTo-Json |
+                    Set-Content -Path $skAgentRealCallStateFile -Encoding utf8
+            }
+            return 'ok'
+        }
+        # Persisted BEFORE any decision: a run cut mid-outage must keep the
+        # count — three of these ticks are what arm the repair.
+        $failures = [int]$skAgentRealCallFailures + 1
+        @{ consecutiveFailures = $failures; lastOkLogAt = $skAgentRealCallLastOkLogAt.ToString('o') } | ConvertTo-Json |
+            Set-Content -Path $skAgentRealCallStateFile -Encoding utf8
+        $backendStatus = Get-McpInitializeStatus -Url $SkAgentBackendUrl -TimeoutSec $SkAgentProbeTimeoutSec
+        if ($backendStatus -notin @(200, 401)) {
+            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call fails ($($real.Detail)) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again."
+            $script:alerts += 'skagent-realcall-failing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+            return 'backend-down'
+        }
+        if ($failures -lt $SkAgentRealCallFailThreshold) {
+            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call fails ($($real.Detail)) — failure $failures/$SkAgentRealCallFailThreshold, sk-agent answers on its own port (HTTP $backendStatus), waiting for the next tick."
+            return 'realcall-failing'
+        }
+        $minutesSinceRouteRepair = ((Get-Date) - $lastRouteRepairAt).TotalMinutes
+        if ($minutesSinceRouteRepair -lt $RouteRepairCooldownMin) {
+            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call has failed $failures ticks in a row while sk-agent answers, but TBXark was restarted $([math]::Round($minutesSinceRouteRepair,0)) min ago (< $RouteRepairCooldownMin) — waiting, not restarting"
+            $script:alerts += 'skagent-realcall-failing-restart-on-cooldown'
+            return 'cooldown'
+        }
+        if ((Get-RunSecondsLeft) -lt $RouteRepairWorstCaseSec) {
+            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call has failed $failures ticks in a row while sk-agent answers, but a TBXark restart needs ${RouteRepairWorstCaseSec}s and $([int](Get-RunSecondsLeft))s are left before the task's time limit — deferring to the next tick."
+            $script:alerts += 'skagent-realcall-failing-restart-deferred: not enough run time left'
+            return 'deferred'
+        }
+        Write-Log 'WARN' "sk-agent route answered initialize 200 for $failures consecutive ticks while the real call fails ($($real.Detail)) and sk-agent answers on its own port (HTTP $backendStatus) — restarting TBXark alone."
+        if ($Mode -eq 'dry-run') {
+            Write-Log 'INFO' 'DRY-RUN: would docker restart myia-mcp-proxy (TBXark only, sk-agent real call)'
+            return 'dry-run'
+        }
+        & docker restart myia-mcp-proxy 2>&1 | Out-Null
+        $script:repairs += 'tbxark-restart(skagent-real-call-failing)'
+        # Written before the wait, as in 3b: a run cut by the task limit must
+        # still arm the shared cooldown.
+        @{ lastRouteRepairAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $routeRepairStateFile -Encoding utf8
+        # The repair consumed the failure count: reset it so the cooldown
+        # window that follows does not re-fire on the first re-failing tick.
+        @{ consecutiveFailures = 0; lastOkLogAt = $skAgentRealCallLastOkLogAt.ToString('o') } | ConvertTo-Json |
+            Set-Content -Path $skAgentRealCallStateFile -Encoding utf8
+        # Verified on the REAL call — an initialize-200 verify would confirm
+        # nothing here, it is exactly the signal that stayed green for 12 h.
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        while ($true) {
+            if ((Get-RunSecondsLeft) -lt ($SkAgentProbeTimeoutSec + 10)) {
+                $script:deferredVerifications += 'skagent-realcall-repair-unverified: run budget ended before the real call answered — next tick re-probes (repair recorded)'
+                Write-Log 'WARN' "TBXark-only restart done for the real-call route, which has not answered yet — verdict deferred to the next tick."
+                return 'unverified'
+            }
+            $after = Invoke-SkAgentRouteRealCall -Url $SkAgentRouteUrl -Bearer $bearer -TimeoutSec $SkAgentProbeTimeoutSec
+            if ($after.Ok) {
+                Write-Log 'OK' "sk-agent route real call back after a TBXark-only restart ($([int]$sw.Elapsed.TotalSeconds)s)"
+                return 'recovered'
+            }
+            if ($sw.Elapsed.TotalSeconds -ge $SkAgentVerifyCapSec) { break }
+            Start-Sleep -Seconds $SkAgentVerifyIntervalSec
+        }
+        Write-Log 'ERROR' "sk-agent route real call STILL FAILING after TBXark-only restart (initialize $($after.InitStatus), tools/call $($after.CallStatus))"
+        $script:alerts += "skagent-realcall-still-failing-after-tbxark-restart: init-$($after.InitStatus)-call-$($after.CallStatus)"
+        return 'still-failing'
+    }
     if ($routeStatus -ne 404) {
         Write-Log 'WARN' "sk-agent route through TBXark answered HTTP $routeStatus — not a missing route, nothing to repair here."
         return 'not-404'
@@ -806,6 +967,21 @@ $routeRepairStateFile = Join-Path $LogDir 'route-repair-state.json'
 $lastRouteRepairAt = [datetime]::MinValue
 if (Test-Path $routeRepairStateFile) {
     try { $lastRouteRepairAt = [datetime](Get-Content $routeRepairStateFile -Raw | ConvertFrom-Json).lastRouteRepairAt } catch { }
+}
+# 3d real-call state (#4197): consecutive failures of the tools/call probe and
+# the last hourly 'ok' log. Own file, deliberately NOT inside
+# route-repair-state.json: 3b and 3d both rewrite that one wholesale for the
+# shared cooldown, and a counter they clobber on every repair would not survive
+# the cooldown window it is meant to cover.
+$skAgentRealCallStateFile = Join-Path $LogDir 'skagent-realcall-state.json'
+$skAgentRealCallFailures = 0
+$skAgentRealCallLastOkLogAt = [datetime]::MinValue
+if (Test-Path $skAgentRealCallStateFile) {
+    try {
+        $rcState = Get-Content $skAgentRealCallStateFile -Raw | ConvertFrom-Json
+        $skAgentRealCallFailures = [int]$rcState.consecutiveFailures
+        $skAgentRealCallLastOkLogAt = [datetime]$rcState.lastOkLogAt
+    } catch { }
 }
 
 $result = Test-E2E
