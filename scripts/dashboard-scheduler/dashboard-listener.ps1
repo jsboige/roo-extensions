@@ -647,7 +647,23 @@ function Read-DashboardMessages($ws) {
     # ci-dessous, inchange.
     $pg = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--workspace', $ws)
     if ($null -ne $pg -and $pg.mode -eq 'messages') {
-        return @($pg.messages)
+        # Review c.556 (mesure) : sous pwsh 7 — le runtime de prod
+        # (Claude-DashboardListener.vbs lance pwsh.exe, pas powershell.exe) —
+        # ConvertFrom-Json deserialise les ISO-8601 en [DateTime] (Kind=Utc),
+        # alors que le chemin fichier rend des STRING. Le consommateur l.~900
+        # fait [DateTime]::Parse($msg.timestamp) : sur un DateTime, PowerShell
+        # le stringifie en invariant ("10/14/2026 18:00:00") que Parse relit en
+        # culture courante -> FormatException sous fr-FR, avalée par le catch
+        # de la boucle -> filtre lastAck contourne (re-fire des WAKE stale) et
+        # Set-LastAck persiste ce format illisible. Normaliser au bord pour
+        # garantir la shape STRING ISO des deux cotes, sur les deux runtimes.
+        return @($pg.messages | ForEach-Object {
+            [pscustomobject]@{
+                timestamp = if ($_.timestamp -is [datetime]) { $_.timestamp.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'") } else { [string]$_.timestamp }
+                content   = $_.content
+                author    = $_.author
+            }
+        })
     }
     $dashboardFile = Join-Path $SharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) { return @() }
