@@ -23,7 +23,7 @@ Canon = template `sk_agent_config.template.json` (42 agents). **Toujours `list_a
 
 | Besoin | Agent | Modèle | Ordre de grandeur mesuré |
 |---|---|---|---|
-| **Pré-review de PR** (mandat flotte 07/10) | `coder` **sans outils**, diff **collé dans le prompt** | swift no-thinking (local) | 18 s (ai-01) à ~45 s (po-2023), utile | 
+| **Pré-review de PR** (mandat flotte 07/10) | `coder` **sans outils**, diff **collé dans le prompt** | swift no-thinking (local) | 18 s (ai-01) à ~45 s (po-2023), utile |
 | Vision (image, PDF, capture) | `vision-analyst` / `vision-local` | swift-1.5-27b (**jamais le hub**, il strip les images — #794) | — |
 | Résumé / classification / formatage local | `summarizer-local`, `classifier-local`, `formatter-local` | swift no-thinking | secondes |
 | Diagnostic code mono-fichier | `coder` outillé (shell+repo) | swift no-thinking | boucle d'outils — budget ≥ 240 s |
@@ -57,11 +57,12 @@ Conséquence pratique pour un siège hors LAN : utilisez les agents **swift et o
 5. **Le conteneur n'exécute pas les agents disque** (volet B non tranché) : voir tableau transports.
 6. **Vision jamais via le hub** (#794) : le hub strip les `image_url` avant z.ai. Vision = swift local ou OWUI.
 7. **Le mini brûle son budget en reasoning** : `thinking:false` + `max_tokens` 4096 (plancher mesuré) sont portés par la config, pas par les presets — ne les surchargez pas à la baisse.
-8. **Récursion validée 2 niveaux en technique** (`swift-delegator`, swift→swift) ; la **délégation medium→mini n'est pas encore éprouvée** (volet C pending). Attendez-vous à ce qu'un mini délégué échoue silencieusement en sortie vide si le budget est rogné.
+8. **Récursion medium→mini : mécanisme éprouvé, économies non acquises** (banc 3 runs, po-2025 14/10 : Swift seul 66,8 s / 13,3 K tok vs `swift-delegator` 308,5 s / 30,1 K tok, qualité identique 9/9). Sans consigne de découpe explicite, le délégateur **échoue** (3 tours saturés en reasoning → réponse vide, 37 K tok brûlés). Déléguer au mini se justifie sur des charges massives de lecture/recalcul, jamais « par défaut ».
+9. **Le paramètre d'appel est `agent`, pas `agent_id`** — un paramètre inconnu est ignoré silencieusement et c'est l'agent **par défaut** qui répond. Vérifiez `model_used`/l'agent servi avant de conclure quoi que ce soit d'un appel « réussi ».
 
 ## Recette — pré-review de PR (la plus utilisée)
 
-```
+```text
 call_agent(agent="coder", system_prompt="Tu relis un diff. Réponds: findings numérotés + sévérité (MINOR/MAJOR) + pourquoi. Pas de reformulation du diff.",
            prompt="<le diff complet collé ici>", timeout=240)
 ```
