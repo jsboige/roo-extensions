@@ -192,12 +192,26 @@ Ranked by impact/effort ratio:
 
 Les trois bras produisent la même correction fonctionnelle : `ROUND_HALF_UP`, `monthly_summary()` (clés issues des entrées, quantification 2 dp HALF_UP), borne `end` inclusive. Diffs quasi identiques (+13 à +15 lignes).
 
+**Lecture hub-side des fenêtres ci-dessus** (télémétrie claudish, corrélation ancrée `[ttft]`, 32/32 requêtes matchées, résidu < 1,5 s — lecture po-2025:CoursIA, 14/10) :
+
+| Machine tag | Reqs | Servies (upstream) | Bytes | Stops |
+|---|---|---|---|---|
+| `bench2416-claude` | 8 | glm-5.3 ×8 | 172 216 | tool_use 6, end_turn 2 |
+| `bench2416-dsh` | 16 | glm-5.3 ×16 | 491 632 | tool_use 12, end_turn 2, max_tokens 2 |
+| `bench2416-omp` | 7 | glm-5.3 ×7 | 58 977 | tool_use 6, end_turn 1 |
+| `bench2416-probe` (contrôle) | 1 | frognano-4b ×1 | 942 | end_turn 1 |
+| **Total** | **32** | **0 remap** | **723 767** | |
+
+Zéro remap : les 31 requêtes glm-5.3 ont toutes été servies glm-5.3 (upstream openai-compat) — le banc a bien comparé les trois harness sur le **même modèle servi**. Le volume dsh (16 reqs / 491 Ko) reflète son churn sandbox/approval (cf. 11.3.1) ; omp est le plus économe en volume (7 reqs / 59 Ko).
+
+Deux réserves de méthode sur la télémétrie elle-même : le champ `ms` des lignes `[resp]` mesure ttft→close (pas la latence totale — une corrélation naïve y attribue les réponses d'un autre trafic flotte au bench) ; `[ttft] headers=` (~0-3 ms systématiques) ne mesure pas un vrai TTFT réseau — à ne pas citer comme tel sans clarification hub-side.
+
 ### 11.3 Observations qualitatives (mesurées, n=1)
 
 1. **dsh n'a pas pu s'auto-vérifier** : son sandbox headless a refusé l'exécution des tests (`grantWrite` / `SetNamedSecurityInfoW failed (Win32 5)` ; « approval was requested but no approval channel is available »). Le code livré était néanmoins correct — validé par le grading externe. Sur ce task, le mode approval par défaut de dsh **n'aboutit pas** en headless sur Windows sans canal d'approbation ; claude (`bypassPermissions`) et omp (`yolo`) n'ont pas cette friction.
 2. **Claude Code ne route pas un modèle arbitraire via `--model`** : `--model glm-5.3` → fallback haiku silencieux (`[claude-code:unrecognized_model]`). Le routage passe par le mapping des trois rôles (`ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL=glm-5.3`) + `--model sonnet` — vérifié par `modelUsage` ne contenant que `glm-5.3`.
 3. **omp est le plus rapide en wall clock** (46 s) avec l'overhead d'agent minimal ; claude 67 s pour 9 turns ; dsh 136 s dont une part significative en tentatives sandbox/approval.
-4. **Coût token** : omp et dsh n'exposent pas d'usage en sortie ; la consommation réelle des trois bras se lit côté hub (`claudish_traffic`, tags `bench2416-*`, fenêtres §11.2) — à rapatrier par ai-01.
+4. **Coût token** : omp et dsh n'exposent pas d'usage en sortie côté client ; la consommation réelle est lue hub-side (table §11.2 : 32/32 requêtes, 723 767 bytes au total, 0 remap). Côté client seul claude rapporte des tokens (in 4 740 / out 1 050 / cacheRead 83 200).
 
 ### 11.4 Limites
 
