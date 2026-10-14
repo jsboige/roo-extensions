@@ -402,10 +402,88 @@ function Add-EscalatedKey($keyFile, $key, $keepDays) {
     [System.IO.File]::WriteAllText($keyFile, ($kept -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
 }
 
+# ========== G-C #4131 : IO DASHBOARD PG-FIRST VIA LES CLI DU SUBMODULE ==========
+# Les 4 sites d'IO dashboard (decouverte, lecture intercom, poll, append
+# d'escalade) passent D'ABORD par les scripts .mjs du submodule RSM (journal PG,
+# dual-write, verrou append cross-process). Fail-open partout : un appel CLI qui
+# echoue (node absent, submodule absent, PG-UNREACHABLE exit 1, usage exit 2)
+# rend $null et le site retombe sur son chemin fichier existant, inchange — le
+# listener ne doit jamais devenir PLUS dependent de PG qu'il ne l'etait de GDrive.
+
+$script:RsmScriptsDirCache = $null
+
+function Get-RsmScriptsDir {
+    # Resolution (une fois, cachee) : RSM_SERVER_ROOT env > submodule sibling du
+    # depot qui porte ce script. Retourne "" si introuvable -> repli fichier.
+    if ($null -ne $script:RsmScriptsDirCache) { return $script:RsmScriptsDirCache }
+    $candidates = @()
+    if (-not [string]::IsNullOrEmpty($env:RSM_SERVER_ROOT)) { $candidates += $env:RSM_SERVER_ROOT }
+    $candidates += [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\mcps\internal\servers\roo-state-manager"))
+    foreach ($c in $candidates) {
+        if ((Test-Path (Join-Path $c "scripts\rsm-dashboard-intercom.mjs")) -and
+            (Test-Path (Join-Path $c "scripts\rsm-dashboard-append.mjs"))) {
+            $script:RsmScriptsDirCache = Join-Path $c "scripts"
+            return $script:RsmScriptsDirCache
+        }
+    }
+    Write-Log "DEBUG" "RSM CLI dir not found (PG-first IO disabled, file paths only)."
+    $script:RsmScriptsDirCache = ""
+    return ""
+}
+
+function Invoke-RsmCliJson($scriptName, $cliArgs) {
+    # Appelle un CLI .mjs du submodule, rend le JSON stdout parse ou $null
+    # (fail-open, repli fichier garanti par le caller). Exit CLI : 0 ok ·
+    # 1 PG-UNREACHABLE · 2 usage — les deux replient pareil : le listener
+    # continue sur son chemin fichier d'origine.
+    $dir = Get-RsmScriptsDir
+    if ($dir -eq "") { return $null }
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -eq $node) { return $null }
+    $out = & $node.Source (Join-Path $dir $scriptName) @cliArgs 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "DEBUG" "RSM CLI $scriptName exit $LASTEXITCODE (repli fichier)."
+        return $null
+    }
+    try { return (($out -join "`n") | ConvertFrom-Json) } catch { return $null }
+}
+
+# Carte du tick de poll : ws -> ISO du dernier message vivant (site 3), ou $null
+# tant qu'aucun tick PG n'a reussi (Get-DashboardFileLWT garde alors le mtime).
+$script:PollMaxCreatedCache = $null
+
+function Update-PollMaxCreatedCache($workspaces) {
+    # G-C #4131 site 3 : poll GROUPE — une seule requete --max-created pour tous
+    # les ws du tick (le SQL agrege par dashboard_key). Les valeurs sont des ISO
+    # strings (ou $null = aucun message vivant) ; le repli mtime rend des DateTime.
+    # Un flip de source entre deux ticks declenche au pire un re-traitement
+    # idempotent (filtrage lastAck rejoue sans effet de bord) — jamais une perte.
+    if ($null -eq $workspaces -or @($workspaces).Count -eq 0) { $script:PollMaxCreatedCache = @{}; return }
+    $pg = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--max-created', (@($workspaces) -join ','))
+    if ($null -ne $pg -and $pg.mode -eq 'max-created') {
+        $map = @{}
+        foreach ($p in $pg.maxCreatedAt.PSObject.Properties) { $map[$p.Name] = $p.Value }
+        $script:PollMaxCreatedCache = $map
+    } else {
+        $script:PollMaxCreatedCache = $null
+    }
+}
+
 function Write-MachineDashboardMessage($dashboardFile, $machineId, $content) {
     # Append Intercom canonique (meme forme que le FLEET-ALERT de check-all-listeners.ps1) :
     # ### [ts] auteur / [msg: id] / contenu. Dashboard MACHINE uniquement — le contrat
     # d'escalade (#3761 condition 1) interdit global et interdit ERROR.
+    #
+    # G-C #4131 site 4 : l'escalade passe D'ABORD par le CLI append du build
+    # servi (dual-write journal PG + fichier, verrou append cross-process,
+    # #3761 condition 1 par construction : machine uniquement, [ERROR] refuse,
+    # auteur <machine>|listener). Repli : l'ecriture fichier directe ci-dessous,
+    # inchangee (node/submodule absent, PG-UNREACHABLE, echec d'ecriture).
+    $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $machineId, '--content', $content)
+    if ($null -ne $cli -and $cli.ok -eq $true) {
+        return [string]$cli.messageId
+    }
+    # --- repli fichier (chemin d'avant le re-cablage, inchange) ---
     $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
     $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
     # Stamp a la seconde (pas la minute) : deux escalades la meme minute ne se
@@ -545,6 +623,13 @@ function Resolve-Workspaces {
         Write-Log "INFO" "Using DASHBOARD_WATCHER_WORKSPACES: $envWs"
         return $envWs -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     }
+    # G-C #4131 site 1 : decouverte PG d'abord (le listing GDrive meurt avec
+    # DriveFS, incident fondateur de #4131) — le journal connait les workspaces
+    # qui ont deja publie. Repli : le listing workspace-*.md ci-dessous, inchange.
+    $pg = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--discover')
+    if ($null -ne $pg -and $pg.mode -eq 'discover') {
+        return @($pg.workspaces | ForEach-Object { [string]$_ } | Where-Object { $_ -ne "" })
+    }
     # Auto-discover from dashboards directory
     $dbDir = Join-Path $SharedPath "dashboards"
     if (-not (Test-Path $dbDir)) { return @() }
@@ -555,6 +640,15 @@ function Resolve-Workspaces {
 # ========== DASHBOARD PARSING ==========
 
 function Read-DashboardMessages($ws) {
+    # G-C #4131 site 2 : journal PG d'abord — rowToListenerMessage (CLI) rend
+    # la MEME shape que le parseur fichier (timestamp/content/author.machineId/
+    # author.workspace, ordre chronologique ASC), donc Invoke-ProcessWorkspace
+    # et le routage WAKE restent inchanges. Repli : le parse markdown
+    # ci-dessous, inchange.
+    $pg = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--workspace', $ws)
+    if ($null -ne $pg -and $pg.mode -eq 'messages') {
+        return @($pg.messages)
+    }
     $dashboardFile = Join-Path $SharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) { return @() }
 
@@ -1168,6 +1262,15 @@ $lastWriteCache = @{}
 $script:lastPollPathWarnAt = [DateTime]::MinValue
 function Get-DashboardFileLWT {
     param([string]$DashboardDir, [string]$Workspace)
+    # G-C #4131 site 3 : la carte PG du tick d'abord (dernier message vivant,
+    # maj une fois par tick par Update-PollMaxCreatedCache). Semantique plus
+    # juste que le mtime fichier : une condensation (archivage) change le
+    # fichier sans ajouter de message — le poll PG ne re-declenche pas une
+    # re-lecture fantome. $null dans la carte = aucun message vivant = rien
+    # a faire (equivalent fichier absent). Repli : le mtime fichier ci-dessous.
+    if ($null -ne $script:PollMaxCreatedCache -and $script:PollMaxCreatedCache.ContainsKey($Workspace)) {
+        return $script:PollMaxCreatedCache[$Workspace]
+    }
     $path = $null
     try { $path = Join-Path $DashboardDir "workspace-$Workspace.md" } catch { $path = $null }
     if ([string]::IsNullOrEmpty($path)) {
@@ -1184,6 +1287,9 @@ function Get-DashboardFileLWT {
     return $null
 }
 
+# G-C #4131 site 3 (seed) : la carte PG du premier tick se construit AVANT le
+# seed du cache mtime — le poll et son seed doivent lire la meme source.
+Update-PollMaxCreatedCache $wsList
 foreach ($ws in $wsList) {
     $lwt = Get-DashboardFileLWT $dashboardDir $ws
     if ($null -ne $lwt) { $lastWriteCache[$ws] = $lwt }
@@ -1297,6 +1403,9 @@ try {
         # Fallback polling: check LastWriteTime every $PollIntervalSeconds
         if (($now - $lastPollTime).TotalSeconds -ge $PollIntervalSeconds) {
             $lastPollTime = $now
+            # G-C #4131 site 3 : une requete PG groupee par tick, avant les
+            # comparaisons (Get-DashboardFileLWT consulte la carte du tick).
+            Update-PollMaxCreatedCache $wsList
             foreach ($ws in $wsList) {
                 $currentLWT = Get-DashboardFileLWT $dashboardDir $ws
                 if ($null -ne $currentLWT) {
