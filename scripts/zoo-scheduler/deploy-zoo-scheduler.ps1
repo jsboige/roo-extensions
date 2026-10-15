@@ -19,7 +19,7 @@
 .EXAMPLE
     .\deploy-zoo-scheduler.ps1
     .\deploy-zoo-scheduler.ps1 -WhatIf
-    .\deploy-zoo-scheduler.ps1 -VsixPath D:\packages\zoo-scheduler-0.0.11-zoo.3.vsix -SkipBuild
+    .\deploy-zoo-scheduler.ps1 -VsixPath D:\packages\zoo-scheduler-0.0.11-zoo.4.vsix -SkipBuild
 #>
 param(
     [string]$VsixPath = "",
@@ -33,7 +33,7 @@ $ErrorActionPreference = "Stop"
 $ZooExtId = "zoocodeorganization.zoo-code"
 $RooSchedulerId = "kylehoskins.roo-scheduler"
 $ZooSchedulerId = "jsboige.zoo-scheduler"
-$VsixName = "zoo-scheduler-0.0.11-zoo.3.vsix"
+$VsixName = "zoo-scheduler-0.0.11-zoo.4.vsix"
 
 function Write-Step([string]$msg) {
     Write-Host ""
@@ -175,6 +175,14 @@ if (-not $WhatIf) {
                 Write-Host "[OK] No hardcoded endpoints in scheduler (zero-config routing)" -ForegroundColor Green
             } else {
                 Write-Host "[WARN] Hardcoded endpoints still present" -ForegroundColor Yellow
+            }
+
+            # Verify getLastActivityTimeForActiveTask() mtime fallback (#4025 Replace 6)
+            $getLastFixed = $content.Contains("activity unknown")
+            if ($getLastFixed) {
+                Write-Host "[OK] getLastActivityTimeForActiveTask() mtime fallback active (#4025 Replace 6)" -ForegroundColor Green
+            } else {
+                Write-Host "[WARN] getLastActivityTimeForActiveTask() mtime fallback not detected" -ForegroundColor Yellow
             }
         }
     }
