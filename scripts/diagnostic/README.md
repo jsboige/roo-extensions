@@ -79,6 +79,25 @@ Get-ChildItem ~/.claude/projects/*/*.jsonl | ForEach-Object {
 
 Les deux outils sont **complémentaires**, pas redondants : le scanner Python fait le balayage de masse (exit codes CI-friendly), le script PowerShell est l'analyseur forensic d'un transcript précis (sortie structurée pour triage).
 
+### `scan-approval-waits.py`
+
+Instrument **côté transcript** des attentes d'approbation malgré bypass (#4214, mandat user 15/10). Apparie chaque `tool_use` Bash/PowerShell avec son `tool_result` dans `~/.claude/projects/**/*.jsonl` : entre les deux il n'y a **aucune génération modèle** (l'appel API suivant n'a lieu qu'après retour du résultat), donc l'écart = attente d'approbation + exécution + overhead client. Complément de `tool-gap.py` côté hub (claudish#474) : le hub voit l'écart mais pas la ligne de prompt ; le transcript porte la commande et sa forme.
+
+- **Formes classifiées :** `composed-cd` (composé commençant par `cd` — forme dominante flotte, médiane 121 s des deux côtés), `composed`, `rm-rf`, `wsl`, `elevated`, `multiline`, `plain`.
+- **Déduplication resume :** mêmes uuids re-appendés = copies, sautées (comptées `rewritten nodes`) — même ground truth que scan-duplicate-tool-use.py.
+- **Limite explicite :** l'écart ne départage PAS approbation vs exécution (un `npx vitest run` de 320 s est une exécution) — le départage est le rôle du corpus headless (volet 2 de #4214).
+
+```powershell
+# Fenêtre 24 h, seuil 120 s, top 30 par écart décroissant
+python scripts/diagnostic/scan-approval-waits.py --min-wait 120 --since-hours 24 --top 30
+
+# Sortie machine-readable — exit 0 propre / 2 findings
+python scripts/diagnostic/scan-approval-waits.py --json
+
+# Validation autonome (fixtures synthétiques)
+python scripts/diagnostic/scan-approval-waits.py --selftest
+```
+
 ## Compteurs mémoire
 
 ### `log-commit-charge.ps1` (#2992)
