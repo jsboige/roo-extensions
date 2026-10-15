@@ -21,11 +21,19 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 2. **Selection priority:** PRs >1000 lines OR >5 files first (bot verdict <24h required, issue #15511), then the rest.
 3. **Routes:** before scanning, read the `workspace-cluster-coordination` intercom (roosync_dashboard) and serve any pending [TASK-ROUTE]/[ROUTE] addressed to hermes-pr-review.
 
-### TIER ÂGÉ v1.1 — anti-famine par récence (#3869)
+### TIER ÂGÉ v1.1.1 — anti-famine par récence (#3869)
 
 **Constat mesuré 2026-09-26** : quand la file se remplit plus vite qu'elle ne se vide (6–10 entrées/15 min au pic), une PR dont l'activité se fige **ne peut structurellement jamais** entrer dans le top-2 par récence. La règle « roule au cycle suivant » suppose une file qui se vide.
 
-**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh pr list --state open --search ... --json number,createdAt --jq 'sort_by(.createdAt) | .[0]'`, sans fetch de reviews — budget scan inchangé).
+**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open, sans fetch de reviews — budget scan inchangé.
+
+**Amendement v1.1.1 (15/10, mesure NanoClaw ai-01) — le pool doit être SANS PLAFOND.** `gh pr list` tronque silencieusement (défaut 30 ; `--limit 200` mesuré atteint sur CoursIA à 331 PRs open — 131 omises) : un `sort_by(.createdAt) | .[0]` sur un pool tronqué rend un faux « plus ancien ». La forme prescrite est la pagination REST ordre croissant — la page 1 rend les plus anciennes en premier, plus de tri ni de plafond :
+
+```
+gh api 'repos/{owner}/{repo}/pulls?state=open&sort=created&direction=asc&per_page=100' --jq '.[0] | {number, created_at}'
+```
+
+Recouper avec le total open (`gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=1'` puis lire le header `Link: … rel="last"` page = total) : si total > 100, itérer `page=2…` — la promotion tier parcourt les pages dans l'ordre croissant jusqu'à la première éligible, jamais au-delà de la première éligible trouvée.
 
 **Éligibilité tier (toutes conditions) :**
 
