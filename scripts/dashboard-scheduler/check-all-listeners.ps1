@@ -5,7 +5,10 @@
 .DESCRIPTION
     Designed to run as a cron worker (every 2h). For each known machine in the fleet:
     1. SSH or check local listener heartbeat
-    2. Report status on dashboard workspace
+    2. Report [FLEET-ALERT] on the MACHINE dashboard of the detector
+       (G-C #4131 étape 3, arbitrage ai-01 14/10 option a — via the submodule
+       RSM CLI first: dual-write journal PG + file, append lock, format at the
+       store; direct file write as fallback)
     3. Trigger auto-repair via repair-wake-listener.ps1 if listener is DEAD
 
     This implements the "alerting proactif" recommendation from #2576:
@@ -47,8 +50,6 @@ param(
 
 $ErrorActionPreference = "Continue"
 
-$scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
-$RepoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $nowUtc = (Get-Date).ToUniversalTime()
 
 # Default fleet: all known machines
@@ -135,6 +136,55 @@ Write-Output ""
 Write-Output "Total: $($results.Count) machines checked, $totalDead STALE/DEAD."
 Write-Output ""
 
+# ========== G-C #4131 étape 3 : IO DASHBOARD VIA LES CLI DU SUBMODULE ==========
+# Mêmes helpers que dashboard-listener.ps1 (sites 1-4, #4203) — duplication
+# documentée, convergence à la prochaine évolution du listener. Fail-open :
+# un appel CLI qui échoue (node absent, submodule absent, exit 1 échec
+# d'écriture, exit 2 usage) rend $null et l'alerte retombe sur l'écriture
+# fichier directe ci-dessous — l'alerte ne doit jamais se perdre.
+
+$script:RsmScriptsDirCache = $null
+
+function Get-RsmScriptsDir {
+    # Résolution (une fois, cachée) : RSM_SERVER_ROOT env > submodule sibling du
+    # dépôt qui porte ce script. Retourne "" si introuvable -> repli fichier.
+    if ($null -ne $script:RsmScriptsDirCache) { return $script:RsmScriptsDirCache }
+    $candidates = @()
+    if (-not [string]::IsNullOrEmpty($env:RSM_SERVER_ROOT)) { $candidates += $env:RSM_SERVER_ROOT }
+    $candidates += [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\mcps\internal\servers\roo-state-manager"))
+    foreach ($c in $candidates) {
+        if (Test-Path (Join-Path $c "scripts\rsm-dashboard-append.mjs")) {
+            $script:RsmScriptsDirCache = Join-Path $c "scripts"
+            return $script:RsmScriptsDirCache
+        }
+    }
+    # Write-Host (pas Write-Output) : cette fonction est assignée par ses callers
+    # (`$dir = Get-RsmScriptsDir`) — un Write-Output atterrit dans la variable de
+    # l'appelant, pas sur stdout : diagnostic invisible ET tableau au lieu du
+    # string attendu. Write-Host passe par la console, hors pipeline.
+    Write-Host "[FLEET-ALERT] RSM CLI dir not found (PG-first append disabled, file fallback only)."
+    $script:RsmScriptsDirCache = ""
+    return ""
+}
+
+function Invoke-RsmCliJson($scriptName, $cliArgs) {
+    # Appelle un CLI .mjs du submodule, rend le JSON stdout parsé ou $null
+    # (fail-open, repli fichier garanti par le caller). Exit CLI : 0 ok ·
+    # 1 échec d'écriture · 2 usage — les deux replient pareil.
+    $dir = Get-RsmScriptsDir
+    if ($dir -eq "") { return $null }
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -eq $node) { return $null }
+    $out = & $node.Source (Join-Path $dir $scriptName) @cliArgs 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        # Write-Host : voir note Get-RsmScriptsDir — le caller assigne le retour
+        # de cette fonction, un Write-Output serait capturé dans sa variable.
+        Write-Host "[FLEET-ALERT] RSM CLI $scriptName exit $LASTEXITCODE (repli fichier)."
+        return $null
+    }
+    try { return (($out -join "`n") | ConvertFrom-Json) } catch { return $null }
+}
+
 # ---------- Dashboard alert ----------
 if ($totalDead -gt 0 -and -not $NoAlert) {
     $deadMachines = @($results | Where-Object { $_.isDead } | ForEach-Object { $_.machineId })
@@ -143,33 +193,36 @@ if ($totalDead -gt 0 -and -not $NoAlert) {
     Write-Output ""
     Write-Output $warnContent
 
-    # Write alert to shared workspace dashboard — canonical path: $ROOSYNC_SHARED_PATH/dashboards/
-    # The previous sink (.claude/workspaces/) was dead code: directory exists on no machine,
-    # is versioned nowhere, and is not where shared dashboards live. (#2952)
+    # G-C #4131 étape 3 (arbitrage ai-01 14/10, option a) : l'alerte vit sur le
+    # dashboard MACHINE du détecteur, plus sur le dashboard workspace — c'était
+    # la 2ᵉ implémentation dérivante du format d'écriture que l'étape supprime.
+    # Primaire : rsm-dashboard-append.mjs (dual-write journal PG + fichier,
+    # verrou append cross-process, compteur/pluralisation/seed délégués au
+    # store, #3761 condition 1 par construction : machine uniquement, [ERROR]
+    # refusé, auteur <machine>|listener). Repli : écriture fichier directe
+    # ci-dessous, mêmes conventions que Write-MachineDashboardMessage
+    # (dashboard-listener.ps1 site 4). Le lecteur suit l'alerte :
+    # .claude/commands/coordinate.md lit le dashboard machine au démarrage.
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     $localMachineId = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }
-    # Derive canonical workspace name from git remote (not directory name — wrong in worktrees)
-    $workspaceName = Split-Path $RepoRoot -Leaf
-    try { if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path "$RepoRoot/.git" -PathType Any)) {
-        $remoteUrl = & git -C $RepoRoot remote get-url origin 2>$null
-        if ($remoteUrl -match '/([^/]+?)(\.git)?$') { $workspaceName = $Matches[1] }
-    } } catch { }
 
     if (-not $sharedPath) {
         Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set — alert on stdout only (no dashboard write)."
     } else {
         try {
             $sharedDashDir = Join-Path $sharedPath "dashboards"
-            $sharedDashFile = Join-Path $sharedDashDir "workspace-$workspaceName.md"
+            $machineDashFile = Join-Path $sharedDashDir "machine-$localMachineId.md"
 
             # Anti-spam: cooldown — skip if we already alerted for overlapping dead machines within 6h.
-            # Prevents flooding Intercom on long outages (cron 2h × detecting machines × outage duration).
+            # Prevents flooding on long outages (cron 2h × outage duration). Étape 3 : les alertes
+            # vivant sur le dashboard machine du détecteur, le cooldown scanne CE fichier (le
+            # workspace partagé ne les reçoit plus — le scanner serait structurellement vide).
             $cooldownHours = 6
             $cooldownCutoff = $nowUtc.AddHours(-$cooldownHours)
             $shouldAlert = $true
 
-            if (Test-Path $sharedDashFile) {
-                $existingRaw = Get-Content $sharedDashFile -Raw -Encoding UTF8
+            if (Test-Path $machineDashFile) {
+                $existingRaw = Get-Content $machineDashFile -Raw -Encoding UTF8
                 # Match prior FLEET-ALERT messages — require [FLEET-ALERT] as first content line
                 # (after [msg:] marker + blank line) to avoid false-positives on reports that quote alerts
                 $alertRe = '(?m)^### \[([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z)\][^\r\n]*\r?\n(?:\[msg:[^\r\n]*\r?\n)?\r?\n\[FLEET-ALERT\][^\r\n]*Machines affected:\s*([^\r\n.]+)'
@@ -190,36 +243,46 @@ if ($totalDead -gt 0 -and -not $NoAlert) {
             }
 
             if ($shouldAlert) {
-                # Build canonical Intercom message format (matches roosync_dashboard append schema)
-                $timestamp = $nowUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
-                $msgId = $localMachineId + ':' + $workspaceName + ':ic-' + $nowUtc.ToString('yyyyMMddTHHmm') + '-' + $randSuffix
-                $newMessage = "`r`n### [$timestamp] $localMachineId|$workspaceName`r`n[msg: $msgId]`r`n`r`n$warnContent`r`n"
-
-                if (-not (Test-Path $sharedDashDir)) {
-                    New-Item -ItemType Directory -Path $sharedDashDir -Force | Out-Null
-                }
-
-                if (Test-Path $sharedDashFile) {
-                    $content = Get-Content $sharedDashFile -Raw -Encoding UTF8
-                    $content = $content.TrimEnd() + "`r`n" + $newMessage
-                    # Bump du compteur + pluralisation (même fix que Write-MachineDashboardMessage,
-                    # #4124) : le MCP rend toujours "(N messages)" (dashboard.ts:1936) et le parseur
-                    # listener l'exige (l.564). Un bump chiffre-seul laisserait "(2 message)" si le
-                    # fichier avait été semé au singulier.
-                    $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', {
-                        param($m); ([int]$m.Value + 1).ToString()
-                    })
-                    $content = [regex]::Replace($content, '(## Intercom \(\d+) message\)', '$1 messages)')
+                # Primaire (étape 3) : append par le CLI du build servi — même
+                # sérialisation et dual-write que l'hôte MCP, auteur
+                # <machine>|listener, format/verrou/compteur au store.
+                $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $localMachineId, '--content', $warnContent)
+                if ($null -ne $cli -and $cli.ok -eq $true) {
+                    Write-Output "[FLEET-ALERT] Posted [WARN] to machine dashboard via RSM CLI (key $($cli.key), messageId $($cli.messageId), pgSynced=$($cli.pgSynced))"
                 } else {
-                    # Dashboard doesn't exist — create minimal file. Seed au PLURIEL
-                    # "(1 messages)" : convention du MCP (dashboard.ts:1936) et exigence du
-                    # parseur listener (l.564) — même règle que Write-MachineDashboardMessage.
-                    $content = "---`r`ntype: workspace`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: $workspaceName`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
-                }
+                    # --- repli fichier (conventions Write-MachineDashboardMessage, inchangées) ---
+                    $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                    $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
+                    # Stamp à la seconde (pas la minute) : deux escalades la même minute ne se
+                    # distinguent que par les 4 aléas sinon (parité #4124).
+                    $msgId = $localMachineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $randSuffix
+                    $newMessage = "`r`n### [$timestamp] $localMachineId|listener`r`n[msg: $msgId]`r`n`r`n$warnContent`r`n"
 
-                [System.IO.File]::WriteAllText($sharedDashFile, $content, [System.Text.UTF8Encoding]::new($false))
-                Write-Output "[FLEET-ALERT] Posted [WARN] to $sharedDashFile"
+                    if (-not (Test-Path $sharedDashDir)) {
+                        New-Item -ItemType Directory -Path $sharedDashDir -Force | Out-Null
+                    }
+
+                    if (Test-Path $machineDashFile) {
+                        $content = Get-Content $machineDashFile -Raw -Encoding UTF8
+                        $content = $content.TrimEnd() + "`r`n" + $newMessage
+                        # Bump du compteur + pluralisation (même fix que Write-MachineDashboardMessage,
+                        # #4124) : le MCP rend toujours "(N messages)" (dashboard.ts:1936) et le parseur
+                        # listener l'exige. Un bump chiffre-seul laisserait "(2 message)" si le
+                        # fichier avait été semé au singulier.
+                        $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', {
+                            param($m); ([int]$m.Value + 1).ToString()
+                        })
+                        $content = [regex]::Replace($content, '(## Intercom \(\d+) message\)', '$1 messages)')
+                    } else {
+                        # Dashboard doesn't exist — create minimal file. Seed au PLURIEL
+                        # "(1 messages)" : convention du MCP (dashboard.ts:1936) — même règle
+                        # que Write-MachineDashboardMessage.
+                        $content = "---`r`ntype: machine`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
+                    }
+
+                    [System.IO.File]::WriteAllText($machineDashFile, $content, [System.Text.UTF8Encoding]::new($false))
+                    Write-Output "[FLEET-ALERT] Posted [WARN] to $machineDashFile (file fallback)"
+                }
             }
         } catch {
             # Best-effort: GDrive unavailability must never fail the probe
