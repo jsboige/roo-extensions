@@ -15,7 +15,7 @@ IIS Reverse Proxy (myia-po-2023)
     v
 myia-mcp-proxy container (port 9090) --- token auth ---
     |-- /searxng/    -> npx mcp-searxng (stdio) -> search.myia.io
-    |-- /sk-agent/   -> python sk_agent.py (stdio) -> LLM providers
+    |-- /sk-agent/   -> relais HTTP -> conteneur sk-agent :8100/mcp (depuis 22/09) -> LLM providers
     |-- /future-mcp/ -> (extensible)
 ```
 
@@ -25,7 +25,7 @@ L'image `myia-mcp-proxy:latest` etend `ghcr.io/tbxark/mcp-proxy:latest` avec :
 - Dependances Python sk-agent (semantic-kernel, openai, mcp, etc.)
 - Code source sk-agent (`/opt/sk-agent/`)
 
-Tous les MCPs tournent comme subprocesses stdio dans le meme container.
+searxng tourne en subprocess stdio dans le container. /sk-agent/ est un relais HTTP vers le conteneur sk-agent dedie :8100 (depuis le 22/09, cf. docs/harness/reference/sk-agent-usage-guide.md) ; /roo-state-manager/ relaye vers le service host (mcp-proxy-host.md).
 
 ## Setup rapide (myia-ai-01)
 
@@ -119,7 +119,7 @@ Alternative (clients sans support headers) : token dans l'URL :
 
 - **Token unique mcp-proxy** : Protege l'acces a TOUS les MCPs (searxng + sk-agent)
 - **HTTPS** : Chiffrement via reverse proxy IIS
-- sk-agent tourne en subprocess stdio interne, pas expose directement
+- /sk-agent/ relaye vers le conteneur sk-agent :8100 (bearer SK_AGENT_API_KEY), pas expose directement sur Internet
 
 ## Reverse Proxy IIS
 
@@ -127,7 +127,7 @@ Alternative (clients sans support headers) : token dans l'URL :
 |---------|-----------|---------|-------------|-------|
 | `mcp-tools.myia.io` | 9090 | mcp-proxy (tous MCPs) | myia-po-2023 | Desactiver buffering ARR |
 
-**Note :** `skagents.myia.io` (port 8100) n'est plus necessaire. OWUI utilise `mcp-tools.myia.io/sk-agent/mcp`.
+**Note :** le domaine `skagents.myia.io` n'est plus necessaire. OWUI utilise `mcp-tools.myia.io/sk-agent/mcp` ; le port 8100 reste le port interne du conteneur sk-agent (cible du relais).
 
 ### Configuration IIS (mcp-tools.myia.io)
 
@@ -155,7 +155,7 @@ Alternative (clients sans support headers) : token dans l'URL :
 ## Stack technique
 
 - **Proxy** : [tbxark/mcp-proxy](https://github.com/tbxark/mcp-proxy) (Go, base image)
-- **sk-agent** : Python + Semantic Kernel 1.39+ (subprocess stdio)
+- **sk-agent** : conteneur dedie (docker-compose.sk-agent.yml du submodule) en streamable-http :8100, relaye par /sk-agent/
 - **SearXNG** : mcp-searxng (Node.js, via npx, subprocess stdio)
 - **Transport** : Streamable HTTP (POST JSON-RPC) vers les clients
 - **SearXNG backend** : https://search.myia.io/ (self-hosted)
