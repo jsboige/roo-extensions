@@ -25,6 +25,8 @@ L'image `myia-mcp-proxy:latest` etend `ghcr.io/tbxark/mcp-proxy:latest` avec :
 - Dependances Python sk-agent (semantic-kernel, openai, mcp, etc.)
 - Code source sk-agent (`/opt/sk-agent/`)
 
+**Etat de cette copie (mesure du 15/10, dispatch c.25)** : le Dockerfile embarque toujours deps + 5 fichiers source sk-agent vers `/opt/sk-agent/` et le compose monte `sk_agent_config.json` — le contenu de la section ci-dessus est exact. Mais depuis le 22/09 la route `/sk-agent/` du proxy est un **relais HTTP** vers le conteneur dedie `:8100/mcp` : la copie embarquee n'est consommee que par une route stdio dans `config.json` (le template montre encore stdio — config live = territoire ai-01). Elle est donc **vestigielle** tant que la config live reste en relais.
+
 searxng tourne en subprocess stdio dans le container. /sk-agent/ est un relais HTTP vers le conteneur sk-agent dedie :8100 (depuis le 22/09, cf. docs/harness/reference/sk-agent-usage-guide.md) ; /roo-state-manager/ relaye vers le service host (mcp-proxy-host.md).
 
 ## Setup rapide (myia-ai-01)
