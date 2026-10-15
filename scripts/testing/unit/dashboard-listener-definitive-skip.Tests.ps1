@@ -31,6 +31,7 @@ Describe 'Listener definitive-skip escalation (#3761 remedies 2+3)' {
         $listenerText = [System.IO.File]::ReadAllText($listenerPath)
 
         foreach ($name in @('New-EscalationEntry', 'Test-Escalated', 'Add-EscalatedKey',
+                            'Invoke-RsmCliJson', 'Get-RsmScriptsDir',
                             'Write-MachineDashboardMessage', 'Update-DailySkipCount')) {
             $definition = $ast.FindAll(
                 { param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] },
@@ -39,6 +40,14 @@ Describe 'Listener definitive-skip escalation (#3761 remedies 2+3)' {
             if (-not $definition) { throw "$name not found in $listenerPath" }
             Invoke-Expression $definition.Extent.Text
         }
+
+        # G-C #4131 site 4 : Write-MachineDashboardMessage appelle désormais
+        # Invoke-RsmCliJson (qui réside hors de la liste d'origine — review
+        # Hermes 18:16Z : CommandNotFoundException dans ce harnais). Le cache à
+        # "" court-circuite Get-RsmScriptsDir -> le repli fichier seul est
+        # exercé, comme avant le recâblage (aucun appel node ici).
+        function Write-Log { param($level, $msg) }
+        $script:RsmScriptsDirCache = ""
 
         $script:Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("t3761-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
         New-Item -ItemType Directory -Path $script:Tmp -Force | Out-Null
