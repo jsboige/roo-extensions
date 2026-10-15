@@ -25,7 +25,7 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 
 **Constat mesuré 2026-09-26** : quand la file se remplit plus vite qu'elle ne se vide (6–10 entrées/15 min au pic), une PR dont l'activité se fige **ne peut structurellement jamais** entrer dans le top-2 par récence. La règle « roule au cycle suivant » suppose une file qui se vide.
 
-**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh api 'repos/OWNER/REPO/pulls?state=open&sort=created&direction=asc&per_page=100'` — page 1 ASC = les plus anciennes d'abord, ordre serveur, sans plafond ni `sort_by` client ; sans fetch de reviews — budget scan inchangé).
+**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh api 'repos/OWNER/REPO/pulls?state=open&sort=created&direction=asc&per_page=100'` — page 1 ASC = les plus anciennes d'abord, ordre serveur, sans plafond ni `sort_by` client ; on avance de page en page jusqu'au premier éligible (a)(b)(c), le total open se recoupe via le header `Link` `rel="last"` et le STATUS consigne toute troncature ; sans fetch de reviews — budget scan inchangé).
 
 **Éligibilité tier (toutes conditions) :**
 
