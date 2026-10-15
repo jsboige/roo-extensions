@@ -64,7 +64,7 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer 
 Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est posee en cours de session.** Le user arbitre **par pull, pas par push** — le registre remplace une **interruption** par une **restitution**.
 
 1. Question -> **immediatement** le registre per-machine `user-question-registry.md` (memoire du workspace `~/.claude/projects/<hash>/memory/`, indexe dans `MEMORY.md`). Jamais dans le fil.
-2. **Fin de session** : restitution **en bloc** des ouvertes dans le rapport final.
+2. **Fin de session** : restitution **en bloc** des ouvertes dans le rapport final, **+ une entrée consolidée sur le dashboard `global`** (tag `ASK-USER`, une seule par lane et par fin de session, questions ouvertes uniquement — #4196, demande user 09/10 : le registre local reste la source de vérité, l'entrée globale est la vue mutualisée ; **zéro question ouverte = pas d'entrée**).
 3. Sans reponse, la question **survit aux reprises de cron** : represee au **cycle suivant** via `MEMORY.md`, sans se re-poster dans le fil.
 4. Champs obligatoires par entree : **ce qui est attendu du user** et **comment verifier qu'elle est morte** — sans retrait, une question repondue se re-pose indefiniment.
 5. Entree repondue -> **sort des ouvertes** (section courte « repondues »).
@@ -72,7 +72,7 @@ Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est pose
 
 **Format d'ecriture (escalade user 25/09/2026)** : phrases simples, sans jargon non explique — (1) **ce qui se passe** ; (2) **ce qui est demande** (oui/non, ou un choix a/b/c) ; (3) **ce qui arrive sans reponse** ; (4) **ce que la lane recommande** ; (5) **l'echeance** s'il y en a une. Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce qui a ete mesure.**
 
-Cablage : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
+Cablage : le tag signale (`ASK` dashboard, `[ASK USER]`, `ASK-USER` sur le global en fin de session, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent (l'entree globale est une VUE du registre, reconstruite a chaque fin de session, jamais un second etat). [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
 
 ### Quand le user engage la conversation — réponses intermédiaires (mandat user 26/09)
 
