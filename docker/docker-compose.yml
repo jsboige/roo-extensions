@@ -2,7 +2,9 @@
 # Single container serving all MCPs via SSE on port 9090
 #
 # mcp-proxy runs tbxark/mcp-proxy extended with sk-agent Python deps.
-# SearXNG and sk-agent both run as stdio subprocesses inside the container.
+# SearXNG runs as a stdio subprocess inside the container; /sk-agent/ is an HTTP
+# relay to the dedicated sk-agent container :8100/mcp (since 22/09) — the baked-in
+# /opt/sk-agent/ copy is vestigial while the live config stays on the relay.
 #
 # Usage:
 #   docker compose build --no-cache   # Rebuild after code changes
