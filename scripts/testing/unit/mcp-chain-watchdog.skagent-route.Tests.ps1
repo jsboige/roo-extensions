@@ -41,6 +41,7 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
         }
         $script:checkSource  = Get-FunctionSource 'Invoke-SkAgentRouteCheck'
         $script:statusSource = Get-FunctionSource 'Get-McpInitializeStatus'
+        $script:realCallSource = Get-FunctionSource 'Invoke-SkAgentRouteRealCall'
 
         function Get-DeclaredConst {
             param([string]$Name)
@@ -53,6 +54,8 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
         $script:declaredProbeSec           = Get-DeclaredConst 'SkAgentProbeTimeoutSec'
         $script:declaredVerifyCapSec       = Get-DeclaredConst 'SkAgentVerifyCapSec'
         $script:declaredVerifyIntervalSec  = Get-DeclaredConst 'SkAgentVerifyIntervalSec'
+        $script:declaredRealCallThreshold  = Get-DeclaredConst 'SkAgentRealCallFailThreshold'
+        $script:declaredOkLogPeriodMin     = Get-DeclaredConst 'SkAgentOkLogPeriodMin'
 
         # The main-flow line that reads the shared cooldown, verbatim.
         $m = [regex]::Match($script:content, '(?m)^[ \t]*try \{ \$lastRouteRepairAt = [^\r\n]+')
@@ -76,6 +79,9 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             param(
                 [int[]]$RouteAnswers = @(200),
                 [int]$BackendAnswer = 401,
+                [object[]]$RealCall = @(@{ Ok = $true; InitStatus = 200; CallStatus = 200; Detail = 'healthy' }),
+                [int]$RealCallFailures = 0,
+                [datetime]$RealCallLastOkLogAt = [datetime]::MinValue,
                 [string]$Mode = 'poll',
                 [datetime]$LastRouteRepairAt = [datetime]::MinValue,
                 [double[]]$RunSecondsLeft = @(250),
@@ -83,10 +89,12 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
                 [string[]]$PriorRepairs = @(),
                 [string]$RouteUrl = $script:paramDefaults['SkAgentRouteUrl'],
                 [string]$BackendUrl = $script:paramDefaults['SkAgentBackendUrl'],
-                [string]$StateFile = (Join-Path $TestDrive 'route-repair-state.json')
+                [string]$StateFile = (Join-Path $TestDrive 'route-repair-state.json'),
+                [string]$RealCallStateFile = (Join-Path $TestDrive 'skagent-realcall-state.json')
             )
             $state = [pscustomobject]@{
                 RouteProbes = 0; BackendProbes = 0; RouteBearer = $null; BackendBearer = '<never probed>'
+                RealCalls = 0; RealCallBearer = $null
                 Docker = @(); SleptSec = 0; Logs = @(); BudgetCalls = 0
             }
             $script:repairs = @($PriorRepairs)
@@ -104,6 +112,11 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             $SkAgentProbeTimeoutSec   = $script:declaredProbeSec
             $SkAgentVerifyCapSec      = if ($VerifyCapSec -lt 0) { $script:declaredVerifyCapSec } else { $VerifyCapSec }
             $SkAgentVerifyIntervalSec = $script:declaredVerifyIntervalSec
+            $SkAgentRealCallFailThreshold = $script:declaredRealCallThreshold
+            $SkAgentOkLogPeriodMin    = $script:declaredOkLogPeriodMin
+            $skAgentRealCallFailures    = $RealCallFailures
+            $skAgentRealCallLastOkLogAt = $RealCallLastOkLogAt
+            $skAgentRealCallStateFile   = $RealCallStateFile
 
             function Write-Log { param($Level, $Message) $state.Logs += "$Level $Message" }
             function Start-Sleep { param([int]$Seconds) $state.SleptSec += $Seconds }
@@ -125,6 +138,12 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
                 }
                 throw "unexpected probe URL $Url"
             }
+            function Invoke-SkAgentRouteRealCall {
+                param([string]$Url, [string]$Bearer, [int]$TimeoutSec)
+                $i = [Math]::Min($state.RealCalls, $RealCall.Count - 1); $state.RealCalls += 1
+                $state.RealCallBearer = $Bearer
+                $RealCall[$i]
+            }
 
             # Dot-sourced so the function lands in THIS scope, where the stubs above
             # shadow the real collaborators.
@@ -137,6 +156,9 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
                 BackendProbes = $state.BackendProbes
                 RouteBearer   = $state.RouteBearer
                 BackendBearer = $state.BackendBearer
+                RealCalls     = $state.RealCalls
+                RealCallBearer = $state.RealCallBearer
+                RealCallState = $(if (Test-Path $RealCallStateFile) { Get-Content $RealCallStateFile -Raw | ConvertFrom-Json } else { $null })
                 Docker        = @($state.Docker)
                 SleptSec      = $state.SleptSec
                 Logs          = @($state.Logs)
@@ -150,6 +172,7 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
 
     BeforeEach {
         Remove-Item (Join-Path $TestDrive 'route-repair-state.json') -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $TestDrive 'skagent-realcall-state.json') -ErrorAction SilentlyContinue
     }
 
     Context 'the 11/10 case: route 404, sk-agent answers on :8100' {
@@ -185,6 +208,105 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
         }
     }
 
+    Context 'the 11-12/10 case: initialize 200, tools/call fails (#4197)' {
+
+        It 'below the threshold: no restart, the failure is counted and persisted' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'tools/call failed: http-400 Missing session ID' })
+
+            $r.Verdict      | Should -Be 'realcall-failing'
+            $r.Docker.Count | Should -BeExactly 0
+            $r.BackendProbes | Should -BeExactly 1
+            ($r.Logs -join "`n") | Should -Match "failure 1/$($script:declaredRealCallThreshold)"
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 1
+        }
+
+        It 'third consecutive failure while sk-agent answers -> TBXark-only restart, verified on the REAL call' {
+            # Failure 3/3 repairs; the verification loop needs the real call to
+            # answer OK — an initialize-200 verify would confirm nothing (#4197).
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -RealCall @(
+                @{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'tools/call failed: http-400 Missing session ID' },
+                @{ Ok = $true;  InitStatus = 200; CallStatus = 200; Detail = 'healthy' }
+            )
+
+            $r.Verdict      | Should -Be 'recovered'
+            $r.Docker.Count | Should -BeExactly 1
+            $r.Docker[0]    | Should -Be 'restart myia-mcp-proxy'
+            $r.Repairs      | Should -Contain 'tbxark-restart(skagent-real-call-failing)'
+            $r.StateWritten | Should -BeTrue -Because 'the restart arms the cooldown 3b shares'
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 0 -Because 'the repair consumed the count'
+            $r.RealCalls    | Should -BeExactly 2 -Because 'probe tick + one verification call'
+            $r.Alerts.Count | Should -BeExactly 0
+        }
+
+        It 'the counter survives ticks: the next tick reads what the first wrote' {
+            $first = Invoke-Check -RouteAnswers @(200) -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+            $first.Verdict | Should -Be 'realcall-failing'
+
+            # The script's own main-flow read of skagent-realcall-state.json.
+            $skAgentRealCallStateFile = Join-Path $TestDrive 'skagent-realcall-state.json'
+            $rcState = Get-Content $skAgentRealCallStateFile -Raw | ConvertFrom-Json
+            $rcState.consecutiveFailures | Should -BeExactly 1
+
+            $second = Invoke-Check -RouteAnswers @(200) -RealCallFailures ([int]$rcState.consecutiveFailures) -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+            $second.Verdict | Should -Be 'realcall-failing'
+            $second.RealCallState.consecutiveFailures | Should -BeExactly 2
+        }
+
+        It 'real call fails but sk-agent does not answer on :8100 -> alert, no restart' {
+            $r = Invoke-Check -RouteAnswers @(200) -BackendAnswer 0 -RealCallFailures 2 -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 0; Detail = 'tools/call failed: http-0' })
+
+            $r.Verdict      | Should -Be 'backend-down'
+            $r.Docker.Count | Should -BeExactly 0 -Because 'a restarted TBXark would skip the closed backend again'
+            $r.Alerts       | Should -Contain 'skagent-realcall-failing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 3 -Because 'the failure is counted even when no repair can follow'
+        }
+
+        It 'the shared cooldown holds: TBXark restarted 3 min ago (by 3b or 3d) -> wait' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -LastRouteRepairAt (Get-Date).AddMinutes(-3) -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+
+            $r.Verdict      | Should -Be 'cooldown'
+            $r.Docker.Count | Should -BeExactly 0
+            $r.Alerts       | Should -Contain 'skagent-realcall-failing-restart-on-cooldown'
+        }
+
+        It 'dry-run restarts nothing and writes neither state file' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -Mode 'dry-run' -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+
+            $r.Verdict       | Should -Be 'dry-run'
+            $r.Docker.Count  | Should -BeExactly 0
+            $r.StateWritten  | Should -BeFalse
+            ($r.Logs -join "`n") | Should -Match 'DRY-RUN: would docker restart myia-mcp-proxy'
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 3 -Because 'dry-run must not consume the count'
+        }
+
+        It 'a recovery resets the count: real call healthy after 2 failures -> state back to 0' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -RealCall @(@{ Ok = $true; InitStatus = 200; CallStatus = 200; Detail = 'healthy' })
+
+            $r.Verdict      | Should -Be 'ok'
+            $r.Docker.Count | Should -BeExactly 0
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 0
+        }
+
+        It 'run budget ends before the real call answers -> deferred verification, no alert, cooldown armed' {
+            # Entry guard 250, restart guard 250, then 15 s: no verification call fits.
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -RunSecondsLeft @(250, 250, 15) -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+
+            $r.Verdict        | Should -Be 'unverified'
+            $r.Docker.Count   | Should -BeExactly 1
+            $r.StateWritten   | Should -BeTrue
+            $r.Deferred.Count | Should -BeExactly 1
+            $r.Alerts.Count   | Should -BeExactly 0
+        }
+
+        It 'real call still failing at the verification ceiling -> distinct alert' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallFailures 2 -VerifyCapSec 0 -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 400; Detail = 'x' })
+
+            $r.Verdict      | Should -Be 'still-failing'
+            $r.Docker.Count | Should -BeExactly 1
+            $r.Alerts       | Should -Contain 'skagent-realcall-still-failing-after-tbxark-restart: init-200-call-400'
+        }
+    }
+
     Context 'no restart' {
 
         It 'route 404 but sk-agent does not answer on :8100 -> alert, no restart' {
@@ -197,14 +319,25 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             ($r.Logs -join "`n") | Should -Match '^WARN '
         }
 
-        It 'route OK -> no backend probe, no action, no log line' {
+        It 'route OK + real call healthy -> verdict ok, hourly OK log on the first tick, no backend probe' {
             $r = Invoke-Check -RouteAnswers @(200)
 
             $r.Verdict       | Should -Be 'ok'
+            $r.RealCalls     | Should -BeExactly 1 -Because 'initialize 200 continues to the real tools/call (#4197)'
             $r.BackendProbes | Should -BeExactly 0
             $r.Docker.Count  | Should -BeExactly 0
             $r.Alerts.Count  | Should -BeExactly 0
-            $r.Logs.Count    | Should -BeExactly 0 -Because 'a healthy tick stays at one log line'
+            $r.Logs.Count    | Should -BeExactly 1
+            $r.Logs[0]       | Should -Match '^OK .*real call healthy'
+            $r.RealCallState.consecutiveFailures | Should -BeExactly 0
+        }
+
+        It 'route OK within the hourly log period -> no log line, no state write' {
+            $r = Invoke-Check -RouteAnswers @(200) -RealCallLastOkLogAt (Get-Date).AddMinutes(-5)
+
+            $r.Verdict       | Should -Be 'ok'
+            $r.Logs.Count    | Should -BeExactly 0 -Because 'a healthy tick within the period stays silent'
+            $r.RealCallState | Should -BeNullOrEmpty -Because 'nothing changed, nothing is written'
         }
 
         It 'route answers something other than 200 or 404 -> not a missing route, nothing repaired' {
@@ -294,6 +427,13 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             $r.BackendBearer | Should -BeNullOrEmpty -Because 'the TBXark token is not sk-agent''s'
             ($r.Logs -join "`n") | Should -Not -Match 'test-bearer-value'
         }
+
+        It 'the real call carries the TBXark bearer (proxy token, not the container key)' {
+            $r = Invoke-Check -RouteAnswers @(200)
+
+            $r.RealCallBearer | Should -Be 'test-bearer-value'
+            ($r.Logs -join "`n") | Should -Not -Match 'test-bearer-value'
+        }
     }
 
     Context 'Get-McpInitializeStatus' {
@@ -370,6 +510,44 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             $script:checkSource | Should -Match '\(Get-RunSecondsLeft\) -lt \$RouteRepairWorstCaseSec'
             $script:checkSource | Should -Match '(?s)&[ \t]+docker[ \t]+restart[ \t]+myia-mcp-proxy.*?Set-Content[^\r\n]*\$routeRepairStateFile.*?while \(\$true\)'
             $script:checkSource | Should -Not -Match 'Stop-ScheduledTask|Start-ScheduledTask|\$repairStateFile\b'
+        }
+
+        It 'the real-call probe is a top-level function the check calls, defined per the #4197 design' {
+            $script:realCallSource | Should -Match 'notifications/initialized'
+            $script:realCallSource | Should -Match 'tools/call'
+            $script:realCallSource | Should -Match 'list_agents'
+            $script:realCallSource | Should -Match "mcp-session-id"
+            $def = $script:ast.FindAll({ param($n)
+                $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-SkAgentRouteRealCall'
+            }, $true)
+            @($def).Count | Should -BeExactly 1 -Because 'extracted source and AST must agree there is exactly one definition'
+        }
+
+        It 'the real-call repair is verified on the real call, never on initialize alone' {
+            # tick probe + verify probe: the check source calls the real-call
+            # probe at least twice, and the verify loop sits after its docker
+            # restart, not after Get-McpInitializeStatus.
+            ([regex]::Matches($script:checkSource, 'Invoke-SkAgentRouteRealCall')).Count | Should -BeGreaterOrEqual 2
+            $iRestart = $script:checkSource.IndexOf('tbxark-restart(skagent-real-call-failing)')
+            $iRestart | Should -BeGreaterThan 0
+            $script:checkSource.Substring($iRestart) | Should -Match '(?s)while \(\$true\).*?Invoke-SkAgentRouteRealCall'
+        }
+
+        It 'the #4197 constants match the design: N=3 consecutive failures, ok logged once per hour' {
+            $script:declaredRealCallThreshold | Should -BeExactly 3
+            $script:declaredOkLogPeriodMin     | Should -BeExactly 60
+            $script:checkSource | Should -Match '\$SkAgentRealCallFailThreshold'
+            $script:checkSource | Should -Match '\$SkAgentOkLogPeriodMin'
+        }
+
+        It 'the real-call counter lives in its own state file, not in the shared cooldown file' {
+            $script:content | Should -Match 'skagent-realcall-state\.json'
+            $script:checkSource | Should -Match '\$skAgentRealCallStateFile'
+            # The shared cooldown file is written exactly once per repair path
+            # (404-missing and real-call-failing), always lastRouteRepairAt
+            # only -- the counter must not leak into it.
+            ([regex]::Matches($script:checkSource, 'Set-Content -Path \$routeRepairStateFile')).Count | Should -BeExactly 2
+            ([regex]::Matches($script:checkSource, '& docker restart myia-mcp-proxy')).Count | Should -BeExactly 2
         }
     }
 }
