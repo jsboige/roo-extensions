@@ -82,6 +82,7 @@ Agent(subagent_type="task-worker", prompt="Auditer la configuration MCP sur cett
 Si l'audit retourne des problèmes CRITICAL ou WARNING, les traiter AVANT de continuer.
 
 3. **Lire INTERCOM local** : Verifier messages de Roo en premier
+   - **Dashboard machine** (G-C #4131 étape 3, arbitrage 14/10) : `roosync_dashboard(action: "read", type: "machine", machineId: "myia-ai-01", section: "intercom", intercomLimit: 10)` — les `[FLEET-ALERT]` de `check-all-listeners.ps1` vivent désormais sur les dashboards machine ; sans cette lecture, déplacer l'alerte reviendrait à la faire taire.
 4. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 5. **Analyse rapports** : Traiter messages RooSync entrants
 6. **Balayage des dettes** : solder ce qui attend sur MOI **avant** de distribuer du travail (voir section ci-dessous). Position empruntee a `coordinate.md` d'Epita, dont la Phase 3 « Merger ce qui est mergeable » precede la Phase 5 « Dispatcher ».
