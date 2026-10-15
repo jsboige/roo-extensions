@@ -5,8 +5,9 @@
 .DESCRIPTION
     Creates a Windows scheduled task that runs check-all-listeners.ps1 every 2h, reading
     shared heartbeats from <ROOSYNC_SHARED_PATH>/listener-heartbeats/*.heartbeat and
-    posting a [FLEET-ALERT] [WARN] to the local workspace dashboard when any machine's
-    wake-listener heartbeat is STALE >2h.
+    posting a [FLEET-ALERT] [WARN] to the DETECTOR machine dashboard
+    (<ROOSYNC_SHARED_PATH>/dashboards/machine-<detector>.md, CLI-first with file fallback,
+    cooldown per #4220) when any machine's wake-listener heartbeat is STALE >2h.
 
     Why: #2928 incident (ai-01 listener dead 8h, coordinator non-WAKE-able). The checker
     script existed in the repo but was not registered as a schtask on ANY machine. Without
@@ -142,7 +143,7 @@ $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
 
 # Run as the interactive user (matches Claude-DashboardListener pattern -- needs
-# ROOSYNC_SHARED_PATH User env var + write access to .claude/workspaces/ dashboard file).
+# ROOSYNC_SHARED_PATH User env var + write access to dashboards/machine-<detector>.md).
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
 
 # Bounded execution (5 min cap if GDrive hangs) + best-effort retry.
@@ -192,7 +193,7 @@ Register-ScheduledTask -TaskName $taskName `
 Write-Host "Installed scheduled task: $taskName" -ForegroundColor Green
 Write-Host "  Trigger      : Every $IntervalMinutes min | Principal: $env:USERNAME (Highest)"
 Write-Host "  Checker      : $checkerScript"
-Write-Host "  Alert sink   : local .claude/workspaces/workspace-<machine>.md ([FLEET-ALERT] [WARN])"
+Write-Host "  Alert sink   : <ROOSYNC_SHARED_PATH>/dashboards/machine-<detector>.md ([FLEET-ALERT] [WARN], CLI-first #4220)"
 Write-Host ""
 Write-Host $roosyncWarning -ForegroundColor $(if ($sharedPath) { 'Gray' } else { 'Yellow' })
 Write-Host ""
