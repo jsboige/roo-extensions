@@ -21,19 +21,19 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 2. **Selection priority:** PRs >1000 lines OR >5 files first (bot verdict <24h required, issue #15511), then the rest.
 3. **Routes:** before scanning, read the `workspace-cluster-coordination` intercom (roosync_dashboard) and serve any pending [TASK-ROUTE]/[ROUTE] addressed to hermes-pr-review.
 
-### TIER ÂGÉ v1.1.1 — anti-famine par récence (#3869)
+### TIER ÂGÉ v1.2 — anti-famine par récence (#3869)
 
 **Constat mesuré 2026-09-26** : quand la file se remplit plus vite qu'elle ne se vide (6–10 entrées/15 min au pic), une PR dont l'activité se fige **ne peut structurellement jamais** entrer dans le top-2 par récence. La règle « roule au cycle suivant » suppose une file qui se vide.
 
 **Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open, sans fetch de reviews — budget scan inchangé.
 
-**Amendement v1.1.1 (15/10, mesure NanoClaw ai-01) — le pool doit être SANS PLAFOND.** `gh pr list` tronque silencieusement (défaut 30 ; `--limit 200` mesuré atteint sur CoursIA à 331 PRs open — 131 omises) : un `sort_by(.createdAt) | .[0]` sur un pool tronqué rend un faux « plus ancien ». La forme prescrite est la pagination REST ordre croissant — la page 1 rend les plus anciennes en premier, plus de tri ni de plafond :
+**Amendement (D) v1.1 → v1.2 (15/10, mesure NanoClaw ai-01) — le pool doit être SANS PLAFOND.** `gh pr list` tronque silencieusement (défaut 30 ; `--limit 200` mesuré atteint sur CoursIA à 331 PRs open — 131 omises) : un `sort_by(.createdAt) | .[0]` sur un pool tronqué rend un faux « plus ancien ». La forme prescrite est la pagination REST ordre croissant — la page 1 rend les plus anciennes en premier, plus de tri ni de plafond :
 
 ```
 gh api 'repos/{owner}/{repo}/pulls?state=open&sort=created&direction=asc&per_page=100' --jq '.[0] | {number, created_at}'
 ```
 
-Recouper avec le total open (`gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=1'` puis lire le header `Link: … rel="last"` page = total) : si total > 100, itérer `page=2…` — la promotion tier parcourt les pages dans l'ordre croissant jusqu'à la première éligible, jamais au-delà de la première éligible trouvée.
+Recouper avec le total open (`gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=1'` puis lire le header `Link: … rel="last"` page = total) : si total > 100, itérer `page=2…` — la promotion tier parcourt les pages dans l'ordre croissant, l'éligibilité (a)(b)(c) testée page à page, **jamais au-delà de la première éligible trouvée**. Le bloc STATUS consigne toute troncature rencontrée (`tier-âgé: pool N open, pages parcourues P, éligible #M`) — un pool non recoupé ne se déclare jamais complet.
 
 **Éligibilité tier (toutes conditions) :**
 
@@ -53,6 +53,7 @@ Recouper avec le total open (`gh api 'repos/{owner}/{repo}/pulls?state=open&per_
 **Auditabilité STATUS :** le bloc STATUS consigne `tier-âgé: #N (created …, âge …h, slot 2)` quand le slot n°2 est issu du tier.
 
 **Amendements v1.0 → v1.1 (chacun mesuré) :**
+- **(D, v1.2 15/10)** **Pool sans plafond** : mesure NanoClaw ai-01 — CoursIA à 331 PRs open contre une garde à 200, 131 omises du « pool complet » ; la promotion tier doit lire les plus anciennes via REST croissant, pas un pool tronqué trié en mémoire (détail ci-dessus).
 - **(A) Pool = toutes les PRs open, pas la fenêtre 3 h** : une PR affamée sort de la fenêtre par `updated_at` figé exactement quand elle devient éligible.
 - **(B) Exclusion des gels volontaires** : promouvoir une PR gelée par décision brûlerait un slot pour du travail délibérément suspendu.
 - **(C) Exclusion des bots et de l'auteur** : sans (C), toute PR passant CI porte des commentaires `github-actions[bot]` et compte « couverte » → le tier ne peut jamais promouvoir. Mesure post-signoff v1.0 : 0 éligible sur v1.0 stricte vs 3 éligibles avec (C) au même instant.
