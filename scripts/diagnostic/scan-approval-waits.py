@@ -15,7 +15,8 @@ assistant node carrying a `tool_use` and the user node carrying its `tool_result
 NO model generation (the next API call only happens after the result returns), so the gap
 is exactly: approval wait + execution + client overhead. This scanner walks
 `~/.claude/projects/**/*.jsonl`, pairs every Bash/PowerShell tool_use with its tool_result,
-and reports pairs whose gap exceeds a threshold, classified by command form.
+and reports pairs whose gap exceeds a threshold, classified by command form. Command
+excerpts are redacted before output (volet 1b): secret VALUES never leave this script.
 
 Form classes (the mandate's three suspects + the dominant hub-side shape):
     composed-cd  — compound command (`&&`/`||`/`;`) whose first segment is a `cd`
@@ -41,6 +42,7 @@ Exit codes: 0 = no finding, 2 = findings, 1 = error.
 
 import argparse
 import json
+import re
 import sys
 import tempfile
 import time
@@ -53,6 +55,19 @@ EXIT_FINDINGS = 2
 DEFAULT_TOOLS = ("Bash", "PowerShell")
 COMMAND_KEYS = ("command", "script", "cmd")
 ELEVATED_MARKERS = ("sudo", "-Verb RunAs", "Register-ScheduledTask", "Start-Process -Verb")
+
+# Secret redaction (volet 1b, dispatch c.26): findings carry raw command excerpts by
+# design, and a transcript can hold a secret that was legitimate in its context — the
+# NAME stays visible, the VALUE becomes [REDACTED] before the excerpt reaches any
+# output that can be pasted on a dashboard, issue or PR.
+_SECRET_SUBS = (
+    (re.compile(r"\b(sk)-[A-Za-z0-9_\-]{8,}"), r"\1-[REDACTED]"),
+    (re.compile(r"\b(ghp|gho|ghu|ghs)_[A-Za-z0-9_]{8,}"), r"\1_[REDACTED]"),
+    (re.compile(r"\b(Bearer\s+)\S+"), r"\1[REDACTED]"),
+    (re.compile(r"\b(x-(?:proxy|api)-key[=:]\s*)\S+", re.IGNORECASE), r"\1[REDACTED]"),
+    (re.compile(r"\b((?:[A-Za-z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD))[A-Za-z0-9_]*)"
+                r"\s*=\s*[\"']?\S+"), r"\1=[REDACTED]"),
+)
 
 
 def parse_ts(value):
@@ -106,6 +121,14 @@ def classify(command):
     if "\n" in command:
         return "multiline"
     return "plain"
+
+
+def redact(text):
+    """Mask secret VALUES, keep the name — applied BEFORE truncation so a cut-off
+    excerpt can never leak a partial value that the pattern would have matched."""
+    for pattern, repl in _SECRET_SUBS:
+        text = pattern.sub(repl, text)
+    return text
 
 
 def scan_file(path, min_wait, tools, since_dt=None):
@@ -187,7 +210,7 @@ def scan_file(path, min_wait, tools, since_dt=None):
                         "gap_s": gap,
                         "ts": record["ts"],
                         "line": record["line"],
-                        "command": command[:200],
+                        "command": redact(command)[:200],
                         "is_error": bool(block.get("is_error")),
                         "sidechain": record["sidechain"],
                     })
@@ -271,8 +294,14 @@ def selftest():
         node("assistant", "u3", "r2", "2026-10-15T08:37:20.000Z",
              [tooluse("t3", "Read", {"file_path": "/x"})], "assistant"),
         node("user", "r3", "u3", "2026-10-15T09:37:20.000Z", [toolresult("t3")], "user"),
+        # Secret-bearing command, long wait -> finding whose excerpt must be redacted.
+        node("assistant", "u5", "r3", "2026-10-15T09:38:00.000Z",
+             [tooluse("t5", "Bash", "export API_KEY=sk-0123456789abcdefgh && "
+                                   "GH_TOKEN=ghp_0123456789abcdefghij curl -s "
+                                   "-H x-api-key:k0123456789 https://example.com/feed")], "assistant"),
+        node("user", "r5", "u5", "2026-10-15T09:41:20.000Z", [toolresult("t5")], "user"),
         # Unterminated tool_use (session cut) -> counted, no finding.
-        node("assistant", "u4", "r3", "2026-10-15T09:40:00.000Z",
+        node("assistant", "u4", "r5", "2026-10-15T09:45:00.000Z",
              [tooluse("t4", "Bash", "echo hi")], "assistant"),
     ])
     copy_session = "\n".join([
@@ -292,13 +321,24 @@ def selftest():
         copy_path.write_text(copy_session + "\n", encoding="utf-8")
 
         findings, stats = scan_file(wait_path, min_wait=120, tools=DEFAULT_TOOLS)
-        assert len(findings) == 1, f"expected exactly 1 finding, got {len(findings)}: {findings}"
-        only = findings[0]
-        assert only["form"] == "composed-cd", f"expected composed-cd, got {only['form']}"
-        assert only["gap_s"] == 4026.0, f"expected 4026.0s gap, got {only['gap_s']}"
-        assert only["tool"] == "Bash"
-        assert stats["shell_tool_use"] == 3, f"expected 3 shell tool_use, got {stats['shell_tool_use']}"
+        assert len(findings) == 2, f"expected exactly 2 findings, got {len(findings)}: {findings}"
+        longest = findings[0]
+        assert longest["form"] == "composed-cd", f"expected composed-cd, got {longest['form']}"
+        assert longest["gap_s"] == 4026.0, f"expected 4026.0s gap, got {longest['gap_s']}"
+        assert longest["tool"] == "Bash"
+        # Volet 1b: the secret-bearing finding keeps the names, never the values.
+        assert findings[1]["command"] == (
+            "export API_KEY=[REDACTED] && GH_TOKEN=[REDACTED] curl -s "
+            "-H x-api-key:[REDACTED] https://example.com/feed"), findings[1]["command"]
+        assert stats["shell_tool_use"] == 4, f"expected 4 shell tool_use, got {stats['shell_tool_use']}"
         assert stats["unterminated"] == 1, f"expected 1 unterminated, got {stats['unterminated']}"
+
+        # Redaction unit spot-checks: names stay, values go (Bearer too).
+        assert redact("curl -H 'Authorization: Bearer abcdef123456' https://x") == \
+            "curl -H 'Authorization: Bearer [REDACTED] https://x"
+        assert "sk-0123456789abcdefgh" not in redact("KEY=sk-0123456789abcdefgh")
+        assert redact("GH_TOKEN=ghp_0123456789abcdefghij git push") == \
+            "GH_TOKEN=[REDACTED] git push"
 
         copy_findings, copy_stats = scan_file(copy_path, min_wait=120, tools=DEFAULT_TOOLS)
         assert len(copy_findings) == 1, f"resume copy must not double-report, got {len(copy_findings)}"
@@ -313,7 +353,8 @@ def selftest():
         assert classify("echo\necho") == "multiline"
 
     print("selftest OK: composed-cd wait (4026s) flagged; fast plain, non-shell long gap and")
-    print("             resume copies pass clean; unterminated counted; classifier on suspects.")
+    print("             resume copies pass clean; unterminated counted; classifier on suspects;")
+    print("             secret-bearing excerpt redacted (names kept, values [REDACTED]).")
     return EXIT_CLEAN
 
 
