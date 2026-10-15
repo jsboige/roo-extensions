@@ -1,9 +1,9 @@
 # MyIA Cluster PR Review (reduced edition)
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Lane:** myia-po-2026:hermes-pr-review
 **Full edition:** lives on po-2026 in `~/skills/github/myia-cluster-pr-review/` — this is the reduced, publishable subset.
-**Update:** 2026-10-06 — régime PR TP étudiante ([ASK] CoursIA du 06/10 : jamais CHANGES_REQUESTED sur une PR de fork étudiante) — 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence) + pli C-bis (marqueurs de lane sous login auteur = couverture, convergence Hermes+NanoClaw 06:22Z).
+**Update:** 2026-10-15 — TIER ÂGÉ v1.2 : pool collecté par REST ASC plafond-libre (`--limit 200` tronquait à 335 open CoursIA, [ASK] ai-01 10:39Z) — 2026-10-06 — régime PR TP étudiante ([ASK] CoursIA du 06/10 : jamais CHANGES_REQUESTED sur une PR de fork étudiante) — 2026-09-26 — TIER ÂGÉ v1.1 spec documented (#3869, anti-famine par récence) + pli C-bis (marqueurs de lane sous login auteur = couverture, convergence Hermes+NanoClaw 06:22Z).
 
 ---
 
@@ -21,11 +21,11 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 2. **Selection priority:** PRs >1000 lines OR >5 files first (bot verdict <24h required, issue #15511), then the rest.
 3. **Routes:** before scanning, read the `workspace-cluster-coordination` intercom (roosync_dashboard) and serve any pending [TASK-ROUTE]/[ROUTE] addressed to hermes-pr-review.
 
-### TIER ÂGÉ v1.1 — anti-famine par récence (#3869)
+### TIER ÂGÉ v1.2 — anti-famine par récence (#3869)
 
 **Constat mesuré 2026-09-26** : quand la file se remplit plus vite qu'elle ne se vide (6–10 entrées/15 min au pic), une PR dont l'activité se fige **ne peut structurellement jamais** entrer dans le top-2 par récence. La règle « roule au cycle suivant » suppose une file qui se vide.
 
-**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh pr list --state open --search ... --json number,createdAt --jq 'sort_by(.createdAt) | .[0]'`, sans fetch de reviews — budget scan inchangé).
+**Règle additive : 1 slot max, priorité sur la récence.** Après le tri par récence : si le candidat n°2 (le moins récent des deux) n'est pas lui-même éligible tier, le remplacer par la plus ancienne PR éligible du pool complet des PRs open (`gh api 'repos/OWNER/REPO/pulls?state=open&sort=created&direction=asc&per_page=100'` — page 1 ASC = les plus anciennes d'abord, ordre serveur, sans plafond ni `sort_by` client ; sans fetch de reviews — budget scan inchangé).
 
 **Éligibilité tier (toutes conditions) :**
 
@@ -49,6 +49,9 @@ Review pull requests across the MyIA cluster repos (CoursIA, roo-extensions, jsb
 - **(B) Exclusion des gels volontaires** : promouvoir une PR gelée par décision brûlerait un slot pour du travail délibérément suspendu.
 - **(C) Exclusion des bots et de l'auteur** : sans (C), toute PR passant CI porte des commentaires `github-actions[bot]` et compte « couverte » → le tier ne peut jamais promouvoir. Mesure post-signoff v1.0 : 0 éligible sur v1.0 stricte vs 3 éligibles avec (C) au même instant.
 - **(C-bis, NanoClaw 06:22Z)** Les marqueurs de lane sous le login de l'auteur comptent comme couverture : une review/commentaire portant `[adjoint`, `[NanoClaw`, `[Hermes` ou `[OVERRIDE]` est une passe de lane même si son login est celui de l'auteur (routage token : lanes ≈ `clusterManager-Myia` / `jsboige`). Sans (C-bis), (C) re-déclarerait découvertes des PRs déjà revues par une lane (mesuré : #16029, #16038, #17562).
+
+**Amendement v1.1 → v1.2 (15/10, mesuré) :**
+- **(D) Le pool ne se collecte JAMAIS par `gh pr list --limit N`** : à 335 PRs open sur CoursIA (15/10 ~11:0xZ ; 331 à 10:36Z chez ai-01), `--limit 200` rend `length`=200 = troncature silencieuse — le `sort_by(.createdAt) | .[0]` dérivé annonce un faux « plus ancien » (même classe de défaut que la limite par défaut 30 que la garde corrigeait à l'adoption, #3870). REST `pulls?state=open&sort=created&direction=asc&per_page=100` porte l'ordre côté serveur : l'aînée est toujours en page 1, quel que soit le volume. Contrôle de troncature si un `--limit` reste en jeu : `length` == limite ⇒ pool incomplet ; total open = header `Link` `rel="last"` à `per_page=1`.
 
 **Scope d'application host-side :** injecté dans les deux lanes de review (po-2026 cron `:23` hermes-pr-review, ai-01 cycle NanoClaw `:15`/`:45`). **Pas de geste conteneur** (leçon coquille 13/09) — la modification vit dans le prompt de sélection host-side, pas dans une image.
 
