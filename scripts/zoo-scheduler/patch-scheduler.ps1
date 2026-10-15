@@ -71,7 +71,7 @@ try {
     $pkg.displayName = "Zoo Scheduler"
     $pkg.description = "A task scheduler for Zoo Code (fork of roo-scheduler 0.0.11)"
     $pkg.publisher = "jsboige"
-    $pkg.version = "0.0.11-zoo.3"
+    $pkg.version = "0.0.11-zoo.4"
     $pkg.extensionDependencies = @("zoocodeorganization.zoo-code")
 
     # Skip prepublish rebuild (we patch dist/ directly)
@@ -121,6 +121,30 @@ try {
         Write-Host "Replace 5: startTaskWithMode() pattern not found — may already be patched or different version" -ForegroundColor Yellow
     }
 
+    # Replace 6: mtime fallback in getLastActivityTimeForActiveTask() (#4025)
+    # Root cause: task completion does not pop the task stack; when the stack-top
+    # task has no taskHistory entry, getLastActivityTimeForActiveTask() returns
+    # undefined and the requireActivity "wait" gate never fires — the schedule
+    # re-arms itself every 1 minute forever (skip-minute latch).
+    # Fallback: read the mtime of the task's ui_messages.json under the Zoo Code
+    # globalStorage tasks dir. Path is derived from the scheduler's own
+    # globalStorageUri (module var zCe, set at activate): strip the extension-id
+    # segment to get the globalStorage root, then join the Zoo Code id — never a
+    # hard-coded path. mtime >= inactivityDelay -> the gate fires as it already
+    # does; mtime recent -> the gate skips as it already does; neither (missing
+    # file / stat error) -> distinct "activity unknown" log, gate keeps skipping.
+    # zCe and lc (vscode) are module-scope vars in the same bundle scope as the
+    # Fs class, verified against 0.0.11-zoo.3.
+    $oldGetLast = 'static async getLastActivityTimeForActiveTask(){let{taskStack:r,taskHistory:a}=this.getTaskHistoryAndStack();if(!r||r.length===0)return;let n=r[r.length-1],s=a.filter(o=>o.id===n);if(s.length)return s[s.length-1].ts}'
+    $newGetLast = 'static async getLastActivityTimeForActiveTask(){let{taskStack:r,taskHistory:a}=this.getTaskHistoryAndStack();if(!r||r.length===0)return;let n=r[r.length-1],s=a.filter(o=>o.id===n);if(s.length)return s[s.length-1].ts;try{let g=zCe.globalStorageUri.fsPath,sp=g.includes("\\")?"\\":"/",f=g.slice(0,g.lastIndexOf(sp))+sp+"zoocodeorganization.zoo-code"+sp+"tasks"+sp+String(n)+sp+"ui_messages.json",m=await lc.workspace.fs.stat(lc.Uri.file(f));if(m&&m.mtime)return m.mtime}catch(e){}return console.log(`[zoo-scheduler] activity unknown for task ${n}: no taskHistory entry, no ui_messages.json mtime`),void 0}'
+
+    if ($content.Contains($oldGetLast)) {
+        $content = $content.Replace($oldGetLast, $newGetLast)
+        Write-Host "Replace 6: getLastActivityTimeForActiveTask() mtime fallback patched (skip-minute latch #4025)"
+    } else {
+        Write-Host "Replace 6: getLastActivityTimeForActiveTask() pattern not found — may already be patched or different version" -ForegroundColor Yellow
+    }
+
     [System.IO.File]::WriteAllText($extJs, $content, [System.Text.UTF8Encoding]::new($false))
 
     # --- Verify patches ---
@@ -154,6 +178,13 @@ try {
         Write-Host "WARNING: Replace 5 startTaskWithMode() resolve-from-config not detected in output" -ForegroundColor Yellow
     }
 
+    $getLastFixed = $verifyContent.Contains("ui_messages.json") -and $verifyContent.Contains("activity unknown")
+    if ($getLastFixed) {
+        Write-Host "Replace 6 verified: getLastActivityTimeForActiveTask() mtime fallback active" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Replace 6 getLastActivityTimeForActiveTask() mtime fallback not detected in output" -ForegroundColor Yellow
+    }
+
     if ($noHardcoded) {
         Write-Host "Replace 5 verified: no hardcoded endpoints in patched output" -ForegroundColor Green
     } else {
@@ -168,7 +199,7 @@ try {
     Write-Host "Building VSIX..."
     Push-Location $tempDir
     cmd /c "npm install @vscode/vsce --no-save 2>nul"
-    $vsixName = "zoo-scheduler-0.0.11-zoo.3.vsix"
+    $vsixName = "zoo-scheduler-0.0.11-zoo.4.vsix"
     cmd /c "npx vsce package --no-dependencies -o $vsixName 2>&1" | ForEach-Object { Write-Host $_ }
 
     if (Test-Path (Join-Path $tempDir $vsixName)) {
