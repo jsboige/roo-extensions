@@ -12,6 +12,7 @@
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |
+| **sk-agent usage (volet D #4085)** | Quel agent pour quoi, transports stdio vs conteneur `:8100` (agents disque = stdio seulement), routage modèles LAN/public (23/42 agents hub = morts hors LAN), limites mesurées (attachments, `ok:true`, budgets mini) | `sk-agent-usage-guide.md` |
 | **Harness Reduction** | Plan de reduction du harnais (audit tokens, strategie) | `harness-reduction-plan.md` |
 | **Pi Agent Comparative Study** | Pi / pi-subagents / devstack vs RooSync — adaptation opportunities (#2416) | `pi-agent-comparative-study.md` |
 | **SDDD Grounding (detailed)** | Actions `conversation_browser`, `detailLevel`, filtres `roosync_search`, multi-pass, substituts JSONL, workflow complet | `sddd-grounding-detailed.md` |
