@@ -114,7 +114,13 @@ Write-Step "Step 4: Install Zoo Scheduler VSIX"
 # Version-aware guard: skip ONLY when the installed version matches the VSIX
 # version. A bare existence check (`-match "zoo-scheduler"`) blocks every
 # upgrade — measured 16/10 during the #4025 pilot (zoo.4 skipped over zoo.3).
-$vsixVersion = $VsixName -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
+# Target version = basename of the RESOLVED VSIX (user -VsixPath or outputs/
+# candidate), never the hard-coded $VsixName: a newer VSIX passed via
+# -VsixPath would be compared against the stale constant and wrongly SKIP'd.
+# $VsixPath is always resolved here (step 2 exits otherwise); the fallback
+# only covers defensive parsing.
+$vsixBasename = if ($VsixPath) { Split-Path -Leaf $VsixPath } else { $VsixName }
+$vsixVersion = $vsixBasename -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
 $installedLine = code --list-extensions --show-versions 2>$null | Where-Object { $_ -like "$ZooSchedulerId@*" }
 if ($installedLine -and "$installedLine".EndsWith("@$vsixVersion")) {
     Write-Host "[SKIP] Zoo Scheduler already installed at target version: $installedLine"

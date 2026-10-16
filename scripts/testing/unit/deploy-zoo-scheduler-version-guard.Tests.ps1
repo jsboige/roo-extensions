@@ -29,8 +29,11 @@ Describe "deploy-zoo-scheduler.ps1 - garde versionnee etape 4" {
         $script:Source | Should -Not -Match '\$zooScheduler = code --list-extensions 2>\$null'
     }
 
-    It "derive la version cible depuis \$VsixName" {
-        $script:Source | Should -Match '\$vsixVersion = \$VsixName -replace'
+    It "derive la version cible depuis le basename du VSIX resolu, pas la constante" {
+        $script:Source | Should -Match 'Split-Path -Leaf \$VsixPath'
+        # la constante dure ne doit plus alimenter la garde : un -VsixPath plus
+        # recent produisait un SKIP compare a l'ancienne version (dispatch c.28)
+        $script:Source | Should -Not -Match '\$vsixVersion = \$VsixName -replace'
     }
 
     It "ne SKIP que si la version installee EGALE la version VSIX" {
@@ -39,10 +42,17 @@ Describe "deploy-zoo-scheduler.ps1 - garde versionnee etape 4" {
 
     Context "logique de garde (expression rejouee)" {
         BeforeAll {
-            # reproduction exacte de l'expression du script
+            # reproduction exacte de l'expression du script : la version cible
+            # vient du basename du VSIX resolu, pas de la constante
             $script:VsixName = 'zoo-scheduler-0.0.11-zoo.4.vsix'
             $script:ZooSchedulerId = 'jsboige.zoo-scheduler'
-            $script:TargetVersion = $script:VsixName -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
+            $script:ResolvedVsix = Join-Path 'D:\packages' $script:VsixName
+            $script:TargetVersion = (Split-Path -Leaf $script:ResolvedVsix) -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
+        }
+
+        It "VSIX utilisateur plus recent (-VsixPath) -> la cible suit son basename" {
+            $newer = Join-Path 'D:\packages' 'zoo-scheduler-0.0.12-zoo.5.vsix'
+            ((Split-Path -Leaf $newer) -replace '^zoo-scheduler-', '' -replace '\.vsix$', '') | Should -Be '0.0.12-zoo.5'
         }
 
         It "version inferieure installee -> PAS de skip (upgrade requis)" {
