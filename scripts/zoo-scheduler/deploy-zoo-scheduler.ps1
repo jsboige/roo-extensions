@@ -111,10 +111,15 @@ if ($rooScheduler) {
 # --- Step 4: Install Zoo Scheduler VSIX ---
 Write-Step "Step 4: Install Zoo Scheduler VSIX"
 
-$zooScheduler = code --list-extensions 2>$null | Where-Object { $_ -match "zoo-scheduler" }
-if ($zooScheduler) {
-    Write-Host "[SKIP] Zoo Scheduler already installed: $zooScheduler"
+# Version-aware guard: skip ONLY when the installed version matches the VSIX
+# version. A bare existence check (`-match "zoo-scheduler"`) blocks every
+# upgrade — measured 16/10 during the #4025 pilot (zoo.4 skipped over zoo.3).
+$vsixVersion = $VsixName -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
+$installedLine = code --list-extensions --show-versions 2>$null | Where-Object { $_ -like "$ZooSchedulerId@*" }
+if ($installedLine -and "$installedLine".EndsWith("@$vsixVersion")) {
+    Write-Host "[SKIP] Zoo Scheduler already installed at target version: $installedLine"
 } else {
+    if ($installedLine) { Write-Host "[UPGRADE] $installedLine -> $vsixVersion" }
     Write-Host "Installing $VsixPath..."
     if ($WhatIf) {
         Write-Host "[WHATIF] code --install-extension `"$VsixPath`""
