@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.4.0 (slim — #3137/remote/retires déportés vers le doc détaillé, #2368)
+**Version:** 3.5.0 (piège désactivation chemin-périmée #4195 ; 3.4.0 — #3137/remote/retires déportés vers le doc détaillé, #2368)
 
 ---
 
@@ -35,6 +35,12 @@ réversible. L'état se lit à **trois emplacements** — le 3e (`disabledMcpSer
 **prime sur l'activation user-scope** ; l'instrument qui ne ment pas : la **présence effective
 des outils `mcp__<serveur>__*` en session**. **Avant d'installer un nouveau client, vérifier les
 trois emplacements et réactiver.** Table et procédure : [détail](../../docs/harness/reference/tool-availability-detailed.md) § #3137.
+
+**Piège « désactivation chemin-périmée » (#4195)** : l'emplacement 3 est **indexé par le chemin du
+workspace** — un déménagement (`C:\dev`→`D:\Dev`) rend la désactivation fantôme et **réactive
+silencieusement** le MCP (incident po-2024 09/10 : fenêtre OAuth ouverte sans demande). Contrôle
+d'ouverture de session : lire `projects[<cwd>].disabledMcpServers` (1 lecture) ; résidu invisible
+de l'intérieur → audit `scripts/diagnostic/audit-stale-mcp-disables.py` (lecture seule).
 
 ## MCP remote injectés (routeur Claudish / Claude.ai)
 
