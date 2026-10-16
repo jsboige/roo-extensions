@@ -1,8 +1,8 @@
 # Commands ↔ Skills — allowlist explicite de parité
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Issue :** #3381 (mission D9 — prescription ai-01 03/09, dispatch 05/10)
-**MAJ :** 2026-10-05
+**MAJ :** 2026-10-16
 
 ---
 
@@ -23,6 +23,19 @@ recette de re-vérification.
 |---|---|---|
 | `/executor` | `executor` | Session d'exécution autonome (cron `41 */4`) |
 | `/debrief` | `debrief` | Bilan de session |
+
+**Cas particulier — `/executor` : double porteur (mesuré 16/10).** Les deux fichiers de cette
+paire sont des documents substantiels — contrairement à `/debrief`, dont la copie command est un
+simple pointeur (« Utilise le skill »). `.claude/commands/executor.md` (né 2026-01-16,
+`bd0187c59`, pré-skills : format « Agent Exécutant », phases 1.5/1.6 absentes du skill) reste
+**maintenu**, pas un vestige : section picker dans les deux (ADR 016), contrat #3647 épinglé dans
+les deux par `scripts/testing/unit/harness-amplification-control.Tests.ps1` (carriers l.9-14), et
+des items vivent dans le command seul (ex. AC6 « Scans de dette », `4b1fe93c`). Le SKILL (né
+2026-03-28) est le chemin vivant au tir cron (le corps reçu porte
+`Base directory: .claude/skills/executor`). Conséquence : une évolution du contrat partagé
+(picker, ledger #3647) se pose dans **les deux** fichiers ; le garde Pester exige ses phrases dans
+chaque carrier mais ne détecte pas une divergence de contenu, et la recette ci-dessous ne voit que
+la présence des deux noms.
 
 ### Commands sans skill (3) — INTENTIONNEL
 
