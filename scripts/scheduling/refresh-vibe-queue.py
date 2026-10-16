@@ -32,6 +32,12 @@ This organ re-measures instead of trusting a stored list:
 The scan is the expensive step and it costs ~45 s on the full corpus, so
 re-measuring every time is cheap enough to be the default: the queue stops
 being a document that rots and becomes a view over the current tree.
+
+`--famine` (mandat vibe-burn, 16/10) est un levier DE LANE, pas le regime
+automatique : en famine prouvee (file vide, mandat sous sa metrique), le
+residu libre sous plancher qui tient dans max_files devient un grain voie
+legere (`FAMINE_BIN`, marque "famine": true + note payload) plutot que du
+carburant laisse au WARN. Le feeder appelle l'organe SANS ce flag.
 """
 
 import argparse
@@ -45,6 +51,23 @@ import sys
 
 FLOOR = 10          # fournee floor: confirmed findings per grain (contract #15719)
 MAX_FILES = 15      # anti-composite cap: files per PR
+
+#: Nom du bin de residu sous plancher accepte en FAMINE (plan(famine=True),
+#: mandat vibe-burn / escalade user 16/10). Le plancher est une economie de
+#: review, pas une loi : quand l'alternative est zero dispatch, le residu
+#: libre devient du carburant voie legere. Le nom porte la provenance pour
+#: l'audit (grain "famine": true + note payload). Le regime automatique
+#: (feeder) appelle l'organe SANS le flag --famine — c'est un levier de lane,
+#: decide sur la metrique du mandat, jamais un comportement par defaut.
+FAMINE_BIN = "residu-famine"
+
+#: Note appendee au payload d'un grain famine (apres le bloc targetPath/branch,
+#: donc invisible pour payload_paths() qui s'arrete a worktree:).
+FAMINE_PAYLOAD_NOTE = (
+    "\n\nNOTE FAMINE (mandat vibe-burn) : grain sous plancher accepte en voie legere "
+    "parce que la file etait vide. Attendu INCHANGE (0 finding ou NOOP justifie par "
+    "cible) ; le relais signalera la provenance famine dans la PR."
+)
 
 #: La file vit dans le repoRoot du FEEDER (derive de $PSScriptRoot dans
 #: vibe-feeder.ps1), pas dans le cwd de session. Le default historique
@@ -585,7 +608,8 @@ def split_domain(files, max_files=None):
     return chunks
 
 
-def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None, group_fn=None):
+def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None, group_fn=None,
+         famine=False):
     """Bins that honour the fournee contract, plus the unusable leftover.
 
     `floor`/`max_files` viennent du contrat (CONTRACTS) : le moule findings
@@ -593,6 +617,11 @@ def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None, group_fn=Non
     seuil — grain = 1-2 notebooks. `group_fn` (contrat #17712) remplace
     l'axe par-segment par une famille metier ET borne le versement a la
     famille : une PR par famille ne se verse jamais chez sa voisine.
+
+    `famine=True` (levier de lane, PAS le regime automatique) accepte le
+    residu sous plancher qui tient dans `max_files` comme grain FAMINE_BIN —
+    quand l'alternative est zero dispatch, le plancher cede : il est une
+    economie de review, pas une loi (mandat vibe-burn, 16/10).
     """
     floor = FLOOR if floor is None else floor
     max_files = MAX_FILES if max_files is None else max_files
@@ -651,6 +680,11 @@ def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None, group_fn=Non
     if residual:
         if n_findings(residual) >= floor and len(residual) <= max_files:
             bins.append(["residu-petits-domaines", residual, "residu", "residu"])
+        elif famine and len(residual) <= max_files:
+            print("FAMINE: residu sous plancher accepte en voie legere (%d findings / %d fichiers): %s"
+                  % (n_findings(residual), len(residual),
+                     ", ".join(sorted(residual)[:8])))
+            bins.append([FAMINE_BIN, residual, "residu", "residu"])
         else:
             print("WARN: residu non livrable laisse hors file (%d findings / %d fichiers): %s"
                   % (n_findings(residual), len(residual),
@@ -737,6 +771,10 @@ def main():
     ap.add_argument("--scan-wt", default="D:/dev/CoursIA-vibe/_scan-queue")
     ap.add_argument("--wt-root", default="D:/dev/CoursIA-vibe")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--famine", action="store_true",
+                    help="accepte le residu sous plancher comme grain voie legere "
+                         "(levier de lane sur la metrique du mandat vibe-burn ; "
+                         "le feeder appelle SANS ce flag)")
     args = ap.parse_args()
 
     issues = args.issue or default_issues()
@@ -789,7 +827,8 @@ def main():
         planned = plan(free, contract.get("group", 1),
                        floor=contract.get("floor"),
                        max_files=contract.get("max_files"),
-                       group_fn=contract.get("family_fn"))
+                       group_fn=contract.get("family_fn"),
+                       famine=args.famine)
         for name, ch in sorted(planned, key=lambda x: x[0]):
             n_planned += 1
             i = len(grains) + 1
@@ -822,17 +861,24 @@ def main():
             if os.path.isdir(wt):
                 wt_head = sh(["git", "-C", wt, "rev-parse", "HEAD"],
                              check=False).strip()
+            # FAMINE_BIN est un grain plan par plan(), pas un nom libre : le
+            # marqueur "famine" porte la provenance jusqu'au relais (note dans
+            # le payload, drapeau lisible dans la file).
+            is_famine = (name == FAMINE_BIN)
             grains.append({
                 "id": gid, "issue": issue, "baseSha": base, "wtHead": wt_head,
                 "worktree": wt, "branch": branch,
                 "payload": contract["payload"].format(
-                    gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
+                    gid=gid, base=base, targets=targets, worktree=wt, branch=branch)
+                + (FAMINE_PAYLOAD_NOTE if is_famine else ""),
+                **({"famine": True} if is_famine else {}),
             })
             n, k = n_findings(ch), len(ch)
             ok = (n >= contract.get("floor", FLOOR)
                   and k <= contract.get("max_files", MAX_FILES))
             print("  %-42s findings=%-3d fichiers=%-3d %s"
-                  % (gid, n, k, "OK" if ok else "HORS CONTRAT"))
+                  % (gid, n, k, "FAMINE" if is_famine else
+                     ("OK" if ok else "HORS CONTRAT")))
         total += sum(n_findings(ch) for _, ch in planned)
     if n_planned == 0:
         print("aucun finding libre — file inchangee")
