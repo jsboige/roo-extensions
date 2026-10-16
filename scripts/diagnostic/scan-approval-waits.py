@@ -56,17 +56,24 @@ DEFAULT_TOOLS = ("Bash", "PowerShell")
 COMMAND_KEYS = ("command", "script", "cmd")
 ELEVATED_MARKERS = ("sudo", "-Verb RunAs", "Register-ScheduledTask", "Start-Process -Verb")
 
-# Secret redaction (volet 1b, dispatch c.26): findings carry raw command excerpts by
-# design, and a transcript can hold a secret that was legitimate in its context — the
-# NAME stays visible, the VALUE becomes [REDACTED] before the excerpt reaches any
-# output that can be pasted on a dashboard, issue or PR.
+# Secret redaction (volet 1b, dispatch c.26; follow-up c.27): findings carry raw
+# command excerpts by design, and a transcript can hold a secret that was legitimate
+# in its context — the NAME stays visible, the VALUE becomes [REDACTED] before the
+# excerpt reaches any output that can be pasted on a dashboard, issue or PR. The
+# c.27 follow-up covers the #4227 review residuals: assignment families are
+# case-insensitive and accept flag forms (--token=), quoted values mask whole
+# ("k1 k2" -> [REDACTED]), and credentials embedded in URLs lose user:pass.
 _SECRET_SUBS = (
     (re.compile(r"\b(sk)-[A-Za-z0-9_\-]{8,}"), r"\1-[REDACTED]"),
     (re.compile(r"\b(ghp|gho|ghu|ghs)_[A-Za-z0-9_]{8,}"), r"\1_[REDACTED]"),
     (re.compile(r"\b(Bearer\s+)\S+"), r"\1[REDACTED]"),
     (re.compile(r"\b(x-(?:proxy|api)-key[=:]\s*)\S+", re.IGNORECASE), r"\1[REDACTED]"),
-    (re.compile(r"\b((?:[A-Za-z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD))[A-Za-z0-9_]*)"
-                r"\s*=\s*[\"']?\S+"), r"\1=[REDACTED]"),
+    (re.compile(r"\b([A-Za-z][a-zA-Z0-9+.\-]*://)([^/\s:@\"]+):([^/\s@\"]+)@"),
+     r"\1[REDACTED]@"),
+    (re.compile(r"(?<![\w.\-])((?:--?)?[A-Za-z0-9_.\-]*?(?:api_key|token|secret|password)"
+                r"[A-Za-z0-9_]*)([=:]\s*)(?:\"[^\"]*\"|'[^']*'|\S+)",
+                re.IGNORECASE),
+     r"\1\2[REDACTED]"),
 )
 
 
@@ -340,6 +347,15 @@ def selftest():
         assert redact("GH_TOKEN=ghp_0123456789abcdefghij git push") == \
             "GH_TOKEN=[REDACTED] git push"
 
+        # Follow-up (c.27 review residuals): lowercase and flag-form assignments,
+        # credentials embedded in URLs, quoted multi-word values.
+        assert redact("api_token=abc123xyz git push") == "api_token=[REDACTED] git push"
+        assert redact("gh auth login --token=ghp_0123456789abcdefghij") == \
+            "gh auth login --token=[REDACTED]"
+        assert redact("curl https://user:pass@example.com/feed") == \
+            "curl https://[REDACTED]@example.com/feed"
+        assert redact('PASSWORD="two words here" run') == 'PASSWORD=[REDACTED] run'
+
         copy_findings, copy_stats = scan_file(copy_path, min_wait=120, tools=DEFAULT_TOOLS)
         assert len(copy_findings) == 1, f"resume copy must not double-report, got {len(copy_findings)}"
         assert copy_stats["rewritten_nodes"] == 2, \
@@ -354,7 +370,8 @@ def selftest():
 
     print("selftest OK: composed-cd wait (4026s) flagged; fast plain, non-shell long gap and")
     print("             resume copies pass clean; unterminated counted; classifier on suspects;")
-    print("             secret-bearing excerpt redacted (names kept, values [REDACTED]).")
+    print("             secret-bearing excerpt redacted (names kept, values [REDACTED]);")
+    print("             lowercase/flag assignments, URL creds and quoted values covered.")
     return EXIT_CLEAN
 
 
