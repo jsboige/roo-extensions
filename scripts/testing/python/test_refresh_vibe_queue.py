@@ -150,6 +150,49 @@ class TestPlanGrouping(unittest.TestCase):
             self.assertLessEqual(len(ch), 2, "grain densite > 2 notebooks")
 
 
+class TestPlanFamine(unittest.TestCase):
+    """`--famine` (mandat vibe-burn, 16/10) : en famine prouvee, le residu
+    sous plancher qui tient dans max_files devient du carburant voie legere
+    (FAMINE_BIN) au lieu d'un WARN hors file. Le regime par defaut — celui du
+    feeder, qui appelle l'organe SANS flag — ne change PAS d'un bit."""
+
+    FREE_FAMINE = {
+        "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb": ["f1", "f2", "f3"],
+        "MyIA.AI.Notebooks/GenAI/Audio/b.ipynb": ["f4", "f5"],
+    }
+
+    def test_famine_accepts_sub_floor_residual_as_famine_bin(self):
+        bins = rvq.plan(self.FREE_FAMINE, group_idx=2, famine=True)
+        self.assertEqual([n for n, _ in bins], [rvq.FAMINE_BIN])
+        served = {p for _, ch in bins for p in ch}
+        self.assertEqual(served, set(self.FREE_FAMINE))
+
+    def test_default_still_drops_sub_floor_residual(self):
+        """"Sans flag, le plancher reste une loi : le meme residu qui devient
+        grain en famine reste un WARN hors file (comportement feeder inchange)."""
+        self.assertEqual(rvq.plan(self.FREE_FAMINE, group_idx=2), [])
+
+    def test_famine_never_exceeds_max_files(self):
+        """Le levier famine cede le plancher, PAS la casquette anti-composite :
+        un residu plus large que max_files reste hors file meme en famine."""
+        free = {
+            "MyIA.AI.Notebooks/GenAI/Audio/f%02d.ipynb" % i: ["x"]
+            for i in range(16)
+        }
+        self.assertEqual(rvq.plan(free, group_idx=2, famine=True), [])
+
+    def test_famine_note_is_invisible_to_payload_paths(self):
+        """La note famine s'ajoute APRES le bloc targetPath : payload_paths()
+        (utilise par la deconfliction au re-scan) doit rendre les memes cibles
+        qu'un payload sans note."""
+        payload = rvq.PAYLOAD.format(
+            gid="g1-x", base="deadbeef", targets="- p1.ipynb\n- p2.ipynb",
+            worktree="D:/wt", branch="wt/mistral-g1-x") + rvq.FAMINE_PAYLOAD_NOTE
+        self.assertIn("NOTE FAMINE", payload)
+        self.assertEqual(rvq.payload_paths({"payload": payload}),
+                         {"p1.ipynb", "p2.ipynb"})
+
+
 class TestDensityScanNormalization(unittest.TestCase):
     """Le scanner densite joint son repo_root ABSOLU : sans strip, la
     deconfliction ne soustrait rien (333 libres / 0, mesure 18/09) et le
