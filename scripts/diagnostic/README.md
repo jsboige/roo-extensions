@@ -65,6 +65,22 @@ python scripts/diagnostic/scan-duplicate-tool-use.py --json
 python scripts/diagnostic/scan-duplicate-tool-use.py --selftest
 ```
 
+### `audit-stale-mcp-disables.py`
+
+Audit **lecture seule** des désactivations MCP fantômes de `~/.claude.json` (#4195, volet 3). L'emplacement `projects[<workspace>].disabledMcpServers` est indexé par le chemin absolu du workspace : après un déménagement (`C:\dev`→`D:\Dev`), la désactivation ne s'applique plus et le MCP est **réactivé silencieusement** (incident po-2024 09/10 : fenêtre OAuth ouverte sans demande, consigne user « svp ne faites pas ça »). Le résidu est invisible de l'intérieur d'une session.
+
+- **STALE-GHOST** — clé `projects[chemin]` dont le chemin n'existe plus ET qui porte des `disabledMcpServers` (exit 2).
+- **ACTIVE** — clé de chemin existant portant des désactivations (état légitime, informatif — c'est le contrôle gratuit d'ouverture de session, volet 1 de #4195).
+
+```powershell
+# Audit de ~/.claude.json
+python scripts/diagnostic/audit-stale-mcp-disables.py
+
+# Sortie machine-readable / fixture synthétique — exit 0 propre / 2 findings / 1 erreur
+python scripts/diagnostic/audit-stale-mcp-disables.py --json
+python scripts/diagnostic/audit-stale-mcp-disables.py --selftest
+```
+
 ### `../transcript/Find-DuplicateToolUse.ps1` (PR #3498)
 
 Variante PowerShell du même détecteur, ajoutée post-#3278. Mêmes signatures (`EMIT_FORK` / `EXEC_DOUBLE` / `EXEC_COPY`) sur un transcript unique, avec sortie `Object` / `Json` / `Summary` — utile quand le harnais cible est Windows natif (`powershell`) et que le Python n'est pas disponible. Tests Pester dans `scripts/testing/unit/Find-DuplicateToolUse.Tests.ps1` (12/12 verts).
