@@ -355,6 +355,15 @@ roosync_dashboard(action:"append", type:"global", content:"...",
 
 **Détails de drapeaux** : `disableClaudeAiConnectors` — voir aussi `~/.claude.json` → `claudeAiMcpEverConnected` ; `disableBundledSkills` — skills bundled non présents dans ce projet, proposés en doublon des skills projet sans le drapeau.
 
+**Tableau de drapeaux complet** (déplacé depuis `rules/harnais-tightening.md`, coupe A-suite #445, 17/10/2026) :
+
+| Drapeau | Effet |
+|---|---|
+| `ENABLE_TOOL_SEARCH: "true"` | Outils MCP chargés **en différé** : les schémas ne sont pas payés inline à chaque requête. Débloque ce qui était impossible avec un `ANTHROPIC_BASE_URL` custom (les définitions inline étaient figées au démarrage). |
+| `disableBundledSkills` | Désactive les skills bundled par défaut (non présents dans ce projet) ; évite qu'ils soient proposés en doublon des skills projet. |
+| `disableClaudeAiConnectors` | Coupe les connecteurs Claude.ai distants injectés automatiquement (voir aussi `~/.claude.json` → `claudeAiMcpEverConnected`). |
+| `disableRemoteControl` | Bloque l'ouverture automatique du navigateur à chaque nouvel artefact. |
+
 ---
 
 ## Scratch d'agent — emplacement et nettoyage
@@ -411,6 +420,53 @@ Deux instances d'une même lane partagent le dépôt, les dashboards et le works
 ### Ce que cette modalité ne change pas
 
 Jamais de cron ni de tâche planifiée pour « reprendre » une lane douteuse : deux tireurs refont le même cycle (escalade CoursIA-2, 07/10). L'**extinction** d'une session reste un arbitrage user — aucune session n'en ordonne une autre.
+
+---
+
+## UAC & Dry-run — cas fondateur 2026-10-07
+
+**(Déplacé depuis `rules/uac-dryrun-discipline.md`, coupe A-suite #445, 17/10/2026 — les règles 1-3 + 2a restent dans le fichier de règle.)**
+
+**Cas fondateur 2026-10-07 (myia-po-2025, #1171).** `Register-ScheduledTask` pour `Docker-Auto-Start` : la cible `install-docker-autostart.ps1` avait été dry-runnée par assemblage `New-ScheduledTask*` (objet complet, sans écrire) et était saine — mais le **lanceur** écrit pour l'occasion portait `-Encoding utf8NoBOM`, PS7 seulement. Le run élevé a produit 4 erreurs `ValidateSet` sur `Out-File`, zéro installation, fenêtre user consommée. Réécrit en 5.1-safe, puis **rejoué entier en non-élevé** : il est allé jusqu'à `Accès refusé` sur `Register-ScheduledTask` seul — c'est ce run qui manquait. Relancé élevé -> `State=Ready`. La vérification suivante a rendu « tâche absente », refusé après contrôle : `Test-Path` et `schtasks /query` rendent `Accès refusé` (règle 3), la tâche existe bien.
+
+---
+
+## SDDD — protocole complet
+
+**(Déplacé depuis `rules/sddd-protocol.md`, supprimé coupe A-suite #445, 17/10/2026 — la section SDDD du `~/.claude/CLAUDE.md` global porte désormais la règle en 4 lignes.)**
+
+### `codebase_search` — 4 passes
+
+1. Requête **large** sur le thème (vocabulaire du domaine).
+2. `directory_prefix` pour cibler le sous-arbre pertinent.
+3. Grep **exact** sur le symbole/chemin identifié.
+4. **Reformuler** si les trois passes précédentes n'ont rien donné — le vocabulaire du code n'était pas celui de la requête.
+
+### Scepticisme — qualificateurs
+
+Ne JAMAIS propager une affirmation non vérifiée. Toute affirmation sortant d'une session porte son qualificateur : **VERIFIE** (lu dans le code/la sortie, ce cycle) · **RAPPORTE** (lu chez un tiers, non re-vérifié ici) · **SUPPOSE** (inférence, à tester avant d'agir dessus).
+
+### `conversation_browser`
+
+- **`list` est OBLIGATOIRE en premier** — sans IDs, les autres actions échouent.
+- `summarize_type: "trace"` recommandé (pas `synthesis` — la trace garde l'ordre des gestes, la synthèse le perd).
+
+---
+
+## File Writing — matrice de sélection
+
+**(Déplacé depuis `rules/file-writing.md`, supprimé coupe A-suite #445, 17/10/2026 — §Tool Discipline du global porte la règle en une ligne.)**
+
+| Situation | Outil | Note |
+|-----------|-------|------|
+| Modifier existant | `Edit` | `Read` d'abord. Préféré. |
+| Créer nouveau | `Write` | `Read` d'abord si existe déjà. |
+| Ajouter contenu | `Edit` (remplacer dernier bloc) | Jamais `Write` (écrase tout). |
+
+- **Edit nécessite Read préalable** — échoue sinon.
+- **Edit old_string doit être unique** — ajouter du contexte si ambigu.
+- **Encodage** : UTF-8 no-BOM. PowerShell : `[System.IO.File]::WriteAllText()` avec `UTF8Encoding($false)`.
+- **Backup** : si remplacement >50% du contenu, préférer `Write` (plus sûr que `Edit` partiel). Vérifier après écriture.
 
 ---
 

@@ -1,44 +1,35 @@
 # UAC & Dry-Run Discipline (Global)
 
 **Scope :** toutes les sessions, tous les workspaces, toutes les machines (Claude Code + workers schedulés).
-**Statut :** arbitrage USER direct du 2026-08-27 (incident CoursIA po-2024) — règle ferme, pas une proposition à débattre. Interprétation floue -> `[ASK]` AVANT de livrer.
+**Statut :** arbitrage USER direct du 2026-08-27 (incident CoursIA po-2024) — règle ferme. Interprétation floue -> `[ASK]` AVANT de livrer.
 
 **Pourquoi :** la disponibilité user est limitée (6 machines x 4-8 workspaces). Une fenêtre UAC consommée par un script buggé coûte une demi-journée d'attente. Un script UAC-touching sans dry-run = `[BLOCKED]` avec motif.
 
 ## Règle 1 — UAC : UN seul par lane, jamais une séquence
 
-- **Prêt au clic.** La fenêtre UAC dure quelques secondes : l'agent doit pouvoir **exécuter immédiatement** quand l'accord tombe — aucun `Read`, aucune recherche, aucun « qu'est-ce que je devais faire ». Un user dont l'agent cherche au moment où il accorde repart sur une autre instance. Corollaire : l'agent qui demande un UAC **reste présent** ; s'il a besoin de la fenêtre, il l'a déjà dry-runnée.
-- Batcher les élévations en **une seule passe** (multi-scripts via `-ArgumentList`, ou wrapper dédié).
-- Annoncer **à l'avance** sur le dashboard la liste exhaustive des UAC requis.
-- Documenter ce que l'user doit faire pendant la fenêtre UAC (ex. cocher « toujours autoriser »).
-- Tester en non-élevé d'abord quand c'est possible (cmd sans `-Verb RunAs`).
+- **Prêt au clic** : l'agent exécute **immédiatement** quand l'accord tombe (aucun `Read`/recherche à ce moment) et **reste présent** ; s'il a besoin de la fenêtre, il l'a déjà dry-runnée.
+- Batcher les élévations en **une seule passe** (`-ArgumentList` ou wrapper) ; annoncer **à l'avance** sur le dashboard la liste exhaustive ; documenter ce que l'user fait pendant la fenêtre ; tester en non-élevé d'abord quand c'est possible.
 
 ## Règle 2 — Dry-run EXIGÉ avant tout geste UAC-touching
 
-Scripts concernés : schtasks (`Register/Unregister-ScheduledTask`), ACL/sécurité (`icacls`, `Set-Acl`), écritures `Program Files`/`Windows`/HKLM, install/désinstall service/driver, spawn `-Verb RunAs`/`sudo`, suppression de fichier protégé ou worktree sale.
-
-- PowerShell : `-WhatIf` natif ou son équivalent de construction (`New-ScheduledTask` — assemble et valide l'objet complet sans écrire — quand la cible est `Register-ScheduledTask`, cmdlet CDXML sans `SupportsShouldProcess`) ou `$WhatIfPreference` ; Bash : `--dry-run` ou mode echo-only.
-- **La sortie du dry-run est postée sur le dashboard avant le geste UAC** — traçabilité + audit croisé avant consommation de la fenêtre user.
-- Exemptés : lectures pures (`Get-*`, `Test-Path`), dry-runs triviaux sur fichier jetable déjà identifié.
+Cibles : schtasks, ACL/sécurité, écritures `Program Files`/`Windows`/HKLM, service/driver, `-Verb RunAs`/`sudo`, suppression de fichier protégé ou worktree sale.
+PowerShell : `-WhatIf` natif ou équivalent de construction (`New-ScheduledTask` assemble et valide l'objet sans écrire) ou `$WhatIfPreference` ; Bash : `--dry-run`/echo-only. **La sortie du dry-run est postée sur le dashboard avant le geste.** Exemptés : lectures pures, dry-runs triviaux sur fichier jetable identifié.
 
 ### 2a — L'ENVELOPPE fait partie du geste
 
-Ce qui s'exécute en élevé n'est pas le script du dépôt, c'est **le lanceur que l'agent vient d'écrire**. Un dry-run qui ne valide que la cible laisse le maillon neuf non testé — et c'est lui qui porte les erreurs de syntaxe. Plus de la moitié des UAC de la flotte contiennent des erreurs de syntaxe (constat user 2026-10-07) : c'est exactement ce trou.
+Ce qui s'exécute en élevé n'est pas le script du dépôt mais **le lanceur que l'agent vient d'écrire** — c'est lui qui porte les erreurs de syntaxe (plus de la moitié des UAC flotte, constat user 2026-10-07).
 
-- **Écrire le lanceur pour l'interpréteur qui l'exécutera.** Le lanceur est exécuté par l'interpréteur que la commande d'élévation nomme — dans nos gestes `powershell.exe` (5.1), et `pwsh` est absent de certaines machines : écrire pour 5.1. Un paramètre de cmdlet qui n'existe qu'en 7.x tue le script au parse — avant la première ligne utile. Cas mesuré : `Out-File -Encoding utf8NoBOM` est **PS7 seulement** ; en 5.1 l'ensemble valide est `unknown;string;unicode;bigendianunicode;utf8;utf7;utf32;ascii;default;oem`. UTF-8 sans BOM en 5.1 = `[System.IO.File]::WriteAllText($p,$c,(New-Object System.Text.UTF8Encoding($false)))`.
-- **Lancer la chaîne ENTIÈRE en non-élevé** — lanceur inclus, exactement la commande qui sera élevée. Le run doit aller jusqu'au bout et **échouer sur la seule privilège** (`Register-ScheduledTask` -> `Accès refusé` / `HRESULT 0x80070005`). Échec sur autre chose = bug du geste, pas de l'élévation : corriger et refaire, la fenêtre user n'est pas ouverte.
-- Un `-WhatIf` sur la cible ne dispense pas de ce run : la syntaxe du lanceur ne s'y trouve pas.
+- **Écrire le lanceur pour l'interpréteur qui l'exécutera** — `powershell.exe` 5.1 chez nous (`pwsh` absent de certaines machines) ; un paramètre 7.x tue le script au parse (cas mesuré : `Out-File -Encoding utf8NoBOM` est PS7 seulement ; UTF-8 sans BOM en 5.1 = `[System.IO.File]::WriteAllText($p,$c,(New-Object System.Text.UTF8Encoding($false)))`).
+- **Lancer la chaîne ENTIÈRE en non-élevé** (lanceur inclus) : le run doit échouer sur **la seule privilège** (`Accès refusé`/`0x80070005`). Échec sur autre chose = bug du geste : corriger et refaire, la fenêtre user n'est pas ouverte. Un `-WhatIf` sur la cible ne dispense pas de ce run.
 
 ## Règle 3 — Verifier avec un instrument qui VOIT le resultat
 
-Une tâche enregistrée en `SYSTEM`/`RunLevel Highest` est **invisible au jeton standard**, et les instruments ne le disent pas tous : `Get-ScheduledTask` (par nom ou par énumération) rend « aucun objet trouvé » **exactement comme pour une tâche inexistante** ; `Test-Path C:\Windows\System32\Tasks\<nom>` rend `False` dans les deux cas (seul le flux d'erreur porte `Accès refusé`, effacé par `-ErrorAction SilentlyContinue`). « Absente » en non-élevé n'est donc **pas une mesure** — et la rapporter comme un échec déclenche une seconde fenêtre UAC pour rien.
+Une tâche `SYSTEM`/`RunLevel Highest` est **invisible au jeton standard** : `Get-ScheduledTask` et `Test-Path` rendent « absent » **exactement comme pour une tâche inexistante** — « absente » en non-élevé n'est **pas une mesure** (et la rapporter comme échec déclenche une seconde fenêtre UAC pour rien).
 
-- La confirmation valide vient d'un contexte qui peut lire l'objet : la **sortie du processus élevé lui-même** (lecture du service par CIM, `State=Ready`), ou toute lecture de même portée.
-- **Le seul instrument non élevé qui distingue les deux causes** : `schtasks /query /tn "\<nom>"` → `Accès refusé` (l'objet existe, l'ACL le cache) vs `Le fichier spécifié est introuvable` (absent). Un instrument muet ne prouve rien.
-- L'**effet réel** (démarrage au boot, service up) se vérifie à son propre déclencheur : noter ce qui reste à confirmer au prochain boot plutôt que de le déclarer acquis.
+- Confirmation valide : **sortie du processus élevé lui-même** (CIM `State=Ready`) ou lecture de même portée.
+- Seul instrument non élevé distinguant les deux causes : `schtasks /query /tn "<nom>"` → `Accès refusé` (existe) vs `introuvable` (absent).
+- L'**effet réel** (boot, service up) se vérifie à son propre déclencheur — noter ce qui reste à confirmer plutôt que le déclarer acquis.
 
-**Si friction** (script sans flag dry-run au source) : poster `[FRICTION]` avec le diff — rendre impossible le prochain incident.
+**Si friction** (script sans flag dry-run au source) : poster `[FRICTION]` avec le diff.
 
----
-
-**Cas fondateur 2026-10-07 (myia-po-2025, #1171).** `Register-ScheduledTask` pour `Docker-Auto-Start` : la cible `install-docker-autostart.ps1` avait été dry-runnée par assemblage `New-ScheduledTask*` (objet complet, sans écrire) et était saine — mais le **lanceur** écrit pour l'occasion portait `-Encoding utf8NoBOM`, PS7 seulement. Le run élevé a produit 4 erreurs `ValidateSet` sur `Out-File`, zéro installation, fenêtre user consommée. Réécrit en 5.1-safe, puis **rejoué entier en non-élevé** : il est allé jusqu'à `Accès refusé` sur `Register-ScheduledTask` seul — c'est ce run qui manquait. Relancé élevé -> `State=Ready`. La vérification suivante a rendu « tâche absente », refusé après contrôle : `Test-Path` et `schtasks /query` rendent `Accès refusé` (règle 3), la tâche existe bien.
+**Cas fondateur 2026-10-07** (lanceur PS7-only, fenêtre consommée, replay non-élevé manquant) : [`docs/harness/global-rules-detail.md`](../../docs/harness/global-rules-detail.md) §« UAC & Dry-run — cas fondateur ».
