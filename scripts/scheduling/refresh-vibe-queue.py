@@ -500,17 +500,68 @@ def open_prs(slug, issues):
     Cross-contract: un fichier tenu par une PR reclamant n'importe quel
     contrat actif est soustrait pour tous — deux PRs sur un meme fichier
     entrent en conflit quel que soit le contrat qui les a engendrees.
+
+    GraphQL d'abord (1 appel, champ files inclus) ; le pool GraphQL flotte
+    s'epuise par rafales (~1 h, reset horaire — mesure 17/10 11:10Z : organ
+    exit 1, file non rafraichie, famine artificielle pendant la fenetre).
+    Sur echec, collecte REST de secours (_open_prs_rest) ; si REST echoue
+    aussi, l'exception remonte — fail-closed preserve : mieux vaut organ
+    exit 1 qu'une deconfliction aveugle qui re-semerait des grains en
+    collision.
     """
     pats = [re.compile(r"#%d([^0-9]|$)" % i) for i in issues]
+    try:
+        out = sh(["gh", "pr", "list", "--repo", slug, "--state", "open",
+                  "--limit", "300", "--json", "number,title,headRefName,files"])
+        prs = [(p.get("number"), p.get("headRefName") or "", p.get("title") or "",
+                [f["path"].replace("\\", "/") for f in p.get("files") or []])
+               for p in json.loads(out)]
+    except SystemExit:
+        sys.stderr.write("open_prs: GraphQL epuise, collecte REST de secours\n")
+        prs = _open_prs_rest(slug, pats)
     held, branches = {}, set()
-    out = sh(["gh", "pr", "list", "--repo", slug, "--state", "open", "--limit", "300",
-              "--json", "number,title,headRefName,files"])
-    for pr in json.loads(out):
-        branches.add(pr.get("headRefName") or "")
-        if any(p.search(pr.get("title") or "") for p in pats):
-            for f in pr.get("files") or []:
-                held[f["path"].replace("\\", "/")] = pr["number"]
+    for number, head, title, files in prs:
+        branches.add(head)
+        if any(p.search(title) for p in pats):
+            for f in files:
+                held[f] = number
     return held, branches
+
+
+def _open_prs_rest(slug, pats):
+    """Collecte REST de secours pour open_prs : liste paginee + fichiers.
+
+    GET /pulls n'expose pas les fichiers — une requete par PR Dont le titre
+    matche un contrat (~35 PRs sur ~200 ouvertes, mesure 17/10) ; les autres
+    ne contribuent que leur branche. per_page=100 partout, arret sur page
+    courte. Retourne les memes tuples (number, head, title, files) que le
+    chemin GraphQL.
+    """
+    listed, page = [], 1
+    while True:
+        chunk = json.loads(sh(["gh", "api",
+                               "repos/%s/pulls?state=open&per_page=100&page=%d" % (slug, page)]))
+        listed.extend(chunk)
+        if len(chunk) < 100:
+            break
+        page += 1
+    out = []
+    for p in listed:
+        head = (p.get("head") or {}).get("ref") or ""
+        title = p.get("title") or ""
+        number = p.get("number")
+        files = []
+        if number is not None and any(px.search(title) for px in pats):
+            fpage = 1
+            while True:
+                fchunk = json.loads(sh(["gh", "api", "repos/%s/pulls/%d/files"
+                                        "?per_page=100&page=%d" % (slug, number, fpage)]))
+                files.extend(f["path"].replace("\\", "/") for f in fchunk)
+                if len(fchunk) < 100:
+                    break
+                fpage += 1
+        out.append((number, head, title, files))
+    return out
 
 
 CLAIM_TOKEN = re.compile(r"^[\w ./\\-]+\.(?:ipynb|md)$")
