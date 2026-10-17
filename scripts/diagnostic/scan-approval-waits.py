@@ -182,9 +182,11 @@ def adjudicate(finding, hook_index, session, raw_command):
     pre_exec_s = tool_use -> hook_ts (approval wait + client overhead),
     exec_s = hook_ts -> tool_result (execution). Adjudication 'exec' when the
     execution holds the majority of the gap, else 'approval' — a marker AFTER
-    the result ts (or none in window) leaves the finding unmatched. The upper
-    bound is tool_use + gap_s (+2s slack): gap_s is computed from the very
-    timestamps being bounded, so the window cannot swallow a later rerun."""
+    the result ts (or none in window) leaves the finding unmatched. Window is
+    [tool_use, tool_use + gap_s]: the execution start precedes the result by
+    contract, so a post-result marker (Hermes repro, po-2025 review: result
+    +1.5s -> exec_s < 0) is rejected rather than misjoined — leaving the
+    finding unmatched is the fail-safe direction."""
     from datetime import timedelta
     started = parse_ts(finding["ts"])
     if started is None:
@@ -192,7 +194,7 @@ def adjudicate(finding, hook_index, session, raw_command):
     candidates = hook_index.get((session, finding["tool"], raw_command))
     if not candidates:
         return False
-    upper = started + timedelta(seconds=finding["gap_s"] + 2)
+    upper = started + timedelta(seconds=finding["gap_s"])
     for ts in candidates:
         if started <= ts <= upper:
             finding["pre_exec_s"] = round((ts - started).total_seconds(), 1)
@@ -492,6 +494,17 @@ def selftest():
         # The raw fingerprint never leaks into the finding output.
         assert "sk-0123456789abcdefgh" not in json.dumps(joined_findings)
 
+        # Hermes reserve (po-2025 review repro): a marker landing AFTER the
+        # result (result + 1.5s here) must NOT join — the execution start
+        # precedes the result by contract, and misjoining it would yield a
+        # negative exec_s. Unmatched is the fail-safe direction.
+        late_index = {("wait", "Bash", "cmd-late"):
+                      [parse_ts("2026-10-15T09:41:21.500Z")]}
+        late_finding = {"ts": "2026-10-15T09:38:00.000Z", "tool": "Bash",
+                        "gap_s": 200.0, "command": "cmd-late"}
+        assert adjudicate(late_finding, late_index, "wait", "cmd-late") is False
+        assert "adjudication" not in late_finding and "exec_s" not in late_finding
+
         unmatched_findings, unmatched_stats = scan_file(
             copy_path, min_wait=120, tools=DEFAULT_TOOLS, hook_index=index)
         assert len(unmatched_findings) == 1 \
@@ -510,7 +523,8 @@ def selftest():
     print("             resume copies pass clean; unterminated counted; classifier on suspects;")
     print("             secret-bearing excerpt redacted (names kept, values [REDACTED]);")
     print("             lowercase/flag assignments, URL creds and quoted values covered;")
-    print("             hook-log join splits pre/exec and adjudicates approval vs exec.")
+    print("             hook-log join splits pre/exec and adjudicates approval vs exec;")
+    print("             post-result markers are rejected (window closes at the result).")
     return EXIT_CLEAN
 
 
