@@ -35,7 +35,14 @@ Usage:
     python scan-approval-waits.py --min-wait 120 --top 30          # thresholds
     python scan-approval-waits.py --since-hours 24                 # only recent findings
     python scan-approval-waits.py --json                           # machine-readable output
+    python scan-approval-waits.py --hook-log ~/.claude/tool-start-log.jsonl  # volet 3b join
     python scan-approval-waits.py --selftest                       # synthetic fixture validation
+
+Volet 3b (--hook-log): the journal written by the PreToolUse hook log-tool-start.js
+carries the instant each shell tool STARTS executing. Joining on (session, tool, raw
+command) + time window splits every gap into pre_exec_s (approval wait + client
+overhead) and exec_s (execution), labeled approval|exec — the transcript alone
+cannot draw that line (a 320s `npx vitest run` is an execution, not a wait).
 
 Exit codes: 0 = no finding, 2 = findings, 1 = error.
 """
@@ -138,18 +145,79 @@ def redact(text):
     return text
 
 
-def scan_file(path, min_wait, tools, since_dt=None):
+def load_hook_log(paths):
+    """Index the log-tool-start journal(s) (#4214 volet 3b). Rotation keeps a single
+    generation, so both <path> and <path>.1 are read when present. Key is
+    (session_id, tool, RAW command) -> sorted execution-start timestamps — the raw
+    fingerprint stays in the index and never reaches any output. An entry without
+    session_id cannot be scoped to a transcript: counted, not indexed."""
+    index = {}
+    entries, unscoped = 0, 0
+    for path in paths:
+        if path is None or not path.exists():
+            continue
+        with open(path, "r", encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                ts = parse_ts(entry.get("ts"))
+                session_id = entry.get("session_id")
+                if ts is None or not session_id:
+                    unscoped += 1
+                    continue
+                index.setdefault((session_id, entry.get("tool"), entry.get("command")), []).append(ts)
+                entries += 1
+    for stamps in index.values():
+        stamps.sort()
+    return index, entries, unscoped
+
+
+def adjudicate(finding, hook_index, session, raw_command):
+    """Split the finding's gap with its execution-start marker (volet 3b):
+    pre_exec_s = tool_use -> hook_ts (approval wait + client overhead),
+    exec_s = hook_ts -> tool_result (execution). Adjudication 'exec' when the
+    execution holds the majority of the gap, else 'approval' — a marker AFTER
+    the result ts (or none in window) leaves the finding unmatched. The upper
+    bound is tool_use + gap_s (+2s slack): gap_s is computed from the very
+    timestamps being bounded, so the window cannot swallow a later rerun."""
+    from datetime import timedelta
+    started = parse_ts(finding["ts"])
+    if started is None:
+        return False
+    candidates = hook_index.get((session, finding["tool"], raw_command))
+    if not candidates:
+        return False
+    upper = started + timedelta(seconds=finding["gap_s"] + 2)
+    for ts in candidates:
+        if started <= ts <= upper:
+            finding["pre_exec_s"] = round((ts - started).total_seconds(), 1)
+            finding["exec_s"] = round(finding["gap_s"] - finding["pre_exec_s"], 1)
+            finding["adjudication"] = "exec" if finding["exec_s"] > finding["pre_exec_s"] else "approval"
+            return True
+    return False
+
+
+def scan_file(path, min_wait, tools, since_dt=None, hook_index=None):
     """Scan one session JSONL. Returns (findings, stats).
 
     Nodes sharing a uuid already seen are resume-copy artifacts (verbatim re-append of a
     prior transcript range — see scan-duplicate-tool-use.py ground truth): skipped, counted
     in stats['rewritten_nodes'] so a resumed session never double-reports a wait.
+
+    hook_index (volet 3b): when given, each finding is adjudicated with its
+    execution-start marker — joined/unjoined counters in stats.
     """
     tools_lower = {t.lower() for t in tools}
     pending = {}  # tool_use_id -> record (first emission only)
     findings = []
     stats = {"lines": 0, "shell_tool_use": 0, "tool_results": 0,
-             "rewritten_nodes": 0, "unterminated": 0, "findings": 0}
+             "rewritten_nodes": 0, "unterminated": 0, "findings": 0,
+             "joined": 0, "unjoined": 0}
     seen_uuids = set()
 
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
@@ -210,7 +278,7 @@ def scan_file(path, min_wait, tools, since_dt=None):
                         if started is None or started < since_dt:
                             continue
                     command = record["command"] or ""
-                    findings.append({
+                    finding = {
                         "tool_use_id": tid,
                         "tool": record["tool"],
                         "form": classify(command),
@@ -220,7 +288,13 @@ def scan_file(path, min_wait, tools, since_dt=None):
                         "command": redact(command)[:200],
                         "is_error": bool(block.get("is_error")),
                         "sidechain": record["sidechain"],
-                    })
+                    }
+                    if hook_index is not None:
+                        if adjudicate(finding, hook_index, path.stem, command):
+                            stats["joined"] += 1
+                        else:
+                            stats["unjoined"] += 1
+                    findings.append(finding)
 
     stats["unterminated"] = len(pending)
     stats["findings"] = len(findings)
@@ -228,47 +302,72 @@ def scan_file(path, min_wait, tools, since_dt=None):
     return findings, stats
 
 
-def scan_target(target, min_wait, tools, since_hours=None, as_json=False, top=None):
-    """target: file or directory. Returns (findings, totals)."""
+def scan_target(target, min_wait, tools, since_hours=None, as_json=False, top=None,
+                hook_log=None):
+    """target: file or directory. Returns (findings, totals).
+
+    hook_log (volet 3b): path to the log-tool-start journal — both it and its
+    rotated `.1` are indexed, and every finding gets its gap split into
+    pre_exec_s / exec_s with an adjudication (approval|exec)."""
     paths = [target] if target.is_file() else sorted(target.rglob("*.jsonl"))
     since_dt = None
     if since_hours is not None:
         from datetime import datetime, timedelta, timezone
         since_dt = datetime.now(timezone.utc) - timedelta(hours=since_hours)
 
+    hook_index, hook_entries, hook_unscoped = (None, 0, 0)
+    if hook_log is not None:
+        hook_index, hook_entries, hook_unscoped = load_hook_log(
+            [hook_log, Path(str(hook_log) + ".1")])
+
     all_findings = []
     totals = {"files": 0, "lines": 0, "shell_tool_use": 0, "tool_results": 0,
-              "rewritten_nodes": 0, "unterminated": 0, "findings": 0}
+              "rewritten_nodes": 0, "unterminated": 0, "findings": 0,
+              "joined": 0, "unjoined": 0}
     per_form = {}
+    per_adjudication = {}
     started = time.monotonic()
 
     for path in paths:
         try:
-            findings, stats = scan_file(path, min_wait, tools, since_dt)
+            findings, stats = scan_file(path, min_wait, tools, since_dt,
+                                        hook_index=hook_index)
         except OSError as err:
             print(f"ERROR reading {path}: {err}", file=sys.stderr)
             continue
         totals["files"] += 1
         for key in ("lines", "shell_tool_use", "tool_results", "rewritten_nodes",
-                    "unterminated", "findings"):
+                    "unterminated", "findings", "joined", "unjoined"):
             totals[key] += stats[key]
         for finding in findings:
             finding["file"] = str(path)
             finding["session"] = path.stem
             per_form[finding["form"]] = per_form.get(finding["form"], 0) + 1
+            if "adjudication" in finding:
+                per_adjudication[finding["adjudication"]] = \
+                    per_adjudication.get(finding["adjudication"], 0) + 1
         all_findings.extend(findings)
 
     all_findings.sort(key=lambda f: -f["gap_s"])
     if top is not None:
         all_findings = all_findings[:top]
     totals["per_form"] = per_form
+    if hook_index is not None:
+        totals["hook_log_entries"] = hook_entries
+        totals["hook_log_unscoped"] = hook_unscoped
+        totals["per_adjudication"] = per_adjudication
     totals["elapsed_s"] = round(time.monotonic() - started, 1)
 
     if not as_json:
         for finding in all_findings:
             print(f"  [{finding['form']:>11}] {finding['gap_s']:>9.1f}s  {finding['ts']}  "
                   f"{finding['tool']}  {finding['command'][:120]}")
+            split = ""
+            if "adjudication" in finding:
+                split = (f"  pre={finding['pre_exec_s']:.1f}s exec={finding['exec_s']:.1f}s"
+                         f" [{finding['adjudication']}]")
             print(f"               session={finding['session']}  line={finding['line']}"
+                  f"{split}"
                   f"{'  sidechain' if finding['sidechain'] else ''}"
                   f"{'  ERROR' if finding['is_error'] else ''}")
     return all_findings, totals
@@ -361,6 +460,45 @@ def selftest():
         assert copy_stats["rewritten_nodes"] == 2, \
             f"copy fixture must count 2 rewritten nodes, got {copy_stats['rewritten_nodes']}"
 
+        # Volet 3b: hook-log join. t1 (4026s) gets its marker 20s in — execution
+        # holds the bulk -> adjudicated 'exec'; t5 (200s) gets its marker at 170s
+        # -> the wait precedes execution -> adjudicated 'approval'. The copy
+        # session's command is absent from the journal -> unmatched.
+        hook_path = Path(tmp) / "tool-start-log.jsonl"
+        hook_path.write_text("\n".join(json.dumps(e) for e in [
+            {"ts": "2026-10-15T07:30:20.000Z", "session_id": "wait", "tool": "Bash",
+             "command": "cd /d/CoursIA && rm -rf /d/CoursIA-wt-pr20891 && ls"},
+            {"ts": "2026-10-15T09:40:50.000Z", "session_id": "wait", "tool": "Bash",
+             "command": "export API_KEY=sk-0123456789abcdefgh && "
+                        "GH_TOKEN=ghp_0123456789abcdefghij curl -s "
+                        "-H x-api-key:k0123456789 https://example.com/feed"},
+            {"ts": "2026-10-15T10:00:00.000Z", "session_id": None, "tool": "Bash",
+             "command": "session-less entry must be counted, not indexed"},
+        ]) + "\n", encoding="utf-8")
+        index, entries, unscoped = load_hook_log([hook_path])
+        assert entries == 2 and unscoped == 1, \
+            f"expected 2 scoped + 1 unscoped entries, got {entries}/{unscoped}"
+
+        joined_findings, joined_stats = scan_file(
+            wait_path, min_wait=120, tools=DEFAULT_TOOLS, hook_index=index)
+        assert joined_stats["joined"] == 2 and joined_stats["unjoined"] == 0, \
+            f"both findings must join, got {joined_stats}"
+        assert joined_findings[0]["pre_exec_s"] == 20.0 \
+            and joined_findings[0]["exec_s"] == 4006.0 \
+            and joined_findings[0]["adjudication"] == "exec", joined_findings[0]
+        assert joined_findings[1]["pre_exec_s"] == 170.0 \
+            and joined_findings[1]["exec_s"] == 30.0 \
+            and joined_findings[1]["adjudication"] == "approval", joined_findings[1]
+        # The raw fingerprint never leaks into the finding output.
+        assert "sk-0123456789abcdefgh" not in json.dumps(joined_findings)
+
+        unmatched_findings, unmatched_stats = scan_file(
+            copy_path, min_wait=120, tools=DEFAULT_TOOLS, hook_index=index)
+        assert len(unmatched_findings) == 1 \
+            and unmatched_stats["joined"] == 0 and unmatched_stats["unjoined"] == 1, \
+            f"copy-session finding must stay unmatched, got {unmatched_stats}"
+        assert "adjudication" not in unmatched_findings[0]
+
         # Classifier spot-checks (mandate suspects).
         assert classify("rm -rf /d/foo") == "rm-rf"
         assert classify("wsl -d Ubuntu -- bash -lc 'echo'") == "wsl"
@@ -371,7 +509,8 @@ def selftest():
     print("selftest OK: composed-cd wait (4026s) flagged; fast plain, non-shell long gap and")
     print("             resume copies pass clean; unterminated counted; classifier on suspects;")
     print("             secret-bearing excerpt redacted (names kept, values [REDACTED]);")
-    print("             lowercase/flag assignments, URL creds and quoted values covered.")
+    print("             lowercase/flag assignments, URL creds and quoted values covered;")
+    print("             hook-log join splits pre/exec and adjudicates approval vs exec.")
     return EXIT_CLEAN
 
 
@@ -388,6 +527,11 @@ def main():
                         help="only report tool_use emitted within this window")
     parser.add_argument("--top", type=int, default=None, help="keep only the N longest gaps")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--hook-log", type=Path, default=None, metavar="PATH",
+                        help="adjudicate findings with the log-tool-start journal "
+                             "(#4214 volet 3b): PATH and PATH.1 are indexed, each gap is "
+                             "split into pre_exec_s (approval wait + overhead) and exec_s "
+                             "(execution), labeled approval|exec")
     parser.add_argument("--selftest", action="store_true", help="run synthetic fixture validation and exit")
     args = parser.parse_args()
 
@@ -404,7 +548,7 @@ def main():
 
     tools = [t.strip() for t in args.tools.split(",") if t.strip()] or list(DEFAULT_TOOLS)
     findings, totals = scan_target(target, args.min_wait, tools, args.since_hours,
-                                   as_json=args.json, top=args.top)
+                                   as_json=args.json, top=args.top, hook_log=args.hook_log)
 
     if args.json:
         print(json.dumps({"target": str(target), "tools": tools,
