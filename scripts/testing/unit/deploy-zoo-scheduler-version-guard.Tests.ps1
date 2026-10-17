@@ -43,15 +43,20 @@ Describe "deploy-zoo-scheduler.ps1 - garde versionnee etape 4" {
     Context "logique de garde (expression rejouee)" {
         BeforeAll {
             # reproduction exacte de l'expression du script : la version cible
-            # vient du basename du VSIX resolu, pas de la constante
+            # vient du basename du VSIX resolu, pas de la constante.
+            # Portabilite (review web1 c.655) : Join-Path RESOUT le lecteur --
+            # 'D:\packages' levait DriveNotFoundException sur machine sans D:
+            # (web1, CI ubuntu) et faisait echouer le Context entier. La racine
+            # n'importe pas (seul le basename est consomme) : $TestDrive existe
+            # sur toute machine.
             $script:VsixName = 'zoo-scheduler-0.0.11-zoo.4.vsix'
             $script:ZooSchedulerId = 'jsboige.zoo-scheduler'
-            $script:ResolvedVsix = Join-Path 'D:\packages' $script:VsixName
+            $script:ResolvedVsix = Join-Path $TestDrive $script:VsixName
             $script:TargetVersion = (Split-Path -Leaf $script:ResolvedVsix) -replace '^zoo-scheduler-', '' -replace '\.vsix$', ''
         }
 
         It "VSIX utilisateur plus recent (-VsixPath) -> la cible suit son basename" {
-            $newer = Join-Path 'D:\packages' 'zoo-scheduler-0.0.12-zoo.5.vsix'
+            $newer = Join-Path $TestDrive 'zoo-scheduler-0.0.12-zoo.5.vsix'
             ((Split-Path -Leaf $newer) -replace '^zoo-scheduler-', '' -replace '\.vsix$', '') | Should -Be '0.0.12-zoo.5'
         }
 
