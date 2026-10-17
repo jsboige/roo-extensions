@@ -434,7 +434,13 @@ class TestOpenPrsGraphqlRestFallback(unittest.TestCase):
                 ])
             if "/files" in cmd[-1]:
                 assert "/pulls/11/" in cmd[-1], "fichiers requis pour la PR contrat seule"
-                return json.dumps([{"path": "MyIA.AI.Notebooks\\GenAI\\Audio\\a.ipynb"}])
+                # Shape REELLE de GET /pulls/{n}/files : cle "filename" (pas
+                # "path" — forme GraphQL). Le mock initial fabulait "path" et
+                # verrouillait la fantaisie (KeyError prouve en live, #4239).
+                return json.dumps([{
+                    "additions": 3, "changes": 3, "deletions": 0,
+                    "filename": "MyIA.AI.Notebooks\\GenAI\\Audio\\a.ipynb",
+                    "sha": "abc", "status": "modified"}])
             raise AssertionError("appel inattendu: %s" % cmd)
         return fake_sh
 

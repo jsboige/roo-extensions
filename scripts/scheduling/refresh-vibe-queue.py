@@ -556,7 +556,9 @@ def _open_prs_rest(slug, pats):
             while True:
                 fchunk = json.loads(sh(["gh", "api", "repos/%s/pulls/%d/files"
                                         "?per_page=100&page=%d" % (slug, number, fpage)]))
-                files.extend(f["path"].replace("\\", "/") for f in fchunk)
+                # REST renvoie "filename" (pas "path", forme GraphQL —
+                # KeyError prouve en live par Hermes, review #4239).
+                files.extend(f["filename"].replace("\\", "/") for f in fchunk)
                 if len(fchunk) < 100:
                     break
                 fpage += 1
