@@ -18,7 +18,7 @@ Ces règles ont des correspondances directes entre Roo et Claude :
 
 | Règle Claude | Règle Roo | Synchronisation |
 |--------------|-----------|-----------------|
-| `file-writing.md` | `08-file-writing.md` | ✅ Stratégies d'écriture fichier (limites Qwen vs Edit/Write) |
+| `file-writing.md` *(supprimé #445 17/10/2026 — replié dans `~/.claude/CLAUDE.md` global §Tool Discipline)* | `08-file-writing.md` | ✅ Stratégies d'écriture fichier (limites Qwen vs Edit/Write) |
 | `sddd-conversational-grounding.md` | `04-sddd-grounding.md` | ✅ Protocole triple grounding + bookend |
 | `no-deletion-without-proof.md` | `23-no-deletion-without-proof.md` | ✅ Règle anti-destruction |
 | `pr-mandatory.md` | `20-pr-mandatory.md` | ✅ Workflow PR obligatoire |
@@ -85,7 +85,7 @@ Exemple :
 ```markdown
 ## Référence Croisée
 - Roo equivalent: `.roo/rules/08-file-writing.md`
-- Claude equivalent: `~/.claude/rules/file-writing.md` (global, source `.claude/configs/rules/file-writing.md`)
+- Claude equivalent: replié dans `~/.claude/CLAUDE.md` global §Tool Discipline (#445 17/10/2026 ; source supprimée, matrice dans `docs/harness/global-rules-detail.md`)
 ```
 
 ### Règles Non Synchronisées

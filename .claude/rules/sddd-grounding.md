@@ -3,8 +3,10 @@
 **Version:** 5.1.0 (slim — tables déportées 2026-08-05)
 **Issues :** #2218 (bookend généralisé) · #636 (filtres) · #881 (detailLevel) · #1785 (JSONL) · #2368
 
-> Le protocole général (triple grounding, bookend, `workspace` explicite, scepticisme) est dans
-> `~/.claude/rules/sddd-protocol.md`. Ce fichier ne porte que ce qui est **propre à ce dépôt**.
+> Le protocole général (triple grounding, bookend, `workspace` explicite, scepticisme, 4 passes,
+> qualificateurs) est dans le `~/.claude/CLAUDE.md` global §SDDD (replié depuis `~/.claude/rules/sddd-protocol.md`,
+> #445 17/10/2026 ; détail : `docs/harness/global-rules-detail.md` §SDDD). Ce fichier ne porte que ce qui
+> est **propre à ce dépôt**.
 
 ---
 
