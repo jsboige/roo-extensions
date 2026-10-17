@@ -1,13 +1,14 @@
 # Garde-Fous CI - Prevention des Regressions
 
-**Version:** 3.0.0 (condensed from 2.0.0)
-**MAJ:** 2026-04-05
+**Version:** 3.1.0 (gates racine #3685 — phase 3 livrable 1 Epic #3111)
+**MAJ:** 2026-10-17
 
 ---
 
 ## Regle Absolue
 
 **AVANT de pousser dans `mcps/internal`, VALIDER build + tests CI.**
+**TOUT push (racine incluse) passe les gates CI secret-scan + doc-tree-drift (§ Gates racine).**
 
 ### Validation
 
@@ -40,6 +41,24 @@ npm run test:mcp
 | `vitest.config.ci.ts` | CI (exclut 8 fichiers de tests déclarés — recensement courant : `mcps/internal/servers/roo-state-manager/docs/CI-EXCLUSIONS-CENSUS.md`) |
 
 Nouveaux tests : verifier avec `--config vitest.config.ci.ts`.
+
+### Gates racine (#3685, 16/09 — adaptes de CoursIA)
+
+Le depot racine porte ses propres gates, independantes du submodule :
+
+| Gate | Surface | Declenchement |
+|------|---------|---------------|
+| **Secret scan gitleaks** | `.github/workflows/secret-scan.yml` | Chaque push `main` + PR — binaire epingle `GITLEAKS_VERSION` + SHA256, config `.gitleaks.toml` a la racine |
+| **Pre-commit local (opt-in)** | `.pre-commit-config.yaml` | `pip install pre-commit && pre-commit install` — MEME hook gitleaks, meme `rev` |
+| **Doc-tree drift** | `scripts/docs/scan-doc-tree-drift.ps1` + suite Pester | Garde CLAUDE.md (decomptes #3321, liens, chemins backtick) + **parite gitleaks** ; cron CI quotidien sur main (fixtures qui pourrent sans push) |
+
+Ce que l'agent doit savoir :
+
+- **Le point d'application = la CI.** Le pre-commit local est opt-in par machine (Python requis) — son ABSENCE locale ne signifie aucune absence de gate : secret-scan tourne sur le push.
+- **Un secret-scan CI rouge est un vrai finding** (generic-api-key, entropy), pas un flake → incident `security.md`, jamais un `--no-verify`.
+- **JAMAIS bumper `GITLEAKS_VERSION` seul** : 3 surfaces a re-pingler ensemble (version workflow + SHA256 depuis `gitleaks_<v>_checksums.txt` + `rev` du pre-commit) — la parite est assertee mecaniquement par le drift-scan.
+- **Toucher `CLAUDE.md`** → le drift-scan le garde : lancer `scripts/testing/unit/doc-tree-drift-scan.Tests.ps1` localement avant le push.
+- Inventaire complet des gates et lessons CoursIA : `docs/harness/reports/coursia-gates-inventory-2026-09-16.md`.
 
 ### Agents
 

@@ -25,6 +25,8 @@ Avant chaque commit, verifier :
 - `git diff --cached` ne contient pas de patterns secrets (`API_KEY=`, `sk-`, `ghp_`, `Bearer`)
 - Aucun `.env` n'est dans le staging area (`git diff --cached --name-only | grep -i env`)
 
+Contrepoint automatise (#3685) : gitleaks scanne chaque push en CI (secret-scan.yml) — le geste manuel ci-dessus reste le premier filtre, la CI est le filet. Voir `ci-guardrails.md` § Gates racine.
+
 ## GitHub Secret Scanning
 
 - Les alertes GitHub secret scanning doivent etre resolues **immediatement**
