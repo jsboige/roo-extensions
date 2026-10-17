@@ -7,9 +7,11 @@ family-level grouping for contract 16472, and payload sanity per contract.
 """
 
 import importlib.util
+import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 _SPEC = importlib.util.spec_from_file_location(
     "refresh_vibe_queue",
@@ -411,6 +413,65 @@ class TestTellcContract(unittest.TestCase):
         bins = rvq.plan(free, floor=10, group_fn=fam)
         self.assertEqual([n for n, _ in bins], ["A"])
         self.assertNotIn("b/x.py", {p for _, ch in bins for p in ch})
+
+
+class TestOpenPrsGraphqlRestFallback(unittest.TestCase):
+    """Mesure 17/10 11:10Z : pool GraphQL flotte epuise ~1 h -> `gh pr list
+    --json` leve SystemExit -> organ exit 1, file non rafraichie (famine
+    artificielle pendant la fenetre). open_prs doit basculer en REST et
+    rester fail-closed si REST echoue aussi."""
+
+    def _fake_sh_factory(self, calls):
+        def fake_sh(cmd, cwd=None, check=True):
+            calls.append(" ".join(cmd))
+            if cmd[1] == "pr":
+                raise SystemExit("commande echouee: gh pr list\nGraphQL: rate limit")
+            if "/pulls?" in cmd[-1]:
+                # 1 page courte : 2 PRs ouvertes, une seule matche #15719.
+                return json.dumps([
+                    {"number": 11, "title": "fix(x,#15719): table", "head": {"ref": "wt/keep"}},
+                    {"number": 12, "title": "chore: hors contrat", "head": {"ref": "wt/other"}},
+                ])
+            if "/files" in cmd[-1]:
+                assert "/pulls/11/" in cmd[-1], "fichiers requis pour la PR contrat seule"
+                # Shape REELLE de GET /pulls/{n}/files : cle "filename" (pas
+                # "path" — forme GraphQL). Le mock initial fabulait "path" et
+                # verrouillait la fantaisie (KeyError prouve en live, #4239).
+                return json.dumps([{
+                    "additions": 3, "changes": 3, "deletions": 0,
+                    "filename": "MyIA.AI.Notebooks\\GenAI\\Audio\\a.ipynb",
+                    "sha": "abc", "status": "modified"}])
+            raise AssertionError("appel inattendu: %s" % cmd)
+        return fake_sh
+
+    def test_graphql_pool_exhausted_falls_back_to_rest(self):
+        calls = []
+        with mock.patch.object(rvq, "sh", self._fake_sh_factory(calls)):
+            held, branches = rvq.open_prs("jsboige/CoursIA", [15719])
+        self.assertEqual(held, {"MyIA.AI.Notebooks/GenAI/Audio/a.ipynb": 11})
+        self.assertEqual(branches, {"wt/keep", "wt/other"})
+        self.assertTrue(any("/pulls?" in c for c in calls), "liste REST attendue")
+        self.assertTrue(any("/pulls/11/" in c and "/files" in c for c in calls),
+                        "fichiers de la PR contrat attendus")
+        self.assertFalse(any("/pulls/12/" in c for c in calls),
+                          "pas de requete fichiers pour une PR hors contrat")
+
+    def test_graphql_healthy_path_unchanged(self):
+        graphql = json.dumps([
+            {"number": 21, "title": "fix(#16472)", "headRefName": "wt/g",
+             "files": [{"path": "n/b.ipynb"}]},
+        ])
+        with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: graphql):
+            held, branches = rvq.open_prs("jsboige/CoursIA", [16472])
+        self.assertEqual(held, {"n/b.ipynb": 21})
+        self.assertEqual(branches, {"wt/g"})
+
+    def test_rest_failure_still_raises_fail_closed(self):
+        def boom(cmd, cwd=None, check=True):
+            raise SystemExit("commande echouee: %s" % cmd[0])
+        with mock.patch.object(rvq, "sh", boom):
+            with self.assertRaises(SystemExit):
+                rvq.open_prs("jsboige/CoursIA", [15719])
 
 
 class TestDefaultQueueAnchoring(unittest.TestCase):
