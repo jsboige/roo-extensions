@@ -182,6 +182,9 @@ non-nul, timeout, JSON invalide — collecte OU verification de claim) rend un v
 reparer gh puis relancer. Toujours pas de filtre machine par flag (ADR 016) : les exclusions lisent
 des donnees qui existent (claims, etiquettes), la machine vient de `COMPUTERNAME`. Le pre-claim
 `check_issue_claim.py NNN --claim` avant edition reste LA barriere — le picker ne la remplace pas.
+Chaque candidat de la sortie porte son champ `repo` : relire le corps avec `gh issue view NNN --repo
+<candidate.repo>` — un meme numero existe dans les deux depots avec des corps differents (18/10 :
+#92 servi OPEN cote mcp-servers, lu avec le corps ferme « Safari » cote roo-extensions).
 **Detail et rationale :** ADR 016.
 
 #### Catalogue Idle Tasks (#1417)
