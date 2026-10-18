@@ -55,7 +55,7 @@ Semantique du deploiement (`Deploy-GlobalConfig.ps1 -Target settings`) :
 - **Tier ids** : ils periment a chaque release modele — les maj via PR ici, pas
   par edit local d'une machine.
 
-> **Note (#2368, maj #445 17/10/2026) :** les regles `sddd-protocol.md` et `file-writing.md` n'existent plus comme fichiers — leur contenu est replie dans les sections SDDD et Tool Discipline du `~/.claude/CLAUDE.md` global (2 lignes chacune), le detail (4 passes, qualificateurs, matrice Edit/Write) vivant dans `docs/harness/global-rules-detail.md`. Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. Les regles `harnais-tightening.md` (#3657) et `uac-dryrun-discipline.md` restent deployees globalement via le meme `Deploy-GlobalConfig.ps1 -Target rules`.
+> **Note (#2368, maj #445 17/10/2026) :** les regles `sddd-protocol.md` et `file-writing.md` n'existent plus comme fichiers — leur contenu est replie dans les sections SDDD et Tool Discipline du `~/.claude/CLAUDE.md` global (2 lignes chacune), le detail (4 passes, qualificateurs, matrice Edit/Write) vivant dans `docs/harness/global-rules-detail.md`. Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. Les regles `harnais-tightening.md` (#3657), `uac-dryrun-discipline.md` et `shell-composite-discipline.md` (#4214) restent deployees globalement via le meme `Deploy-GlobalConfig.ps1 -Target rules`.
 
 ## Profils Claudish
 
