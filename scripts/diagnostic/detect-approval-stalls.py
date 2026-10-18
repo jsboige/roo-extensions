@@ -27,6 +27,15 @@ dangling tool_use cannot: `waiting-suspected` (no execution marker -- the approv
 never came) vs `executing` (marker at/after the tool_use -- the command runs or
 ran; the transcript tail lags). Without --hook-log every dangling tail reports as
 waiting-suspected.
+
+The `abandoned` state (review nit on #4245, real case 2d17885a 12/10) retires a
+third shape: a SIDECHAIN tool_use that dangles while the parent session kept
+writing after it -- the subagent was orphaned mid-wait, nobody will ever answer,
+yet the dangling tail reads "live" until the mtime window rolls it off (days).
+Sidechain records live in the parent's JSONL (per-record isSidechain flag), so
+the join is same-file: parent activity after the tool_use ts -> abandoned. An
+abandoned tail is reported for visibility but does NOT trip exit 2 (like
+executing, it is not an approval wait someone could still answer).
 """
 
 import argparse
@@ -62,16 +71,19 @@ def now_utc():
 
 
 def scan_session(path, tools):
-    """Parse one session JSONL. Returns (dangling, last_ts, stats).
+    """Parse one session JSONL. Returns (dangling, last_ts, last_parent_ts, stats).
 
     dangling: list of unterminated shell tool_use records at EOF, in emission
     order (uuid-deduped against resume copies, same rule as scan-approval-waits).
+    last_parent_ts: timestamp of the last non-sidechain record -- the parent
+    session's own watermark, used to retire orphaned sidechain waits (abandoned).
     """
     tools_lower = {t.lower() for t in tools}
     pending = {}
     stats = {"lines": 0, "rewritten_nodes": 0, "shell_tool_use": 0}
     seen_uuids = set()
     last_ts = None
+    last_parent_ts = None
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
             stats["lines"] += 1
@@ -83,6 +95,8 @@ def scan_session(path, tools):
                 continue
             if entry.get("timestamp"):
                 last_ts = entry["timestamp"]  # tracked on every record: the tail lag
+                if not entry.get("isSidechain"):
+                    last_parent_ts = entry["timestamp"]
             if '"tool_use"' not in line and '"tool_result"' not in line:
                 continue
             msg = entry.get("message")
@@ -116,7 +130,7 @@ def scan_session(path, tools):
                     }
                 elif btype == "tool_result" and block.get("tool_use_id"):
                     pending.pop(block["tool_use_id"], None)
-    return list(pending.values()), last_ts, stats
+    return list(pending.values()), last_ts, last_parent_ts, stats
 
 
 def adjudicate_state(record, session_id, hook_index):
@@ -158,7 +172,7 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
             continue
         active += 1
         try:
-            dangling, _last_ts, _stats = scan_session(path, tools)
+            dangling, _last_ts, last_parent_ts, _stats = scan_session(path, tools)
         except OSError as exc:
             print(f"WARNING: unreadable {path}: {exc}", file=sys.stderr)
             continue
@@ -171,7 +185,14 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
             age_s = (now_utc() - started).total_seconds()
             if age_s < threshold_s:
                 continue
-            state = adjudicate_state(record, session_id, hook_index)
+            parent_ts = parse_ts(last_parent_ts) if record["sidechain"] else None
+            if parent_ts is not None and parent_ts > started:
+                # Orphaned subagent: the parent session wrote on after this
+                # tool_use, so the wait will never be answered -- retire it
+                # (review nit #4245, real case 2d17885a: false "live" for days).
+                state = "abandoned"
+            else:
+                state = adjudicate_state(record, session_id, hook_index)
             stalls.append({
                 "session": session_id,
                 "project": project,
@@ -186,7 +207,8 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
 
     totals = {"files": files, "active": active, "stalls": len(stalls),
               "waiting": sum(1 for s in stalls if s["state"] == "waiting-suspected"),
-              "executing": sum(1 for s in stalls if s["state"] == "executing")}
+              "executing": sum(1 for s in stalls if s["state"] == "executing"),
+              "abandoned": sum(1 for s in stalls if s["state"] == "abandoned")}
     if as_json:
         print(json.dumps({"root": str(root), "min_minutes": min_minutes,
                           "active_hours": active_hours, "totals": totals,
@@ -283,9 +305,20 @@ def selftest():
                    iso(base - timedelta(minutes=50)), "a8")
         write("proj-d/resumed.jsonl", [dup, dup])
 
+        # 8. Abandoned sidechain: parent wrote AFTER the dangling tool_use -- the
+        #    subagent was orphaned mid-wait (nit #4245, case 2d17885a): reported
+        #    as abandoned, not as an answerable approval wait.
+        write("proj-e/orphan.jsonl", [
+            _rec("assistant", [_tool_use("t8", "Bash", "cd ../x && rm -f y")],
+                 iso(base - timedelta(hours=3)), "a9", sidechain=True),
+            _rec("assistant", [{"type": "text", "text": "parent moved on"}],
+                 iso(base - timedelta(hours=2)), "a10"),
+        ])
+
         totals, stalls = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0)
 
-        assert totals["stalls"] == 4, f"expected 4 stalls, got {totals['stalls']}: {stalls}"
+        assert totals["stalls"] == 5, f"expected 5 stalls, got {totals['stalls']}: {stalls}"
+        assert totals["abandoned"] == 1, totals
         by_key = {(s["project"], s["session"]): s for s in stalls}
         stuck = by_key[("proj-a", "stalled")]
         assert stuck["state"] == "waiting-suspected" and stuck["sidechain"] is False
@@ -295,13 +328,16 @@ def selftest():
         assert ("proj-b", "closed") not in by_key and ("proj-b", "idle") not in by_key
         side = by_key[("proj-c", "side")]
         assert side["sidechain"] is True and side["tool"] == "PowerShell"
+        assert side["state"] == "waiting-suspected", side  # no parent after: still answerable
+        orphan = by_key[("proj-e", "orphan")]
+        assert orphan["state"] == "abandoned" and orphan["sidechain"] is True, orphan
         secret = by_key[("proj-c", "secret")]
         assert "abcdef1234567890" not in secret["command"], secret["command"]
         assert "[REDACTED]" in secret["command"]
         # 7. Resume copy: the re-appended uuid is skipped -- one report, not two.
         assert len([s for s in stalls if s["session"] == "resumed"]) == 1
 
-        # 8. Hook-log join: a marker at/after the tool_use flips the verdict to executing.
+        # 9. Hook-log join: a marker at/after the tool_use flips the verdict to executing.
         hook_dir = Path(tmp) / "hook"
         hook_dir.mkdir()
         hook_path = hook_dir / "tool-starts.jsonl"
@@ -313,11 +349,13 @@ def selftest():
         assert stuck2["state"] == "executing", stuck2
         # Totals carry the adjudication split alongside the exit-code driver.
         assert _totals2["executing"] == 1 and _totals2["waiting"] == 3, _totals2
+        assert _totals2["abandoned"] == 1, _totals2  # retired sidechain is not re-adjudicated
 
     print("selftest OK: dangling shell tool_use flags a stall; fresh tail and closed")
     print("             tool_use stay silent; prose-ending session ignored; sidechain")
     print("             marked; secret values redacted in previews; resume copies")
-    print("             deduped; hook-log marker adjudicates waiting vs executing.")
+    print("             deduped; orphaned sidechain retired as abandoned; hook-log")
+    print("             marker adjudicates waiting vs executing.")
     return EXIT_CLEAN
 
 
