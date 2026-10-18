@@ -19,6 +19,9 @@ Usage:
     python detect-approval-stalls.py --min-minutes 5     # tighter threshold
     python detect-approval-stalls.py --root <dir>        # copied transcripts (e.g. incident)
     python detect-approval-stalls.py --hook-log PATH     # adjudicate waits vs executions (#4214)
+    python detect-approval-stalls.py --dashboard [...]   # WARN note on the lane dashboard
+                                                          # when waiting stalls are found (#4243
+                                                          # volet 3; bearer via env or arg)
     python detect-approval-stalls.py --json              # machine-readable
     python detect-approval-stalls.py --selftest
 
@@ -27,13 +30,27 @@ dangling tool_use cannot: `waiting-suspected` (no execution marker -- the approv
 never came) vs `executing` (marker at/after the tool_use -- the command runs or
 ran; the transcript tail lags). Without --hook-log every dangling tail reports as
 waiting-suspected.
+
+The `abandoned` state (review nit on #4245, real case 2d17885a 12/10) retires a
+third shape: a SIDECHAIN tool_use that dangles while the parent session kept
+writing after it -- the subagent was orphaned mid-wait, nobody will ever answer,
+yet the dangling tail reads "live" until the mtime window rolls it off (days).
+Sidechain records live in the parent's JSONL (per-record isSidechain flag), so
+the join is same-file: parent activity after the tool_use ts -> abandoned. An
+abandoned tail is reported for visibility but does NOT trip exit 2 (like
+executing, it is not an approval wait someone could still answer).
 """
 
 import argparse
+import hashlib
 import importlib.util
 import json
+import os
 import sys
 import tempfile
+import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -62,16 +79,19 @@ def now_utc():
 
 
 def scan_session(path, tools):
-    """Parse one session JSONL. Returns (dangling, last_ts, stats).
+    """Parse one session JSONL. Returns (dangling, last_ts, last_parent_ts, stats).
 
     dangling: list of unterminated shell tool_use records at EOF, in emission
     order (uuid-deduped against resume copies, same rule as scan-approval-waits).
+    last_parent_ts: timestamp of the last non-sidechain record -- the parent
+    session's own watermark, used to retire orphaned sidechain waits (abandoned).
     """
     tools_lower = {t.lower() for t in tools}
     pending = {}
     stats = {"lines": 0, "rewritten_nodes": 0, "shell_tool_use": 0}
     seen_uuids = set()
     last_ts = None
+    last_parent_ts = None
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
             stats["lines"] += 1
@@ -83,6 +103,8 @@ def scan_session(path, tools):
                 continue
             if entry.get("timestamp"):
                 last_ts = entry["timestamp"]  # tracked on every record: the tail lag
+                if not entry.get("isSidechain"):
+                    last_parent_ts = entry["timestamp"]
             if '"tool_use"' not in line and '"tool_result"' not in line:
                 continue
             msg = entry.get("message")
@@ -116,7 +138,7 @@ def scan_session(path, tools):
                     }
                 elif btype == "tool_result" and block.get("tool_use_id"):
                     pending.pop(block["tool_use_id"], None)
-    return list(pending.values()), last_ts, stats
+    return list(pending.values()), last_ts, last_parent_ts, stats
 
 
 def adjudicate_state(record, session_id, hook_index):
@@ -158,7 +180,7 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
             continue
         active += 1
         try:
-            dangling, _last_ts, _stats = scan_session(path, tools)
+            dangling, _last_ts, last_parent_ts, _stats = scan_session(path, tools)
         except OSError as exc:
             print(f"WARNING: unreadable {path}: {exc}", file=sys.stderr)
             continue
@@ -171,7 +193,14 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
             age_s = (now_utc() - started).total_seconds()
             if age_s < threshold_s:
                 continue
-            state = adjudicate_state(record, session_id, hook_index)
+            parent_ts = parse_ts(last_parent_ts) if record["sidechain"] else None
+            if parent_ts is not None and parent_ts > started:
+                # Orphaned subagent: the parent session wrote on after this
+                # tool_use, so the wait will never be answered -- retire it
+                # (review nit #4245, real case 2d17885a: false "live" for days).
+                state = "abandoned"
+            else:
+                state = adjudicate_state(record, session_id, hook_index)
             stalls.append({
                 "session": session_id,
                 "project": project,
@@ -186,7 +215,8 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
 
     totals = {"files": files, "active": active, "stalls": len(stalls),
               "waiting": sum(1 for s in stalls if s["state"] == "waiting-suspected"),
-              "executing": sum(1 for s in stalls if s["state"] == "executing")}
+              "executing": sum(1 for s in stalls if s["state"] == "executing"),
+              "abandoned": sum(1 for s in stalls if s["state"] == "abandoned")}
     if as_json:
         print(json.dumps({"root": str(root), "min_minutes": min_minutes,
                           "active_hours": active_hours, "totals": totals,
@@ -200,6 +230,128 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
                   f"{chain}  {s['tool']}: {s['command']}")
             print(f"            waiting since {s['since']}")
     return totals, stalls
+
+
+# --- dashboard signal (#4243 attendu 3) --------------------------------------
+#
+# The detector's product is stdout + exit code; a scheduler watching them needs
+# nothing else. What was missing (volet 3) is a signal that reaches the FLEET:
+# a frozen lane sits silent, so the detector itself must raise the flag on the
+# lane's dashboard. Transport = the bots' canonical path (mcp-chain-watchdog
+# Publish-FleetNote): HTTP JSON-RPC against the mcp-proxy, initialize ->
+# notifications/initialized -> tools/call roosync_dashboard append. Best-effort
+# ONLY -- a signaling failure never changes the exit code (the detection result
+# is the product; the note is telemetry). Activation (scheduler, bearer wiring)
+# stays with the coordinator, out of this file.
+
+DASHBOARD_PATH = "/roo-state-manager/mcp"
+DEFAULT_DASHBOARD_URL = "https://mcp-tools.myia.io"
+NOTE_STALL_LINES = 5
+
+
+def _host():
+    return os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME") or "unknown-host"
+
+
+def build_note_id(stalls, now=None):
+    """Idempotency key (#3276 doctrine): host + content digest + 15-min bucket.
+
+    A scheduler ticking inside one incident converges to ONE note per bucket
+    instead of one per tick -- an append whose messageId already exists is
+    skipped server-side (deduplicated: true). The digest covers the stall set,
+    so a NEW stall (or a gone one) produces a fresh id and a fresh note.
+    """
+    now = now or time.time()
+    bucket = int(now // 900)
+    payload = "|".join(f"{s['session']}:{s['since']}" for s in stalls)
+    digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
+    return f"stall-detector-{_host()}-{digest}-{bucket}"
+
+
+def build_note_content(stalls, workspace):
+    lines = [f"[WARN][STALL-DETECTOR] {_host()}:{workspace} -- "
+             f"{len(stalls)} session(s) gellee(s) sur attente d'approbation "
+             f"(plus ancienne: {stalls[0]['age_min']:.0f} min)"]
+    for s in stalls[:NOTE_STALL_LINES]:
+        chain = " [sidechain]" if s["sidechain"] else ""
+        lines.append(f"- {s['project']}/{s['session'][:8]}{chain} {s['tool']} "
+                     f"depuis {s['since']}: {s['command']}")
+    if len(stalls) > NOTE_STALL_LINES:
+        lines.append(f"- ... +{len(stalls) - NOTE_STALL_LINES} autre(s)")
+    lines.append("Signal best-effort detect-approval-stalls.py (#4243 volet 3) -- "
+                 "detail: --json ; verdicts executing/abandoned non signales.")
+    return "\n".join(lines)
+
+
+def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace",
+                           timeout=10.0, now=None):
+    """Append the stall note to the lane dashboard. Returns True on success.
+
+    Only the CALLER decides what is worth a note (waiting stalls); this
+    function is a dumb transport. Any failure -> False + stderr warning, never
+    an exception: signaling is telemetry, not the product.
+    """
+    arguments = {
+        "action": "append",
+        "type": dash_type,
+        "tags": ["WARN", "stall-detector"],
+        "content": build_note_content(stalls, workspace),
+        "messageId": build_note_id(stalls, now=now),
+    }
+    if dash_type == "workspace":
+        arguments["workspace"] = workspace
+
+    init_body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                            "params": {"protocolVersion": "2024-11-05",
+                                       "capabilities": {},
+                                       "clientInfo": {"name": "stall-detector",
+                                                      "version": "1.0"}}}).encode()
+    call_body = json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
+                            "params": {"name": "roosync_dashboard",
+                                       "arguments": arguments}}).encode()
+    headers = {"Authorization": f"Bearer {bearer}",
+               "Content-Type": "application/json",
+               "Accept": "application/json, text/event-stream"}
+    base = url.rstrip("/")
+    if not base.endswith(DASHBOARD_PATH):
+        base += DASHBOARD_PATH
+
+    def post(body, extra=None):
+        req_headers = dict(headers)
+        if extra:
+            req_headers.update(extra)
+        req = urllib.request.Request(base, data=body, headers=req_headers, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.headers
+
+    try:
+        init_headers = post(init_body)
+        session_header = init_headers.get("mcp-session-id")
+        extra = {"mcp-session-id": session_header} if session_header else None
+        if extra:
+            # notification -- no id, no response expected
+            post(b'{"jsonrpc":"2.0","method":"notifications/initialized"}', extra)
+        post(call_body, extra)
+        return True
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        print(f"WARNING: dashboard note NOT posted ({exc}) -- signal is "
+              f"best-effort, detection result above stands", file=sys.stderr)
+        return False
+
+
+def maybe_publish_dashboard_note(totals, stalls, workspace, url, bearer,
+                                 dash_type="workspace", timeout=10.0, now=None):
+    """Gate: only WAITING stalls are a signal. Returns True/False/None.
+
+    `executing` is a transcript lag and `abandoned` a dead sidechain -- neither
+    is something a human or a coordinator could still answer, so neither earns
+    a note. Returns None when there is nothing to signal (no request made).
+    """
+    waiting = [s for s in stalls if s["state"] == "waiting-suspected"]
+    if not waiting:
+        return None
+    return publish_dashboard_note(waiting, workspace, url, bearer, dash_type=dash_type,
+                                  timeout=timeout, now=now)
 
 
 # --- selftest ---------------------------------------------------------------
@@ -283,9 +435,20 @@ def selftest():
                    iso(base - timedelta(minutes=50)), "a8")
         write("proj-d/resumed.jsonl", [dup, dup])
 
+        # 8. Abandoned sidechain: parent wrote AFTER the dangling tool_use -- the
+        #    subagent was orphaned mid-wait (nit #4245, case 2d17885a): reported
+        #    as abandoned, not as an answerable approval wait.
+        write("proj-e/orphan.jsonl", [
+            _rec("assistant", [_tool_use("t8", "Bash", "cd ../x && rm -f y")],
+                 iso(base - timedelta(hours=3)), "a9", sidechain=True),
+            _rec("assistant", [{"type": "text", "text": "parent moved on"}],
+                 iso(base - timedelta(hours=2)), "a10"),
+        ])
+
         totals, stalls = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0)
 
-        assert totals["stalls"] == 4, f"expected 4 stalls, got {totals['stalls']}: {stalls}"
+        assert totals["stalls"] == 5, f"expected 5 stalls, got {totals['stalls']}: {stalls}"
+        assert totals["abandoned"] == 1, totals
         by_key = {(s["project"], s["session"]): s for s in stalls}
         stuck = by_key[("proj-a", "stalled")]
         assert stuck["state"] == "waiting-suspected" and stuck["sidechain"] is False
@@ -295,13 +458,16 @@ def selftest():
         assert ("proj-b", "closed") not in by_key and ("proj-b", "idle") not in by_key
         side = by_key[("proj-c", "side")]
         assert side["sidechain"] is True and side["tool"] == "PowerShell"
+        assert side["state"] == "waiting-suspected", side  # no parent after: still answerable
+        orphan = by_key[("proj-e", "orphan")]
+        assert orphan["state"] == "abandoned" and orphan["sidechain"] is True, orphan
         secret = by_key[("proj-c", "secret")]
         assert "abcdef1234567890" not in secret["command"], secret["command"]
         assert "[REDACTED]" in secret["command"]
         # 7. Resume copy: the re-appended uuid is skipped -- one report, not two.
         assert len([s for s in stalls if s["session"] == "resumed"]) == 1
 
-        # 8. Hook-log join: a marker at/after the tool_use flips the verdict to executing.
+        # 9. Hook-log join: a marker at/after the tool_use flips the verdict to executing.
         hook_dir = Path(tmp) / "hook"
         hook_dir.mkdir()
         hook_path = hook_dir / "tool-starts.jsonl"
@@ -313,11 +479,77 @@ def selftest():
         assert stuck2["state"] == "executing", stuck2
         # Totals carry the adjudication split alongside the exit-code driver.
         assert _totals2["executing"] == 1 and _totals2["waiting"] == 3, _totals2
+        assert _totals2["abandoned"] == 1, _totals2  # retired sidechain is not re-adjudicated
+
+        # 10. Dashboard signal (#4243 attendu 3): waiting stalls reach the lane
+        #     dashboard through the bots' JSON-RPC path -- initialize ->
+        #     initialized -> tools/call, idempotent messageId, redacted content.
+        #     Non-waiting verdicts earn no note; transport failure is swallowed.
+        import threading
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        requests_seen = []
+
+        class _Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                requests_seen.append((self.path, dict(self.headers), body))
+                self.send_response(200)
+                self.send_header("mcp-session-id", "sess-1")
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"jsonrpc":"2.0","id":1,"result":{}}')
+
+            def log_message(self, *_a):
+                pass
+
+        srv = HTTPServer(("127.0.0.1", 0), _Handler)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        base_url = f"http://127.0.0.1:{srv.server_port}"
+
+        # Gate: nothing waiting-only -> no request at all.
+        assert maybe_publish_dashboard_note({"waiting": 0}, [], "roo-extensions",
+                                            base_url, "tok") is None
+        assert len(requests_seen) == 0
+        # Gate: executing/abandoned entries in the set earn no note line.
+        assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
+                                            base_url, "tok") is True
+        assert len(requests_seen) == 3, [r[0] for r in requests_seen]
+        init_path, init_headers, _init_body = requests_seen[0]
+        assert init_path.endswith(DASHBOARD_PATH), init_path
+        assert init_headers.get("Authorization") == "Bearer tok"
+        assert json.loads(requests_seen[1][2])["method"] == "notifications/initialized"
+        call = json.loads(requests_seen[2][2])
+        assert call["params"]["name"] == "roosync_dashboard"
+        args = call["params"]["arguments"]
+        assert args["action"] == "append" and args["type"] == "workspace"
+        assert args.get("workspace") == "roo-extensions"
+        assert "WARN" in args["tags"] and "stall-detector" in args["tags"]
+        assert args["messageId"].startswith(f"stall-detector-{_host()}-"), args["messageId"]
+        # Only waiting stalls earn note lines: executing (stalled, flipped by the
+        # hook-log join) and abandoned (orphan) are excluded; secret stays redacted.
+        assert "proj-d/resumed" in args["content"] and "proj-c/secret" in args["content"]
+        assert "[REDACTED]" in args["content"]
+        assert "proj-a/stalled" not in args["content"]  # executing -> not a signal
+        assert "proj-e/orphan" not in args["content"]    # abandoned -> not a signal
+        # HTTP headers are case-insensitive (urllib capitalizes keys on send):
+        # the initialize session id must propagate to the tools/call request.
+        call_headers = {k.lower(): v for k, v in requests_seen[2][1].items()}
+        assert call_headers.get("mcp-session-id") == "sess-1", call_headers.get("mcp-session-id")
+        # Transport failure: best-effort -> False, no raise.
+        srv.shutdown()
+        srv.server_close()
+        assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
+                                            "http://127.0.0.1:1", "tok",
+                                            timeout=2.0) is False
 
     print("selftest OK: dangling shell tool_use flags a stall; fresh tail and closed")
     print("             tool_use stay silent; prose-ending session ignored; sidechain")
     print("             marked; secret values redacted in previews; resume copies")
-    print("             deduped; hook-log marker adjudicates waiting vs executing.")
+    print("             deduped; orphaned sidechain retired as abandoned; hook-log")
+    print("             marker adjudicates waiting vs executing; dashboard signal")
+    print("             gated to waiting stalls and best-effort.")
     return EXIT_CLEAN
 
 
@@ -340,6 +572,21 @@ def main():
                              "the tool_use means the command executes (transcript lag), "
                              "no marker means approval wait suspected")
     parser.add_argument("--json", action="store_true", help="machine-readable output")
+    parser.add_argument("--dashboard", action="store_true",
+                        help="append a WARN note to the lane dashboard when WAITING "
+                             "stalls are found (#4243 volet 3) -- needs a bearer "
+                             "(--dashboard-bearer or MCP_PROXY_BEARER env); best-effort, "
+                             "never changes the exit code")
+    parser.add_argument("--dashboard-url", default=None, metavar="URL",
+                        help="mcp-proxy base URL for the dashboard signal (default: "
+                             "MCP_PROXY_BASE_URL env or https://mcp-tools.myia.io)")
+    parser.add_argument("--dashboard-bearer", default=None, metavar="TOKEN",
+                        help="bearer token for the mcp-proxy (default: MCP_PROXY_BEARER env)")
+    parser.add_argument("--dashboard-type", choices=["workspace", "machine", "global"],
+                        default="workspace",
+                        help="dashboard the signal lands on (default: workspace)")
+    parser.add_argument("--dashboard-workspace", default="roo-extensions", metavar="NAME",
+                        help="workspace dashboard name (default: roo-extensions)")
     parser.add_argument("--selftest", action="store_true", help="run synthetic fixture validation and exit")
     args = parser.parse_args()
 
@@ -351,8 +598,18 @@ def main():
         print(f"ERROR: target not found: {root}", file=sys.stderr)
         sys.exit(EXIT_ERROR)
     tools = [t.strip() for t in args.tools.split(",") if t.strip()] or list(DEFAULT_TOOLS)
-    totals, _stalls = detect(root, args.min_minutes, tools, args.active_hours,
-                             hook_log=args.hook_log, as_json=args.json)
+    totals, stalls = detect(root, args.min_minutes, tools, args.active_hours,
+                            hook_log=args.hook_log, as_json=args.json)
+    if args.dashboard:
+        bearer = args.dashboard_bearer or os.environ.get("MCP_PROXY_BEARER")
+        if not bearer:
+            print("WARNING: --dashboard without bearer (--dashboard-bearer or "
+                  "MCP_PROXY_BEARER env) -- dashboard signal skipped", file=sys.stderr)
+        else:
+            url = (args.dashboard_url or os.environ.get("MCP_PROXY_BASE_URL")
+                   or DEFAULT_DASHBOARD_URL)
+            maybe_publish_dashboard_note(totals, stalls, args.dashboard_workspace, url,
+                                         bearer, dash_type=args.dashboard_type)
     if totals["waiting"] > 0:
         sys.exit(EXIT_FINDINGS)
     sys.exit(EXIT_CLEAN)

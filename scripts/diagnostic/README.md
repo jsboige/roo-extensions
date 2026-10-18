@@ -123,8 +123,10 @@ Détecteur **live** des sessions gelées en attente d'approbation (#4243, volet 
 - **Fenêtre active** (`--active-hours`, défaut 168) : seuls les fichiers modifiés dans la fenêtre sont lus — une session gelée n'écrit rien, son mtime EST le début de l'attente. Un gel de 16 h ou 3 j reste dans la fenêtre par défaut.
 - **Seuil** (`--min-minutes`, défaut 10) : sous le seuil, une queue fraîche (tour en cours) n'est pas signalée ; un timeout d'exécution flotte est ≤ 600 s, donc 10 min ne confond pas une exécution longue avec une attente.
 - **Adjudication `--hook-log`** (jointure #4214, optionnelle) : un marqueur d'exécution `log-tool-start.js` à/après le `tool_use` → `executing` (lag de transcript) ; pas de marqueur → `waiting-suspected`. Sans `--hook-log`, toute queue pendante = `waiting-suspected`.
+- **Sidechains orphelines → `abandoned`** (nit review #4245, cas réel `2d17885a`) : un `tool_use` sidechain qui pend alors que la session **parente** a écrit après lui = sous-agent orphelin — personne ne répondra jamais, mais la queue lisait « live » jusqu'à la sortie de la fenêtre 168 h (des jours). Jointure même-fichier (les sidechains vivent dans le JSONL parent, flag `isSidechain` par enregistrement) : activité parent après le `tool_use` → `abandoned`. Signalé pour visibilité, compteur séparé, **ne déclenche pas l'exit 2** (comme `executing`).
+- **Signal dashboard `--dashboard`** (#4243 attendu 3) : quand des stalls **en attente** sont trouvés, `--dashboard` poste une note WARN sur le dashboard de la lane (`workspace` par défaut) via le chemin JSON-RPC canonique des bots (`initialize` → `initialized` → `tools/call roosync_dashboard append`, pattern `Publish-FleetNote` du mcp-chain-watchdog). `messageId` idempotent (hôte + empreinte des stalls + bucket 15 min — un scheduler qui tique dans un incident converge vers UNE note par bucket) ; best-effort — un échec de signal n'altère **jamais** l'exit code ; `executing`/`abandoned` ne signalent pas. Bearer : `--dashboard-bearer` ou env `MCP_PROXY_BEARER` ; URL : `--dashboard-url` ou env `MCP_PROXY_BASE_URL` (défaut `https://mcp-tools.myia.io`). **L'activation planifiée (cron, câblage bearer) reste au coordinateur.**
 - **Réduction de secrets** : extraits de commande passés par le même réducteur que `scan-approval-waits.py` (source unique, chargée par chemin) — collable sur dashboard par construction.
-- **Exit codes** : 0 propre / 1 erreur / 2 stalls **en attente** (avec `--hook-log`, une queue adjudiquée `executing` ne déclenche pas l'exit 2 — lag de transcript ≠ gel ; le JSON expose les compteurs `waiting`/`executing`) — un scheduler peut se contenter du code retour.
+- **Exit codes** : 0 propre / 1 erreur / 2 stalls **en attente** (avec `--hook-log`, une queue adjudiquée `executing` ne déclenche pas l'exit 2 — lag de transcript ≠ gel ; idem `abandoned` ; le JSON expose les compteurs `waiting`/`executing`/`abandoned`) — un scheduler peut se contenter du code retour.
 
 ```powershell
 # Balayage du siège (défauts : ~/.claude/projects, seuil 10 min, fenêtre 7 j)
@@ -132,6 +134,9 @@ python scripts/diagnostic/detect-approval-stalls.py
 
 # Transcripts d'incident copiés localement (ex. session 2d17885a d'un autre siège)
 python scripts/diagnostic/detect-approval-stalls.py --root <dossier> --min-minutes 5
+
+# Avec signal dashboard (stalls en attente -> note WARN sur le dashboard de la lane)
+python scripts/diagnostic/detect-approval-stalls.py --dashboard --dashboard-bearer <tok>
 
 # Sortie machine-readable / validation autonome
 python scripts/diagnostic/detect-approval-stalls.py --json
