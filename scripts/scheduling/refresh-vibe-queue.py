@@ -38,6 +38,14 @@ automatique : en famine prouvee (file vide, mandat sous sa metrique), le
 residu libre sous plancher qui tient dans max_files devient un grain voie
 legere (`FAMINE_BIN`, marque "famine": true + note payload) plutot que du
 carburant laisse au WARN. Le feeder appelle l'organe SANS ce flag.
+
+`--print-conflicts` (17/10) exporte le conflict set POUR un semis voie legere
+hors CONTRATS (ex. #19241) : le semis du 16/10 listait les PRs tenues A LA
+MAIN et a duplique #21032 (g1 : 1 run paye sur du deja tenu). Le mode
+imprime held/claims/branches en JSON et sort AVANT le scan, sans toucher la
+file ; l'union contrats actifs + numeros explicites est balayee d'office,
+pour que le semis n'aie pas a reconstituer la liste -- la soustraction se
+prend par export, jamais par liste ecrite a la main.
 """
 
 import argparse
@@ -828,9 +836,31 @@ def main():
                     help="accepte le residu sous plancher comme grain voie legere "
                          "(levier de lane sur la metrique du mandat vibe-burn ; "
                          "le feeder appelle SANS ce flag)")
+    ap.add_argument("--print-conflicts", action="store_true",
+                    help="imprime le conflict set (JSON: held/claims/branches) et "
+                         "sort AVANT le scan, sans ecrire la file -- pour un semis "
+                         "voie legere hors CONTRATS : le semis 16/10 listait les "
+                         "PRs tenues a la main et a duplique #21032 ; tout semis "
+                         "soustrait cet export, jamais une liste manuelle")
     args = ap.parse_args()
 
     issues = args.issue or default_issues()
+
+    if args.print_conflicts:
+        # Union d'office : contrats actifs + numeros explicites. Le semis voie
+        # legere ne doit pas reconstituer la liste des PRs a soustraire (piege
+        # du 16/10 : seules les PRs "connues" etaient exclues, #21032 a fuit).
+        # On sort avant le scan : un numero hors CONTRACTS (#19241) doit passer
+        # sans KeyError, sans scan-wt, sans ecriture de file.
+        issues = sorted(set(issues) | set(default_issues()))
+        held, open_branches = open_prs(args.slug, issues)
+        claims = issue_claims(args.slug, issues)
+        print(json.dumps({
+            "held": held,
+            "claims": sorted(claims),
+            "branches": sorted(b for b in open_branches if b),
+        }, ensure_ascii=False))
+        return
 
     base = fresh_base(args.repo, args.base)
     print("base: %s | contrats: %s" % (base, ", ".join("#%d" % i for i in issues)))

@@ -7,10 +7,13 @@ family-level grouping for contract 16472, and payload sanity per contract.
 """
 
 import importlib.util
+import io
 import json
 import os
+import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from unittest import mock
 
 _SPEC = importlib.util.spec_from_file_location(
@@ -509,6 +512,68 @@ class TestDefaultQueueAnchoring(unittest.TestCase):
         finally:
             os.chdir(original)
             os.rmdir(tmp)
+
+
+class TestPrintConflicts(unittest.TestCase):
+    """--print-conflicts : le conflict set des semis voie legere (17/10).
+
+    Le semis #19241 du 16/10 listait les PRs tenues A LA MAIN -> g1 a
+    duplique #21032 (1 run paye sur du deja tenu). Le mode exporte
+    held/claims/branches en JSON et sort AVANT le scan : un numero hors
+    CONTRACTS doit passer sans KeyError, sans scan-wt, sans ecriture de
+    file. Toute commande non-gh seen = le mode a continue trop loin.
+    """
+
+    def _fake_sh(self, seen):
+        def fake_sh(cmd, cwd=None, check=True):
+            line = " ".join(cmd)
+            seen.append(line)
+            if line.startswith("gh pr list"):
+                return json.dumps([
+                    {"number": 21032,
+                     "title": "chore(translations,#19241): mlnet re-cle",
+                     "headRefName": "wt/mistral-trad-g1",
+                     "files": [{"path": "translations\\mlnet\\mlnet.csv"}]},
+                    {"number": 21155,
+                     "title": "chore(translations,#19241): lot search",
+                     "headRefName": "wt/mistral-trad-g2-trad-search",
+                     "files": [{"path": "translations/search/search.csv"}]},
+                ])
+            if line.startswith("gh issue view"):
+                return json.dumps({"comments": [
+                    {"body": "[CLAIMED-AMEND] fournee\npaths:\n"
+                             "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb."}]})
+            raise AssertionError(
+                "commande inattendue sous --print-conflicts "
+                "(le mode doit sortir avant le scan): %s" % line)
+        return fake_sh
+
+    def test_exports_union_conflict_set_and_exits_before_scan(self):
+        seen = []
+        old_sh, old_argv = rvq.sh, sys.argv
+        rvq.sh = self._fake_sh(seen)
+        sys.argv = ["refresh-vibe-queue.py", "--print-conflicts",
+                    "--issue", "19241"]
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf):
+                rvq.main()
+        finally:
+            rvq.sh, sys.argv = old_sh, old_argv
+        out = json.loads(buf.getvalue().strip())
+        # Les deux PRs citant l'umbrella tiennent leurs fichiers (anti-#21032)
+        self.assertEqual(out["held"]["translations/mlnet/mlnet.csv"], 21032)
+        self.assertEqual(out["held"]["translations/search/search.csv"], 21155)
+        # Le claim sans PR est exporte au meme titre que les PRs ouvertes
+        self.assertIn("MyIA.AI.Notebooks/GenAI/Audio/a.ipynb", out["claims"])
+        # Les branches ouvertes aussi : un semis ne doit pas bruler un nom vif
+        self.assertIn("wt/mistral-trad-g1", out["branches"])
+        # Union d'office : 1 pr list + 1 issue view par contrat actif + l'umbrella
+        expected_issues = sorted(set([19241]) | set(rvq.default_issues()))
+        self.assertEqual(sum(1 for c in seen if c.startswith("gh pr list")), 1)
+        self.assertEqual(
+            sum(1 for c in seen if c.startswith("gh issue view")),
+            len(expected_issues))
 
 
 if __name__ == "__main__":
