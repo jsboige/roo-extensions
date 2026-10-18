@@ -520,6 +520,14 @@ jobs:
         shell: bash
         run: node scripts/hooks/tests/echo-loop-counter.test.js
 
+      # #4243: same dead-guard hole as #3724 -- the guard-bash-composite suite
+      # (23 assertions: both measured incident forms deny, near-miss benign
+      # forms pass, fail-open on malformed payloads, env rollback) is pure node
+      # spawnSync of the REAL hook, zero npm deps.
+      - name: Run guard-bash-composite hook suite (#4243)
+        shell: bash
+        run: node scripts/hooks/tests/guard-bash-composite.test.js
+
       # #1357 AC#1: the mcp-proxy template's TBXark hop timeout must stay a
       # JSON NUMBER. The deployed image decodes it into a Go time.Duration
       # (nanoseconds); #3083 shipped the string form "5m", which makes the
