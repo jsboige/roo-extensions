@@ -290,6 +290,13 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
     Only the CALLER decides what is worth a note (waiting stalls); this
     function is a dumb transport. Any failure -> False + stderr warning, never
     an exception: signaling is telemetry, not the product.
+
+    The tools/call response body IS read: an MCP tool result can carry
+    `result.isError: true` (rejected append, server-side error) behind an HTTP
+    200 -- without this check a dead note would report success (gap flagged by
+    ai-01 on PR #4251, 22:34Z). A body that is not parseable JSON-RPC does NOT
+    fail the note (some transports answer SSE or empty on accepted calls), but
+    an explicit isError does.
     """
     arguments = {
         "action": "append",
@@ -305,7 +312,7 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
                             "params": {"protocolVersion": "2024-11-05",
                                        "capabilities": {},
                                        "clientInfo": {"name": "stall-detector",
-                                                      "version": "1.0"}}}).encode()
+                                                      "version": "1.1"}}}).encode()
     call_body = json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                             "params": {"name": "roosync_dashboard",
                                        "arguments": arguments}}).encode()
@@ -322,16 +329,38 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
             req_headers.update(extra)
         req = urllib.request.Request(base, data=body, headers=req_headers, method="POST")
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.headers
+            return resp.headers, resp.read()
+
+    def result_payload(raw):
+        """First JSON-RPC result in the body, or None. Tolerates SSE framing
+        (event: message\\ndata: {...}) and a non-JSON body (returns None --
+        the note stands; only an explicit isError kills it)."""
+        text = raw.decode("utf-8", "replace").strip()
+        candidates = [text]
+        candidates += [ln[len("data:"):].strip() for ln in text.splitlines()
+                       if ln.startswith("data:")]
+        for cand in candidates:
+            try:
+                decoded = json.loads(cand)
+            except ValueError:
+                continue
+            if isinstance(decoded, dict) and isinstance(decoded.get("result"), dict):
+                return decoded["result"]
+        return None
 
     try:
-        init_headers = post(init_body)
+        init_headers, _init_raw = post(init_body)
         session_header = init_headers.get("mcp-session-id")
         extra = {"mcp-session-id": session_header} if session_header else None
         if extra:
             # notification -- no id, no response expected
             post(b'{"jsonrpc":"2.0","method":"notifications/initialized"}', extra)
-        post(call_body, extra)
+        _call_headers, call_raw = post(call_body, extra)
+        result = result_payload(call_raw)
+        if result is not None and result.get("isError"):
+            print(f"WARNING: dashboard append rejected server-side (isError) -- "
+                  f"note NOT confirmed: {str(result)[:200]}", file=sys.stderr)
+            return False
         return True
     except (urllib.error.URLError, OSError, ValueError) as exc:
         print(f"WARNING: dashboard note NOT posted ({exc}) -- signal is "
@@ -489,17 +518,31 @@ def selftest():
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
         requests_seen = []
+        call_response = {"body": '{"jsonrpc":"2.0","id":3,"result":{}}',
+                         "sse": False}
 
         class _Handler(BaseHTTPRequestHandler):
             def do_POST(self):
                 length = int(self.headers.get("Content-Length", 0))
                 body = self.rfile.read(length).decode("utf-8")
                 requests_seen.append((self.path, dict(self.headers), body))
+                is_call = '"tools/call"' in body
                 self.send_response(200)
                 self.send_header("mcp-session-id", "sess-1")
-                self.send_header("Content-Type", "application/json")
+                if is_call and call_response["sse"]:
+                    self.send_header("Content-Type", "text/event-stream")
+                else:
+                    self.send_header("Content-Type", "application/json")
                 self.end_headers()
-                self.wfile.write(b'{"jsonrpc":"2.0","id":1,"result":{}}')
+                if is_call:
+                    if call_response["sse"]:
+                        payload = ("event: message\r\ndata: "
+                                   + call_response["body"] + "\r\n\r\n").encode()
+                    else:
+                        payload = call_response["body"].encode()
+                else:
+                    payload = b'{"jsonrpc":"2.0","id":1,"result":{}}'
+                self.wfile.write(payload)
 
             def log_message(self, *_a):
                 pass
@@ -537,6 +580,20 @@ def selftest():
         # the initialize session id must propagate to the tools/call request.
         call_headers = {k.lower(): v for k, v in requests_seen[2][1].items()}
         assert call_headers.get("mcp-session-id") == "sess-1", call_headers.get("mcp-session-id")
+        # 10b. An isError tool result behind HTTP 200 must fail the note
+        #      (gap flagged by ai-01 on PR #4251: the body was never read).
+        call_response["body"] = json.dumps({"jsonrpc": "2.0", "id": 3,
+                                            "result": {"isError": True,
+                                                       "content": [{"type": "text",
+                                                                    "text": "append denied"}]}})
+        assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
+                                            base_url, "tok") is False
+        # 10c. SSE framing: the result rides a data: line -- still parsed,
+        #      and a non-error SSE result confirms the note.
+        call_response["body"] = '{"jsonrpc":"2.0","id":3,"result":{}}'
+        call_response["sse"] = True
+        assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
+                                            base_url, "tok") is True
         # Transport failure: best-effort -> False, no raise.
         srv.shutdown()
         srv.server_close()
@@ -549,7 +606,8 @@ def selftest():
     print("             marked; secret values redacted in previews; resume copies")
     print("             deduped; orphaned sidechain retired as abandoned; hook-log")
     print("             marker adjudicates waiting vs executing; dashboard signal")
-    print("             gated to waiting stalls and best-effort.")
+    print("             gated to waiting stalls, best-effort, and failed by a")
+    print("             server-side isError (SSE framing tolerated).")
     return EXIT_CLEAN
 
 
