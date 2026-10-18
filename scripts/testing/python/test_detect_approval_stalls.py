@@ -41,6 +41,18 @@ class DetectApprovalStallsSelftest(unittest.TestCase):
             self.assertEqual(payload["totals"]["files"], 0)
             self.assertEqual(payload["totals"]["stalls"], 0)
 
+    def test_cli_dashboard_without_bearer_is_best_effort(self):
+        # --dashboard with no bearer (arg or env) must degrade to a warning and
+        # leave the exit code to the detection result alone (#4243 volet 3).
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {k: v for k, v in os.environ.items() if k != "MCP_PROXY_BEARER"}
+            proc = subprocess.run(
+                [sys.executable, _SCRIPT, "--root", tmp, "--dashboard"],
+                capture_output=True, text=True, timeout=60, env=env)
+            self.assertEqual(proc.returncode, 0,
+                             f"no-bearer must exit clean:\n{proc.stdout}\n{proc.stderr}")
+            self.assertIn("without bearer", proc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
