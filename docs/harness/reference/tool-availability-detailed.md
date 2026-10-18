@@ -145,6 +145,27 @@ vérifier si le MCP dédié n'est pas simplement désactivé :
 **Recensement flotte par machine/workspace :** issue #3137. Un MCP désactivé n'est PAS un MCP
 retiré (cf. § Retires ci-dessous) — la réactivation est locale et réversible, zéro installation.
 
+### Piège « désactivation chemin-périmée » (#4195) — le 3e emplacement vit et meurt avec son chemin
+
+L'emplacement 3 est **indexé par le chemin absolu du workspace**. Une désactivation posée sous
+`C:\dev\...` ne s'applique plus à une session ouverte sous `D:\Dev\...` après déménagement du
+workspace : l'entrée devient **fantôme sans aucun signal**, et le MCP coupé est **réactivé
+silencieusement**.
+
+**Incident fondateur (po-2024, 09/10, #4195)** : session `D:\Dev\CoursIA-3` — l'outil
+`google-workspace` du MCP `workspace-mcp` appelé à 08:42Z → le serveur **ouvre le navigateur
+tout seul** (page de consentement Google sans demande ; user absent ; aucun jeton obtenu).
+Consigne user verbatim : « svp ne faites pas ça. Demandez moi avant » — aucune authentification
+interactive sans validation user préalable. Cause racine : les seules clés `projects[]` portaient
+`c:/dev/*` et `g:/Mon Drive/*` — **aucune clé `d:/Dev/*`** depuis la migration du 17/09.
+
+**Contrôle gratuit d'ouverture de session** (volet 1, ~10 min, toutes lanes) : lire
+`projects[<cwd actuel>].disabledMcpServers` dans `~/.claude.json` (1 lecture, non bloquant) et
+rapporter l'écart éventuel — la consigne user OAuth en dépend. Le résidu (clés de chemin qui
+n'existent plus) est **invisible de l'intérieur de la session** : l'auditer avec
+`scripts/diagnostic/audit-stale-mcp-disables.py` (lecture seule, volet 3) qui signale toute clé
+`projects[chemin]` dont le chemin n'existe plus **et** qui porte des `disabledMcpServers`.
+
 ## MCP Remote Claude.ai (injectés, pas dans config locale) — déporté de la règle (#2368)
 
 Certains MCP apparaissent dans les sessions sans être dans `~/.claude.json` ni `.mcp.json`. Ils

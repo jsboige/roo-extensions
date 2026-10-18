@@ -65,6 +65,22 @@ python scripts/diagnostic/scan-duplicate-tool-use.py --json
 python scripts/diagnostic/scan-duplicate-tool-use.py --selftest
 ```
 
+### `audit-stale-mcp-disables.py`
+
+Audit **lecture seule** des désactivations MCP fantômes de `~/.claude.json` (#4195, volet 3). L'emplacement `projects[<workspace>].disabledMcpServers` est indexé par le chemin absolu du workspace : après un déménagement (`C:\dev`→`D:\Dev`), la désactivation ne s'applique plus et le MCP est **réactivé silencieusement** (incident po-2024 09/10 : fenêtre OAuth ouverte sans demande, consigne user « svp ne faites pas ça »). Le résidu est invisible de l'intérieur d'une session.
+
+- **STALE-GHOST** — clé `projects[chemin]` dont le chemin n'existe plus ET qui porte des `disabledMcpServers` (exit 2).
+- **ACTIVE** — clé de chemin existant portant des désactivations (état légitime, informatif — c'est le contrôle gratuit d'ouverture de session, volet 1 de #4195).
+
+```powershell
+# Audit de ~/.claude.json
+python scripts/diagnostic/audit-stale-mcp-disables.py
+
+# Sortie machine-readable / fixture synthétique — exit 0 propre / 2 findings / 1 erreur
+python scripts/diagnostic/audit-stale-mcp-disables.py --json
+python scripts/diagnostic/audit-stale-mcp-disables.py --selftest
+```
+
 ### `../transcript/Find-DuplicateToolUse.ps1` (PR #3498)
 
 Variante PowerShell du même détecteur, ajoutée post-#3278. Mêmes signatures (`EMIT_FORK` / `EXEC_DOUBLE` / `EXEC_COPY`) sur un transcript unique, avec sortie `Object` / `Json` / `Summary` — utile quand le harnais cible est Windows natif (`powershell`) et que le Python n'est pas disponible. Tests Pester dans `scripts/testing/unit/Find-DuplicateToolUse.Tests.ps1` (12/12 verts).
@@ -86,7 +102,8 @@ Instrument **côté transcript** des attentes d'approbation malgré bypass (#421
 - **Formes classifiées :** `composed-cd` (composé commençant par `cd` — forme dominante flotte, médiane 121 s des deux côtés), `composed`, `rm-rf`, `wsl`, `elevated`, `multiline`, `plain`.
 - **Réduction de secrets (volet 1b + follow-up c.27) :** tout extrait de commande passe un réducteur avant sortie — `sk-`, `ghp_`/`gho_`/`ghu_`/`ghs_`, `Bearer`, `x-proxy-key`/`x-api-key`, familles d'assignation `*api_key*`/`*token*`/`*secret*`/`*password*` **insensibles à la casse** y compris formes drapeau (`--token=`), et **crédentials d'URL** (`scheme://user:pass@host` → `scheme://[REDACTED]@host`) : le **nom** reste, la **valeur** devient `[REDACTED]`, valeur quotée masquée entière (`"k1 k2"`) — la réduction précède la troncature pour qu'un extrait coupé ne fuie jamais une valeur partielle. Sortie collable sur dashboard/issue/PR par construction. Faux positifs possibles (ex. `--max-tokens=4096` masqué) : coût d'affichage seulement, assumé.
 - **Déduplication resume :** mêmes uuids re-appendés = copies, sautées (comptées `rewritten nodes`) — même ground truth que scan-duplicate-tool-use.py.
-- **Limite explicite :** l'écart ne départage PAS approbation vs exécution (un `npx vitest run` de 320 s est une exécution) — le départage est le rôle du corpus headless (volet 2 de #4214).
+- **Adjudication `--hook-log` (volet 3b) :** joint chaque finding au journal du hook `log-tool-start.js` (clé `(session_id, tool, commande brute)` + fenêtre) → `pre_exec_s` (approbation + overhead) / `exec_s` (exécution), étiquette `approval|exec`. Contrôle positif requis avant toute conclusion (dispatch c.28 : une commande délibérément soumise à approbation doit montrer `pre_exec_s` > 0).
+- **Limite explicite :** l'écart ne départage PAS approbation vs exécution sans `--hook-log` (un `npx vitest run` de 320 s est une exécution) — le corpus headless (volet 2 de #4214) borne le plateau, la jointure tranche.
 
 ```powershell
 # Fenêtre 24 h, seuil 120 s, top 30 par écart décroissant

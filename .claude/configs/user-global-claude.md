@@ -38,7 +38,7 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer 
 
 ## Tool Discipline
 
-- **Read avant Edit** — Edit echoue sans Read prealable. Toujours.
+- **Read avant Edit** — Edit echoue sans Read prealable. Toujours. Creer = `Write` (Read d'abord si le fichier existe) ; ajouter = `Edit` sur le dernier bloc (jamais `Write`, qui ecrase tout) ; remplacement >50% = preferer `Write` + verification. `old_string` doit etre unique. Matrice complete : [detail](../../docs/harness/global-rules-detail.md#file-writing--matrice-de-selection).
 - **Tests** : `npx vitest run` / `npx jest --ci` (jamais `npm test` — le watch mode bloque).
 - **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
 - **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
@@ -104,7 +104,7 @@ Inventaire : [`roosync-tools-guide.md`](../../docs/harness/reference/roosync-too
 
 ## SDDD — Triple grounding
 
-Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source. **Pattern Bookend** : `codebase_search` en DEBUT (doc existante, ne pas refaire) et en FIN (indexation, MAJ doc afferente). Detail : `~/.claude/rules/sddd-protocol.md` + [`sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
+Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source. **Pattern Bookend** : `codebase_search` en DEBUT (doc existante, ne pas refaire) et en FIN (indexation, MAJ doc afferente). `codebase_search` : **TOUJOURS** `workspace` explicite, requetes en anglais, **4 passes** (large → `directory_prefix` → grep exact → reformuler) ; `conversation_browser` : `list` OBLIGATOIRE en premier, `summarize_type: "trace"`. Ne JAMAIS propager une affirmation non verifiee — qualifier **VERIFIE / RAPPORTE / SUPPOSE**. Detail : [`global-rules-detail.md`](../../docs/harness/global-rules-detail.md) §SDDD + [`sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
