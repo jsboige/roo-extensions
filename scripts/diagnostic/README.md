@@ -116,6 +116,28 @@ python scripts/diagnostic/scan-approval-waits.py --json
 python scripts/diagnostic/scan-approval-waits.py --selftest
 ```
 
+### `detect-approval-stalls.py`
+
+Détecteur **live** des sessions gelées en attente d'approbation (#4243, volet 3 — priorité user 18/10 : 2-3 agents gelés/jour, dont ~16 h sur ai-01:CoursIA). Tandis que `scan-approval-waits.py` mesure **a posteriori** les écarts refermés, celui-ci répond à la question opérationnelle : **qu'est-ce qui est bloqué MAINTENANT ?** Signature : dernier `tool_use` shell du transcript **jamais refermé** par un `tool_result` en fin de fichier — pendant l'attente silencieuse, plus rien n'est écrit dans le JSONL, donc le mtime du fichier date le début du gel. L'agent ne sait pas qu'il attend ; le cron suivant ne le débloque pas ; ce détecteur rend le gel visible depuis n'importe quel siège (ou sur transcripts copiés d'un incident).
+
+- **Fenêtre active** (`--active-hours`, défaut 168) : seuls les fichiers modifiés dans la fenêtre sont lus — une session gelée n'écrit rien, son mtime EST le début de l'attente. Un gel de 16 h ou 3 j reste dans la fenêtre par défaut.
+- **Seuil** (`--min-minutes`, défaut 10) : sous le seuil, une queue fraîche (tour en cours) n'est pas signalée ; un timeout d'exécution flotte est ≤ 600 s, donc 10 min ne confond pas une exécution longue avec une attente.
+- **Adjudication `--hook-log`** (jointure #4214, optionnelle) : un marqueur d'exécution `log-tool-start.js` à/après le `tool_use` → `executing` (lag de transcript) ; pas de marqueur → `waiting-suspected`. Sans `--hook-log`, toute queue pendante = `waiting-suspected`.
+- **Réduction de secrets** : extraits de commande passés par le même réducteur que `scan-approval-waits.py` (source unique, chargée par chemin) — collable sur dashboard par construction.
+- **Exit codes** : 0 propre / 1 erreur / 2 stalls — un scheduler peut se contenter du code retour.
+
+```powershell
+# Balayage du siège (défauts : ~/.claude/projects, seuil 10 min, fenêtre 7 j)
+python scripts/diagnostic/detect-approval-stalls.py
+
+# Transcripts d'incident copiés localement (ex. session 2d17885a d'un autre siège)
+python scripts/diagnostic/detect-approval-stalls.py --root <dossier> --min-minutes 5
+
+# Sortie machine-readable / validation autonome
+python scripts/diagnostic/detect-approval-stalls.py --json
+python scripts/diagnostic/detect-approval-stalls.py --selftest
+```
+
 ## Compteurs mémoire
 
 ### `log-commit-charge.ps1` (#2992)
