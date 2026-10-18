@@ -14,13 +14,27 @@ headless, 231 findings, 0 `certain`) a borné le plateau ~600 s comme plafond d'
 zone grise en dessous reste indécidable **par transcript seul**.
 
 Ce hook pose le marqueur manquant : l'instant où l'outil **commence** à tourner. La jointure
-(volet 3b, option `--hook-log` du scanner — livrée après merge de la PR #4228, même fichier)
-scinde l'écart en :
+(volet 3b, option `--hook-log` du scanner — **livrée**) scinde l'écart en :
 
 - `pre_exec_s` = tool_use → hook_ts (attente d'approbation + overhead)
 - `exec_s` = hook_ts → tool_result (exécution réelle)
 
-et re-labelle les findings `adjudicated-approval` / `adjudicated-exec`.
+et étiquette chaque finding `adjudication: approval|exec` (l'exécution tient la majorité de
+l'écart → `exec` ; sinon `approval`). La clé de jointure est `(session_id, tool, commande
+brute)` + fenêtre `[tool_use, tool_use+gap_s]` — l'empreinte brute ne sort jamais de l'index,
+seules les secondes calculées atteignent la sortie. Les entrées sans `session_id` sont
+comptées (`hook_log_unscoped`), pas indexées.
+
+```powershell
+# Volet 3b — adjudication sur les findings du scanner
+python scripts/diagnostic/scan-approval-waits.py --hook-log ~/.claude/tool-start-log.jsonl --min-wait 120
+```
+
+**Condition du dispatch c.28 (ai-01, 17/10) — contrôle positif AVANT toute conclusion.**
+L'hypothèse « PreToolUse tire APRÈS l'approbation » n'est pas vérifiée : une commande
+délibérément soumise à approbation doit montrer un `pre_exec_s` > 0 avant de conclure quoi
+que ce soit d'un « pas de composante d'approbation ». Aucun verdict de mesure ne s'appuie
+sur des données armées sans ce témoin.
 
 ## Contrat
 
