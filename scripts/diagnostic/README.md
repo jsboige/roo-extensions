@@ -124,7 +124,7 @@ Détecteur **live** des sessions gelées en attente d'approbation (#4243, volet 
 - **Seuil** (`--min-minutes`, défaut 10) : sous le seuil, une queue fraîche (tour en cours) n'est pas signalée ; un timeout d'exécution flotte est ≤ 600 s, donc 10 min ne confond pas une exécution longue avec une attente.
 - **Adjudication `--hook-log`** (jointure #4214, optionnelle) : un marqueur d'exécution `log-tool-start.js` à/après le `tool_use` → `executing` (lag de transcript) ; pas de marqueur → `waiting-suspected`. Sans `--hook-log`, toute queue pendante = `waiting-suspected`.
 - **Réduction de secrets** : extraits de commande passés par le même réducteur que `scan-approval-waits.py` (source unique, chargée par chemin) — collable sur dashboard par construction.
-- **Exit codes** : 0 propre / 1 erreur / 2 stalls — un scheduler peut se contenter du code retour.
+- **Exit codes** : 0 propre / 1 erreur / 2 stalls **en attente** (avec `--hook-log`, une queue adjudiquée `executing` ne déclenche pas l'exit 2 — lag de transcript ≠ gel ; le JSON expose les compteurs `waiting`/`executing`) — un scheduler peut se contenter du code retour.
 
 ```powershell
 # Balayage du siège (défauts : ~/.claude/projects, seuil 10 min, fenêtre 7 j)

@@ -10,7 +10,8 @@ seat and on copied transcripts alike:
 
     last shell tool_use unterminated at EOF + age >= N minutes -> stall report.
 
-Exit codes mirror scan-approval-waits: 0 clean, 1 error, 2 stalls found -- a
+Exit codes mirror scan-approval-waits: 0 clean, 1 error, 2 waiting stalls
+(with --hook-log, a tail adjudicated executing does not trip 2) -- a
 scheduler can use the exit code alone as the signal.
 
 Usage:
@@ -184,7 +185,8 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
     stalls.sort(key=lambda s: -s["age_min"])
 
     totals = {"files": files, "active": active, "stalls": len(stalls),
-              "waiting": sum(1 for s in stalls if s["state"] == "waiting-suspected")}
+              "waiting": sum(1 for s in stalls if s["state"] == "waiting-suspected"),
+              "executing": sum(1 for s in stalls if s["state"] == "executing")}
     if as_json:
         print(json.dumps({"root": str(root), "min_minutes": min_minutes,
                           "active_hours": active_hours, "totals": totals,
@@ -309,6 +311,8 @@ def selftest():
         _totals2, stalls2 = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0, hook_log=hook_path)
         stuck2 = [s for s in stalls2 if s["session"] == "stalled"][0]
         assert stuck2["state"] == "executing", stuck2
+        # Totals carry the adjudication split alongside the exit-code driver.
+        assert _totals2["executing"] == 1 and _totals2["waiting"] == 3, _totals2
 
     print("selftest OK: dangling shell tool_use flags a stall; fresh tail and closed")
     print("             tool_use stay silent; prose-ending session ignored; sidechain")
