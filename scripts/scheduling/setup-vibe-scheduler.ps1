@@ -51,7 +51,10 @@
     Workspace cible (alternative a -ConfigPath).
 
 .PARAMETER TimeoutMinutes
-    Limite d'execution de la tache planifiee (defaut : 55).
+    Limite d'execution de la tache planifiee (defaut : 120). Defaut releve de 55 a 120
+    avec le budget profil 6000 s (decision coordinateur c.30 bis, 19/10) : 6000 + init
+    120 + session/new 90 + overhead ~ 104 min < PT2H, et le chemin VBS (bWaitOnReturn)
+    est tue au mur schtask — il doit rester au-dessus du budget driver.
 
 .PARAMETER TaskName
     Nom de la tache (defaut : Vibe-Worker).
@@ -83,7 +86,7 @@ param(
     [string]$ConfigPath = "",
     [string]$HarnessCommand = "",
     [string]$Workspace = "",
-    [int]$TimeoutMinutes = 55,
+    [int]$TimeoutMinutes = 120,
     [string]$TaskName = 'Vibe-Worker',
     [string]$LauncherDir = 'C:\ProgramData\claude-hidden-launchers',
     [switch]$Force,
