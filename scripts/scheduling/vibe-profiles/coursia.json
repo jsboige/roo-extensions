@@ -3,9 +3,9 @@
   "description": "Profil CoursIA — Mistral Vibe sur le workspace CoursIA. Presentable dans la serie vibe-coding.",
   "workspace": "CoursIA",
   "workspacePath": "D:/dev/CoursIA",
-  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 1800",
+  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 3000",
   "intervalHours": 1,
-  "_budget": "--timeout 1800 = 30 min, aligne sur .vibe/commands/continue.md qui declare 'Frequence: 30 min' et 'Workflow (30 min max)'. Etait 900 (15 min) : la moitie du temps que le protocole demande, alors que la schtask en autorise 55 (TimeoutMinutes). Le budget driver etait le seul des trois nombres hors-cadre.",
+  "_budget": "--timeout 3000 = 50 min (incident 19/10 : etait 1800). Mesures du jour (driver corrige, budget 3600) : g3-compression PROMPT_OK 1506,6 s (commit livre, relaye #21370), g15-genai-1 PROMPT_OK 1465,5 s, **g14-gametheory-9 PROMPT_OK 2978,0 s (commit livre)** — ce grain seul justifie >2700. Les 4 PROMPT_TIMEOUT STREAMING_TO_DEADLINE de la nuit (g12/g14/g15 + 1, 3,3-5,0 M tokens) travaillaient encore a la seconde du kill — budget/prompt size, pas API. Plafond : 3000 + init 120 + session/new 90 + overhead ~ 54 min < kill schtask 55 min (les workers sont detaches, mais la marge tient meme s'ils ne le sont pas ; marge residuelle 1,5 min — si un kill schtask apparait avant le budget driver, le prochain palier est 2850-2900, pas plus). Le cadre historique 900->1800 (2026-09) citait une convention protocolaire introuvable dans le depot (verifie 19/10 : chaine absente du head ET de l'historique du fichier) — la seule source de ce plafond est l'incident 19/10 et ses mesures : aucune limite API observee (aucun run n'a erre avant le kill driver), le kill schtask 55 min est le seul mur externe. Historique : 900 (15 min) -> 1800 (30 min, aligne protocole) -> 2700 -> 3000 (incident 19/10).",
   "maxIterations": 1,
   "queue": {
     "repo": "jsboige/CoursIA",

@@ -437,9 +437,17 @@ def main() -> int:
             "clientCapabilities": {"fs": {"readTextFile": True, "writeTextFile": True}},
         },
     })
-    init, _ = recv_response(1, 30)
+    # 120 s, not 30 (incident 2026-10-19): 9 dispatches of the day died at
+    # exactly the 30 s mark with INITIALIZE_FAILED: null -- the agent never
+    # answered initialize (uv-shim cold start under machine load; baseline
+    # 17-18/10: 0 failures on 9 runs). session/new below already budgets 90 s
+    # for the same class of slow agent start.
+    init, _ = recv_response(1, 120)
     if not init or "result" not in init:
-        print(f"INITIALIZE_FAILED: {json.dumps(init)[:400]}", file=sys.stderr)
+        tail = " | ".join(list(stderr_tail)[-6:])[-400:]
+        print(f"INITIALIZE_FAILED: {json.dumps(init)[:400]}"
+              + (f" | agent stderr tail: {tail}" if tail else ""),
+              file=sys.stderr)
         proc.kill()
         return 2
 
