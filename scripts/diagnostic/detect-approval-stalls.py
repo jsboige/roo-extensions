@@ -43,6 +43,7 @@ executing, it is not an approval wait someone could still answer).
 
 import argparse
 import hashlib
+import http.client
 import importlib.util
 import json
 import os
@@ -362,7 +363,9 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
                   f"note NOT confirmed: {str(result)[:200]}", file=sys.stderr)
             return False
         return True
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
+        # HTTPException: a body cut mid-read (IncompleteRead) on a slow proxy
+        # must stay a warning, not a traceback that replaces the exit code.
         print(f"WARNING: dashboard note NOT posted ({exc}) -- signal is "
               f"best-effort, detection result above stands", file=sys.stderr)
         return False
@@ -519,7 +522,7 @@ def selftest():
 
         requests_seen = []
         call_response = {"body": '{"jsonrpc":"2.0","id":3,"result":{}}',
-                         "sse": False}
+                         "sse": False, "truncate": False}
 
         class _Handler(BaseHTTPRequestHandler):
             def do_POST(self):
@@ -533,7 +536,6 @@ def selftest():
                     self.send_header("Content-Type", "text/event-stream")
                 else:
                     self.send_header("Content-Type", "application/json")
-                self.end_headers()
                 if is_call:
                     if call_response["sse"]:
                         payload = ("event: message\r\ndata: "
@@ -542,6 +544,10 @@ def selftest():
                         payload = call_response["body"].encode()
                 else:
                     payload = b'{"jsonrpc":"2.0","id":1,"result":{}}'
+                if is_call and call_response["truncate"]:
+                    # Announce more bytes than sent: the client read raises IncompleteRead.
+                    self.send_header("Content-Length", str(len(payload) + 100))
+                self.end_headers()
                 self.wfile.write(payload)
 
             def log_message(self, *_a):
@@ -594,6 +600,13 @@ def selftest():
         call_response["sse"] = True
         assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
                                             base_url, "tok") is True
+        # 10d. A body cut mid-read (IncompleteRead, an http.client.HTTPException)
+        #      stays best-effort: False, no traceback over the exit code.
+        call_response["sse"] = False
+        call_response["truncate"] = True
+        assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
+                                            base_url, "tok") is False
+        call_response["truncate"] = False
         # Transport failure: best-effort -> False, no raise.
         srv.shutdown()
         srv.server_close()

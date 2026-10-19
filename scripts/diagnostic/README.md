@@ -130,7 +130,7 @@ Détecteur **live** des sessions gelées en attente d'approbation (#4243, volet 
   - `-MinMinutes 15`.
   - `-DashboardTimeout 60` : sur le chemin proxifié, les appels dashboard de plus de 5 s avaient une médiane de 23 s le 19/10, et une note de test à 10 s a été perdue.
 
-  Journal : `outputs/stall-detector/stall-detector.log`, une ligne par tick. Code retour : celui du détecteur. `-DryRun` lance la détection sans signal et dit si le jeton a été trouvé.
+  Journal : `outputs/stall-detector/stall-detector.log`. Chaque tick y écrit une ligne d'en-tête (horodatage, code retour, état du signal), suivie de la sortie du détecteur. Code retour : celui du détecteur. `-DryRun` lance la détection sans signal et dit si le jeton a été trouvé.
 - **Réduction de secrets** : extraits de commande passés par le même réducteur que `scan-approval-waits.py` (source unique, chargée par chemin) — collable sur dashboard par construction.
 - **Exit codes** : 0 propre / 1 erreur / 2 stalls **en attente** (avec `--hook-log`, une queue adjudiquée `executing` ne déclenche pas l'exit 2 — lag de transcript ≠ gel ; idem `abandoned` ; le JSON expose les compteurs `waiting`/`executing`/`abandoned`) — un scheduler peut se contenter du code retour.
 
