@@ -130,6 +130,11 @@ if ($Target -in "all", "settings") {
     Write-Host "`n--- settings.json (canon merge) ---" -ForegroundColor Yellow
     $templatePath = Join-Path $configsDir "settings.template.json"
     $livePath = Join-Path $globalDir "settings.json"
+    # Fresh seat, -Target settings ONLY: Deploy-Files (which mkdirs $globalDir)
+    # never runs, and both write paths below WriteAllText straight into
+    # $livePath -> "part of the path not found" on a pristine profile (measured
+    # 20/10, RUN4 sandbox; -Target all masked it by creating the dir first).
+    if (-not (Test-Path $globalDir)) { New-Item -ItemType Directory -Force -Path $globalDir | Out-Null }
 
     function Convert-ToOrderedHash {
         param($obj)
@@ -215,7 +220,19 @@ if ($Target -in "all", "settings") {
         # and a plain relative ".git" in a normal checkout (resolves to $repoRoot,
         # i.e. unchanged). Forward slashes for node on Windows either way.
         $hooksRepoRoot = $repoRoot
-        $gitCommonDir = git -C $repoRoot rev-parse --git-common-dir 2>$null
+        # PS 5.1: under $ErrorActionPreference = 'Stop' (set at the top of the
+        # script), a native command's stderr is promoted to a TERMINATING
+        # NativeCommandError even when redirected with 2>$null — an unguarded
+        # call here aborted the whole settings deploy when the script root is
+        # NOT a git repository (copied-configs deploy: measured exit 1,
+        # settings.json never written; #4260 reviews). Soften EAP around the
+        # call and fall back to the script root on ANY failure.
+        $gitCommonDir = $null
+        try {
+            $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+            $out = git -C $repoRoot rev-parse --git-common-dir 2>$null
+            if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
+        } catch { $gitCommonDir = $null } finally { $ErrorActionPreference = $eap }
         if ($gitCommonDir) {
             $commonPath = if ([System.IO.Path]::IsPathRooted($gitCommonDir)) { $gitCommonDir } else { Join-Path $repoRoot $gitCommonDir }
             $mainRoot = Split-Path -Parent (Resolve-Path $commonPath).Path
@@ -320,6 +337,11 @@ if ($Target -in "all", "settings") {
         # different path style still counts as present). Local hooks are NEVER
         # removed. Runs after Repair-AndValidateHooks so added entries land in
         # an already-valid structure.
+        # Canon contract (#4260 review): each canon hook entry carries exactly
+        # ONE command — coverage is decided per ENTRY, so a multi-command entry
+        # with only part of its commands present live would be re-added whole
+        # and duplicate them. Keep canon entries single-command (or switch to
+        # per-command insertion if that ever changes).
         function Ensure-FleetHooks {
             param($liveHash, $canonHooks, [string]$repoRoot, [ref]$actions)
             if ($null -eq $canonHooks) { return }

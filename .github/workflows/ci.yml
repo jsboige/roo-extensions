@@ -60,6 +60,13 @@ on:
       # escalation-protocol.md level 5 (AskUserQuestion removed from the
       # harness) -- the doc's own path must re-trigger the suite too.
       - 'docs/harness/reference/escalation-protocol.md'
+      # #4260 reviews: deploy-global-config.Tests.ps1 now EXECUTES blocks
+      # extracted from the real deployer (<<repo>> resolution, Ensure-FleetHooks
+      # idempotence) and parses the canon template for its expected counts --
+      # both guarded sources must re-trigger the unit-pester job on main pushes
+      # (tenth instance of the same gap, same rule as every entry above).
+      - '.claude/configs/scripts/Deploy-GlobalConfig.ps1'
+      - '.claude/configs/settings.template.json'
       - 'scripts/mcp/set-mcp-env-var.ps1'
       - 'scripts/encoding/**'
       - 'scripts/common/**'
