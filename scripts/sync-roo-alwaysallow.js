@@ -53,8 +53,6 @@ const KNOWN_TOOLS = {
         'roosync_baseline',
         'roosync_compare_config',
         'roosync_config',
-        'roosync_decision',
-        'roosync_decision_info',
         'roosync_diagnose',
         'roosync_get_status',
         'roosync_heartbeat',

@@ -97,7 +97,7 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
         # Names the v1.3.0 reference carried that the catalogue no longer advertises.
         $script:HistoricalNames = @(
             'roosync_send', 'roosync_read', 'roosync_manage', 'roosync_attachments',
-            'roosync_decision', 'roosync_decision_info', 'roosync_list_diffs', 'roosync_init',
+            'roosync_list_diffs', 'roosync_init',
             'roosync_get_status', 'roosync_refresh_dashboard', 'roosync_update_dashboard',
             'roosync_machines', 'roosync_cleanup_messages', 'roosync_claim',
             'analyze_roosync_problems', 'get_mcp_best_practices', 'export_config',
