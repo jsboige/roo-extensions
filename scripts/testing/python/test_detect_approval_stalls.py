@@ -53,6 +53,17 @@ class DetectApprovalStallsSelftest(unittest.TestCase):
                              f"no-bearer must exit clean:\n{proc.stdout}\n{proc.stderr}")
             self.assertIn("without bearer", proc.stderr)
 
+    def test_cli_accepts_dashboard_timeout(self):
+        # The scheduled launcher passes --dashboard-timeout (run-approval-stall-detector.ps1).
+        with tempfile.TemporaryDirectory() as tmp:
+            env = {k: v for k, v in os.environ.items() if k != "MCP_PROXY_BEARER"}
+            proc = subprocess.run(
+                [sys.executable, _SCRIPT, "--root", tmp, "--dashboard",
+                 "--dashboard-timeout", "60"],
+                capture_output=True, text=True, timeout=60, env=env)
+            self.assertEqual(proc.returncode, 0,
+                             f"--dashboard-timeout must parse:\n{proc.stdout}\n{proc.stderr}")
+
 
 if __name__ == "__main__":
     unittest.main()
