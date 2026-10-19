@@ -47,6 +47,10 @@ livrer** — or c'est entre les deux que l'etat change.
 2. Une PR concurrente est-elle apparue depuis ? Un claim-issue concurrent a-t-il ete pose depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
 3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est
    deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler.
+4. **Ecrire dans un worktree existant (#4221) : relire d'abord le claim de l'issue qu'il porte** —
+   le claim protege l'issue, pas l'arbre de travail. Avant tout ecrit/commit dans un worktree que tu
+   n'as pas cree dans cette tache : `check_issue_claim.py NNN` sur l'issue que son nom porte ; claim
+   d'une autre lane, ou de ta lane sans trace dans ton contexte (session jumelle) = ne pas ecrire, `[ASK]`.
 
 **Incident fondateur (2026-08-22, #1025/#1026)** : web1 a livre #1026 a 15:15Z alors qu'un `[REPLY]`
 STOP avait ete poste a 15:00Z — quinze minutes plus tot, sur le canal qu'elle avait lu au depart et
