@@ -184,13 +184,20 @@ targetPath:
 worktree: {worktree}
 branch: {branch}
 
-Mission : relever CHAQUE notebook de targetPath au-dessus du seuil de densite
-pedagogique (1200 chars de prose par cellule code ; mesurable par
-`python scripts/notebook_tools/pedagogy_density.py <fichier>` : status ok
-attendu), en ajoutant 1 a 3 cellules markdown de LECTURE ANCREE.
-Convention etablie par les 61 PRs #13410 : une lecture explique le resultat
-d'une cellule de code DEMONSTRATION deja executee (output commite, cite tel
-quel). Deficit median mesure : 233 chars par notebook.
+Mission : combler le deficit de densite pedagogique REEL des notebooks de
+targetPath (mesurable par `python scripts/notebook_tools/pedagogy_density.py
+<fichier>` : status ok attendu), en appliquant les regles de REDRESSEMENT
+#17040 (reouverture du 2026-10-07) :
+- AU PLUS UNE cellule markdown de lecture par sortie de code (consolider,
+  JAMAIS empiler) ; la lecture est placee IMMEDIATEMENT apres la cellule de
+  code qu'elle explique.
+- Le seuil 1200 chars est un REPERE de mesure, PAS une cible : ne jamais
+  ajouter de prose de remplissage pour l'atteindre.
+- Une LECTURE ANCREE explique le resultat d'une cellule de code DEMONSTRATION
+  deja executee (output commite, cite tel quel), 1-2 phrases, en francais :
+  ce que la sortie MONTRE, pas ce qu'elle est censee montrer.
+- Supprimer le remplissage inutile rencontre dans le perimetre (paraphrase
+  de la sortie, doublons, valeurs fabriquees, narration d'exercice).
 
 GARDE-FOUX EDITORIAUX NON NEGOCIABLES (incident 02/09, 30/41 accents
 detruits) :
@@ -204,8 +211,8 @@ detruits) :
   l'eleve doit travailler.
 - Ne JAMAIS fabriquer un chiffre : une lecture cite la sortie commitee ou
   elle n'existe pas.
-- Une lecture fait 1-2 phrases, en francais, et EXPLIQUE ce que la sortie
-  montre -- pas ce qu'elle est censee montrer.
+- Auto-controle avant commit : `python scripts/notebook_tools/check_split_reading_cells.py <fichier>`
+  doit rendre 0 finding (aucune lecture scindee).
 
 INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
 N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
@@ -436,29 +443,30 @@ def scan_tellc_citations(wt):
 # (modalites ai-01 26/09), floor=1 car la famille est l'unite, comme le
 # notebook l'est pour #13410.
 CONTRACTS = {
-    # `branch_prefix` : le prefixe `wt/vibe-` est lu par l'organe de merge
-    # automatique de CoursIA -- `FROZEN_BRANCH_PREFIXES = {"wt/vibe-": "13410"}`
-    # dans `scripts/coordination/frozen_campaigns.py`, importe par
-    # `merge_ready.py` -- et range la PR dans la famille gelee #13410 QUELLE QUE
-    # SOIT son issue reelle (le test porte sur `head_ref.startswith(prefix)`, sans
-    # exemption). Un grain non-densite
-    # nomme `wt/vibe-*` produit donc un livrable que rien ne mergera (mesure
-    # 25/09 : grain #16472 g2 parti sur `wt/vibe-g2-residu-petits-domaines`).
-    # Le defaut est non-gele pour qu'un contrat ajoute sans prefixe reste
-    # mergeable ; seul #13410, qui EST la famille gelee, garde `wt/vibe-`.
+    # `branch_prefix` : le prefixe `wt/vibe-` identifie la famille densite
+    # #13410 (branches historiques de la campagne). Il etait lu par l'organe
+    # de merge CoursIA (`FROZEN_BRANCH_PREFIXES` dans
+    # `scripts/coordination/frozen_campaigns.py`, importe par `merge_ready.py`)
+    # tant que la campagne etait gelee : tout `wt/vibe-*` etait range dans la
+    # famille #13410 quelle que soit son issue reelle. La campagne a rouvert
+    # le 2026-10-07 (FROZEN_BRANCH_PREFIXES vide cote CoursIA) : le prefixe
+    # n'est plus une semantique de gel, il reste l'identifiant de famille des
+    # grains densite. Un grain non-densite nomme `wt/vibe-*` reste a eviter
+    # (mesure 25/09 : grain #16472 g2 parti sur `wt/vibe-g2-residu-petits-domaines`) ;
+    # seul #13410, qui EST la famille densite, garde `wt/vibe-`.
     15719: {"scan": scan_md_table, "payload": PAYLOAD, "group": 1,
             "branch_prefix": "wt/mistral-table-"},
     16472: {"scan": scan_md_hierarchy, "payload": PAYLOAD_HINT, "group": 2,
             "branch_prefix": "wt/mistral-hint-"},
     13410: {"scan": scan_pedagogy_density, "payload": PAYLOAD_DENSITY,
             "group": 1, "floor": 1, "max_files": 2,
-            # Gele par veto user (#17040, 2026-09-20 ; umbrellas 13410 et
-            # 11601 definis dans CoursIA scripts/coordination/frozen_campaigns.py,
-            # lus par merge_ready et le gate d'entree). Le feeder re-mesurant
-            # la file SANS filtre, ce drapeau est ce qui empeche chaque
-            # epuisement de file de rouvrir le dispatch densite. Un --issue
-            # 13410 explicite reste possible si le veto est leve.
-            "frozen": True,
+            # ROUVERT cote source le 2026-10-07 (frozen_campaigns.py :
+            # "#13410 est ROUVERT par decision user (07/10)" ; l'umbrella
+            # #11601 reste seul gele). Le drapeau `frozen` porte ici du 25/09
+            # au 19/10 datait du gel #17040 et interdisait au feeder de
+            # re-mesurer la densite 11 jours apres la reouverture — retire.
+            # Le payload porte les regles du redressement #17040 (une lecture
+            # consolidee par sortie ; seuil 1200 = repere, pas cible).
             "branch_prefix": "wt/vibe-"},
     # Non gele : premier contrat du ruling user (b) 26/09 — automatiser la
     # source pour que Mistral ne s'arrete plus faute de travail. GO ai-01
@@ -492,12 +500,13 @@ CONTRACTS = {
 def default_issues():
     """Contrats servis quand l'appelant n'en nomme aucun : les NON geles.
 
-    Fail-closed vis-a-vis du veto : le feeder re-mesure la file SANS filtre
-    (vibe-feeder.ps1, Invoke-QueueRefresh) des qu'elle est vide — si le
-    defaut incluait #13410, chaque epuisement de file rouvrirait
-    mecaniquement le dispatch densite sous veto (mesure 25-26/09 : file
-    reconstruite a 121 grains dont 120 de #13410, dispatches g4-g7 en une
-    nuit). Nommer le contrat explicitement reste la voie operatoire.
+    Historique : #13410 a porte un drapeau `frozen` du 25/09 au 19/10 (gel
+    #17040 ; fail-closed car le feeder re-mesure la file SANS filtre
+    (vibe-feeder.ps1, Invoke-QueueRefresh) des qu'elle est vide — mesure
+    25-26/09 : file reconstruite a 121 grains dont 120 de #13410, dispatches
+    g4-g7 en une nuit). La campagne a rouvert cote source le 07/10
+    (frozen_campaigns.py) mais le drapeau n'a pas suivi ; retire le 19/10 —
+    aucun contrat n'est gele aujourd'hui.
     """
     return sorted(i for i, c in CONTRACTS.items() if not c.get("frozen"))
 
