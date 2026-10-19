@@ -201,6 +201,33 @@ if ($Target -in "all", "settings") {
         $canonHash = Convert-ToOrderedHash (Get-Content $templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
         $actions = [System.Collections.ArrayList]::new()
 
+        # Hooks (#4258): carried by the canon but handled OUTSIDE the generic merge —
+        # the generic array ensure compares by reference, and hook entries are dicts,
+        # so every deploy would duplicate them. Ensure-FleetHooks dedups by resolved
+        # command string instead.
+        #
+        # <<repo>> must resolve to a PERSISTENT checkout, not "wherever this script
+        # ran from": these commands are written into the machine-global settings.json
+        # and must still resolve at every future session. Run from a linked worktree
+        # (agent PR work), $repoRoot is ephemeral — its removal would leave the whole
+        # machine spawning hooks from a path that no longer exists. --git-common-dir
+        # is the main checkout's .git for a worktree (its parent is the real root)
+        # and a plain relative ".git" in a normal checkout (resolves to $repoRoot,
+        # i.e. unchanged). Forward slashes for node on Windows either way.
+        $hooksRepoRoot = $repoRoot
+        $gitCommonDir = git -C $repoRoot rev-parse --git-common-dir 2>$null
+        if ($gitCommonDir) {
+            $commonPath = if ([System.IO.Path]::IsPathRooted($gitCommonDir)) { $gitCommonDir } else { Join-Path $repoRoot $gitCommonDir }
+            $mainRoot = Split-Path -Parent (Resolve-Path $commonPath).Path
+            if ($mainRoot -and (Test-Path (Join-Path $mainRoot ".claude\configs"))) { $hooksRepoRoot = $mainRoot }
+        }
+        $hooksRepoRoot = $hooksRepoRoot -replace '\\', '/'
+        $canonHooks = $null
+        if ($canonHash.Contains('hooks')) {
+            $canonHooks = $canonHash['hooks']
+            $canonHash.Remove('hooks')
+        }
+
         # The pre-fix Convert-ToOrderedHash flattened EVERY 1-item array, not only hooks:
         # a one-entry permissions list came back as a bare string, which Claude Code
         # rejects too. Wrap it back BEFORE the merge — Merge-CanonIntoLive reads a
@@ -286,12 +313,75 @@ if ($Target -in "all", "settings") {
             }
         }
 
+        # ── Fleet hooks ensure-add (#4258): the canon's hook entries carry the
+        # <<repo>> placeholder; resolve it to this checkout and add each entry
+        # whose command is not already present (any entry, any matcher — command
+        # identity is the dedup key, so a locally hand-wired hook with a
+        # different path style still counts as present). Local hooks are NEVER
+        # removed. Runs after Repair-AndValidateHooks so added entries land in
+        # an already-valid structure.
+        function Ensure-FleetHooks {
+            param($liveHash, $canonHooks, [string]$repoRoot, [ref]$actions)
+            if ($null -eq $canonHooks) { return }
+            if (-not ($liveHash.Contains('hooks')) -or -not ($liveHash['hooks'] -is [System.Collections.IDictionary])) {
+                $liveHash['hooks'] = [ordered]@{}
+            }
+            $hooks = $liveHash['hooks']
+            # Normalize a command for comparison: forward slashes, lowercase,
+            # local repo root collapsed back to <<repo>>.
+            function Get-CommandSignature {
+                param([string]$cmd, [string]$root)
+                return (($cmd -replace '\\', '/') -replace [regex]::Escape($root), '<<repo>>').ToLowerInvariant()
+            }
+            $liveSigs = @()
+            foreach ($ev in @($hooks.Keys)) {
+                foreach ($e in @($hooks[$ev])) {
+                    if (-not ($e -is [System.Collections.IDictionary])) { continue }
+                    foreach ($h in @($e['hooks'])) {
+                        if ($h -is [System.Collections.IDictionary] -and $h['command']) {
+                            $liveSigs += (Get-CommandSignature "$($h['command'])" $repoRoot)
+                        }
+                    }
+                }
+            }
+            foreach ($eventName in @($canonHooks.Keys)) {
+                if ($eventName -like '__*') { continue }
+                $canonEntries = @($canonHooks[$eventName])
+                if (-not ($hooks.Contains($eventName)) -or -not ($hooks[$eventName] -is [object[]])) {
+                    $hooks[$eventName] = @()
+                }
+                $liveEntries = @($hooks[$eventName])
+                foreach ($ce in $canonEntries) {
+                    if (-not ($ce -is [System.Collections.IDictionary])) { continue }
+                    $cmds = @()
+                    foreach ($h in @($ce['hooks'])) {
+                        if (-not ($h -is [System.Collections.IDictionary])) { continue }
+                        $cmds += [ordered]@{ type = "$($h['type'])"; command = ("$($h['command'])" -replace '<<repo>>', $repoRoot) }
+                    }
+                    if ($cmds.Count -eq 0) { continue }
+                    $covered = $true
+                    foreach ($c in $cmds) {
+                        if ($liveSigs -notcontains (Get-CommandSignature "$($c.command)" $repoRoot)) { $covered = $false; break }
+                    }
+                    if (-not $covered) {
+                        $entry = [ordered]@{ hooks = $cmds }
+                        if ($ce.Contains('matcher')) { $entry['matcher'] = "$($ce['matcher'])" }
+                        $liveEntries = @($liveEntries) + @($entry)
+                        $liveSigs += @($cmds | ForEach-Object { Get-CommandSignature "$($_.command)" $repoRoot })
+                        $null = $actions.Value.Add("HOOK-ADDED hooks.$eventName += $($cmds[0].command)")
+                    }
+                }
+                $hooks[$eventName] = $liveEntries
+            }
+        }
+
         if (Test-Path $livePath) {
             $liveHash = Convert-ToOrderedHash (Get-Content $livePath -Raw -Encoding UTF8 | ConvertFrom-Json)
             Repair-PermissionLists -liveHash $liveHash -actions ([ref]$actions)
             Merge-CanonIntoLive -liveHash $liveHash -canonHash $canonHash -path '' -actions ([ref]$actions)
             $fatal = [System.Collections.ArrayList]::new()
             Repair-AndValidateHooks -liveHash $liveHash -actions ([ref]$actions) -fatal ([ref]$fatal)
+            Ensure-FleetHooks -liveHash $liveHash -canonHooks $canonHooks -repoRoot $hooksRepoRoot -actions ([ref]$actions)
             if ($fatal.Count -gt 0) {
                 foreach ($fmsg in $fatal) { Write-Host "  FATAL $fmsg" -ForegroundColor Red }
                 Write-Host "  REFUSED settings.json — live file left UNTOUCHED (fix the corruption, then re-run)" -ForegroundColor Red
@@ -323,7 +413,11 @@ if ($Target -in "all", "settings") {
                             Write-Host "  WARN dropped $topKey.$k (fresh install — set it manually)" -ForegroundColor Yellow
                             continue
                         }
-                        if ($k -eq 'deny' -and $sub[$k] -is [object[]]) { continue }
+                        # 'deny' is no longer skipped on fresh installs (#4258): the
+                        # canon's own __deny_semantics__ makes it an ENSURE-list, and
+                        # a seat scaffolded without it started WITHOUT the tightened
+                        # harness (AskUserQuestion & co. not denied) — the exact
+                        # regression po-2028 hit during onboarding.
                         $clean[$k] = $sub[$k]
                     }
                     $fresh[$topKey] = $clean
@@ -331,7 +425,32 @@ if ($Target -in "all", "settings") {
                     $fresh[$topKey] = $sub
                 }
             }
-            $null = $actions.Value.Add("SCAFFOLD fresh settings.json from canon")
+            # $actions is the ArrayList itself here (not a PSReference — the [ref]
+            # wrappers only live inside the helper functions): .Value.Add() crashed
+            # every fresh install with a null-method call (#4258, measured po-2028).
+            $null = $actions.Add("SCAFFOLD fresh settings.json from canon")
+            if ($null -ne $canonHooks) {
+                # Fresh seat: no live hooks to preserve — resolve the canon hooks
+                # straight into the scaffold (#4258; was: hooks key never written).
+                $freshHooks = [ordered]@{}
+                foreach ($eventName in @($canonHooks.Keys)) {
+                    if ($eventName -like '__*') { continue }
+                    $freshHooks[$eventName] = @($canonHooks[$eventName] | ForEach-Object {
+                        $entry = [ordered]@{}
+                        if ($_ -is [System.Collections.IDictionary]) {
+                            if ($_.Contains('matcher')) { $entry['matcher'] = "$($_['matcher'])" }
+                            $entry['hooks'] = @($_['hooks'] | ForEach-Object {
+                                [ordered]@{ type = "$($_.type)"; command = ("$($_.command)" -replace '<<repo>>', $hooksRepoRoot) }
+                            })
+                        }
+                        $entry
+                    })
+                }
+                if ($freshHooks.Keys.Count -gt 0) {
+                    $fresh['hooks'] = $freshHooks
+                    $null = $actions.Add("HOOK-ADDED (scaffold) fleet hooks from canon, <<repo>> -> $hooksRepoRoot")
+                }
+            }
             if (-not $DryRun) {
                 $json = $fresh | ConvertTo-Json -Depth 10
                 [System.IO.File]::WriteAllText($livePath, $json, (New-Object System.Text.UTF8Encoding($false)))
