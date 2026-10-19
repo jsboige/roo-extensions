@@ -64,7 +64,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
-| `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
+| `scheduling/` | 28 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot, garde pré-suppression #4097) |
 
 #### Détail scripts `claude/` (#3460, #3465, #3471)
 
