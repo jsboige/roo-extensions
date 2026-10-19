@@ -245,7 +245,8 @@ class TestContracts(unittest.TestCase):
         for marker in ("#13410", "pedagogy_density.py", "1200", "LECTURE ANCREE",
                        "UTF-8 sans repli ASCII", "forme liste",
                        "AUCUNE re-execution", "detect_solution_leaks",
-                       "JAMAIS fabriquer un chiffre", "CHECKPOINT-COMMIT"):
+                       "JAMAIS fabriquer un chiffre", "CHECKPOINT-COMMIT",
+                       "PAS une cible", "AU PLUS UNE cellule"):
             self.assertIn(marker, p, "payload 13410 sans %r" % marker)
         self.assertLessEqual(len(p.encode("utf-8")), 3 * 1024)
 
@@ -263,27 +264,29 @@ class TestContracts(unittest.TestCase):
             self.assertIn(marker, p)
 
     def test_only_density_contract_uses_the_frozen_branch_prefix(self):
-        """L'organe de merge CoursIA (FROZEN_BRANCH_PREFIXES, defini dans
-        scripts/coordination/frozen_campaigns.py et importe par merge_ready.py)
-        range tout `wt/vibe-*` dans la famille gelee #13410, quelle que soit son
-        issue reelle. Un grain
-        non-densite nomme ainsi produit donc un livrable que rien ne mergera
-        (mesure 25/09 : grain #16472 parti sur `wt/vibe-g2-...`). Seul #13410,
-        qui EST cette famille, garde le prefixe."""
+        """Hygiene de prefixe : seul #13410 (famille densite) garde `wt/vibe-`.
+        Le prefixe n'a plus de semantique de gel depuis la reouverture 07/10
+        (FROZEN_BRANCH_PREFIXES vide dans frozen_campaigns.py) mais reste
+        l'identifiant de famille ; un grain non-densite nomme `wt/vibe-*`
+        brouille la lecture (mesure 25/09 : grain #16472 parti sur
+        `wt/vibe-g2-...`)."""
         self.assertTrue(rvq.CONTRACTS[13410]["branch_prefix"].startswith("wt/vibe-"))
         for i in (15719, 16472):
             self.assertFalse(
                 rvq.CONTRACTS[i]["branch_prefix"].startswith("wt/vibe-"),
                 "contrat #%d : un prefixe wt/vibe- le gele en #13410" % i)
 
-    def test_default_issue_selection_excludes_the_frozen_contract(self):
-        """Le feeder re-mesure la file SANS filtre des qu'elle est vide. Si le
-        defaut incluait le contrat gele, chaque epuisement de file rouvrirait
-        mecaniquement le dispatch densite sous veto #17040 (mesure 25-26/09 :
-        file reconstruite a 121 grains dont 120 de #13410 en une nuit). Le
-        defaut doit donc ne servir QUE le non-gele ; un --issue 13410
-        explicite reste la voie operatoire pour lever la garde."""
-        self.assertEqual(rvq.default_issues(), [15719, 16472, 17712])
+    def test_default_issue_selection_serves_every_contract(self):
+        """#13410 rouvert cote source le 07/10 (frozen_campaigns.py) : le
+        drapeau `frozen` du feeder, pose le 25/09 sous le gel #17040, est
+        retire le 19/10 — il privait le refresh de la densite 11 jours apres
+        la reouverture. Plus aucun contrat n'est gele : le defaut les sert
+        tous (mesure 25-26/09, garde d'origine : file reconstruite a 121
+        grains dont 120 de #13410 en une nuit — cette garde ne valait que
+        sous gel effectif)."""
+        self.assertEqual(rvq.default_issues(), [13410, 15719, 16472, 17712])
+        for issue, c in rvq.CONTRACTS.items():
+            self.assertNotIn("frozen", c, "contrat #%d encore gele" % issue)
         self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472, 17712])
 
 
