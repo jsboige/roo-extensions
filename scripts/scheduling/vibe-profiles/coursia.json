@@ -3,9 +3,9 @@
   "description": "Profil CoursIA — Mistral Vibe sur le workspace CoursIA. Presentable dans la serie vibe-coding.",
   "workspace": "CoursIA",
   "workspacePath": "D:/dev/CoursIA",
-  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 1800",
+  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 2700",
   "intervalHours": 1,
-  "_budget": "--timeout 1800 = 30 min, aligne sur .vibe/commands/continue.md qui declare 'Frequence: 30 min' et 'Workflow (30 min max)'. Etait 900 (15 min) : la moitie du temps que le protocole demande, alors que la schtask en autorise 55 (TimeoutMinutes). Le budget driver etait le seul des trois nombres hors-cadre.",
+  "_budget": "--timeout 2700 = 45 min (incident 19/10 : etait 1800). Mesure du jour : les grains densite #13410 demandent 25 min quand ils passent (run controle g3-compression PROMPT_OK en 1506,6 s, commit livre) et les 3 PROMPT_TIMEOUT STREAMING_TO_DEADLINE (g12/g14/g15, 3,3-5,0 M tokens) travaillaient encore a la seconde du kill — budget/prompt size, pas API. 1800 tuait du travail productif ; 2700 = +50 % de marge en restant sous le kill schtask 55 min (2700 + init 120 + session/new 90 + overhead ~ 49 min < 55). Depasse le 'Workflow (30 min max)' de .vibe/commands/continue.md — convention session presentable, pas une limite API (aucune erreur avant le kill driver). Historique : 900 (15 min) -> 1800 (30 min, aligne protocole) -> 2700 (incident 19/10).",
   "maxIterations": 1,
   "queue": {
     "repo": "jsboige/CoursIA",
