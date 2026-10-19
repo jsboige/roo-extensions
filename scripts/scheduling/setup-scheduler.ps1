@@ -9,9 +9,9 @@
     - worker:            Executor tier (6h, Sonnet baseline, all machines)
     - coordinator:       Coordinator/merge tier (12h, Sonnet, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
-    - executor-cron:     Executor /executor cadence 4h (#3141 — substitution CronCreate session-only).
-                         Wrapper minimal qui spawn `claude -p /executor`. Toutes machines.
-                         Premier déploiement : po-2026 (lane #3141 explicite).
+    - executor-cron:     INTERDIT a l'install (arbitrage user 2026-08-18, revert #3141 — #4081) :
+                         le cron /executor vit dans la session interactive (CronCreate).
+                         TaskType conserve pour remove/list uniquement (purge des residentes).
     - dashboard-watcher: Dashboard gate (1h, spawns Haiku on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
                          dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
@@ -69,7 +69,7 @@
     .\setup-scheduler.ps1 -Action install                          # Install worker (6h, Sonnet baseline)
     .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (12h, Sonnet baseline, ai-01 only)
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
-    .\setup-scheduler.ps1 -Action install -TaskType executor-cron  # Install executor-cron (4h, Sonnet, #3141)
+    .\setup-scheduler.ps1 -Action remove -TaskType executor-cron   # Purge residual executor-cron schtask (install REFUSED, #4081)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
     .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw-only watcher (legacy)
@@ -191,7 +191,7 @@ $TaskConfigs = @{
         DefaultInterval = 4  # 4h cadence (mandate user 2026-08-15/17 — executors z.ai unifies)
         DefaultModel = "sonnet"  # zero-scheduled-opus policy 2026-05-25
         DefaultTimeout = 60  # /executor cycles run 15-30min wall-clock
-        Description = "Claude Code executor cron (#3141): wrapper minimal qui spawn `claude -p /executor`. Substitue CronCreate (session-only, meurt au restart) par schtasks persistante. Cadence 4h alignee mandates user 2026-08-15/17. Toutes machines executantes."
+        Description = "INTERDITE (arbitrage user 2026-08-18, revert #3141 — #4081): le cron /executor vit dans la session interactive via CronCreate (CLAUDE.md global, Multi-Machine Ping-Pong). Entree conservee pour remove/list uniquement (purge des residentes du rollout #3141/#3161)."
         MachineRestriction = $null  # all machines — mais premier test po-2026 (lane #3141)
     }
 }
@@ -199,6 +199,17 @@ $TaskConfigs = @{
 $config = $TaskConfigs[$TaskType]
 $TaskName = $config.TaskName
 $WorkerScript = $config.Script
+
+# Garde #4081 : l'arbitrage user 2026-08-18 interdit la schtask executor-cron
+# (sessions headless invisibles). Un agent relisant la doc ou l'historique ne doit
+# pouvoir la reinstaller par accident. remove/list restent ouverts : c'est le
+# chemin de purge des residentes.
+if ($TaskType -eq 'executor-cron' -and $Action -in @('install', 'test')) {
+    Write-Host "[REFUSED] -TaskType executor-cron est INTERDIT (arbitrage user 2026-08-18, revert #3141, #4081)." -ForegroundColor Red
+    Write-Host "          La cadence /executor vit dans la session interactive : CronCreate(cron: '41 */4 * * *', prompt: '/executor', recurring: true) -- CLAUDE.md global, Multi-Machine Ping-Pong." -ForegroundColor Yellow
+    Write-Host "          Actions ouvertes sur ce TaskType : -Action remove (purge residente), -Action list." -ForegroundColor Yellow
+    exit 1
+}
 
 # Dashboard-watcher mode selection (#1430 multi-ws):
 # - Legacy single-ws  : -Workspace nanoclaw        → TaskName "Claude-DashboardWatcher-nanoclaw"
@@ -261,7 +272,13 @@ function Show-Task {
     }
 
     Write-Status ""
-    Write-Status "Use -Action install -TaskType $TaskType to create task." DarkGray
+    if ($TaskType -eq 'executor-cron') {
+        # #4081 : pas d'invite d'install sur une TaskType interdite -- le pied de
+        # page generique est lui-meme un tell de rearmement schtask.
+        Write-Status "TaskType interdit a l'install (arbitrage user 2026-08-18, #4081) : cadence via CronCreate en session interactive. remove/list only." DarkGray
+    } else {
+        Write-Status "Use -Action install -TaskType $TaskType to create task." DarkGray
+    }
 }
 
 # --- Action: Install ---
