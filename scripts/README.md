@@ -50,7 +50,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `git/` | 2 | Opérations Git (pre-commit hooks, branch triage) |
+| `git/` | 3 | Opérations Git (pre-commit hooks, branch triage, gitlink reachability guard #4098) |
 | `git-workflow/` | 7 | Workflow Git avancé (submodules, commit, branches) |
 | `github/` | 8 | Intégration GitHub (sync-project, set-fields, review-bot, watchguards #3381 D4/D13, claim guard issue #3676) |
 | `worktrees/` | 4 | Gestion des worktrees Git (création, cleanup, merge) |

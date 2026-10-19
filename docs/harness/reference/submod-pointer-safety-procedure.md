@@ -81,6 +81,35 @@ git -C mcps/internal merge-base --is-ancestor $SUBMOD_HEAD origin/main \
 
 Voir aussi la section « Anti pointer-bump prématuré » de `.claude/rules/pr-mandatory.md`.
 
+## Branches worker — garde de push (#4098, incident po-2026 03/10)
+
+L'incident fondateur (2026-05-11) était un push **direct sur main**. Le 03/10 (po-2026), la même
+casse est venue d'une branche **worker** du parent poussée avec un gitlink `mcps/internal` jamais
+poussé sur le submodule : `git fetch` cassé flotte-wide (`upload-pack: not our ref` ×4), alors
+que main restait propre — les gardes merge/bump (CI `check-submodule-pointer`, postcondition de
+fin de cycle) ne voient que main, pas les branches intermédiaires.
+
+Le garde outillé vérifie, avant `git push origin <branche>` du parent, chaque gitlink **modifié
+depuis `origin/main`** (le delta seul — un gitlink inchangé depuis la base est déjà atteignable
+par construction) :
+
+```bash
+python scripts/git/check_gitlinks_pushed.py <branche>     # ou HEAD
+python scripts/git/check_gitlinks_pushed.py --json ...    # sortie machine
+```
+
+| Exit | Verdict | Geste |
+|---|---|---|
+| `0` | OK | pousser le parent |
+| `1` | ORPHAN — SHA absente des branches remote du submodule | pousser le submodule d'abord (branche + PR), re-vérifier, puis parent |
+| `2` | instrument (fetch impossible, dépôt submodule introuvable) | réparer l'instrument, jamais bypasser |
+
+Le dépôt du submodule est résolu via `--git-common-dir` du parent (`<common>/modules/<path>`),
+jamais `git -C <path>` — un submodule non peuplé dans un worktree fait remonter `git -C` au
+parent (garde 0 ci-dessus) ; le garde est donc exécutable depuis un worktree neuf. `--no-fetch`
+vérifie sur les refs locales (offline). Vérifié 20/10 sur les trois verdicts : delta nul (OK),
+gitlink atteignable (`c487b7cd` → porteurs listés), SHA locale jamais poussée (ORPHAN + levier).
+
 ## Cas légitimes de modification d'un pointeur
 
 - Bundle pointer-bump après merge de plusieurs PRs submod (pattern cycle 31 W7).

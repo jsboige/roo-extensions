@@ -1,7 +1,7 @@
 # Submodule Pointer Safety
 
-**Version:** 2.3.0 (slim — blocs bash et narratives déportés vers la procédure, #2368)
-**Issue :** #2089 follow-up (incident 2026-05-11, `67514ec1`) ; garde dépôt #3454 (2026-09-05) ; SHA 40 car. #3056
+**Version:** 2.4.0 (branches worker #4098 — le garde s'étend du commit au PUSH)
+**Issue :** #2089 follow-up (incident 2026-05-11, `67514ec1`) ; garde dépôt #3454 (2026-09-05) ; SHA 40 car. #3056 ; branches worker #4098 (incident po-2026 03/10)
 
 ---
 
@@ -14,6 +14,21 @@ upstream** (`merge-base --is-ancestor`). Non atteignable → **STOP** : pousser 
 submod sur son upstream, ou `reset --hard origin/main`. Un pointeur orphelin casse `git pull`
 **sur toute la flotte** (`upload-pack: not our ref`). Le worker schedulé et la CI ne couvrent pas
 les sessions interactives OWNER — c'est le trou que cette règle ferme.
+
+## Branches worker — l'invariant s'étend au PUSH (#4098)
+
+Un gitlink orphelin sur une branche **worker** (jamais mergée sur main) casse tout autant
+`git fetch` flotte-wide que sur main — mesuré po-2026 03/10 (`upload-pack: not our ref` ×4).
+**Avant `git push origin <branche>` du parent** : chaque gitlink modifié depuis `origin/main`
+doit être atteignable depuis une branche remote du submodule. Organe :
+
+```bash
+python scripts/git/check_gitlinks_pushed.py <branche>   # exit 1 = ORPHAN, STOP
+```
+
+Le delta seul est vérifié (gitlink inchangé depuis la base = déjà atteignable) ; le dépôt
+submodule est résolu via `--git-common-dir`, jamais `git -C <path>` (garde 0). Rémediation
+identique : pousser le submodule d'abord (branche + PR), le parent ensuite.
 
 ## Garde 0 — le BON dépôt, avant toute lecture `git -C` (#3454)
 
