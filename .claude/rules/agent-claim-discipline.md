@@ -1,7 +1,7 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 2.3.0 (slim — narratif déporté vers le doc détaillé, claudish#445)
-**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue), #4114 (identité lane)
+**Version:** 2.4.0 (Pre-Delivery #4 — claim relu avant d'écrire dans un worktree, #4221 ; 2.3.0 slim, claudish#445)
+**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue), #4114 (identité lane), #4221 (worktree)
 
 ---
 
@@ -43,6 +43,7 @@ La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le 
 1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
 2. Une PR concurrente est-elle apparue depuis ? Un claim-issue concurrent a-t-il ete pose depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
 3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler. **La lecture au depart n'est pas une lecture a la livraison** (incident fondateur #1025/#1026 : doc detaillee).
+4. **Ecrire dans un worktree existant (#4221) : relire d'abord le claim de l'issue qu'il porte** — le claim protege l'issue, pas l'arbre de travail. Avant tout Edit/Write/commit dans un worktree que tu n'as pas cree dans ce tour (reprise, compaction, `wt-*`/`mcpint-*` trouve sur disque) : `check_issue_claim.py NNN` sur l'issue que son nom porte ; claim d'une autre lane = ne pas ecrire, `[ASK]` ; claim de ta lane absent de ton contexte (tour courant ou resume de compaction) = celui d'une session jumelle, meme traitement (3 collisions en 24 h le 15/10, mesures dans #4221).
 
 ## Discipline requise — Pour l'agent qui rapporte
 
