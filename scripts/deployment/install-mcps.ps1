@@ -437,7 +437,6 @@ if ($installedMcps.Count -eq 0) {
                        "roosync_get_status", "roosync_list_diffs", "roosync_compare_config", "roosync_refresh_dashboard",
                        "roosync_config", "roosync_inventory", "roosync_baseline", "roosync_machines", "roosync_init",
                        "roosync_send", "roosync_read", "roosync_manage",
-                       "roosync_decision", "roosync_decision_info",
                        "roosync_heartbeat_status",
                        "analyze_roosync_problems", "diagnose_env",
                        "roosync_summarize"

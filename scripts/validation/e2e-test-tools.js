@@ -60,10 +60,6 @@ const TOOL_TESTS = [
   { name: 'roosync_read', params: { mode: 'inbox' }, description: 'Read inbox' },
   { name: 'roosync_send', params: { action: 'send', to: 'test-machine', subject: 'E2E-TEST', body: 'Test message from e2e-test-tools.js', dryRun: true }, description: 'Send message (dry-run)' },
 
-  // Decisions CONS-5 (expected errors with nonexistent IDs)
-  { name: 'roosync_decision_info', params: { action: 'history', decisionId: 'test-nonexistent' }, description: 'Decision info (expected error: nonexistent ID)', expectedError: true },
-  { name: 'roosync_decision', params: { action: 'approve', decisionId: 'test-nonexistent', reason: 'E2E test' }, description: 'Decision approve (expected error: nonexistent ID)', expectedError: true },
-
   // Manage (expected error with nonexistent ID)
   { name: 'roosync_manage', params: { action: 'mark_read', messageId: 'test-nonexistent' }, description: 'Manage mark_read (expected error: nonexistent ID)', expectedError: true },
 ];
