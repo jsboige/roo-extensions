@@ -645,6 +645,10 @@ def main():
                         help="dashboard the signal lands on (default: workspace)")
     parser.add_argument("--dashboard-workspace", default="roo-extensions", metavar="NAME",
                         help="workspace dashboard name (default: roo-extensions)")
+    parser.add_argument("--dashboard-timeout", type=float, default=10.0, metavar="SECONDS",
+                        help="per-request timeout of the dashboard signal (default: 10); "
+                             "a scheduled tick can afford more -- on the proxied path a "
+                             "dashboard call above 5 s had a 23 s median on 19/10")
     parser.add_argument("--selftest", action="store_true", help="run synthetic fixture validation and exit")
     args = parser.parse_args()
 
@@ -667,7 +671,8 @@ def main():
             url = (args.dashboard_url or os.environ.get("MCP_PROXY_BASE_URL")
                    or DEFAULT_DASHBOARD_URL)
             maybe_publish_dashboard_note(totals, stalls, args.dashboard_workspace, url,
-                                         bearer, dash_type=args.dashboard_type)
+                                         bearer, dash_type=args.dashboard_type,
+                                         timeout=args.dashboard_timeout)
     if totals["waiting"] > 0:
         sys.exit(EXIT_FINDINGS)
     sys.exit(EXIT_CLEAN)
