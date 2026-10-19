@@ -277,10 +277,16 @@ if ($ProjectOnly) {
     $installProject = $Project  # Only if -Project specified
 }
 
+# Template resolution (#4258): .mcp.json.template no longer exists in the repo —
+# fall back to .mcp.json.example so a fresh clone does not dead-end here. The
+# example's sk-agent paths are CHECKOUT-SPECIFIC (C:\dev vs D:\Dev): adapt them
+# to the local checkout before first use.
+$mcpTemplate = Join-Path $WorkspaceRoot ".mcp.json.template"
+if (-not (Test-Path $mcpTemplate)) { $mcpTemplate = Join-Path $WorkspaceRoot ".mcp.json.example" }
+
 # 1. Initialize .mcp.json from template (project-level)
 if ($installProject) {
     Write-Host "1. Project MCP Configuration (.mcp.json)" -ForegroundColor White
-    $mcpTemplate = Join-Path $WorkspaceRoot ".mcp.json.template"
     $mcpOutput = Join-Path $WorkspaceRoot ".mcp.json"
     Initialize-FromTemplate -TemplatePath $mcpTemplate -OutputPath $mcpOutput
 } else {
@@ -292,7 +298,6 @@ if ($installProject) {
 if ($installGlobal) {
     Write-Host ""
     Write-Host "2. Global MCP Configuration (~/.claude.json)" -ForegroundColor White
-    $mcpTemplate = Join-Path $WorkspaceRoot ".mcp.json.template"
     Install-McpServersGlobally -TemplatePath $mcpTemplate -ServerNames $McpServers
 } else {
     Write-Host ""
