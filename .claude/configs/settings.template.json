@@ -1,5 +1,5 @@
 {
-  "__readme__": "Canon flotte ~/.claude/settings.json (mandat user, 4e relance 29/09/2026). Deploy: Deploy-GlobalConfig.ps1 -Target settings. Le marqueur <<preserve-local>> garde la valeur locale (secrets/endpoint machine). Tout ce qui n'est pas listé ici n'est PAS touche par le deploiement (allow-list locale, hooks locaux, effortLevel, cleanupPeriodDays restent a la machine). Tier ids: penses pour durer moins d'un cycle de release modele — re-pinner via PR ici. Mandat user 29/09 : seules differences tolerees entre machines = taille de contexte (ai-01 plus grande — CLAUDE_CODE_AUTO_COMPACT_WINDOW est preserve-local) et ANTHROPIC_BASE_URL (models.myia.io pour les externes po-2027/web1/web2, IP hub pour les internes). CLAUDE_CODE_MAX_CONTEXT_TOKENS reste canon (1000000) : s'il derive quelque part, le deploy le detecte.",
+  "__readme__": "Canon flotte ~/.claude/settings.json (mandat user, 4e relance 29/09/2026). Deploy: Deploy-GlobalConfig.ps1 -Target settings. Le marqueur <<preserve-local>> garde la valeur locale (secrets/endpoint machine). Tout ce qui n'est pas listé ici n'est PAS touche par le deploiement (allow-list locale, effortLevel, cleanupPeriodDays restent a la machine). Hooks (depuis #4258) : la section hooks est une ENSURE-list geree hors merge generique — le deploiement RESOUT <<repo>> vers le checkout local et AJOUTE les entrees canon manquantes ; les hooks locaux (ex. log-tool-start sur web1) ne sont jamais retires. Tier ids: penses pour durer moins d'un cycle de release modele — re-pinner via PR ici. Mandat user 29/09 : seules differences tolerees entre machines = taille de contexte (ai-01 plus grande — CLAUDE_CODE_AUTO_COMPACT_WINDOW est preserve-local) et ANTHROPIC_BASE_URL (models.myia.io pour les externes po-2027/web1/web2, IP hub pour les internes). CLAUDE_CODE_MAX_CONTEXT_TOKENS reste canon (1000000) : s'il derive quelque part, le deploy le detecte.",
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "<<preserve-local>>",
     "ANTHROPIC_BASE_URL": "<<preserve-local>>",
@@ -39,6 +39,28 @@
     "mode": "auto-approve"
   },
   "model": "sonnet",
+  "hooks": {
+    "__hooks_semantics__": "ENSURE-add only (#4258): Deploy-GlobalConfig resolves <<repo>> to the local checkout root and adds entries whose command is missing; local hooks are never removed. Handled OUTSIDE the generic merge (dict entries would duplicate under string-blind ensure).",
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<<repo>>/scripts/hooks/echo-loop-counter.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<<repo>>/scripts/hooks/guard-bash-composite.js\""
+          }
+        ]
+      }
+    ]
+  },
   "disableBundledSkills": true,
   "disableClaudeAiConnectors": true,
   "disableRemoteControl": true,
