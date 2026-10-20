@@ -90,6 +90,7 @@
 | **Stub Detection** | CI gate pour stub exports | `stub-detection.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `../machine-specific/myia-web1-constraints.md` |
 | **VPS-4 2027 provisioning** | Runbook migration web1 → VPS-4 (Épic #3188, Phase 0) : extracteur web1, IIS/ARR/runtimes/certs, bindings par domaine, fenêtre ACME, inventaire IP po-2023 | `../machine-specific/vps4-2027-provisioning-runbook.md` |
+| **Backup lane po-2023 (Maintenance#126)** | Inventaire des données hors-git du siège po-2023:roo-extensions, canaux qualifiés, tests de restauration datés (PASS 20/10), plan P1-P4 | `../machine-specific/myia-po-2023-backup-plan.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
 | **Inventaire gates CoursIA (#3673)** | 162 workflows classés par famille, verdicts porter/adapter/ignorer ; réalisé : secret-scan gitleaks + parité pre-commit, schedule CI main-vert (anti time-bomb), drift-scan doc↔arbre | `../reports/coursia-gates-inventory-2026-09-16.md` |
