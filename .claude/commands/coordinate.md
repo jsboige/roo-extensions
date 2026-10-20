@@ -87,7 +87,7 @@ Si l'audit retourne des problèmes CRITICAL ou WARNING, les traiter AVANT de con
 5. **Analyse rapports** : Traiter messages RooSync entrants
 6. **Balayage des dettes** : solder ce qui attend sur MOI **avant** de distribuer du travail (voir section ci-dessous). Position empruntee a `coordinate.md` d'Epita, dont la Phase 3 « Merger ce qui est mergeable » precede la Phase 5 « Dispatcher ».
 7. **Pré-mâchage des merges** : lancer en parallèle agents, sous-agents et bots de review sur chaque PR active ; le coordinateur conserve la décision, l'action GitHub et le merge.
-8. **Planification** : Ventiler une deep-queue d'au moins 5 h par machine (task-planner ou manuel)
+8. **Alimentation du pool** : la deep-queue vit dans des **issues que les filtres des workers voient**, pas dans la prose du dashboard (voir section ci-dessous)
 9. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
 10. **Suivi GitHub** : Mettre a jour Project #67
 11. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
@@ -195,6 +195,41 @@ serait autrement invérifiable.
 (« je n'agis pas avant l'approbation formelle d'un approver flotte ») — 2 messages non lus, et une
 question posee a ma lane sur l'Epic #3188 restee **5 jours** sans reponse, pendant que je rapportais
 la flotte comme saine.
+
+### Alimentation du pool — ce que les workers planifies peuvent piocher
+
+Les workers planifies (Claude-Worker de chaque machine, executeur Zoo) **ne lisent ni le dashboard
+ni les commentaires d'Epic** : ils piochent dans `gh issue list` avec un filtre fixe. Les bots
+Hermes/NanoClaw relisent les PRs que ce pool ouvre ; ce ne sont pas des preneurs de taches de code.
+Un `[TASK]` en prose n'atteint donc que les lanes interactives. Le debit du coordinateur, c'est ce
+que les filtres voient.
+
+```bash
+# Claude-Worker (start-claude-worker.ps1) — saute aussi les issues dont le champ Machine nomme une autre machine
+gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels \
+  --search "is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen" --jq length
+# Zoo (scheduler-workflow-executor.md) — exclut en plus claude-only, needs-approval, blocked-on-gate
+gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels \
+  --search "is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen" --jq length
+```
+
+A chaque cycle :
+
+1. **Compter les deux filtres et lire ce qu'ils rendent.** Une issue perimee, pour un siege mort ou
+   une proposition non validee est **du poison**, pas de la reserve : chaque worker qui la pioche
+   tourne a vide. La requalifier ou la fermer (avec preuve).
+2. **Chaque derive ou correctif verifie devient une issue** : constat mesure, critere de fermeture
+   testable, labels, et le champ `Machine` quand un siege est requis (vide = n'importe lequel). Un
+   grain faisable par Zoo (tests, balayages, mesure en lecture seule) ne porte **pas** `claude-only`.
+3. **Mes propres workers planifies sur ai-01** : `Claude-Worker` doit etre `Ready`, et son dernier
+   passage doit avoir pioche quelque chose (exit 0 ne le prouve pas).
+4. Le `[TASK]` du dashboard **nomme les numeros d'issue** ; il ne remplace pas l'issue.
+
+**Pourquoi** (user, 20/10) : *« tu es le coordinateur dont le travail est le plus mauvais, et tu es
+pourtant celui qui a accès au plus de workers disponibles (au moins un par machine + zoo + tes
+schtasks + les 2 bots) »*. Mesure du jour : les correctifs de la derive vivaient en commentaires
+d'Epic et en prose de dashboard, le Claude-Worker d'ai-01 etait desactive depuis le 08/10, et le
+filtre Zoo ne voyait que 7 issues, dont une pour un siege mort.
 
 ### Champs obligatoires pour issues roo-schedulable
 
