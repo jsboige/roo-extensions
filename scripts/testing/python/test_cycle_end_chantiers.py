@@ -55,6 +55,16 @@ class ClassifyChantier(unittest.TestCase):
         self.assertEqual(row["flags"], [])
         self.assertEqual(row["last_decision"], "2026-10-20")
 
+    def test_own_d4_line_counts_as_the_dated_line_it_asks_for(self):
+        # The line D4 requires (GO, named obstacle or proposed abandon) is posted
+        # with the D4 marker; an obstacle line is not a "[DÉCISION]" but must clear the flag.
+        row = tce.classify_chantier(issue(7, "2026-06-01T00:00:00Z", [
+            ("2026-10-19T23:30:00Z", "**[D4 — ligne datée 19/10, ai-01 coord]**\n\n"
+                                     "Obstacle nommé : po-2026 en réparation. Réexamen le 03/11."),
+        ]), NOW)
+        self.assertEqual(row["flags"], [])
+        self.assertEqual(row["last_decision"], "2026-10-19")
+
     def test_decision_without_any_date_does_not_count(self):
         row = tce.classify_chantier(issue(4, "2026-06-01T00:00:00Z", [
             ("2026-10-15T00:00:00Z", "[DECISION] we will do it soon"),
