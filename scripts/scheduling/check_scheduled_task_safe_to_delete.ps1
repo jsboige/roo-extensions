@@ -14,12 +14,16 @@
 
       [SAFE]                  ni lanceur roo-extensions, ET XML pre-op present
       [REFUSED:PROTECTED]     une cible resolue vit sous roo-extensions\scripts\scheduling\
+                              (les deux separateurs : \ et /)
       [REFUSED:NO-BACKUP]     aucun XML de sauvegarde pre-op dans le BackupDir
-      [INSTRUMENT]            tache introuvable ou lanceur illisible -- un garde
-                              muet ne valide rien, il arrete
+      [INSTRUMENT]            tache introuvable, lanceur illisible, ou lanceur
+                              LU sans cible script extraite (contenu opaque :
+                              -EncodedCommand, chaine .cmd...) -- lisible
+                              n'est pas compris ; un garde muet ne valide rien,
+                              il arrete
 
     Une tache invisible au jeton courant (SYSTEM / RunLevel Highest) rend
-    « introuvable » : c'est INSTRUMENT, pas SAFE (regle UAC -- « absent » en
+    "introuvable" : c'est INSTRUMENT, pas SAFE (regle UAC -- "absent" en
     non-eleve n'est pas une mesure).
 
     LECTURE PURE : ce script ne supprime rien, n'exporte rien, n'ecrit rien.
@@ -79,17 +83,24 @@ foreach ($name in $TaskName) {
         continue
     }
 
-    $resolved = @{ Targets = @(); Launcher = $null; Readable = $true }
+    $resolved = @{ Targets = @(); Launcher = $null; Readable = $true; Opaque = $false }
     foreach ($action in @($task.Actions)) {
         if ($null -eq $action) { continue }
         $r = Get-TaskScriptTargets -Execute ([string]$action.Execute) -Arguments ([string]$action.Arguments) -ReadFile $readFile
         if ($r.Launcher) { $resolved.Launcher = $r.Launcher }
         if (-not $r.Readable) { $resolved.Readable = $false }
+        if ($r.Opaque) { $resolved.Opaque = $true }
         $resolved.Targets += @($r.Targets)
     }
 
     if (-not $resolved.Readable) {
         Write-Output ('[INSTRUMENT] {0} : lanceur {1} illisible -- reparer/lire avant decision' -f $name, $resolved.Launcher)
+        $worst = 2
+        continue
+    }
+
+    if ($resolved.Opaque) {
+        Write-Output ('[INSTRUMENT] {0} : lanceur {1} lu mais AUCUNE cible script extraite (contenu opaque ?) -- lire avant decision, lisible n''est pas compris' -f $name, $resolved.Launcher)
         $worst = 2
         continue
     }
@@ -114,7 +125,7 @@ foreach ($name in $TaskName) {
 
     $detail = ''
     if (@($resolved.Targets).Count -gt 0) { $detail = ' (charge utile : {0})' -f (@($resolved.Targets) -join ' ; ') }
-    elseif ($resolved.Launcher) { $detail = ' (lanceur {0}, cible non-script)' -f $resolved.Launcher }
+    # Un lanceur declare SANS cible extraite n'arrive jamais ici : Opaque -> INSTRUMENT ci-dessus.
     Write-Output ('[SAFE] {0} : ni lanceur roo-extensions, XML pre-op present{1}' -f $name, $detail)
 }
 

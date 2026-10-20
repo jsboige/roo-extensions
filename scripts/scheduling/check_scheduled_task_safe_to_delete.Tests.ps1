@@ -11,7 +11,9 @@
 # harden-hidden-tasks.Tests.ps1 : skip avec raison si l'enregistrement echoue --
 # ce fichier tourne sur des machines flotte, pas en CI).
 #
-# Run:  pwsh -File scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/check_scheduled_task_safe_to_delete.Tests.ps1
+# Run:  powershell -ExecutionPolicy Bypass -File scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/check_scheduled_task_safe_to_delete.Tests.ps1
+# (pwsh n'est pas present sur toutes les machines flotte -- #2368 ; la voie par
+#  defaut est Windows PowerShell 5.1.)
 
 BeforeAll {
     . (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.lib.ps1')
@@ -58,6 +60,16 @@ Describe 'Test-IsProtectedRooLauncher' {
             Should -BeTrue
     }
 
+    It 'protege une cible en slashes POSIX (review #4097 : le \\ seul laissait passer)' {
+        Test-IsProtectedRooLauncher -Targets @('D:/dev/roo-extensions/scripts/scheduling/start-claude-worker.ps1') |
+            Should -BeTrue
+    }
+
+    It 'protege une cible mixte backslash/slash' {
+        Test-IsProtectedRooLauncher -Targets @('D:\dev\roo-extensions/scripts\scheduling/start-meta-audit.ps1') |
+            Should -BeTrue
+    }
+
     It 'ne protege pas une cible ailleurs (le nom de la tache n''intervient pas)' {
         Test-IsProtectedRooLauncher -Targets @('D:\Dev\CoursIA\scripts\x.ps1') | Should -BeFalse
     }
@@ -76,10 +88,25 @@ Describe 'Get-TaskScriptTargets' {
         (Test-IsProtectedRooLauncher -Targets $r.Targets) | Should -BeTrue
     }
 
-    It 'vbs illisible -> Readable faux (INSTRUMENT chez l''appelant, jamais « pas protege »)' {
+    It 'vbs illisible -> Readable faux (INSTRUMENT chez l''appelant, jamais "pas protege")' {
         $readFail = { param($p) $null }
         $r = Get-TaskScriptTargets -Execute 'wscript.exe' -Arguments '"C:\ProgramData\claude-hidden-launchers\Claude-Worker.vbs"' -ReadFile $readFail
         $r.Readable | Should -BeFalse
+    }
+
+    It 'vbs LU sans cible extraite -> Opaque vrai (contenu opaque : lisible != compris)' {
+        # Forme reelle d'un lanceur tiers : contenu encode, aucun chemin de script.
+        $readOpaque = { param($p) 'rc = sh.Run("""powershell.exe"" -NoProfile -EncodedCommand aQBlAHgA", 0, True)' }
+        $r = Get-TaskScriptTargets -Execute 'wscript.exe' -Arguments '"C:\ProgramData\claude-hidden-launchers\Claude-Tiers.vbs"' -ReadFile $readOpaque
+        $r.Readable | Should -BeTrue
+        $r.Opaque | Should -BeTrue
+        @($r.Targets).Count | Should -Be 0
+    }
+
+    It 'vbs LU avec cible -> Opaque faux (le cas nominal ne bascule pas en INSTRUMENT)' {
+        $readWithTarget = { param($p) 'rc = sh.Run("""powershell.exe"" -File ""D:\Dev\roo-extensions\scripts\scheduling\start-claude-worker.ps1""", 0, True)' }
+        $r = Get-TaskScriptTargets -Execute 'wscript.exe' -Arguments '"C:\ProgramData\claude-hidden-launchers\Claude-Worker.vbs"' -ReadFile $readWithTarget
+        $r.Opaque | Should -BeFalse
     }
 
     It 'sans vbs : l''Execute direct sous scheduling est la charge utile (occurrence non durcie)' {
@@ -140,6 +167,20 @@ WScript.Quit rc
             $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('//B //Nologo "{0}"' -f $vbsPath)
             $principal = New-ScheduledTaskPrincipal -UserId ("{0}\{1}" -f [Environment]::UserDomainName, [Environment]::UserName) -LogonType Interactive
             Register-ScheduledTask -TaskName $script:name -Action $action -Principal $principal -ErrorAction Stop | Out-Null
+
+            # 2e tache : VBS LU mais contenu opaque (aucune cible script extraite).
+            $script:opaqueName = 'GSD-4097-Opaque'
+            $opaqueVbs = Join-Path $script:launcherDir 'GSD-4097-Opaque.vbs'
+            @'
+' Genere pour le test #4097 -- lanceur tiers au contenu opaque.
+Option Explicit
+Dim sh, rc
+Set sh = CreateObject("WScript.Shell")
+rc = sh.Run("""powershell.exe"" -NoProfile -EncodedCommand aQBlAHgA", 0, True)
+WScript.Quit rc
+'@ | Set-Content -LiteralPath $opaqueVbs -Encoding ASCII
+            $action2 = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('//B //Nologo "{0}"' -f $opaqueVbs)
+            Register-ScheduledTask -TaskName $script:opaqueName -Action $action2 -Principal $principal -ErrorAction Stop | Out-Null
         } catch {
             $script:registered = $false
             $script:skipReason = $_.Exception.Message
@@ -148,6 +189,7 @@ WScript.Quit rc
     AfterAll {
         if ($script:registered) {
             Unregister-ScheduledTask -TaskName $script:name -Confirm:$false -ErrorAction SilentlyContinue
+            Unregister-ScheduledTask -TaskName $script:opaqueName -Confirm:$false -ErrorAction SilentlyContinue
         }
     }
 
@@ -164,5 +206,16 @@ WScript.Quit rc
         $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Absente' -BackupDir $script:backupDir
         $LASTEXITCODE | Should -Be 2
         ($out -join ' ') | Should -Match '\[INSTRUMENT\]'
+    }
+
+    It 'VBS LU sans cible -> INSTRUMENT exit 2, meme avec backup present (readable != understood)' {
+        if (-not $script:registered) { Set-ItResult -Skipped -Because ("task registration failed: {0}" -f $script:skipReason); return }
+        # Backup present : le backup gate seul produirait [SAFE] -- le contenu non
+        # compris doit primer, c'est tout l'objet de ce cas.
+        'xml' | Set-Content -LiteralPath (Join-Path $script:backupDir 'GSD-4097-Opaque-test-00000000-0000.xml')
+        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Opaque' -BackupDir $script:backupDir
+        $LASTEXITCODE | Should -Be 2
+        ($out -join ' ') | Should -Match '\[INSTRUMENT\].*opaque'
+        ($out -join ' ') | Should -Not -Match '\[SAFE\]'
     }
 }

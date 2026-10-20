@@ -6,7 +6,7 @@
     Incident fondateur (x2 le 06/10, po-204 03:16Z puis po-203 09:28Z) : un audit
     supprime un lanceur Claude* en se fiant au NOM, alors que la CHARGE UTILE (le
     .vbs genere par harden-hidden-tasks.ps1) le designe lanceur roo-extensions
-    protege. La lecon « lire le VBS, pas le nom » etait une consigne de prose ;
+    protege. La lecon "lire le VBS, pas le nom" etait une consigne de prose ;
     ces fonctions en font un garde outille.
 
     Extractions dans une .lib pour testabilite Pester sur objets SYNTHETIQUES
@@ -24,11 +24,14 @@ $script:LauncherPattern = '(?i)((?:[A-Za-z]:[/\\]|\\\\)[^"]*\.vbs)'
 # Scripts cibles embarques dans le texte du .vbs -- identique au generateur.
 $script:TargetPattern = '(?i)((?:[A-Za-z]:[/\\]|/[a-z]/)[^"''\r\n]*?\.(?:ps1|py|js|cjs|bat|cmd|exe))'
 
-# Predicat « lanceur roo-extensions protege » : la cible resolue vit sous le
+# Predicat "lanceur roo-extensions protege" : la cible resolue vit sous le
 # repertoire scheduling du depot (les lanceurs generes par harden-hidden-tasks
 # pointent tous sur scripts/scheduling/*.ps1). Le chemin du depot varie par
 # machine (D:\dev, D:\Dev...) : on ancre sur le SEGMENT, pas sur une racine.
-$script:ProtectedSegmentPattern = '(?i)roo-extensions\\scripts\\scheduling\\'
+# [\\/] : les deux separateurs -- une cible peut arriver en slashes POSIX
+# (review ai-01 sur #4097 : le `\\` seul laissait passer D:/dev/roo-extensions/
+# scripts/scheduling/*.ps1 pour non protege).
+$script:ProtectedSegmentPattern = '(?i)roo-extensions[\\/]scripts[\\/]scheduling[\\/]'
 
 function Get-TaskLauncherVbs {
     # Execute+Arguments bruts -> chemin du .vbs reference, ou $null. Un hote
@@ -59,17 +62,27 @@ function Get-TaskScriptTargets {
     # RESOLUTION COMPLETE : la charge utile reelle de la tache, pas son nom.
     # 1. .vbs reference -> on lit le lanceur et on extrait ses cibles ;
     # 2. sinon, l'Execute direct s'il est un script (+ cibles dans Arguments).
-    # Rend @{ Targets = @(...); Launcher = <vbs|$null>; Readable = $bool } --
+    # Rend @{ Targets = @(...); Launcher = <vbs|$null>; Readable = $bool;
+    # Opaque = $bool } --
     # Readable=$false (vbs introuvable/illisible) = INSTRUMENT chez l'appelant,
-    # jamais « pas protege » : un garde muet ne valide rien.
+    # jamais "pas protege" : un garde muet ne valide rien.
+    # Opaque=$true (vbs LU, mais AUCUNE cible script extraite -- -EncodedCommand,
+    # chaine .cmd sans chemin, etc.) = INSTRUMENT aussi : lisible n'est pas
+    # compris (review ai-01 sur #4097). Sans ce cas, un lanceur protege deguise
+    # en contenu opaque traversait le predicat de charge utile et ressortait
+    # [SAFE] sur le seul backup gate.
     param([string]$Execute, [string]$Arguments, [scriptblock]$ReadFile)
-    $result = @{ Targets = @(); Launcher = $null; Readable = $true }
+    $result = @{ Targets = @(); Launcher = $null; Readable = $true; Opaque = $false }
     $vbs = Get-TaskLauncherVbs -Execute $Execute -Arguments $Arguments
     if ($vbs) {
         $result.Launcher = $vbs
         $text = & $ReadFile $vbs
         if ($null -eq $text) { $result.Readable = $false; return $result }
-        $result.Targets = Get-VbsScriptTargets -VbsText $text
+        # @(...) obligatoire : Get-VbsScriptTargets rend $null pour un tableau vide
+        # (deroulement PowerShell), et @($null).Count vaut 1 -- le test Opaque
+        # ci-dessous ne verrait jamais un compte de 0.
+        $result.Targets = @(Get-VbsScriptTargets -VbsText $text)
+        if ($result.Targets.Count -eq 0) { $result.Opaque = $true }
         return $result
     }
     # Pas de vbs : l'Execute EST la charge utile si c'est un script.

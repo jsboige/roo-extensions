@@ -50,11 +50,14 @@ powershell -ExecutionPolicy Bypass -File scripts\scheduling\check_scheduled_task
 ```
 
 - **`[REFUSED:PROTECTED]`** (exit 1) : une cible résolue vit sous `roo-extensions\scripts\scheduling\`
-  (lanceurs générés par `harden-hidden-tasks.ps1`) — **ne pas supprimer**.
+  — les **deux** séparateurs comptent, `\` comme `/` — lanceurs générés par `harden-hidden-tasks.ps1` :
+  **ne pas supprimer**.
 - **`[REFUSED:NO-BACKUP]`** (exit 1) : exiger l'XML pré-op dans `~\.roo-state-manager\preop-backup\`
   (la ligne `Export-ScheduledTask` est imprimée au refus).
-- **`[INSTRUMENT]`** (exit 2) : tâche introuvable au jeton courant ou lanceur illisible — un garde
-  muet ne valide rien (« absent » en non-élevé n'est pas une mesure).
+- **`[INSTRUMENT]`** (exit 2) : tâche introuvable au jeton courant, lanceur illisible, **ou lanceur
+  lu dont aucune cible script n'a pu être extraite** (contenu opaque : `-EncodedCommand`, chaîne
+  `.cmd` sans chemin). « Lisible » n'est pas « compris » : un garde muet ne valide rien
+  (« absent » en non-élevé n'est pas une mesure).
 - **`[SAFE]`** (exit 0) : supprimable — la suppression elle-même reste un geste UAC discipliné
   (dry-run, règle `uac-dryrun-discipline`).
 
