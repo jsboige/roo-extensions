@@ -54,13 +54,17 @@ def changed_gitlinks(ref_sha, base_sha):
         sys.exit(2)
     links = []
     for line in out.splitlines():
-        # :160000 160000 <old> <new> M\tpath
-        if not line.startswith(":160000"):
+        # :<old_mode> <new_mode> <old_sha> <new_sha> <status>\tpath
+        if not line.startswith(":"):
             continue
         parts = line[1:].split("\t", 1)
         if len(parts) != 2:
             continue
         fields = parts[0].split()
+        # Un gitlink modifie a l'ANCIEN ou au NOUVEAU mode 160000 : un submodule
+        # AJOUTE lit :000000 160000 ... (l'ancien filtre :160000 seul le sautait).
+        if len(fields) < 4 or "160000" not in (fields[0], fields[1]):
+            continue
         new_sha, path = fields[3], parts[1].strip()
         if new_sha != ZERO_SHA:  # 0000.. = suppression du gitlink
             links.append((path, new_sha))
@@ -117,10 +121,15 @@ def main():
             sub_dir = submodule_git_dir(common_dir, path)
             if sub_dir is None:
                 results.append({"path": path, "sha": sha, "state": "INSTRUMENT",
-                                "detail": f"depot submodule introuvable sous {common_dir}/modules/{path} (non peuple ?)"})
+                                "detail": f"depot submodule introuvable sous {common_dir}/modules/{path} "
+                                          f"(non peuple ? remedier depuis un checkout PRINCIPAL : "
+                                          f"`git submodule update --init {path}`, jamais depuis un worktree)"})
                 continue
             if not args.no_fetch:
-                rc, _, err = run_git(["fetch", "--quiet"], git_dir=sub_dir)
+                # --prune : une branche supprimee au remote laisserait sinon sa
+                # ref remote-tracking locale, et `branch -r --contains` la
+                # compterait encore comme porteuse (faux OK).
+                rc, _, err = run_git(["fetch", "--quiet", "--prune"], git_dir=sub_dir)
                 if rc != 0:
                     results.append({"path": path, "sha": sha, "state": "INSTRUMENT",
                                     "detail": f"fetch submodule impossible: {err}"})
