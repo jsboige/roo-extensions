@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-10-17T11:20:00Z",
+  "updated_at": "2026-10-20T01:05:00Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -73,14 +73,14 @@
       "notes": "Issue #3677 fermée COMPLETED 24/09 13:49:44Z par ai-01 (bloc Evidence : CoursIA PR #16325 MERGED 2026-09-20T17:22:21Z, merge commit 634de1f3). Les 3 livrables vérifiés côté ai-01 (checkbox 3 mesurée read-only 22/09)."
     },
     "phase-2-candidat-6": {
-      "status": "pending",
+      "status": "skipped",
       "title": "Candidat #6 — porteur schtask pour crons CoursIA",
       "path": null,
       "started_at": null,
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "EN ATTENTE d'arbitrage (conflit) : l'arbitrage user roo-ext du 18/08 (revert #3141) a interdit la schtask executor-cron au profit du cron interactif — transposition à CoursIA non tranchée. Aucun travail actif. NUANCE MESURÉE 02/10 (dashboard workspace, ai-01 19:10Z) : la classe schtask n'est pas bannie en bloc — les porteurs légitimes `Claude-Worker`/`Claude-MetaAudit` restent « dans la liste autorisée par la règle user » (« je ne propose pas de les supprimer »), et le geste de la semaine vise un REPOINTAGE headless lançant un pilote d'une AUTRE lane (`bash --continue` sur CoursIA-2), pas le porteur schtask en lui-même. L'arbitrage de la classe reste chez le user. Cross-link registre : user-question-registry.md → Q-po2027-4."
+      "notes": "TRANCHÉ 19/10 (arbitrage user RX107, ~11:30Z, « Go pour tes recos ») : #4081 approuvée — la schtask executor-cron reste refusée flotte, CoursIA compris ; le cron interactif (CronCreate dans la session) est le porteur canonique. Le candidat n'est donc pas transposé. Mise en œuvre : PR #4271 (installation executor-cron refusée par le script). HISTORIQUE : l'arbitrage user roo-ext du 18/08 (revert #3141) avait interdit la schtask executor-cron au profit du cron interactif ; la transposition à CoursIA était restée non tranchée jusqu'au 19/10. NUANCE MESURÉE 02/10 (dashboard workspace, ai-01 19:10Z) : la classe schtask n'est pas bannie en bloc — les porteurs légitimes `Claude-Worker`/`Claude-MetaAudit` restent « dans la liste autorisée par la règle user » (« je ne propose pas de les supprimer »), et le geste de la semaine vise un REPOINTAGE headless lançant un pilote d'une AUTRE lane (`bash --continue` sur CoursIA-2), pas le porteur schtask en lui-même. L'arbitrage de la classe reste chez le user. Cross-link registre : user-question-registry.md → Q-po2027-4."
     },
     "phase-2-candidat-7": {
       "status": "pending",
@@ -117,9 +117,9 @@
     "total": 10,
     "completed": 7,
     "in_progress": 1,
-    "pending": 2,
+    "pending": 1,
     "failed": 0,
-    "skipped": 0
+    "skipped": 1
   },
   "checkpoints": [
     {
@@ -184,6 +184,13 @@
       "action": "started",
       "actor": "myia-po-2024:claude-interactive",
       "note": "Livrable 1 démarré (c.236, picker umbrella) : sweep de couverture doc opérationnelle des 6 candidats livrés — 5/6 couverts, gap candidat #4 (gates racine #3685 absents de ci-guardrails.md). Fix en PR wt/3111-ciguards-gates (règle v3.1.0 §Gates racine + contrepoint security.md + ce realign). Claim #3111 posé 17/10 11:0xZ (claim po-2023 du 19/08 stale 58 j, non bloquant)."
+    },
+    {
+      "timestamp": "2026-10-20T01:05:00Z",
+      "item_id": "phase-2-candidat-6",
+      "action": "skipped",
+      "actor": "myia-ai-01:roo-extensions",
+      "note": "Arbitrage user RX107 (19/10) : #4081 approuvée, executor-cron schtask refusée flotte CoursIA compris — candidat non transposé. Annoncé sur la review de #4271 (20/10)."
     }
   ]
 }
