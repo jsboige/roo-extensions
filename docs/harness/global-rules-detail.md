@@ -401,25 +401,27 @@ Sur ai-01 (vérifié le 11/10) : pas de `permissions.ask`, pas de `blockReadsOut
 
 ---
 
-## Split-Brain — demander au user en cloture
+## Split-Brain — un cron double dans la meme instance
 
-**Mandat user du 2026-10-08**, rapporté par `po-2025:Maintenance` (porteur du fil d'organisation sur le dashboard global) et porté côté instructions par roo-extensions (`.claude/configs/user-global-claude.md`, section éponyme).
+**Correction owner du 2026-10-20**, dite en interactif à `ai-01:Argumentum` et escaladée par cette lane (dashboard workspace roo-extensions, 20/10 00:37Z). Verbatim :
 
-### Pourquoi l'intérieur ne peut pas trancher
+> « Ca ne marche pas comme ça (mémorise et escalade pour que tous comprennnent). Je ne démarre jamais plus d'une instance d'une lane sur chaque machine. Quand vous avez 2 sessions actives, c'est qu'un double cron s'est mis en place dans la même instance et l'une des 2 sessions est cachée et non interactive »
 
-Deux instances d'une même lane partagent le dépôt, les dashboards et le workspace — et **chacune se croit légitime**. Mesure po-2025, 08/10 : **89 process node/claude**, **78 process `Code`**, plusieurs `claude` nés dans la **même fenêtre horaire** : aucun discriminant interne. Le seul signal fiable est **externe** — le user voit une fenêtre, pas l'autre.
+### Ce qui était faux
 
-### Les trois gestes
+La règle du 08/10 supposait **deux instances** (deux fenêtres) d'une même lane. Elle faisait demander à l'owner, en clôture, `[SPLIT-BRAIN?] … redémarre l'instance en trop`. Il n'y a **pas d'instance en trop** : ce geste était impossible, et la question se reposait à chaque clôture pour rien (cas ai-01:Argumentum, registre du 19/10 : « fermer l'une des deux fenêtres VS Code »).
 
-1. L'agent qui ne peut pas prouver son statut **demande au user** dans son message de **clôture** (forme `[SPLIT-BRAIN?] <machine>:<workspace> — …`) — l'arbitrage est par **pull**, jamais une interruption en cours de cycle.
-2. Le user répond aux agents **en front** : ceux-là savent alors qu'ils sont front.
-3. Le user peut **redémarrer** les instances identifiées en split-brain — sur indication de l'agent, s'il passe sur la machine.
+### Ce qui reste vrai
 
-**Sans réponse, rien ne change** : la ligne reste ouverte, l'agent **repose le `[SPLIT-BRAIN?]` à sa clôture suivante** et poursuit son cycle normalement — aucune extinction ordonnée, aucune session créée pour « reprendre » la lane, aucun travail suspendu en attendant.
+- Deux sessions d'une même lane voient le même dépôt, les mêmes dashboards, et chacune se croit légitime.
+- Les crons sont propres à chaque session : **une session ne voit pas le cron de l'autre**. C'est pour cela que chaque session publie l'ID de son cron (`CronList`) sur son dashboard : le doublon s'y repère.
+- La session **visible** est celle où l'owner peut écrire. Une session qui n'a jamais reçu de message direct de l'owner est **présumée cachée**. C'est un indice, pas une preuve.
+- Le doublon se supprime (`CronDelete`) **dans la session qui le porte**, annoncé avant le geste. Aucune session n'agit sur le cron d'une autre.
+- Jamais de cron ni de tâche planifiée pour « reprendre » une lane douteuse : deux tireurs refont le même cycle (escalade CoursIA-2, 07/10).
 
-### Ce que cette modalité ne change pas
+**Mécanisme non établi** : on ne sait pas comment le second cron et la session cachée apparaissent. Cas connus : ai-01:Argumentum le 10/10, po-2023:Argumentum le 19/10 (crons aux minutes :53 et :23).
 
-Jamais de cron ni de tâche planifiée pour « reprendre » une lane douteuse : deux tireurs refont le même cycle (escalade CoursIA-2, 07/10). L'**extinction** d'une session reste un arbitrage user — aucune session n'en ordonne une autre.
+*Historique : la modalité « demander au user en clôture » (mandat 08/10, rapporté par `po-2025:Maintenance`) est retirée par cette correction.*
 
 ---
 
