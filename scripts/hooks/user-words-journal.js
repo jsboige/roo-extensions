@@ -241,4 +241,5 @@ function main() {
 }
 
 main();
-process.exit(0);
+// exitCode, not exit(): a piped stdout write is async and exit() can drop it.
+process.exitCode = 0;
