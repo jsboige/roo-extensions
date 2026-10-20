@@ -124,6 +124,8 @@ The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/
 
 ## Deployment
 
+> **Vocabulaire des cadences (#4081)** : « cron » = `CronCreate` **session-only dans la session interactive** (jamais une schtask) — arbitrage user 2026-08-18. Les schtasks de ce document sont les tiers planifiés (coordinator, worker…), pas un mode de réarmement de cron. Une résiduelle `*WorkerCron*`/`Claude-Executor-Cron` se purge (`setup-scheduler.ps1 -Action remove -TaskType executor-cron`), jamais ne se réinstalle.
+
 ### Claude side (schtask)
 
 **Script:** `scripts/scheduling/start-claude-coordinator.ps1`

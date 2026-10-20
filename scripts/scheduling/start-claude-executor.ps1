@@ -1,11 +1,15 @@
 <#
 .SYNOPSIS
-    Lance une session Claude Code /executor (cadence persistante via schtasks).
+    Lance une session Claude Code /executor — reliquat HISTORIQUE de la schtask.
 
 .DESCRIPTION
-    Wrapper minimal pour la cadence 4h des exécuteurs (#3141). Substitue un CronCreate
-    session-only (qui meurt au restart VS Code) par une tâche Windows planifiée
-    persistante (Register-ScheduledTask).
+    Wrapper de la cadence 4h des exécuteurs (#3141), SUPERSEDE par l'arbitrage user
+    du 2026-08-18 (revert #3141) : la cadence est portée par un CronCreate
+    ("41 */4 * * *", "/executor") DANS la session VS Code interactive — la session que
+    l'utilisateur rouvre quand il débarque sur la machine. Une tâche Windows planifiée
+    (`Register-ScheduledTask`) spawn des sessions headless invisibles : c'est
+    l'interdiction, pas le remède. Une schtask executor-cron résiduelle se RETIRE
+    (Unregister-ScheduledTask), elle ne se réinstalle jamais.
 
     Differences d'avec start-claude-worker.ps1 :
     - Pas de coordination de pool (le worker scrape GitHub/Project #67)
@@ -25,10 +29,13 @@
     Affiche la commande sans lancer Claude.
 
 .NOTES
-    Issue : #3141
-    Cadence : 4h (alignee sur les mandates user 2026-08-15/17 — executors z.ai unifies)
-    Substitution : CronCreate("41 */4 * * *", "/executor") -> Register-ScheduledTask
-    Cleanup : apres migration, supprimer CronList job avec CronDelete <id>.
+    Issue : #3141 (arbitrage user 2026-08-18 : cron interactif primaire, cette schtask INTERDITE)
+    Cadence : 4h — portee par CronCreate("41 */4 * * *", "/executor") dans la session
+    interactive (elle meurt au restart VS Code : c'est l'etat ACCEPTE par l'utilisateur,
+    jamais un motif de reinstalle schtask).
+    Ce script reste comme reliquat de l'ere #3141 : ne PAS (re)installer via
+    Register-ScheduledTask / setup-scheduler.ps1 -TaskType executor-cron (cette
+    derniere -Action install REFUSE depuis #4081).
 #>
 
 param(
