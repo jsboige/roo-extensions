@@ -147,6 +147,12 @@ Describe 'Test-HasPreopBackup' {
 Describe 'check_scheduled_task_safe_to_delete.ps1 (end-to-end)' -Tag 'E2E' {
     BeforeAll {
         $script:name = 'GSD-4097-Protected'
+        # Hote d'invocation du garde : powershell.exe sur Windows, le pwsh courant
+        # ailleurs (le runner CI est ubuntu). Le test "tache inconnue" ci-dessous
+        # tourne sur les DEUX : le garde attrape l'absence de Get-ScheduledTask et
+        # rend [INSTRUMENT] exit 2 -- c'est le contrat.
+        $script:psExe = if (Get-Command powershell.exe -ErrorAction SilentlyContinue) { 'powershell.exe' }
+                        else { Join-Path $PSHOME 'pwsh' }
         $script:launcherDir = Join-Path $TestDrive 'launchers'
         $script:backupDir = Join-Path $TestDrive 'preop-backup'
         New-Item -ItemType Directory -Force -Path $script:launcherDir, $script:backupDir | Out-Null
@@ -197,13 +203,13 @@ WScript.Quit rc
         if (-not $script:registered) { Set-ItResult -Skipped -Because ("task registration failed: {0}" -f $script:skipReason); return }
         # Backup present : le refus PROTECTED doit primer sur tout le reste.
         'xml' | Set-Content -LiteralPath (Join-Path $script:backupDir 'GSD-4097-Protected-test-00000000-0000.xml')
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') $script:name -BackupDir $script:backupDir
+        $out = & $script:psExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') $script:name -BackupDir $script:backupDir
         $LASTEXITCODE | Should -Be 1
         ($out -join ' ') | Should -Match '\[REFUSED:PROTECTED\].*start-claude-worker\.ps1'
     }
 
     It 'tache inconnue -> INSTRUMENT exit 2 (un garde muet ne valide rien)' {
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Absente' -BackupDir $script:backupDir
+        $out = & $script:psExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Absente' -BackupDir $script:backupDir
         $LASTEXITCODE | Should -Be 2
         ($out -join ' ') | Should -Match '\[INSTRUMENT\]'
     }
@@ -213,7 +219,7 @@ WScript.Quit rc
         # Backup present : le backup gate seul produirait [SAFE] -- le contenu non
         # compris doit primer, c'est tout l'objet de ce cas.
         'xml' | Set-Content -LiteralPath (Join-Path $script:backupDir 'GSD-4097-Opaque-test-00000000-0000.xml')
-        $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Opaque' -BackupDir $script:backupDir
+        $out = & $script:psExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'check_scheduled_task_safe_to_delete.ps1') 'GSD-4097-Opaque' -BackupDir $script:backupDir
         $LASTEXITCODE | Should -Be 2
         ($out -join ' ') | Should -Match '\[INSTRUMENT\].*opaque'
         ($out -join ' ') | Should -Not -Match '\[SAFE\]'
