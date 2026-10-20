@@ -170,7 +170,7 @@ _BOILERPLATE = re.compile(
     r"|^\s*\[RESULT\][^\n]{0,120}(no actionable result|no code changes needed)",
     re.IGNORECASE)
 _DECISION_MARK = re.compile(
-    r"\[(D[ÉE]CISION|ARBITRAGE|GO)\b|D[ée]cision dat[ée]e|Arbitrage user",
+    r"\[(D[ÉE]CISION|ARBITRAGE|GO|D4)\b|D[ée]cision dat[ée]e|Arbitrage user",
     re.IGNORECASE)
 _DATE = re.compile(r"\b\d{1,2}/\d{1,2}\b|\b\d{4}-\d{2}-\d{2}\b")
 
