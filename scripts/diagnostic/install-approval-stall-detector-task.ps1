@@ -19,6 +19,11 @@
     File holding MCP_PROXY_BEARER / MCP_PROXY_BASE_URL. Default: %USERPROFILE%\.roo-state-manager\stall-detector.env
     (outside every repository). ai-01 uses D:\nanoclaw\.env.
 
+.PARAMETER Python
+    Interpreter the launcher runs the detector with. Empty (default) = the launcher's own
+    default, 'python' from PATH. Set it on a seat whose 'python' is only the WindowsApps stub
+    (e.g. a uv-managed interpreter): the stub exits non-zero and the task would fail every tick.
+
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\diagnostic\install-approval-stall-detector-task.ps1 -DryRun
     powershell -ExecutionPolicy Bypass -File scripts\diagnostic\install-approval-stall-detector-task.ps1
@@ -30,6 +35,7 @@
 param(
     [string]$BotEnvFile = (Join-Path $env:USERPROFILE '.roo-state-manager\stall-detector.env'),
     [string]$TaskName = 'Claude-ApprovalStallDetector',
+    [string]$Python = '',
     [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
@@ -43,15 +49,20 @@ if (Test-Path -LiteralPath $BotEnvFile) {
     $hasBearer = [bool](Select-String -LiteralPath $BotEnvFile -Pattern '^\s*MCP_PROXY_BEARER\s*=\s*\S' -Quiet)
 }
 
+# VBS string literal: embedded quotes are doubled. Absent when -Python is not given, so the
+# generated VBS stays byte-identical to the previous one on seats that rely on PATH.
+$pythonArg = ''
+if ($Python) { $pythonArg = ' -Python ""' + $Python + '""' }
+
 $vbs = @"
-' Task      : $TaskName (#4243 item 3)
+' Task     : $TaskName (#4243 item 3)
 ' Purpose   : run the approval-stall detector without showing a console.
 ' Mechanism : Run(cmd, 0, True) = SW_HIDE.
 ' Rollback  : Unregister-ScheduledTask -TaskName $TaskName ; delete this file.
 Option Explicit
 Dim sh, rc
 Set sh = CreateObject("WScript.Shell")
-rc = sh.Run("""powershell.exe"" -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""$launcher"" -BotEnvFile ""$BotEnvFile""", 0, True)
+rc = sh.Run("""powershell.exe"" -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""$launcher"" -BotEnvFile ""$BotEnvFile""$pythonArg", 0, True)
 WScript.Quit rc
 "@
 
