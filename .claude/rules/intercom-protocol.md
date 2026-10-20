@@ -1,7 +1,7 @@
 # Regles Communication Dashboard (Claude Code)
 
-**Version:** 3.5.0 (slim 2 — mesures append-timeout relocalisées, #2368)
-**MAJ:** 2026-09-26
+**Version:** 3.6.0 (blocages de statut datés + déclassement à la réfutation, #4082)
+**MAJ:** 2026-10-20
 
 ---
 
@@ -28,6 +28,14 @@ Auto-condensation preemptive a 92% (~46 KB) — l'action `condense` est retiree 
 
 - **OBLIGATOIRE** : `roosync_dashboard(action: "read", type: "workspace", section: "all")` ou au minimum `section: "intercom", intercomLimit: 20`
 - Le status est une boussole, pas une verite absolue. Les decisions se prennent sur les messages intercom recents.
+
+### Statuts : les blocages se datent, la refutation declasse (#4082)
+
+Une ligne de blocage heritee survit aux condensations — le resume LLM regenere depuis le statut existant (3 occurrences <24h, 05-06/10) — et le statut continue de prescrire des actions perimees.
+
+1. **Writer** : toute ligne de blocage du bloc status porte sa date de derniere verification — `Verrou X [verifie 05/10 22:53Z]`.
+2. **Refutation** : une refutation postee en intercom DECLASSE la ligne — la condensation suivante la retire ou la marque `REFUTE <date>`, jamais recopiee telle quelle.
+3. **Reader** : un blocage non date, ou dont la date est anterieure a la derniere refutation, n'est pas fiable — verification firsthand avant d'agir (#2306 etendu aux blocages).
 
 ### Un `append` qui expire n'est PAS un message perdu -- relire, jamais retenter
 
