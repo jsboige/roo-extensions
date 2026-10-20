@@ -15,7 +15,7 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "Qwen3.6-35B (Claudish)",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "263000",
     "ANTHROPIC_CUSTOM_HEADERS": "X-Claudish-Machine: MACHINE_NAME_PLACEHOLDER\nx-proxy-key: CLAUDISH_PROXY_KEY_PLACEHOLDER"
   },
   "description": "Claudish proxy-only — no Claude or Anthropic account required",
