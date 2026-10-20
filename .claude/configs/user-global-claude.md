@@ -127,12 +127,8 @@ Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avan
 - **Cadence** : `ScheduleWakeup` est clampe a `[60, 3600]s` — une cadence > 1 h est portee par `CronCreate`, **sans** `ScheduleWakeup` par-dessus ; session interactive NON-cron : `ScheduleWakeup(delaySeconds: 3540)` en repli. Jitter : minute off-`:00`. Auto-regulation par cap 3-IDLE (#2185) + override `[WAKE-CLAUDE]`, pas par timer adaptatif. [Detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm)
 - **Le cron d'une session interactive se ré-arme DANS la session (`CronCreate`), jamais par une tâche planifiée Windows qui relance `claude` sur la même lane** : les deux tirent au même cycle et la lane tourne en double (escalade CoursIA-2, 07/10). Les workers planifiés gardent leur tâche, sans cron de session par-dessus.
 
-## Split-Brain — demander au user en cloture (mandat user 08/10)
+## Split-Brain — un cron double dans la meme instance (correction owner 20/10)
 
-Le split-brain est **indetectable de l'interieur** : deux sessions de la meme lane voient le meme depot, les memes dashboards, et **chacune se croit legitime** — aucun indice interne ne tranche. Le seul signal fiable est **externe** : le user voit une fenetre, pas l'autre.
+L'owner ne demarre **jamais plus d'une instance d'une lane par machine**. Deux sessions actives d'une meme lane = un **cron double dans la meme instance** : l'une des deux est **cachee et non interactive**. Ne jamais demander a l'owner de fermer une fenetre ou de redemarrer une instance. Remede cote agents : chaque session publie l'ID de son cron (`CronList`) sur son dashboard, et le doublon se supprime (`CronDelete`) **dans la session qui le porte**. Mecanisme d'apparition **non etabli** : ne pas inventer de cause.
 
-**Modalite** : l'agent qui ne peut **pas etablir** s'il est *front* ou *fantome* le **demande au user dans son message de cloture**, en une ligne — jamais en cours de cycle (arbitrage par pull) :
-
-`[SPLIT-BRAIN?] <machine>:<workspace> — je ne peux pas prouver si je suis front ou fantome ; si tu me vois, reponds ici (et redemarre l'instance en trop).`
-
-Corollaire : **aucun cron ni tache planifiee pour « reprendre » une lane douteuse** — deux tireurs refont le meme cycle (escalade CoursIA-2, 07/10). L'extinction d'une session est un arbitrage user, jamais un ordre entre sessions. [Detail](../../docs/harness/global-rules-detail.md#split-brain--demander-au-user-en-cloture)
+Corollaire : **aucun cron ni tache planifiee pour « reprendre » une lane douteuse** — deux tireurs refont le meme cycle (escalade CoursIA-2, 07/10). [Detail](../../docs/harness/global-rules-detail.md#split-brain--un-cron-double-dans-la-meme-instance)
