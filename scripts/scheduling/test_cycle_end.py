@@ -155,6 +155,89 @@ def list_approved_without_pr(issues_by_repo: dict) -> list:
     return result
 
 
+# D4 - organe anti-endormissement (escalade user 19/10 23:34Z, Maintenance#121) :
+# un chantier ouvert depuis >= 30 j doit porter une decision DATEE (GO date,
+# obstacle nomme, abandon propose) et bouger. La mesure remplace un registre
+# tenu a la main, qui s'endort comme ce qu'il surveille.
+CHANTIER_LABELS = ("epic", "approved")
+CHANTIER_MIN_AGE_DAYS = 30
+DORMANT_DAYS = 14
+# Commentaires qui ne disent rien de l'avancement : verrous et rapports vides
+# des workers (mesure #3151 : 30 des 82 commentaires).
+_BOILERPLATE = re.compile(
+    r"^\s*\[(CLAIMED|RELEASED)\]"
+    r"|^\s*\[RESULT\][^\n]{0,120}(no actionable result|no code changes needed)",
+    re.IGNORECASE)
+_DECISION_MARK = re.compile(
+    r"\[(D[ÉE]CISION|ARBITRAGE|GO)\b|D[ée]cision dat[ée]e|Arbitrage user",
+    re.IGNORECASE)
+_DATE = re.compile(r"\b\d{1,2}/\d{1,2}\b|\b\d{4}-\d{2}-\d{2}\b")
+
+
+def _parse_ts(value: str):
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def classify_chantier(issue: dict, now: datetime):
+    """Rend la ligne D4 d'une issue, ou None si elle n'est pas un chantier >= 30 j."""
+    created = _parse_ts(issue["createdAt"])
+    age = (now - created).days
+    if age < CHANTIER_MIN_AGE_DAYS:
+        return None
+    comments = issue.get("comments") or []
+    substantive = [c for c in comments if not _BOILERPLATE.search(c.get("body", ""))]
+    last = max((_parse_ts(c["createdAt"]) for c in substantive), default=created)
+    decisions = [_parse_ts(c["createdAt"]) for c in comments
+                 if _DECISION_MARK.search(c.get("body", "")) and _DATE.search(c.get("body", ""))]
+    idle = (now - last).days
+    flags = []
+    if not decisions:
+        flags.append("sans decision datee")
+    if idle > DORMANT_DAYS:
+        flags.append(f"dormant {idle} j")
+    gate = sorted(issue_labels(issue) & GATED_LABELS)
+    return {
+        "number": issue["number"],
+        "title": issue.get("title", ""),
+        "age_days": age,
+        "idle_days": idle,
+        "last_decision": max(decisions).strftime("%Y-%m-%d") if decisions else None,
+        "gate": gate,
+        "flags": flags,
+    }
+
+
+def list_chantiers(repos=REPOS, now=None) -> list:
+    """D4 : chantiers (labels epic/approved) ouverts depuis >= 30 j, signales d'abord."""
+    now = now or datetime.now(timezone.utc)
+    result = []
+    for repo in repos:
+        seen = {}
+        for label in CHANTIER_LABELS:
+            for issue in run_gh_json([
+                "gh", "issue", "list", "--repo", repo, "--state", "open",
+                "--label", label, "--limit", "200",
+                "--json", "number,title,labels,createdAt,comments",
+            ], repo, timeout=120):
+                seen[issue["number"]] = issue
+        for issue in seen.values():
+            row = classify_chantier(issue, now)
+            if row:
+                row["repo"] = repo
+                result.append(row)
+    result.sort(key=lambda r: (not r["flags"], -r["idle_days"], r["number"]))
+    return result
+
+
+def format_chantier_line(row: dict) -> str:
+    repo_short = row["repo"].split("/")[-1]
+    decision = row["last_decision"] or "aucune"
+    marks = "".join(f" **[{f}]**" for f in row["flags"])
+    gate = f" (gate: {','.join(row['gate'])})" if row["gate"] else ""
+    return (f"- {repo_short}#{row['number']} — {row['age_days']} j, derniere activite il y a "
+            f"{row['idle_days']} j, decision datee : {decision}{gate}{marks} — {row['title'][:70]}")
+
+
 def count_prs_delivered_since(since_hours: int) -> int:
     """
     Compte les PRs ouvertes ou mergees par la FLOTTE (2 depots) dans la
@@ -213,7 +296,9 @@ def main() -> int:
                         help="Sortie JSON machine-readable.")
     parser.add_argument("--status-block", action="store_true",
                         help="#3381 D3 : emet en plus un bloc markdown pret a poster "
-                             "dans la section status du dashboard (issues approved sans PR).")
+                             "dans la section status du dashboard (issues approved sans PR), "
+                             "plus D4 : chantiers ouverts >= 30 j, signales sans decision "
+                             "datee ou dormants > 14 j.")
     args = parser.parse_args()
 
     # Etape 1-2 : collecte fail-closed - toute panne instrument rend ERROR
@@ -296,6 +381,25 @@ def main() -> int:
             for item in approved_no_pr:
                 repo_short = item["repo"].split("/")[-1]
                 lines.append(f"- {repo_short}#{item['number']} — {item['title']}")
+            print("\n".join(lines))
+        # D4 : chaque ligne signalee recoit, dans le cycle, une ligne datee sur son
+        # issue (GO date, obstacle avec preuve, ou abandon propose au user).
+        try:
+            chantiers = list_chantiers()
+        except GhCommandError as e:
+            print(f"### Chantiers ouverts >= {CHANTIER_MIN_AGE_DAYS} j (auto, {stamp})\n"
+                  f"- donnees indisponibles ({e})")
+        else:
+            flagged = [r for r in chantiers if r["flags"]]
+            calm = [r for r in chantiers if not r["flags"]]
+            lines = [f"### Chantiers ouverts >= {CHANTIER_MIN_AGE_DAYS} j (auto, {stamp}) — "
+                     f"{len(chantiers)}, dont {len(flagged)} signales"]
+            lines += [format_chantier_line(r) for r in flagged]
+            if calm:
+                lines.append(f"- sans signal ({len(calm)}) : "
+                             + ", ".join(f"{r['repo'].split('/')[-1]}#{r['number']}" for r in calm))
+            if not chantiers:
+                lines.append("- aucun")
             print("\n".join(lines))
 
     return 0 if verdict == "PASS" else 1
