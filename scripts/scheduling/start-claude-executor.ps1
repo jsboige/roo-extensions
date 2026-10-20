@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Lance une session Claude Code /executor — reliquat HISTORIQUE de la schtask.
 
