@@ -52,8 +52,13 @@ Semantique du deploiement (`Deploy-GlobalConfig.ps1 -Target settings`) :
 - **Surete** : backup horodate avant ecriture, UTF-8 sans BOM, re-parse
   systematique apres ecriture (un settings.json casse casse toutes les sessions
   de la machine). Les deux interpreteurs (5.1 et 7) valides.
-- **Tier ids** : ils periment a chaque release modele — les maj via PR ici, pas
-  par edit local d'une machine.
+- **Tier ids = machine-local (mandat user 20/10)** : les
+  `ANTHROPIC_DEFAULT_*_MODEL` sont `<<preserve-local>>` — chaque machine
+  switche entre Anthropic natif et providers tiers sans que le deploy ne
+  STOMPE ses ids (escalade `ai01c-proxy-profile-mixed-with-canon-20261020`
+  pt 3). La coherence id `[1m]` <-> fenetre reste par machine
+  (`.claude/rules/context-window.md`) ; les labels `_NAME`/`_DESCRIPTION`
+  restent canon (generiques).
 
 > **Note (#2368, maj #445 17/10/2026) :** les regles `sddd-protocol.md` et `file-writing.md` n'existent plus comme fichiers — leur contenu est replie dans les sections SDDD et Tool Discipline du `~/.claude/CLAUDE.md` global (2 lignes chacune), le detail (4 passes, qualificateurs, matrice Edit/Write) vivant dans `docs/harness/global-rules-detail.md`. Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. Les regles `harnais-tightening.md` (#3657), `uac-dryrun-discipline.md` et `shell-composite-discipline.md` (#4214) restent deployees globalement via le meme `Deploy-GlobalConfig.ps1 -Target rules`.
 
