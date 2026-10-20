@@ -162,6 +162,7 @@ def list_approved_without_pr(issues_by_repo: dict) -> list:
 CHANTIER_LABELS = ("epic", "approved")
 CHANTIER_MIN_AGE_DAYS = 30
 DORMANT_DAYS = 14
+COMMENTS_PAGE = 100  # plafond de commentaires par issue dans `gh issue list`
 # Commentaires qui ne disent rien de l'avancement : verrous et rapports vides
 # des workers (mesure #3151 : 30 des 82 commentaires).
 _BOILERPLATE = re.compile(
@@ -221,6 +222,14 @@ def list_chantiers(repos=REPOS, now=None) -> list:
             ], repo, timeout=120):
                 seen[issue["number"]] = issue
         for issue in seen.values():
+            # `gh issue list` ne rend que les 100 premiers commentaires (mesure 20/10 :
+            # #622 en a 694, dernier lu le 14/03 au lieu du 14/10) ; `gh issue view`
+            # les rend tous.
+            if len(issue.get("comments") or []) >= COMMENTS_PAGE:
+                issue["comments"] = run_gh_json([
+                    "gh", "issue", "view", str(issue["number"]), "--repo", repo,
+                    "--json", "comments",
+                ], repo, timeout=120)["comments"]
             row = classify_chantier(issue, now)
             if row:
                 row["repo"] = repo

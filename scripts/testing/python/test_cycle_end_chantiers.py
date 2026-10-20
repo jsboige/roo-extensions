@@ -91,6 +91,28 @@ class ListChantiers(unittest.TestCase):
         self.assertTrue(rows[0]["flags"])
         self.assertEqual(rows[1]["flags"], [])
 
+    def test_comments_capped_by_issue_list_are_refetched_in_full(self):
+        # `gh issue list` stops at 100 comments: #622 had 694, last read 14/03
+        # instead of 14/10 (measured 20/10), so it was reported dormant 219 j.
+        capped = issue(622, "2026-03-10T00:00:00Z",
+                       [("2026-03-14T00:00:00Z", "old progress")] * 100)
+        full = capped["comments"] + [
+            {"createdAt": "2026-10-14T00:00:00Z", "body": "Décision datée : AC0 re-mesuré le 21/10"}]
+        calls = []
+
+        def fake(cmd, repo, timeout=60):
+            calls.append(cmd[:3])
+            if cmd[:3] == ["gh", "issue", "view"]:
+                self.assertIn("622", cmd)
+                return {"comments": full}
+            return {"epic": [capped], "approved": []}[cmd[cmd.index("--label") + 1]]
+
+        with mock.patch.object(tce, "run_gh_json", side_effect=fake):
+            rows = tce.list_chantiers(repos=["jsboige/roo-extensions"], now=NOW)
+        self.assertIn(["gh", "issue", "view"], calls)
+        self.assertEqual(rows[0]["idle_days"], 6)
+        self.assertEqual(rows[0]["flags"], [])
+
     def test_line_names_flags_and_decision(self):
         row = tce.classify_chantier(issue(12, "2026-05-15T00:00:00Z"), NOW)
         row["repo"] = "jsboige/roo-extensions"
