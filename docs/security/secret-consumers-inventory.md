@@ -63,6 +63,18 @@
 | `VLLM_API_KEY_MEDIUM` (`.env` root) | po-2025, web2 | **saine** — non concernée par la fuite |
 | Profil dormant `settings.zai.json` (clé « Claude-Code » pré-bascule) | po-2023, po-2024, + classe flotte | **dormante** — purge post-révocation uniquement ; po-2023 a posé la question de son statut de révocation (29/09) à l'opérateur |
 
+## Secret D — Bearer du proxy MCP public (`mcp-tools.myia.io`), non exposé
+
+**Propriétaire:** proxy MCP d'ai-01 (jeton côté serveur dans son lanceur `run-proxy.cmd`). **Copie flotte autorisée par le user le 20/10 (RX110, option a)**, pour le détecteur de sessions gelées (#4243 volet 3) : transport **RooSync uniquement** (pièce jointe auto-détruite après 1 j, jamais git ni corps de message), une ligne ci-dessous par copie. Suite prévue (RX110, option c) : un jeton dédié au détecteur si le proxy en accepte plusieurs — à la rotation, ces lignes sont la checklist.
+
+| Machine | Fichier(s) porteur(s) | Variable / champ | Type de stockage | Geste de mise à jour | Redémarrage requis |
+|---|---|---|---|---|---|
+| ai-01 (propriétaire) | `<proxy>/run-proxy.cmd` | jeton d'authentification du proxy | lanceur non tracké | swap | **redémarrage du proxy** (préavis flotte) |
+| ai-01 (lane nanoclaw) | `<nanoclaw>/.env` | `MCP_PROXY_BEARER` (+ `MCP_PROXY_BASE_URL` interne Docker) | `.env` non tracké | swap | conteneur NanoClaw ; la tâche `Claude-ApprovalStallDetector` relit à chaque tick |
+| po-2023, po-2024, po-2025, po-2027, po-2028, web1, web2 | `%USERPROFILE%\.roo-state-manager\stall-detector.env` | `MCP_PROXY_BEARER` + `MCP_PROXY_BASE_URL=https://mcp-tools.myia.io` | fichier hors dépôt | swap | aucun (relu à chaque tick) — **copie envoyée le 20/10, pose à confirmer par chaque siège** sur le fil `ai01-c31bis-dispatch-20261020` |
+
+**Négatifs:** po-2026 hors service, non destinataire.
+
 ---
 
 ## Procédure de mise à jour de cet inventaire
