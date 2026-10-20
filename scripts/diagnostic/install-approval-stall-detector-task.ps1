@@ -55,7 +55,7 @@ $pythonArg = ''
 if ($Python) { $pythonArg = ' -Python ""' + $Python + '""' }
 
 $vbs = @"
-' Task     : $TaskName (#4243 item 3)
+' Task      : $TaskName (#4243 item 3)
 ' Purpose   : run the approval-stall detector without showing a console.
 ' Mechanism : Run(cmd, 0, True) = SW_HIDE.
 ' Rollback  : Unregister-ScheduledTask -TaskName $TaskName ; delete this file.
