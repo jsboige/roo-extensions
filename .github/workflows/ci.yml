@@ -305,6 +305,17 @@ jobs:
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/claim-lock.Tests.ps1 -CI
 
+      # #4097 (ai-01 review follow-up): the pre-delete guard
+      # (check_scheduled_task_safe_to_delete) decides whether a scheduled task
+      # gets DELETED. Same profile as claim-lock above: the lib under test is
+      # pure (synthetic objects, no real task touched), and the E2E block
+      # self-skips when Register-ScheduledTask is unavailable (this runner).
+      # Without this step the fixture would run nowhere and rot silently
+      # (#2985 / #3798 precedent).
+      - name: Run task-delete guard Pester fixture
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/check_scheduled_task_safe_to_delete.Tests.ps1 -CI
+
       # Same reasoning as above, applied to the worktree cleanup classifier:
       # Get-WorktreeClass decides whether a worktree gets DELETED. It is pure
       # (no git, no gh, no disk), so it runs on this static path. (The Pester

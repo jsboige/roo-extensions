@@ -1,7 +1,7 @@
 # No Deletion Without Proof + Surgical Changes
 
-**Version:** 3.0.0 (adds surgical changes guard from #1936 Karpathy analysis)
-**MAJ:** 2026-05-10
+**Version:** 3.1.0 (garde outillé pré-suppression de tâches planifiées, #4097)
+**MAJ:** 2026-10-20
 
 ## Regle 1 : Pas de suppression sans preuve
 
@@ -37,6 +37,33 @@ A importe B → B supprime ("consolide dans C") → A n'a plus d'importateurs �
 
 - `src/services/synthesis/` — Pipeline LLM (3 destructions)
 - `src/services/narrative/` — Stubs = cibles d'IMPLEMENTATION
+
+## Tâches planifiées (schtasks) — la charge utile décide, pas le nom (#4097)
+
+Suppression d'une tâche planifiée `Claude*` (ou assimilée) : **le nom ne suffit jamais**.
+Deux audits (06/10, po-204 + po-203) ont supprimé des lanceurs protégés en se fiant au nom alors
+que le `.vbs` embarquait `scripts/scheduling/start-*.ps1`. Avant tout `Unregister-ScheduledTask` /
+`schtasks /delete` :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\scheduling\check_scheduled_task_safe_to_delete.ps1 "<TaskName>"
+```
+
+- **`[REFUSED:PROTECTED]`** (exit 1) : une cible résolue vit sous `roo-extensions\scripts\scheduling\`
+  — les **deux** séparateurs comptent, `\` comme `/` — lanceurs générés par `harden-hidden-tasks.ps1` :
+  **ne pas supprimer**.
+- **`[REFUSED:NO-BACKUP]`** (exit 1) : exiger l'XML pré-op dans `~\.roo-state-manager\preop-backup\`
+  (la ligne `Export-ScheduledTask` est imprimée au refus).
+- **`[INSTRUMENT]`** (exit 2) : tâche introuvable au jeton courant, lanceur illisible, **ou lanceur
+  lu dont aucune cible script n'a pu être extraite** (contenu opaque : `-EncodedCommand`, chaîne
+  `.cmd` sans chemin). « Lisible » n'est pas « compris » : un garde muet ne valide rien
+  (« absent » en non-élevé n'est pas une mesure).
+- **`[SAFE]`** (exit 0) : supprimable — la suppression elle-même reste un geste UAC discipliné
+  (dry-run, règle `uac-dryrun-discipline`).
+
+La liste d'exception n'est pas une liste de noms : c'est le **prédicat de charge utile**
+(`roo-extensions\scripts\scheduling\`), aligné sur `harden-hidden-tasks.ps1` — un nouveau lanceur
+généré est couvert sans mise à jour de liste.
 
 ## Deletion legitime
 
