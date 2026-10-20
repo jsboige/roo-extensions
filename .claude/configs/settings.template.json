@@ -59,6 +59,36 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<<repo>>/scripts/hooks/user-words-journal.js\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<<repo>>/scripts/hooks/user-words-journal.js\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"<<repo>>/scripts/hooks/user-words-journal.js\""
+          }
+        ]
+      }
     ]
   },
   "disableBundledSkills": true,

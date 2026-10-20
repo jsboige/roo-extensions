@@ -361,7 +361,10 @@ if ($Target -in "all", "settings") {
                     if (-not ($e -is [System.Collections.IDictionary])) { continue }
                     foreach ($h in @($e['hooks'])) {
                         if ($h -is [System.Collections.IDictionary] -and $h['command']) {
-                            $liveSigs += (Get-CommandSignature "$($h['command'])" $repoRoot)
+                            # Event-scoped: the same command wired on Stop does not
+                            # cover PreCompact or SessionStart (user-words-journal
+                            # runs one script on three events).
+                            $liveSigs += ("$ev|" + (Get-CommandSignature "$($h['command'])" $repoRoot))
                         }
                     }
                 }
@@ -383,13 +386,13 @@ if ($Target -in "all", "settings") {
                     if ($cmds.Count -eq 0) { continue }
                     $covered = $true
                     foreach ($c in $cmds) {
-                        if ($liveSigs -notcontains (Get-CommandSignature "$($c.command)" $repoRoot)) { $covered = $false; break }
+                        if ($liveSigs -notcontains ("$eventName|" + (Get-CommandSignature "$($c.command)" $repoRoot))) { $covered = $false; break }
                     }
                     if (-not $covered) {
                         $entry = [ordered]@{ hooks = $cmds }
                         if ($ce.Contains('matcher')) { $entry['matcher'] = "$($ce['matcher'])" }
                         $liveEntries = @($liveEntries) + @($entry)
-                        $liveSigs += @($cmds | ForEach-Object { Get-CommandSignature "$($_.command)" $repoRoot })
+                        $liveSigs += @($cmds | ForEach-Object { "$eventName|" + (Get-CommandSignature "$($_.command)" $repoRoot) })
                         $null = $actions.Value.Add("HOOK-ADDED hooks.$eventName += $($cmds[0].command)")
                     }
                 }

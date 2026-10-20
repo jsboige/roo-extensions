@@ -118,6 +118,7 @@ BeforeAll {
         if ($ev -like '__*') { continue }
         $script:ExpectedAdds += @($script:canonHooks[$ev]).Count
     }
+    $script:ExpectedPreToolUse = @($script:canonHooks['PreToolUse']).Count
 }
 
 Describe "Deploy-GlobalConfig - copie <Name>" -ForEach $script:Copies {
@@ -325,7 +326,7 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
 
             $fresh.Contains('hooks') | Should -Be $true
             ($fresh | ConvertTo-Json -Depth 10) | Should -Not -Match '<<repo>>'
-            @($fresh['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedAdds
+            @($fresh['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedPreToolUse
 
             # Re-run : le live hash EST le scaffold fraichement ecrit.
             $live = [ordered]@{}
@@ -334,7 +335,7 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
             Ensure-FleetHooks -liveHash $live -canonHooks $script:canonHooks -repoRoot $root -actions ([ref]$actions2)
             $actions2.Count | Should -Be 0
             # Idempotence = aussi rien n'a pousse dans la structure live.
-            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedAdds
+            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedPreToolUse
         }
 
         It "live vide : exactement les N entrees canon ajoutees, une seule fois" {
@@ -343,7 +344,25 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
             $actions = [System.Collections.ArrayList]::new()
             Ensure-FleetHooks -liveHash $live -canonHooks $script:canonHooks -repoRoot $root -actions ([ref]$actions)
             @($actions | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be $script:ExpectedAdds
-            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedAdds
+            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedPreToolUse
+        }
+
+        It "meme commande sur plusieurs evenements : ajoutee sur CHACUN, puis idempotente" {
+            # user-words-journal.js est cable sur Stop, PreCompact et SessionStart.
+            # Une signature globale (pre-20/10) le voyait "deja present" apres
+            # Stop et ne l'ajoutait jamais aux deux autres evenements.
+            $root = 'C:/dev/roo-extensions'
+            $multi = @($script:canonHooks.Keys | Where-Object { $_ -notlike '__*' -and $_ -ne 'PreToolUse' })
+            $multi.Count | Should -BeGreaterThan 1
+            $live = [ordered]@{}
+            $actions = [System.Collections.ArrayList]::new()
+            Ensure-FleetHooks -liveHash $live -canonHooks $script:canonHooks -repoRoot $root -actions ([ref]$actions)
+            foreach ($ev in $multi) {
+                @($live['hooks'][$ev]).Count | Should -Be @($script:canonHooks[$ev]).Count
+            }
+            $actions2 = [System.Collections.ArrayList]::new()
+            Ensure-FleetHooks -liveHash $live -canonHooks $script:canonHooks -repoRoot $root -actions ([ref]$actions2)
+            $actions2.Count | Should -Be 0
         }
 
         It "cable main en backslash : reconnu par signature, pas de doublon (RUN3 c.669)" {
@@ -376,8 +395,8 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
 
             # L'entree cablee n'est PAS re-ajouee ; seule l'autre entree canon manque.
             @($actions | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be ($script:ExpectedAdds - 1)
-            @($actions | Where-Object { $_ -like '*guard-bash-composite*' -or $_ -like '*echo-loop-counter*' } | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be ($script:ExpectedAdds - 1)
-            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedAdds
+            @($actions | Where-Object { $_ -like '*guard-bash-composite*' -or $_ -like '*echo-loop-counter*' } | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be ($script:ExpectedPreToolUse - 1)
+            @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedPreToolUse
         }
     }
 }
