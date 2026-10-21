@@ -94,6 +94,13 @@ BeforeAll {
         -StartMarker 'function Ensure-FleetHooks {' `
         -EndMarker 'if (Test-Path $livePath)'
 
+    # (3b) Merge-CanonIntoLive — le merge canon->live lui-meme (grain ids de
+    # modele preserve-local, decision user 20/10 : le routage de modele est
+    # machine-local, le canon ne STOMPE plus les ids d'un siege provider).
+    $script:MergeCanonFn = Get-ExtractedBlock `
+        -StartMarker 'function Merge-CanonIntoLive {' `
+        -EndMarker 'if (Test-Path $templatePath)'
+
     # (4) Le bloc hooks du scaffold fresh : de $freshHooks a la fermeture du
     # if ($freshHooks.Keys.Count -gt 0) — la fermeture est le '}' qui suit
     # la ligne du marqueur HOOK-ADDED (scaffold).
@@ -108,6 +115,7 @@ BeforeAll {
     # Definitions executees dans le scope partage racine (voir note ci-dessus).
     Invoke-Expression $script:OrderedHashFn
     Invoke-Expression $script:FleetHooksFn
+    Invoke-Expression $script:MergeCanonFn
 
     # Canon reel : les hooks du VRAI settings.template.json (2 entrees
     # PreToolUse aujourd'hui — compte dynamique, jamais figure).
@@ -203,6 +211,33 @@ Describe "Deploy-GlobalConfig - la source qu'il deploie" {
         $rulesDir = Join-Path $script:projectRoot ".claude/configs/rules"
         Test-Path $rulesDir | Should -Be $true
         @(Get-ChildItem -Path $rulesDir -Recurse -File).Count | Should -BeGreaterThan 0
+    }
+
+    It "le canon marque les 4 ids de modele ANTHROPIC_DEFAULT en preserve-local (decision user 20/10)" {
+        # Decision user 20/10 (rapportee web2 20:20Z) : chaque machine peut
+        # switcher entre Anthropic natif et providers tiers -> le routage de
+        # modele (les ids *_MODEL) est machine-local. Le canon qui epingle
+        # claude-*[1m] STOMPAIT les ids provider des sieges claudish au
+        # deploy (la tension ai01c-proxy-profile-mixed-with-canon-20261020,
+        # point 3). Le marqueur ne vit que dans la VALEUR, pas dans ce nom de
+        # test (templating Pester, voir note racine).
+        $template = Join-Path $script:projectRoot ".claude/configs/settings.template.json"
+        $canon = Get-Content $template -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($k in @(
+            'ANTHROPIC_DEFAULT_OPUS_MODEL',
+            'ANTHROPIC_DEFAULT_FABLE_MODEL',
+            'ANTHROPIC_DEFAULT_SONNET_MODEL',
+            'ANTHROPIC_DEFAULT_HAIKU_MODEL'
+        )) {
+            # Indirection : $canon.env.$k ne resout pas une cle via variable —
+            # passer par PSObject.Properties.
+            $prop = $canon.env.PSObject.Properties[$k]
+            $prop | Should -Not -BeNullOrEmpty
+            $prop.Value | Should -Be '<<preserve-local>>'
+        }
+        # Les labels (_NAME) restent canon : ils sont generiques ("Opus"),
+        # independants du provider qui sert le role.
+        $canon.env.ANTHROPIC_DEFAULT_OPUS_MODEL_NAME | Should -Be 'Opus'
     }
 }
 
@@ -397,6 +432,64 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
             @($actions | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be ($script:ExpectedAdds - 1)
             @($actions | Where-Object { $_ -like '*guard-bash-composite*' -or $_ -like '*echo-loop-counter*' } | Where-Object { $_ -like 'HOOK-ADDED*' }).Count | Should -Be ($script:ExpectedPreToolUse - 1)
             @($live['hooks']['PreToolUse']).Count | Should -Be $script:ExpectedPreToolUse
+        }
+    }
+
+    Context "Merge-CanonIntoLive : ids de modele machine-local (decision user 20/10)" {
+        # Le merge execute sur le VRAI canon du template + un live de siege
+        # provider. Propriete verrouillee : un deploy canon ne reecrit JAMAIS
+        # les ids ANTHROPIC_DEFAULT_*_MODEL d'un siege, et n'en cree jamais
+        # sur un siege qui n'en a pas (le scaffold fresh les drop avec WARN —
+        # les profils provider posent l'onboarding).
+        BeforeAll {
+            $canon = Convert-ToOrderedHash (Get-Content $script:templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+            $script:CanonEnv = $canon['env']
+            $script:ModelIds = @(
+                'ANTHROPIC_DEFAULT_OPUS_MODEL',
+                'ANTHROPIC_DEFAULT_FABLE_MODEL',
+                'ANTHROPIC_DEFAULT_SONNET_MODEL',
+                'ANTHROPIC_DEFAULT_HAIKU_MODEL'
+            )
+        }
+
+        It "un siege provider garde ses ids locaux, une action PRESERVED par id" {
+            # Siege claudish : ids non-Anthropic/alias — exactement la classe
+            # que le canon epinglait (ai01c-proxy-profile... point 3).
+            # NIVEAUX COHERENTS : le sous-arbre env du live recoit le sous-arbre
+            # env du canon (comme la recursion du script le fait) — passer le
+            # live entier ecrirait les cles env AU SOMMET du live.
+            $liveEnv = [ordered]@{
+                ANTHROPIC_DEFAULT_OPUS_MODEL   = 'glm-5.2'
+                ANTHROPIC_DEFAULT_FABLE_MODEL  = 'fable-x[1m]'
+                ANTHROPIC_DEFAULT_SONNET_MODEL = 'sonnet[1m]'
+                ANTHROPIC_DEFAULT_HAIKU_MODEL  = 'haiku[1m]'
+            }
+            $actions = [System.Collections.ArrayList]::new()
+            Merge-CanonIntoLive -liveHash $liveEnv -canonHash $script:CanonEnv -path 'env' -actions ([ref]$actions)
+
+            $liveEnv['ANTHROPIC_DEFAULT_OPUS_MODEL']   | Should -Be 'glm-5.2'
+            $liveEnv['ANTHROPIC_DEFAULT_FABLE_MODEL']  | Should -Be 'fable-x[1m]'
+            $liveEnv['ANTHROPIC_DEFAULT_SONNET_MODEL'] | Should -Be 'sonnet[1m]'
+            $liveEnv['ANTHROPIC_DEFAULT_HAIKU_MODEL']  | Should -Be 'haiku[1m]'
+            @($actions | Where-Object { $_ -like 'PRESERVED env.ANTHROPIC_DEFAULT_*_MODEL *' }).Count | Should -Be 4
+            # Aucun SET sur ces cles — le contre-temoin du stompage. Espace
+            # final du wildcard : sinon _MODEL_NAME/_MODEL_DESCRIPTION (SET
+            # legitimes, ils restent canon) matchent aussi.
+            @($actions | Where-Object { $_ -like 'SET env.ANTHROPIC_DEFAULT_*_MODEL *' }).Count | Should -Be 0
+        }
+
+        It "un siege sans ids n'en recoit pas : le merge ne cree jamais la cle, le reste du canon s'applique" {
+            $liveEnv = [ordered]@{ API_TIMEOUT_MS = '999999' }
+            $actions = [System.Collections.ArrayList]::new()
+            Merge-CanonIntoLive -liveHash $liveEnv -canonHash $script:CanonEnv -path 'env' -actions ([ref]$actions)
+
+            foreach ($k in $script:ModelIds) {
+                $liveEnv.Contains($k) | Should -Be $false
+            }
+            # Le canon continue de porter ce qu'il possede : la valeur
+            # derivee est corrigee, les PRESERVED sont consignes.
+            $liveEnv['API_TIMEOUT_MS'] | Should -Be '600000'
+            @($actions | Where-Object { $_ -like 'PRESERVED env.ANTHROPIC_DEFAULT_*_MODEL *' }).Count | Should -Be 4
         }
     }
 }
