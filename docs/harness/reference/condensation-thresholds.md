@@ -1,9 +1,9 @@
 # Règles de Condensation - Context Window
 
-**Version:** 5.0.0 (le clamp universel 200k est un **bug** — `settings.json` par machine fait foi, décision user 2026-08-22)
+**Version:** 5.1.0 (fenêtres flotte bornées par le contexte Swift — portables 263k, décision user 2026-10-11, #4154)
 **Créé:** 2026-02-21
-**Mis à jour:** 2026-06-23
-**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → historique 75% (#1152) → UNIVERSEL 200k/90 (mandate user 2026-05-25) → **`settings.json` par machine (décision user 2026-08-22 : le clamp universel était un bug)**
+**Mis à jour:** 2026-10-21
+**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → historique 75% (#1152) → UNIVERSEL 200k/90 (mandate user 2026-05-25) → **`settings.json` par machine (décision user 2026-08-22 : le clamp universel était un bug)** → **portables 263k (décision user 2026-10-11, #4154)**
 
 > **⚠️ Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v6.0.0. Ce document en est le **détail**. En cas d'écart, la **règle** gagne.
 
@@ -100,11 +100,14 @@ régression difficile à voir : un seul run rétrogradait une machine réglée �
 | `[1m]` sur l'ID de modèle | `settings.json` | ce que le modèle **peut** tenir |
 | `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | `settings.json` | ce qu'on **veut** laisser grandir avant de condenser |
 
-L'écart entre les deux est **intentionnel** (280k po-2023, 310k ai-01 ; décision user 2026-08-22) :
-garder les modèles frais et borner les coûts. **Ne pas « corriger » une fenêtre de 280k/310k vers
-1M** sous prétexte que le modèle le supporte — le mandat 200k était un bug parce qu'il **écrasait**
-un choix machine, pas parce que 200k était trop petit. Une valeur choisie se respecte dans les deux
-sens.
+L'écart entre les deux est **intentionnel** (décision user 2026-08-22 ; valeurs mesurées 21/10/2026, #4154 :
+**portables 263k** — po-2023/2024/2025/2027 publiés à 263 000, po-2026 à son retour — et **ai-01 330k**) :
+garder les modèles frais et borner les coûts. La fenêtre portable est en outre **bornée par le contexte
+du moteur Swift local** (262 144 tokens ; v0.31 rejette en HTTP 400 tout `prompt + max_tokens` au-delà,
+mesure jsboige/vllm#110) : 263 000 × 95 % = **249 850** au déclenchement, sous la limite avec réserve.
+**Ne pas « corriger » une fenêtre choisie vers 1M** sous prétexte que le modèle le supporte — le mandat
+200k était un bug parce qu'il **écrasait** un choix machine, pas parce que 200k était trop petit. Une
+valeur choisie se respecte dans les deux sens.
 
 **Mesure 2026-08-22 — le suffixe vit hors dépôt.** Deux instruments (recherche plein-texte +
 scan d'arborescence) : `[1m]` n'a **aucune occurrence dans le dépôt** — il ne vit que dans les
