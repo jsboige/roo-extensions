@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installs the user-level scheduled task that runs the approval-stall detector (#4243 item 3).
 
@@ -23,6 +23,8 @@
     Interpreter the launcher runs the detector with. Empty (default) = the launcher's own
     default, 'python' from PATH. Set it on a seat whose 'python' is only the WindowsApps stub
     (e.g. a uv-managed interpreter): the stub exits non-zero and the task would fail every tick.
+    A non-empty value is validated at install time (#4306): a missing file or a \WindowsApps\
+    path throws here instead of failing at every 2 h tick.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\diagnostic\install-approval-stall-detector-task.ps1 -DryRun
@@ -39,6 +41,19 @@ param(
     [switch]$DryRun
 )
 $ErrorActionPreference = 'Stop'
+
+# Validate -Python before the plan is printed and before anything is written (#4306): a wrong
+# interpreter installs cleanly, then the task fails at every tick. Both separators: CI benches
+# express temp paths with '/'.
+if ($Python) {
+    if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
+        throw "-Python not found: $Python -- refusing to install a task that would fail every tick"
+    }
+    $pythonFull = [System.IO.Path]::GetFullPath($Python)
+    if (($pythonFull -like '*\WindowsApps\*') -or ($pythonFull -like '*/WindowsApps/*')) {
+        throw "-Python is the WindowsApps Store stub: $pythonFull -- this parameter exists to bypass it"
+    }
+}
 
 $launcher = Join-Path $PSScriptRoot 'run-approval-stall-detector.ps1'
 $launcherDir = Join-Path $env:LOCALAPPDATA 'claude-hidden-launchers'
