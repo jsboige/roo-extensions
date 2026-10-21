@@ -42,7 +42,7 @@ peut corriger le suffixe à votre place.
 
 `[1m]` = ce que le modèle **peut** tenir ; `CLAUDE_CODE_AUTO_COMPACT_WINDOW` = ce qu'on **veut**
 laisser grandir avant de condenser. L'écart est une **décision user (2026-08-22)** : garder les
-modèles frais, borner les coûts. **Ne pas « corriger » une fenêtre choisie (280k/310k) vers 1M**
+modèles frais, borner les coûts. **Ne pas « corriger » une fenêtre choisie (portables 263k, ai-01 330k — 10/2026, #4154) vers 1M**
 sous prétexte que le modèle le supporte — une valeur choisie se respecte dans les deux sens.
 
 ## Machine neuve + sessions vivantes
