@@ -119,6 +119,8 @@ Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** 
 
 Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avant la fin. Hierarchie : `~/.claude/CLAUDE.md` (global) · `CLAUDE.md` repo (projet) · `~/.claude/projects/<hash>/memory/MEMORY.md` (par machine) · `.claude/rules/*.md` (auto-loaded). Le CLAUDE.md projet recoit les **decisions** ; detail, mesures et incidents vont dans `docs/` avec un pointeur d'une ligne. Apres chaque tache significative : MAJ CLAUDE.md projet + MEMORY.md, consigner les approches **testees-et-rejetees**.
 
+**Les paroles du user survivent a la session (mandat user 20/10, « amnesie systemique »)** : le hook `user-words-journal` copie chaque message humain (tape ou envoye en cours de tour) dans `memory/user-words-journal.jsonl` et le reinjecte au demarrage et apres chaque compaction (7 jours). Le journal n'est pas la memoire : une consigne qui doit durer au-dela de 7 jours est **promue en fiche, citation verbatim**, avant la fin du cycle ; une consigne deja donnee ne se redemande jamais. [Detail](../../docs/harness/reference/user-words-journal.md)
+
 ## Multi-Machine Ping-Pong — Re-arm
 
 **Scope STRICT** : sessions Claude Code **interactives** avec role actif coordinateur OU worker dans un workflow multi-machine — PAS les workers/meta-analystes schedules (double-firing), sessions informationnelles, ad-hoc/debug, workspace single-machine, ou post-handoff documente. Heuristique : « un cluster produit-il du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** role coord/worker -> re-armer.

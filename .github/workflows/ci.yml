@@ -546,6 +546,14 @@ jobs:
         shell: bash
         run: node scripts/hooks/tests/guard-bash-composite.test.js
 
+      # User mandate 20/10 (systemic amnesia): the user-words-journal suite
+      # (capture of typed AND mid-turn human messages, noise forms rejected,
+      # offset resume, recall window and budget, backfill, fail-open) is pure
+      # node spawnSync of the REAL hook, zero npm deps.
+      - name: Run user-words-journal hook suite
+        shell: bash
+        run: node scripts/hooks/tests/user-words-journal.test.js
+
       # #1357 AC#1: the mcp-proxy template's TBXark hop timeout must stay a
       # JSON NUMBER. The deployed image decodes it into a Go time.Duration
       # (nanoseconds); #3083 shipped the string form "5m", which makes the
