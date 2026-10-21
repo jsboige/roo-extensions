@@ -29,6 +29,10 @@ Le picker tire dans 3 urnes ponderees :
   - Saut des claims etrangers sur les candidats parcourus uniquement (appels
     API bornes) : logique REUTILISEE depuis `scripts/github/check_issue_claim.py`
     (ADR 017 : claim actif d'une autre machine, peremption 24 h).
+  - Saut des grains DEJA SERVIS par la lane elle-meme : dernier marqueur
+    RESULT/RELEASED de MA lane sans commentaire d'un autre acteur depuis
+    (friction OWN_CLAIM, dispatch ai01-c34) - relu sur le fetch_issue deja
+    fait, sans appel API supplementaire.
   - Saut des issues portant une etiquette de lane (`myia-*`) autre que la
     notre - la regle s'applique a toute etiquette myia-* existante, sans
     liste codee en dur. Le prefixe de titre `[CLAUDE-<machine>]` n'est PAS
@@ -99,6 +103,12 @@ MACHINE_LABEL_RE = re.compile(r"^myia-[a-z0-9-]+$")
 # (ADR 017, --stale-threshold defaut 24). Un claim perime ne bloque pas - le
 # nouveau claimant pose quand meme son propre [CLAIMED].
 CLAIM_STALE_THRESHOLD_H = 24.0
+
+# Marqueurs de livraison de MA lane (dispatch ai01-c34, friction OWN_CLAIM) :
+# RESULT = rapport de livraison, RELEASED = verrou leve apres merge. Le picker
+# resservait a une lane son propre grain deja livre (2 lanes touchees le 21/10 :
+# #2767/#4287 po-2027, #4286 po-2023).
+OWN_SERVED_MARKERS = {"RESULT", "RELEASED"}
 
 
 class GhCommandError(RuntimeError):
@@ -302,6 +312,46 @@ def draw_candidates(buckets: dict, weights: dict, rng: random.Random, k, pool: d
     return order
 
 
+def own_served_no_followup(comments: list, own_lane: str) -> bool:
+    """MA lane a-t-elle livre ce grain sans qu'un autre acteur revienne depuis ?
+
+    Friction OWN_CLAIM (dispatch ai01-c34) : le claim de SA lane ne bloque
+    jamais (reprise legitime, #4114) - mais un grain dont le dernier marqueur
+    RESULT/RELEASED est celui de MA lane, sans commentaire d'un autre acteur
+    depuis, est un grain DEJA SERVI par nous : le re-prendre refait le travail.
+    Les commentaires viennent du fetch_issue DEJA fait par check_candidate
+    (zero appel API supplementaire) ; la lecture reutilise scan_comment_events
+    et _same_lane du guard (ADR 017, identite lane #4114).
+
+    "Autre acteur" : un commentaire dont AUCUN marqueur ne porte notre lane
+    (bot checklist, coordinateur, autre lane - les commentaires de lane
+    commencent toujours par un marqueur reconnu). Le moindre d'entre eux
+    apres notre livraison rouvre le grain.
+    """
+    ordered = sorted(comments, key=lambda c: c.get("createdAt", ""))
+    served_idx = None
+    for idx, comment in enumerate(ordered):
+        for marker, lane, _line in check_issue_claim.scan_comment_events(
+            comment.get("body", "")
+        ):
+            if (
+                marker in OWN_SERVED_MARKERS
+                and lane is not None
+                and check_issue_claim._same_lane(lane, own_lane)
+            ):
+                served_idx = idx  # dernier marqueur de livraison de MA lane (chrono)
+    if served_idx is None:
+        return False
+    for comment in ordered[served_idx + 1:]:
+        events = check_issue_claim.scan_comment_events(comment.get("body", ""))
+        if not any(
+            lane is not None and check_issue_claim._same_lane(lane, own_lane)
+            for _marker, lane, _line in events
+        ):
+            return False  # un autre acteur est revenu apres notre livraison
+    return True
+
+
 def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None) -> tuple:
     """(skip, raison) pour un candidat. Leve GhCommandError sur panne instrument.
 
@@ -316,6 +366,8 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
       de l'AUTRE workspace de sa propre machine est un claim etranger.
       Une claim illisible est une panne d'instrument (fail-closed), jamais un
       grain libre : lever GhCommandError laisse le verdict ERROR tranche.
+    - Grain deja servi par MA lane : own_served_no_followup, relu sur les
+      commentaires du MEME fetch_issue (friction OWN_CLAIM, dispatch ai01-c34).
     """
     if urn == "delivered":
         return False, ""
@@ -334,6 +386,8 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
     if blocking:
         who = ", ".join(sorted({m for m, _, _ in blocking}))
         return True, f"active claim by {who}"
+    if own_served_no_followup(issue.get("comments", []), own_lane or own_machine):
+        return True, "own served, awaiting other actor"
     return False, ""
 
 

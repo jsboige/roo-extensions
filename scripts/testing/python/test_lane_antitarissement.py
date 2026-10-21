@@ -93,6 +93,19 @@ def claim_comment(machine, hours=1.0):
     }
 
 
+def comment_at(body, hours=1.0):
+    """Commentaire horodate serveur, age de `hours` heures (corps libre)."""
+    return {
+        "createdAt": (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat(),
+        "body": body,
+    }
+
+
+def result_comment(machine, hours=1.0):
+    """Commentaire [RESULT] de livraison, age de `hours` heures."""
+    return comment_at(f"[RESULT] {machine} -- delivered, PR merged", hours)
+
+
 NO_CLAIM = {"state": "OPEN", "comments": []}
 
 
@@ -669,6 +682,57 @@ class CandidateSkipRules(unittest.TestCase):
                 mock.patch.object(picker.check_issue_claim, "detect_workspace",
                                   return_value=""):
             self.assertEqual(picker.own_lane_id(), "myia-po-2027")
+
+
+class OwnServedSkipRules(unittest.TestCase):
+    """Dispatch ai01-c34 (friction OWN_CLAIM, 2 lanes le 21/10) : le picker ne
+    doit pas resservir a une lane un grain qu'elle a DEJA livre -- dernier
+    marqueur [RESULT]/[RELEASED] de SA lane, sans autre acteur depuis.
+    """
+
+    def test_own_served_without_followup_skips(self):
+        # Cas #2767/#4286 : [CLAIMED] puis [RESULT] de MA lane, rien depuis.
+        # Le claim est ferme par le RESULT (released au sens du guard) : sans
+        # ce fix le grain ressortait LIBRE et refaisait un travail livre.
+        item = picker.normalize_rest_item(rest_issue(81, ["approved"]), REPOS[0])
+        served = {"state": "OPEN", "comments": [
+            claim_comment("myia-po-2027:roo-extensions", hours=30.0),
+            result_comment("myia-po-2027:roo-extensions", hours=1.0),
+        ]}
+        with mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=served):
+            skip, reason = picker.check_candidate(
+                "grain", item, "myia-po-2027", "myia-po-2027:roo-extensions"
+            )
+        self.assertTrue(skip)
+        self.assertIn("own served", reason)
+
+    def test_own_served_with_foreign_followup_is_free(self):
+        # Un AUTRE acteur s'est manifeste apres notre livraison -> re-prenable
+        # (le re-engagement exterieur est le signal qui rouvre le grain).
+        item = picker.normalize_rest_item(rest_issue(82, ["approved"]), REPOS[0])
+        reopened = {"state": "OPEN", "comments": [
+            result_comment("myia-po-2027:roo-extensions", hours=3.0),
+            comment_at("[ACK] myia-ai-01:roo-extensions -- arbitrage rendu", hours=1.0),
+        ]}
+        with mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=reopened):
+            skip, _reason = picker.check_candidate(
+                "grain", item, "myia-po-2027", "myia-po-2027:roo-extensions"
+            )
+        self.assertFalse(skip)
+
+    def test_other_lane_served_does_not_skip(self):
+        # Frontiere du fix : le RESULT d'une AUTRE lane ne declenche pas le
+        # skip own-served -- la reprise du travail d'un tiers releve du
+        # coordinateur, pas d'une regle du picker (scope strict).
+        item = picker.normalize_rest_item(rest_issue(83, ["approved"]), REPOS[0])
+        other = {"state": "OPEN", "comments": [
+            result_comment("myia-po-2025:roo-extensions", hours=1.0),
+        ]}
+        with mock.patch.object(picker.check_issue_claim, "fetch_issue", return_value=other):
+            skip, _reason = picker.check_candidate(
+                "grain", item, "myia-po-2027", "myia-po-2027:roo-extensions"
+            )
+        self.assertFalse(skip)
 
 
 class LaneSeedDivergence(unittest.TestCase):
