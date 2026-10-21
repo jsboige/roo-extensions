@@ -383,7 +383,7 @@ function Install-Task {
         # Start 5 minutes from now
         # NOTE: RepetitionDuration must be $null for indefinite repetition (Issue #967)
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
-            -RepetitionInterval (New-TimeSpan -Hours $IntervalHours)
+            -RepetitionInterval (New-TimeSpan -Minutes ([int][Math]::Round($IntervalHours * 60)))
         # Explicitly set indefinite duration and disable StopAtDurationEnd
         $trigger.Repetition.Duration = $null
         $trigger.Repetition.StopAtDurationEnd = $false
