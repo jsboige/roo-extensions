@@ -299,6 +299,120 @@ class TestReduceClaims(unittest.TestCase):
         self.assertNotIn("myia-po-2026", state)
 
 
+class TestWorkerProducerLaneMarkers(unittest.TestCase):
+    """#4114 côté producteur : start-claude-worker.ps1 pose désormais ses
+    marqueurs GitHub au format lane machine:workspace.
+
+    Avant le fix, le worker écrivait "[CLAIMED] by claude on <machine>" —
+    machine seule. Le garde (#4114/#4122) classe ce format LEGACY_CLAIM :
+    fail-closed FOREIGN pour toute lane de la même machine (préjudice mesuré
+    20/10 sur #4247 : le siège désigné était verrouillé par une machine hors
+    d'état de traiter l'issue). Ces tests caractérisent l'interaction du
+    NOUVEAU format producteur avec le garde inchangé.
+    """
+
+    def test_worker_lane_claim_is_own_lane_not_legacy(self):
+        # Le claim worker lane-suffixé vu par SA lane : reprise, aucun
+        # avertissement LEGACY — le format produit est enfin consommable.
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026:roo-extensions at 2026-10-22T05:00:00Z",
+                T0,
+            )
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "active")
+        blocking, warnings, notes = classify(
+            state, "myia-po-2026:roo-extensions", 24.0, now=T0 + timedelta(hours=2)
+        )
+        self.assertEqual((blocking, warnings), ([], []))
+        self.assertEqual(len(notes), 1)
+
+    def test_worker_lane_claim_same_machine_other_workspace_is_foreign(self):
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026:CoursIA-2 at 2026-10-22T05:00:00Z",
+                T0,
+            )
+        ]
+        state = reduce_claims(comments)
+        blocking, warnings, _n = classify(
+            state, "myia-po-2026:roo-extensions", 24.0, now=T0 + timedelta(hours=2)
+        )
+        self.assertEqual([b[0] for b in blocking], ["myia-po-2026:CoursIA-2"])
+        # le claim PORTE un workspace : foreign simple, pas de LEGACY
+        self.assertEqual([w for w in warnings if "LEGACY" in w], [])
+
+    def test_worker_machine_only_claim_is_still_legacy_foreign(self):
+        # Caractérisation du défaut producteur (pré-fix) : le format machine
+        # seul reste fail-closed FOREIGN pour les lanes de SA machine.
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026 at 2026-10-22T05:00:00Z", T0
+            )
+        ]
+        state = reduce_claims(comments)
+        blocking, warnings, _n = classify(
+            state, "myia-po-2026:roo-extensions", 24.0, now=T0 + timedelta(hours=2)
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(
+            len([w for w in warnings if w.startswith("LEGACY_CLAIM")]), 1
+        )
+
+    def test_worker_result_with_lane_token_closes_lane_claim(self):
+        # Le [RESULT] du worker porte désormais le même token lane que son
+        # [CLAIMED] : fermeture effective (sinon faux verrou 24h).
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026:roo-extensions at 2026-10-22T05:00:00Z",
+                T0,
+            ),
+            comment(
+                "[RESULT] myia-po-2026:roo-extensions: PASS — PR created: "
+                "https://github.com/jsboige/roo-extensions/pull/9999",
+                T0 + timedelta(hours=1),
+            ),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "released")
+
+    def test_worker_hold_line_lane_token_reopens_after_result(self):
+        # Hold #4000 au format lane : la ligne [CLAIMED] POSTÉRIEURE au
+        # [RESULT] ré-ouvre le verrou sous l'identité lane.
+        body = (
+            "[RESULT] myia-po-2026:roo-extensions: FAIL — run terminal en échec, "
+            "mais artefacts livrés\n\n"
+            "[CLAIMED] myia-po-2026:roo-extensions -- held: work above awaits "
+            "recovery/review; do not re-take without asking "
+            "myia-po-2026:roo-extensions or the coordinator"
+        )
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026:roo-extensions at 2026-10-22T05:00:00Z",
+                T0,
+            ),
+            comment(body, T0 + timedelta(minutes=22)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "active")
+
+    def test_worker_released_with_lane_token_frees_lane_claim(self):
+        comments = [
+            comment(
+                "[CLAIMED] by claude on myia-po-2026:roo-extensions at 2026-10-22T05:00:00Z",
+                T0,
+            ),
+            comment(
+                "[RELEASED] by claude on myia-po-2026:roo-extensions — race "
+                "condition detected, yielding to other claimer.",
+                T0 + timedelta(minutes=5),
+            ),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2026:roo-extensions"]["state"], "released")
+
+
 class TestClassify(unittest.TestCase):
     def _state(self, machine, since):
         return {machine: {"state": "active", "since": since, "line": "[CLAIMED] x"}}
