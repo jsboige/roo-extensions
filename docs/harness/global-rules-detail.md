@@ -351,6 +351,13 @@ roosync_dashboard(action:"append", type:"global", content:"...",
 
 **Observation ai-01** : ~70 outils passés en différé. Chaque lane mesure son propre delta (taille de harnais avant/après activation du drapeau) et le consigne — le gain dépend des MCPs effectivement chargés.
 
+**Mesure lane po-2028 (R2 #3647, 22/10)** — siège proxied, `ENABLE_TOOL_SEARCH=true`, 5 serveurs MCP configurés :
+
+- **Définitions totales** : 104 795 octets / 80 outils, mesurés par handshake `initialize`→`tools/list` sur chaque serveur configuré (aucun appel d'outil) : RSM 44 163/17 · papermill 24 527/25 · playwright 20 296/25 · sk-agent 8 817/9 · searxng 6 992/4. **Octets ≠ tokens** (≈3–4 car./tok) — à réconcilier en unités avec les « ~105 k » de #99 avant d'en faire un canon.
+- **Appels réels sur 7 j** (comptage seul sur les transcripts, #1785) : 236 au total ; **papermill et searxng : 0 appel** — 31 519 octets de définitions servis pour rien sur cette lane.
+- **Levier `disabledMcpServers`** : entrée `projects[<chemin workspace>].disabledMcpServers` de `~/.claude.json` retire un serveur jamais appelé ; réversible ; **effet au spawn de session suivant seulement** (pas relu à chaud — les cycles d'un même processus ne peuvent pas la mesurer). Piège #4195 : la clé est indexée par chemin, un déménagement de workspace réactive le serveur en silence.
+- Ce que le levier achète : sur une lane à déferrance active, les définitions déjà ne sont pas payées inline — il retire le serveur du harnais (lancement, inventaire différé, rechargements à la demande) ; sur une chaîne où la déferrance est inerte, c'est la pleine charge inline qui part. Mesure avant/après po-2028 (`["jupyter-papermill"]`, attendu −25 outils/−24 527 octets) : au premier vrai respawn de la lane.
+
 **Armement claudish du registre** (jsboige/claudish#111) : Phase 5 consigne, Phase 6 représente. Les autres workspaces suivent le même réflexe (append `[ASK]` sur le dashboard workspace + fichier `open-questions.md` si la question concerne plusieurs sessions).
 
 **Détails de drapeaux** : `disableClaudeAiConnectors` — voir aussi `~/.claude.json` → `claudeAiMcpEverConnected` ; `disableBundledSkills` — skills bundled non présents dans ce projet, proposés en doublon des skills projet sans le drapeau.
