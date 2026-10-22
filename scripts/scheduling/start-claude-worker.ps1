@@ -71,6 +71,14 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # Shared claim lock-window logic (dot-sourced also by claim-lock.Tests.ps1 — fix #2428)
 . (Join-Path $ScriptDir 'claim-lock.ps1')
+# Claim lane identity (#4114, producer side): every GitHub [CLAIMED]/[RELEASED]/
+# [RESULT] marker below must carry machine:workspace — the same derivation as
+# check_issue_claim.py (COMPUTERNAME + basename of the git toplevel). A machine-only
+# marker is classified LEGACY_CLAIM by the guard: fail-closed FOREIGN for every lane
+# of this machine (measured 20/10 on #4247: the designated seat was locked out by a
+# machine that could not act). [TASK] addressing stays machine-level (B14, #4131) —
+# only the GitHub claim markers change.
+$script:ClaimLane = "$($env:COMPUTERNAME.ToLower()):$(Split-Path -Leaf $RepoRoot)"
 # Worker defaults (decoupled from Roo modes-config.json since 2026-03-06)
 # Model/iterations come from Project #67 fields. Escalation uses Agent Status protocol
 # (haiku -> sonnet, capped since #2211), NOT Roo mode hierarchy (simple -> complex).
@@ -553,7 +561,7 @@ function Test-IssueAlreadyProcessed {
             $Age = (Get-Date).ToUniversalTime() - $CreatedAt
 
             # Skip if claimed by claude worker in the last 6 hours
-            # #1980 (c.122): the actually-posted string is "[CLAIMED] by claude on <machine>",
+            # #1980 (c.122): the actually-posted string is "[CLAIMED] by claude on <machine>[:<workspace>]",
             # not "Claimed by claude" — the original pattern (C upper, no bracket) never matched.
             # Without this fix, releasing the locks (item 1+2) removes the last guard.
             if ($Comment.body -match "\[CLAIMED\] by claude" -and $Age.TotalHours -lt 6) {
@@ -925,8 +933,10 @@ function Claim-GitHubIssue {
         }
 
         # Step 2: Post [CLAIMED] comment for traceability and anti-doublon detection
+        # Lane-suffixed marker (#4114): the guard classes machine-only markers
+        # LEGACY_CLAIM — foreign for this machine's own lanes too.
         $Timestamp = Get-Date -Format "o"
-        $Body = "[CLAIMED] by $AgentType on $MachineId at $Timestamp"
+        $Body = "[CLAIMED] by $AgentType on $script:ClaimLane at $Timestamp"
         & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""$Body"" 2>&1" | Out-Null
 
         # Step 3: Wait for competing claims to settle (GitHub API eventual consistency)
@@ -954,7 +964,7 @@ function Claim-GitHubIssue {
                 Write-Log "⚠️ Race condition détectée sur #$IssueNumber — claim concurrent actif (<30 min, non libéré). Yield." "WARN"
                 # Release: remove assignee and post release comment
                 & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
-                & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $MachineId — race condition detected, yielding to other claimer."" 2>&1" | Out-Null
+                & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $script:ClaimLane — race condition detected, yielding to other claimer."" 2>&1" | Out-Null
                 return $false
             }
         }
@@ -973,7 +983,7 @@ function Claim-GitHubIssue {
                 if ($PRsForIssue.Count -gt 0) {
                     Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber ($PrRepo) — skip" "WARN"
                     & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
-                    & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $MachineId — PR already exists for this issue ($PrRepo)."" 2>&1" | Out-Null
+                    & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $script:ClaimLane — PR already exists for this issue ($PrRepo)."" 2>&1" | Out-Null
                     return $false
                 }
             }
@@ -1125,7 +1135,11 @@ function Mark-TaskAsComplete {
             if ($Task.issueNumber) {
                 try {
                     # #1213: Post [RESULT] with proof — aligns with Roo protocol
-                    $MachineId = $env:COMPUTERNAME.ToLower()
+                    # Lane token (#4114): [RESULT] closes the claim of the SAME token
+                    # in check_issue_claim.py (CLOSE_MARKERS per lane) — a machine-only
+                    # RESULT would not close the lane claim posted above, false-blocking
+                    # the issue for 24h. The hold line below reuses this local var.
+                    $MachineId = $script:ClaimLane
                     # Verdicts that say "do not redispatch" must not release the issue lock.
                     $HoldLock = $false
                     if ($Success -and $PrUrl) {
