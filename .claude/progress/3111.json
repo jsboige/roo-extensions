@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-10-20T01:05:00Z",
+  "updated_at": "2026-10-22T07:22:00Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -191,6 +191,13 @@
       "action": "skipped",
       "actor": "myia-ai-01:roo-extensions",
       "note": "Arbitrage user RX107 (19/10) : #4081 approuvée, executor-cron schtask refusée flotte CoursIA compris — candidat non transposé. Annoncé sur la review de #4271 (20/10)."
+    },
+    {
+      "timestamp": "2026-10-22T07:22:00Z",
+      "item_id": "phase-3-integration",
+      "action": "resumed",
+      "actor": "myia-po-2025:roo-extensions",
+      "note": "Livrable 2 partie 1 — bilan de tenue a date (read-only, main 3eeb5c99) : 6/6 candidats livres TENUS, aucune regression. Preuves fonctionnelles : picker 3 urnes + check_issue_claim utilises live ce cycle ; parite gitleaks v8.24.3 workflow=pre-commit verifiee ; pilote plans/progress vivant. Candidat #7 : dependance #1-#6 satisfaite -> arbitrage user demande (registre Q-po2025-epic3111-blueprint7-20261022, recommandation NO-GO). Bilan publie : issuecomment-6335158277. Aucun changement de statut d'item."
     }
   ]
 }
