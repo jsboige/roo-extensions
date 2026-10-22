@@ -356,6 +356,8 @@ function Get-NextTask {
 
     .OUTPUTS
     Hashtable avec: id, subject, priority, prompt, source, [messageFile|issueNumber]
+    (source "roosync" porte en plus inboxSource "pg"|"file" — B14 #4131 ; messageFile
+    n'existe que sur le chemin fichiers, aucun fichier sous PG)
     #>
 
     param(
@@ -397,57 +399,145 @@ function Get-NextTask {
 # TODO #1 - Helper Functions (RooSync + GitHub + Fallback)
 # =============================================================================
 
+function Get-RooSyncInboxMessages {
+    <#
+    .SYNOPSIS
+    Lit l'inbox RooSync via le CLI PG du submodule (B14, #4131).
+
+    .DESCRIPTION
+    Shelle scripts/read-roosync-inbox.mjs — le pendant lecture de
+    send-roosync-message.mjs, même chemin PG gated que l'inbox MCP.
+    Contrat d'exit codes (review ms#1481) :
+      exit 0  — stdout {source:'pg', messages:[...]} : PG FAIT FOI, MÊME VIDE.
+                Messages complets (lus et non lus, status per-reader déjà
+                ajusté) ; les filtres status/priority/subject restent côté
+                appelant (contrat de la review).
+      exit 3  — {source:'file', reason:'gate-off'|'pg-unavailable'} : le canal
+                n'est pas en lecture PG → l'appelant garde le chemin fichiers.
+      exit 1  — usage error (même traitement que 3).
+    Retourne $null sur CLI absent (submodule non peuplé), node absent,
+    exception, exit != 0 ou stdout non parsable — l'appelant retombe alors sur
+    le chemin fichiers legacy.
+    #>
+    param([string]$MachineId)
+
+    # Slashes forward : le worker est Windows, mais le helper est extrait par
+    # AST et exécuté par la suite Pester sous Linux CI — le chemin doit se
+    # résoudre sur les deux.
+    $CliPath = Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager/scripts/read-roosync-inbox.mjs"
+    if (-not (Test-Path $CliPath)) {
+        Write-Log "read-roosync-inbox.mjs introuvable ($CliPath) - chemin fichiers conservé" "WARN"
+        return $null
+    }
+
+    $PrevPref = $ErrorActionPreference
+    try {
+        # #3731 : une redirection stderr PS-level sur une commande native
+        # minte des ErrorRecords (TERMINANTS sous EAP=Stop en 5.1) — le merge
+        # se fait à la couche cmd.exe, même forme que le send CLI (L4619) ;
+        # garde drift : scw-*-stderr-class.Tests.ps1. Le JSON du CLI est la
+        # DERNIÈRE ligne non vide du flux fusionné, un warning node ne
+        # corrompt pas le parse. EAP relâchée en ceinture (parité send).
+        $ErrorActionPreference = "Continue"
+        $output = (& cmd /c "node ""$CliPath"" --machine $MachineId 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
+        $exit = $LASTEXITCODE
+    }
+    catch {
+        Write-Log "read-roosync-inbox exception: $_" "WARN"
+        return $null
+    }
+    finally {
+        $ErrorActionPreference = $PrevPref
+    }
+
+    if ($exit -ne 0) {
+        # 3 = gate off / PG indisponible (repli fichiers par contrat), 1 = usage.
+        Write-Log "read-roosync-inbox exit $exit - chemin fichiers conservé" "DEBUG"
+        return $null
+    }
+
+    $jsonLine = ($output -split "\r?\n" | Where-Object { $_.Trim() } | Select-Object -Last 1)
+    try {
+        $result = $jsonLine | ConvertFrom-Json
+    }
+    catch {
+        $head = if ($jsonLine) { $jsonLine.Substring(0, [Math]::Min(120, $jsonLine.Length)) } else { "<vide>" }
+        Write-Log "read-roosync-inbox stdout non parsable: $head" "WARN"
+        return $null
+    }
+    if (-not $result -or $result.source -ne "pg") { return $null }
+    return $result
+}
+
 function Get-RooSyncTask {
     param([string]$MachineId)
 
-    $SharedPath = $env:ROOSYNC_SHARED_PATH
-    if (-not $SharedPath) {
-        Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
-        return $null
-    }
+    # B14 (#4131) : PG d'abord. Exit 0 = PG fait foi, MÊME VIDE — aucun repli
+    # fichiers sur une lecture PG réussie ; le repli n'a lieu que si le canal
+    # n'est pas en lecture PG (exit 3/1, CLI absent, exception → helper $null).
+    $Messages = $null
+    $InboxSource = "file"
+    $InboxPath = $null
+    $PgResult = Get-RooSyncInboxMessages -MachineId $MachineId
+    if ($null -ne $PgResult) {
+        $Messages = @($PgResult.messages | Where-Object { $null -ne $_ })
+        $InboxSource = "pg"
+        Write-Log "Inbox RooSync lue via PG (B14): $($Messages.Count) message(s)" "DEBUG"
 
-    $InboxPath = Join-Path $SharedPath "messages\inbox"
-    if (-not (Test-Path $InboxPath)) {
-        Write-Log "Inbox RooSync introuvable: $InboxPath" "WARN"
-        return $null
+        # PG fait foi, même vide : PAS de repli fichiers sur lecture PG réussie.
+        if ($Messages.Count -eq 0) { return $null }
     }
-
-    # Lire tous les messages JSON
-    # Fix #2845 Bug #3 (race GDriveFS + log imprecise) :
-    # - Capturer $fileName avant le try (sinon $_ dans le catch = ErrorRecord, pas le fichier → log imprecis)
-    # - Test-Path avant Get-Content : tolère la race GDriveFS (online-only cache)
-    #   où un fichier listé peut disparaître entre Get-ChildItem et Get-Content
-    #   (un autre agent a archivé le message, ou pin/unpin en cours).
-    $Messages = Get-ChildItem $InboxPath -Filter "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
-        $fileName = $_.Name
-        if (-not (Test-Path $_.FullName)) {
-            Write-Log "Message inbox disparu (race GDriveFS): $fileName" "DEBUG"
+    else {
+        # --- Chemin fichiers legacy (inchangé hors B14 ; vit sous DUAL_WRITE) ---
+        $SharedPath = $env:ROOSYNC_SHARED_PATH
+        if (-not $SharedPath) {
+            Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
             return $null
         }
-        try {
-            Get-Content $_.FullName -Raw | ConvertFrom-Json
-        } catch {
-            # Fix #2845 Bug #3 follow-up (TOCTOU race, po-2026 firsthand 2026-07-23) :
-            # Test-Path ci-dessus passe, puis Get-Content échoue → le cache online-only
-            # GDriveFS a évincé le fichier entre le check et le read (time-of-check vs
-            # time-of-use). Attendu/bénin → DEBUG (pas WARN). On réserve WARN aux vraies
-            # erreurs de parsing (JSON malformé, encodage, permission refusée).
-            # Match sur les types d'exception (pas le message : localisé FR/EN fragile) :
-            # Get-Content lève ItemNotFoundException (résolution path) OU FileNotFoundException
-            # (.NET, lecture stream GDriveFS) selon le moment de l'éviction.
-            $isMissingFile = ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) -or
-                             ($_.Exception -is [System.IO.FileNotFoundException]) -or
-                             ($_.Exception.InnerException -is [System.IO.FileNotFoundException])
-            if ($isMissingFile) {
-                Write-Log "Message inbox disparu (race GDriveFS post-Test-Path): $fileName" "DEBUG"
-            } else {
-                Write-Log "Erreur lecture $fileName : $_" "WARN"
-            }
-            $null
-        }
-    } | Where-Object { $_ -ne $null }
 
-    if ($Messages.Count -eq 0) { return $null }
+        $InboxPath = Join-Path $SharedPath "messages\inbox"
+        if (-not (Test-Path $InboxPath)) {
+            Write-Log "Inbox RooSync introuvable: $InboxPath" "WARN"
+            return $null
+        }
+
+        # Lire tous les messages JSON
+        # Fix #2845 Bug #3 (race GDriveFS + log imprecise) :
+        # - Capturer $fileName avant le try (sinon $_ dans le catch = ErrorRecord, pas le fichier → log imprecise)
+        # - Test-Path avant Get-Content : tolère la race GDriveFS (online-only cache)
+        #   où un fichier listé peut disparaître entre Get-ChildItem et Get-Content
+        #   (un autre agent a archivé le message, ou pin/unpin en cours).
+        $Messages = Get-ChildItem $InboxPath -Filter "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+            $fileName = $_.Name
+            if (-not (Test-Path $_.FullName)) {
+                Write-Log "Message inbox disparu (race GDriveFS): $fileName" "DEBUG"
+                return $null
+            }
+            try {
+                Get-Content $_.FullName -Raw | ConvertFrom-Json
+            } catch {
+                # Fix #2845 Bug #3 follow-up (TOCTOU race, po-2026 firsthand 2026-07-23) :
+                # Test-Path ci-dessus passe, puis Get-Content échoue → le cache online-only
+                # GDriveFS a évincé le fichier entre le check et le read (time-of-check vs
+                # time-of-use). Attendu/bénin → DEBUG (pas WARN). On réserve WARN aux vraies
+                # erreurs de parsing (JSON malformé, encodage, permission refusée).
+                # Match sur les types d'exception (pas le message : localisé FR/EN fragile) :
+                # Get-Content lève ItemNotFoundException (résolution path) OU FileNotFoundException
+                # (.NET, lecture stream GDriveFS) selon le moment de l'éviction.
+                $isMissingFile = ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) -or
+                                 ($_.Exception -is [System.IO.FileNotFoundException]) -or
+                                 ($_.Exception.InnerException -is [System.IO.FileNotFoundException])
+                if ($isMissingFile) {
+                    Write-Log "Message inbox disparu (race GDriveFS post-Test-Path): $fileName" "DEBUG"
+                } else {
+                    Write-Log "Erreur lecture $fileName : $_" "WARN"
+                }
+                $null
+            }
+        } | Where-Object { $_ -ne $null }
+
+        if ($Messages.Count -eq 0) { return $null }
+    }
 
     # Filtrer par machine + unread + WHITELIST subjects actionnables
     # BUG FIXES:
@@ -472,13 +562,22 @@ function Get-RooSyncTask {
     $PriorityOrder = @{ "URGENT" = 1; "HIGH" = 2; "MEDIUM" = 3; "LOW" = 4 }
     $NextMessage = $MyMessages | Sort-Object { $PriorityOrder[$_.priority] } | Select-Object -First 1
 
+    $MessageFile = $null
+    if ($InboxSource -eq "file") {
+        $MessageFile = Join-Path $InboxPath "$($NextMessage.id).json"
+    }
+
     return @{
         id = $NextMessage.id
         subject = $NextMessage.subject
         priority = $NextMessage.priority
         prompt = $NextMessage.body
         source = "roosync"
-        messageFile = Join-Path $InboxPath "$($NextMessage.id).json"
+        # B14 (#4131) : pas de messageFile sous PG — le marquage « consommé »
+        # passe par le canal (status per-reader côté PG) ; le champ ne vit que
+        # sur le chemin fichiers (checklist review ms#1481).
+        messageFile = $MessageFile
+        inboxSource = $InboxSource
     }
 }
 
@@ -1119,7 +1218,13 @@ function Mark-TaskAsComplete {
 
     switch ($Task.source) {
         "roosync" {
-            if ($Task.messageFile -and (Test-Path $Task.messageFile)) {
+            if ($Task.inboxSource -eq "pg") {
+                # B14 (#4131) : pas de fichier sous PG — le marquage « consommé »
+                # passe par le canal (status per-reader côté PG), rien à écrire
+                # ici (checklist review ms#1481 : "no messageFile under PG").
+                Write-Log "Message RooSync consommé via canal PG (B14, pas de messageFile)" "DEBUG"
+            }
+            elseif ($Task.messageFile -and (Test-Path $Task.messageFile)) {
                 try {
                     $Message = Get-Content $Task.messageFile -Raw | ConvertFrom-Json
                     $Message.status = "read"
@@ -1429,21 +1534,32 @@ function Test-RooSyncResponse {
     #>
     param([string]$TaskId, $WaitState)
 
-    $SharedPath = $env:ROOSYNC_SHARED_PATH
-    if (-not $SharedPath) { return $false }
-
-    $InboxPath = Join-Path $SharedPath "messages\inbox"
-    if (-not (Test-Path $InboxPath)) { return $false }
-
     try {
         $SavedTimestamp = ConvertTo-UtcDateTime $WaitState.timestamp
         if ($null -eq $SavedTimestamp) { return $false }
         $MachineId = $env:COMPUTERNAME.ToLower()
 
-        # Lire messages inbox pour cette machine
-        $Messages = Get-ChildItem $InboxPath -Filter "*.json" | ForEach-Object {
-            try { Get-Content $_.FullName -Raw | ConvertFrom-Json } catch { $null }
-        } | Where-Object { $_ -ne $null }
+        # B14 (#4131) : même aiguillage que Get-RooSyncTask — PG d'abord
+        # (exit 0 = PG fait foi, même vide), chemin fichiers seulement si le
+        # canal n'est pas en lecture PG. Même prédicat sur les deux sources.
+        $Messages = $null
+        $PgResult = Get-RooSyncInboxMessages -MachineId $MachineId
+        if ($null -ne $PgResult) {
+            $Messages = @($PgResult.messages | Where-Object { $null -ne $_ })
+        }
+
+        if ($null -eq $Messages) {
+            $SharedPath = $env:ROOSYNC_SHARED_PATH
+            if (-not $SharedPath) { return $false }
+
+            $InboxPath = Join-Path $SharedPath "messages\inbox"
+            if (-not (Test-Path $InboxPath)) { return $false }
+
+            # Lire messages inbox pour cette machine
+            $Messages = Get-ChildItem $InboxPath -Filter "*.json" | ForEach-Object {
+                try { Get-Content $_.FullName -Raw | ConvertFrom-Json } catch { $null }
+            } | Where-Object { $_ -ne $null }
+        }
 
         # Chercher réponses après le timestamp
         foreach ($Message in $Messages) {
