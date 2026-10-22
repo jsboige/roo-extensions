@@ -432,14 +432,14 @@ function Get-RooSyncInboxMessages {
 
     $PrevPref = $ErrorActionPreference
     try {
-        # PS 5.1 : stderr natif + redirection sous EAP=Stop (script L69) lève
-        # NativeCommandError TERMINANTE — même remède que le send CLI (L4619) :
-        # relâcher EAP le temps de l'appel natif. Args en tableau (pas de shell
-        # intermédiaire) : pas de hazard de quoting, et résout node sur PATH
-        # sous Windows comme sous Linux. 2>&1 fusionne ; le JSON du CLI est la
-        # DERNIÈRE ligne non vide, un warning node ne corrompt pas le parse.
+        # #3731 : une redirection stderr PS-level sur une commande native
+        # minte des ErrorRecords (TERMINANTS sous EAP=Stop en 5.1) — le merge
+        # se fait à la couche cmd.exe, même forme que le send CLI (L4619) ;
+        # garde drift : scw-*-stderr-class.Tests.ps1. Le JSON du CLI est la
+        # DERNIÈRE ligne non vide du flux fusionné, un warning node ne
+        # corrompt pas le parse. EAP relâchée en ceinture (parité send).
         $ErrorActionPreference = "Continue"
-        $output = (& node $CliPath --machine $MachineId 2>&1 | ForEach-Object { "$_" }) -join [Environment]::NewLine
+        $output = (& cmd /c "node ""$CliPath"" --machine $MachineId 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
         $exit = $LASTEXITCODE
     }
     catch {

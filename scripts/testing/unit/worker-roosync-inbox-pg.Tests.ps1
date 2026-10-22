@@ -19,7 +19,8 @@
     script entier — convention worker-resume-prompt.Tests.ps1). Le seam
     Get-RooSyncInboxMessages est stubbé pour les tests d'aiguillage, puis
     testé POUR VRAI avec un faux `node` sur PATH (node.cmd sous Windows,
-    script sh sous Linux CI) — aucun PG réel requis.
+    script sh + shim `cmd` sous Linux CI — l'invocation du helper passe
+    par la couche cmd.exe, convention #3731) — aucun PG réel requis.
 
     Portabilité CI Linux : la machine du runner est inconnue à l'avance —
     chaque fixture adresse $script:MACHINE (ou 'all'), et les répertoires
@@ -82,11 +83,17 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
         }
 
         # --- Machine du runner + fixtures chemin fichiers (legacy) ---
+        # Test-RooSyncResponse derive la machine EN INTERNE
+        # ($env:COMPUTERNAME.ToLower()) : sur Linux CI la variable est absente
+        # et .ToLower() sur $null plante dans le catch. On fixe une machine
+        # synthetique pour tout le Describe — deterministe sur les deux OS.
+        $script:OrigComputerName = $env:COMPUTERNAME
+        $env:COMPUTERNAME = 'CI-B14-MACHINE'
         # Le calcul du chemin inbox doit rester IDENTIQUE a celui du worker
         # (litteral 'messages\inbox' via Join-Path) — sous Linux CI, ce
         # litteral est un segment unique : le fixture doit le construire par
         # le meme Join-Path, pas par un chemin re-orthographie.
-        $script:MACHINE = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+        $script:MACHINE = 'ci-b14-machine'
         $script:FileRoot = Join-Path ([System.IO.Path]::GetTempPath()) "b14-inbox-tests-$(Get-Random)"
         $script:InboxDir = Join-Path $FileRoot 'messages\inbox'
         New-Item -ItemType Directory -Force -Path $script:InboxDir | Out-Null
@@ -110,6 +117,11 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
         Remove-Item $script:FileRoot -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item Env:\ROOSYNC_SHARED_PATH -ErrorAction SilentlyContinue
         Remove-Item Function:\global:Write-Log -ErrorAction SilentlyContinue
+        if ($null -ne $script:OrigComputerName) {
+            $env:COMPUTERNAME = $script:OrigComputerName
+        } else {
+            Remove-Item Env:\COMPUTERNAME -ErrorAction SilentlyContinue
+        }
     }
 
     It 'Parse le worker sans erreur de syntaxe' {
@@ -231,8 +243,11 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
             }, $true) | Select-Object -First 1
             . ([scriptblock]::Create($fn.Extent.Text))
 
-            # Faux node cross-plateforme : node.cmd (Windows) + node (sh, Linux).
-            # Les payloads canned ne contiennent aucun caractere special cmd (%^&|<>^).
+            # Faux node cross-plateforme : node.cmd (Windows, resolu par cmd.exe
+            # via PATHEXT) + node sh (Linux CI). Le discriminant de plateforme
+            # est $env:OS, PAS COMPUTERNAME (force a CI-B14-MACHINE par le
+            # Describe). Les payloads canned ne contiennent aucun caractere
+            # special cmd (%^&|<>).
             $script:FakeBin = Join-Path ([System.IO.Path]::GetTempPath()) "b14-fake-node-$(Get-Random)"
             New-Item -ItemType Directory -Force -Path $script:FakeBin | Out-Null
             $script:Json = '{"source":"pg","messages":[{"id":"msg-pg-1","from":"myia-ai-01:roo-extensions","to":"myia-po-203","subject":"[TASK] depuis pg","body":"corps pg","priority":"HIGH","status":"unread","timestamp":"2026-10-22T12:00:00Z"}]}'
@@ -249,12 +264,13 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
 
             # Helper d'ecriture du faux node — DANS BeforeAll : Pester v6
             # n'expose pas aux It les fonctions definies au niveau Context.
-            # UNE SEULE variante par plateforme : sous Windows, un fichier sh
-            # sans extension dans le meme dossier serait resolu AVANT node.cmd
-            # par `& node` et echouerait a l'execution (pas un executable PE).
+            # Sous Linux CI, le helper route par `cmd /c "node ... 2>&1"`
+            # (#3731) : cmd n'existe pas — un shim deguise sh en cmd (shift
+            # sur /c, exec du reste) pour que la couche cmd reste executable
+            # et testee sur les deux OS.
             function Set-FakeNode {
                 param([string]$PayloadLine, [int]$ExitCode)
-                if ($env:COMPUTERNAME) {
+                if ($env:OS -eq 'Windows_NT') {
                     Set-Content -Path (Join-Path $script:FakeBin 'node.cmd') `
                         -Value "@echo off`r`necho $PayloadLine`r`nexit /b $ExitCode" -Encoding ascii
                 }
@@ -262,6 +278,9 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
                     Set-Content -Path (Join-Path $script:FakeBin 'node') `
                         -Value "#!/bin/sh`necho '$PayloadLine'`nexit $ExitCode" -Encoding ascii
                     & chmod +x (Join-Path $script:FakeBin 'node')
+                    Set-Content -Path (Join-Path $script:FakeBin 'cmd') `
+                        -Value "#!/bin/sh`nshift`nexec sh -c `"`$*`"" -Encoding ascii
+                    & chmod +x (Join-Path $script:FakeBin 'cmd')
                 }
             }
         }
