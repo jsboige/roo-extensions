@@ -108,7 +108,7 @@ CLAIM_STALE_THRESHOLD_H = 24.0
 # RESULT = rapport de livraison, RELEASED = verrou leve apres merge. Le picker
 # resservait a une lane son propre grain deja livre (2 lanes touchees le 21/10 :
 # #2767/#4287 po-2027, #4286 po-2023).
-OWN_SERVED_MARKERS = {"RESULT", "RELEASED"}
+OWN_SERVED_MARKERS = {"RESULT", "RELEASED", "DONE", "DELIVERED"}
 
 
 class GhCommandError(RuntimeError):
@@ -316,40 +316,52 @@ def own_served_no_followup(comments: list, own_lane: str) -> bool:
     """MA lane a-t-elle livre ce grain sans qu'un autre acteur revienne depuis ?
 
     Friction OWN_CLAIM (dispatch ai01-c34) : le claim de SA lane ne bloque
-    jamais (reprise legitime, #4114) - mais un grain dont le dernier marqueur
-    RESULT/RELEASED est celui de MA lane, sans commentaire d'un autre acteur
-    depuis, est un grain DEJA SERVI par nous : le re-prendre refait le travail.
-    Les commentaires viennent du fetch_issue DEJA fait par check_candidate
-    (zero appel API supplementaire) ; la lecture reutilise scan_comment_events
-    et _same_lane du guard (ADR 017, identite lane #4114).
+    jamais (reprise legitime, #4114) - mais un grain dont le DERNIER evenement
+    significatif est une livraison de MA lane est un grain DEJA SERVI par
+    nous : le re-prendre refait le travail. Les commentaires viennent du
+    fetch_issue DEJA fait par check_candidate (zero appel API supplementaire) ;
+    la lecture reutilise scan_comment_events et _same_lane du guard
+    (ADR 017, identite lane #4114).
 
-    "Autre acteur" : un commentaire dont AUCUN marqueur ne porte notre lane
-    (bot checklist, coordinateur, autre lane - les commentaires de lane
-    commencent toujours par un marqueur reconnu). Le moindre d'entre eux
-    apres notre livraison rouvre le grain.
+    Fold chronologique ligne-par-ligne sur TOUS les marqueurs (review #4313) :
+      - marqueur servi de MA lane (RESULT/RELEASED/DONE/DELIVERED) -> servi ;
+      - [CLAIMED] de MA lane posterieur -> rouvre (re-prise legitime, y compris
+        le hold du worker #4314 `[RESULT]...FAIL` + `[CLAIMED] -- held:` dans
+        le MEME commentaire : le CLAIMED, plus bas dans le corps, gagne) ;
+      - marqueur portant une AUTRE lane -> rouvre (quel que soit le marqueur :
+        re-engagement exterieur, le signal qui rouvre le grain) ;
+      - commentaire SANS marqueur, ou marqueur sans lane -> NEUTRE.
+
+    TRADE-OFF (remede NanoClaw, fil #4286) : un addendum sans marqueur de la
+    lane elle-meme ne rouvre plus ; un humain qui commente sans marqueur ne
+    rouvre plus non plus - seul un marqueur d'une autre lane rouvre. L'ancien
+    critere "tout commentaire sans notre lane = autre acteur" rendait LIBRE
+    le fil #4286 termine par l'addendum de sa propre lane.
     """
-    ordered = sorted(comments, key=lambda c: c.get("createdAt", ""))
-    served_idx = None
-    for idx, comment in enumerate(ordered):
+    events = []  # (kind, lane) dans l'ordre chrono du fil, ligne par ligne
+    for comment in sorted(comments, key=lambda c: c.get("createdAt", "")):
         for marker, lane, _line in check_issue_claim.scan_comment_events(
             comment.get("body", "")
         ):
-            if (
-                marker in OWN_SERVED_MARKERS
-                and lane is not None
-                and check_issue_claim._same_lane(lane, own_lane)
-            ):
-                served_idx = idx  # dernier marqueur de livraison de MA lane (chrono)
-    if served_idx is None:
-        return False
-    for comment in ordered[served_idx + 1:]:
-        events = check_issue_claim.scan_comment_events(comment.get("body", ""))
-        if not any(
-            lane is not None and check_issue_claim._same_lane(lane, own_lane)
-            for _marker, lane, _line in events
-        ):
-            return False  # un autre acteur est revenu apres notre livraison
-    return True
+            if lane is None:
+                continue  # marqueur sans lane : ni servi ni rouvrant
+            if marker in OWN_SERVED_MARKERS:
+                events.append(("served", lane))
+            elif marker == "CLAIMED":
+                events.append(("claim", lane))
+            else:
+                events.append(("other", lane))
+    served = False
+    for kind, lane in events:
+        if check_issue_claim._same_lane(lane, own_lane):
+            if kind == "served":
+                served = True  # notre livraison est le dernier evenement... pour l'instant
+            elif kind == "claim":
+                served = False  # notre re-claim rouvre (hold worker #4314)
+            # nos autres marqueurs (ACK, INFO, ...) : neutres
+        else:
+            served = False  # marqueur d'une autre lane : re-engagement exterieur
+    return served
 
 
 def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None) -> tuple:
