@@ -60,12 +60,22 @@ function resolveZoo() {
 }
 
 function launchConfig() {
-  if (SOURCE === 'claude') return resolveClaude();
-  if (SOURCE === 'zoo') return resolveZoo();
-  const command = opt('command');
-  if (!command) throw new Error('--source=none exige --command=<exe>');
-  const args = argv.filter((a) => a.startsWith('--arg=')).map((a) => a.slice(6));
-  return { path: 'cli', command, args, cwd: opt('cwd') };
+  let cfg;
+  if (SOURCE === 'claude') cfg = resolveClaude();
+  else if (SOURCE === 'zoo') cfg = resolveZoo();
+  else {
+    const command = opt('command');
+    if (!command) throw new Error('--source=none exige --command=<exe>');
+    const args = argv.filter((a) => a.startsWith('--arg=')).map((a) => a.slice(6));
+    cfg = { path: 'cli', command, args, cwd: opt('cwd') };
+  }
+  // Une entree http/sse (proxy) n'a pas de `command` : sans ce garde, spawn(undefined)
+  // rend une erreur Node brute au lieu de dire que le probe ne couvre que stdio.
+  if (!cfg.command) {
+    const kind = cfg.type || (cfg.url ? 'http' : 'inconnue');
+    throw new Error(`entree sk-agent non-stdio (type=${kind}) : ce probe ne couvre que stdio (il faut une entree avec "command")`);
+  }
+  return cfg;
 }
 
 function run(cfg) {
