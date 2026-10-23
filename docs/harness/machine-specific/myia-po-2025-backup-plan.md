@@ -33,9 +33,9 @@ F1, F4, F5 et F7 sont **propres à cette lane** — F7 partiellement : le réper
 
 **Cadence proposée** : T1 quotidien · T2 hebdomadaire · rétention 7 quotidiennes + 4 hebdomadaires, purge des plus anciennes au-delà.
 
-**Interdit** : F3 sur T2, et `D:\dev\backups` ne doit jamais être placé dans un dossier synchronisé.
+**Interdit** : `D:\dev\backups` ne doit jamais être placé dans un dossier synchronisé. **F3 sur T2 est autorisé depuis le 23/10** — décision user explicite (« secrets sur Drive partagé = décision user explicite », mandat backup du 23/10 ; un emplacement restreint reste possible sur proposition de lane). Le `.env` RSM du submodule est désormais capturé par l'organe mutualisé (§6) ; les **autres** secrets locaux restent hors-machine subordonnés à l'escrow chiffré.
 
-**Automatisation : non armée à ce stade** (aucune tâche `Claude-Backup-NonGit`). Voir §5 — l'écart est nommé, pas masqué.
+**Automatisation : organe mutualisé, cadence non encore armée** — premier run vérifié le 2026-10-23 (§6), tâche planifiée à armer au merge de l'organe (§5.4). L'écart est nommé, pas masqué.
 
 ---
 
@@ -95,7 +95,32 @@ powershell -ExecutionPolicy Bypass -File scripts\mcp\restore-mcp-env.ps1 -Verify
    - **Reste ouvert** : le `.env` du checkout, `.env.pre-vllm-rotation-20260930` et `stall-detector.env` n'ont **aucun** canal hors-machine — délibéré tant que l'escrow chiffré n'est pas tranché au niveau flotte. La copie locale protège d'un effacement accidentel, **pas** d'une mort de disque.
    - **Contexte flotte (RAPPORTÉ, non re-vérifié ici)** : le déclencheur de `backup-mcp-env.ps1` n'est branché nulle part, et le blob en clair sur le Drive est un design #2772 à re-qualifier par le pilote.
 3. **F5 (état Vibe/Zoo)** : canal à trancher par le pilote — arbitrer entre « régénérable, pas de copie » et « coûteux à reconstruire, copie hebdomadaire ».
-4. **Automatisation non armée.** Tant qu'aucune tâche ne capture, ce plan tient par des gestes manuels. À armer en tâche `Claude-Backup-NonGit` (`RunLevel=Limited`, non élevée) **dès que le pilote a fixé la convention flotte** — pour éviter sept conventions divergentes. Le nom du dossier hors-machine (`po2025-roo-extensions`) est une **proposition de lane**, à aligner sur cette convention.
+4. **Automatisation : organe mutualisé trouvé, tâche non armée.** La convention flotte a été fixée le 23/10 par `po-2027:roo-extensions` (`G:\...\RooSync\<lane>-backups\daily\`, rotation bornée + manifeste sha256 + garde anti-archive-vide) et livrée en **PR [#4328](https://github.com/jsboige/roo-extensions/pull/4328)** (`scripts/claude/backup-lane-essentials.ps1`, paramétrable). **Ce plan s'y aligne au lieu d'écrire un second organe.** Premier run vérifié le 23/10 (§6). Reste : armer `Claude-Backup-NonGit` (`RunLevel=Limited`, non élevée) appelant le chemin canonique — **au merge de #4328** (armer avant créerait une tâche pointant un fichier absent). Le dossier `po2025-roo-extensions` suit désormais cette convention.
 5. **Volet `.env` déjà couvert ailleurs** : la lane `po-2023:roo-extensions` a testé la restauration `.env` MCP par le script réel `restore-mcp-env.ps1` en bac à sable, et relevé deux écarts (aucun déclencheur branché sur `backup-mcp-env.ps1` ; blob offsite en clair sur GDrive). **Ne pas refaire** — à reprendre par le pilote.
 6. **Suivi (itération 4)** : ce document est relu à chaque test de restauration ; un test qui échoue **rouvre** le plan au lieu d'être contourné.
 7. **Correction assumée (itération 4, avant merge)** : la première rédaction ne connaissait que le répertoire lanceur `%LOCALAPPDATA%` (1 fichier). La vérification périmètre du 20/10 soir — déclenchée par l'incident GDriveFS du cycle (la tâche `GDriveFS-Watchdog` pointait elle-même dans `C:\ProgramData\claude-hidden-launchers\`) — a révélé que **3 des 7 tâches de la lane pointent dans ce second répertoire**, absent de l'inventaire initial : sans la correction, la restauration de F4 aurait laissé DashboardListener, MetaAudit et Vibe-Worker mortes au premier déclencheur. F7 couvre désormais les deux répertoires (test T5), et F4 précise son périmètre (7 des 19 tâches de la machine).
+
+---
+
+## 6. Itération 5 (2026-10-23) — organe mutualisé, premier run vérifié
+
+**Mandat :** user 23/10 soir (« Absolument tout doit être backupé sur GDrive […] **backup de ce qui compte** »), relayé par le siège `myia-ai-01:hermes-agent` le 23/10 22:58Z.
+
+**Organe :** `scripts/claude/backup-lane-essentials.ps1` — **PR [#4328](https://github.com/jsboige/roo-extensions/pull/4328)** (`po-2027:roo-extensions`), paramétrable (`-TargetRoot`, `-MemoryDir`, `-RsmEnvFile`, `-LocalNotes`, `-Keep`). Rotation sur fichiers nommés, manifeste sha256 par fichier, garde anti-archive-vide (<1 Ko / <3 fichiers — le piège mesuré du 23/10), `-WhatIf` propre, ne jamais imprimer de valeur secrète. **Aucun second organe écrit par cette lane.**
+
+**Premier run vérifié — 2026-10-23T23:22:25Z**
+
+| Mesure | Valeur |
+|---|---|
+| Cible | `G:\Mon Drive\Synchronisation\RooSync\po2025-roo-extensions-backups\daily\lane-essentials-20261023-232225.zip` |
+| Contenu | **99 entrées** — 97 fichiers de mémoire de lane (dont `_archives/`) + `CLAUDE.local.md` (1 237 o) + `rsm-server.env` (3 851 o) |
+| Taille / empreinte | **651 658 o** · sha256 `1A64B3C1FBFFD8E1…` — **relue indépendamment** (ouverture du zip), identique à la sortie du script |
+| Registres critiques présents | `MEMORY.md` 17 079 o · `user-question-registry.md` 35 595 o · `outcome-mandates.md` 23 255 o |
+| Dry-run préalable | `-WhatIf` exit 0 — 99 sources résolues, aucune écriture |
+| Rotation | keep 14, 0 élaguée (première archive) |
+
+**Couverture honnête de ce run** : F1 (mémoire de lane) ✅ · volet F3 `.env` RSM ✅ · notes locales ✅. **Non couvert par cet organe** : F4 (définitions de tâches, 11,8 Ko d'XML), F7 (lanceurs cachés — sans eux une tâche restaurée meurt au premier déclencheur), F5 (état Vibe), F2 (niveau machine, porté par la lane harnais). Ces familles restent sur les canaux T1/T2 du §2 : le backup n'est donc pas « complet », il est **borné et nommé**.
+
+**Cadence** : quotidienne visée (§2), **non armée** tant que #4328 n'est pas mergée (§5.4).
+
+**Note de méthode** : l'organe a été exécuté depuis le contenu de la branche de PR (lue intégralement avant exécution, `-WhatIf` d'abord), pour ne pas bloquer le premier run sur un merge. La bascule sur le chemin canonique se fera au merge.
