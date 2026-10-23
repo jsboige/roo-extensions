@@ -21,7 +21,10 @@
     The script runs as a subprocess with a controlled env, like
     check-all-listeners-fleet-alert-bump.Tests.ps1: replay mode needs no network and
     no dashboard (alerts are printed to stdout, the dashboard write is skipped for
-    replays by construction). One live smoke test hits 127.0.0.1 and only asserts
+    replays by construction). The subprocess helper drives whichever PowerShell is
+    present — powershell.exe 5.1 on the seats, pwsh in CI — so the guarded script is
+    exercised on both engines instead of being skipped where it cannot spawn 5.1.
+    One live smoke test hits 127.0.0.1 and only asserts
     the output SHAPE and that the exit code is in the documented set — loopback
     ports are not part of any acceptance criterion.
 
@@ -39,10 +42,31 @@ Describe 'classify-machine-usability (#4327)' {
         $script:Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("t4327-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
         New-Item -ItemType Directory -Path $script:Tmp -Force | Out-Null
 
+        # Engine choice: the production seats are Windows (5.1 via powershell.exe),
+        # but CI runs this suite on ubuntu under pwsh — where `powershell.exe`
+        # simply does not exist (measured: CommandNotFoundException on run
+        # 40039072379, all 8 cases red). Skipping on non-Windows would leave the
+        # guarded script unexercised, so the helper drives whichever engine is
+        # present: coverage over a green tick that asserts nothing.
+        # CLASSIFIER_PS_EXE forces an engine (used to reproduce CI locally).
+        $script:PsExe = if (-not [string]::IsNullOrEmpty($env:CLASSIFIER_PS_EXE)) {
+            $env:CLASSIFIER_PS_EXE
+        } elseif (Get-Command powershell.exe -ErrorAction SilentlyContinue) {
+            'powershell.exe'
+        } else {
+            'pwsh'
+        }
+        # -ExecutionPolicy is a Windows-only concern; pwsh on Linux has no such
+        # policy layer, so the flag is only passed to the 5.1 host.
+        $script:PsBase = @('-NoProfile')
+        if ([System.IO.Path]::GetFileNameWithoutExtension($script:PsExe) -eq 'powershell') {
+            $script:PsBase += @('-ExecutionPolicy', 'Bypass')
+        }
+
         # Runs the real script in a subprocess; returns stdout, stderr and exit code.
         function Invoke-Classifier {
             param([string[]]$Arguments = @())
-            $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:ClassifierPath @Arguments 2>&1
+            $out = & $script:PsExe @script:PsBase -File $script:ClassifierPath @Arguments 2>&1
             $code = $LASTEXITCODE
             return [PSCustomObject]@{ Output = ($out -join "`n"); ExitCode = $code }
         }

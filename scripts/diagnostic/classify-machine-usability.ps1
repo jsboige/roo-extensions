@@ -380,6 +380,20 @@ function New-LiveSample {
     }
 }
 
+function ConvertTo-UtcDateTime {
+    # ConvertFrom-Json renders an ISO-8601 string as a [DateTime] under pwsh 7 and
+    # leaves it a [string] under 5.1 — so the SAME replay file yields two types, and
+    # an unconditional [DateTimeOffset]::Parse() throws on one engine (measured:
+    # MethodInvocationException at the logonDeath line under pwsh 7, the delay
+    # silently lost while the rest of the verdict looked right). Accept all three
+    # shapes instead of assuming the seat's engine.
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [DateTimeOffset]) { return $Value.UtcDateTime }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    return [DateTimeOffset]::Parse([string]$Value, [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+}
+
 function Read-ReplaySamples {
     param([string]$Path)
     if (-not (Test-Path $Path)) { throw "Replay file not found: $Path" }
@@ -404,7 +418,7 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
         Write-Error $_.Exception.Message
         exit 3
     }
-    if ($null -ne $replay.logonDeathUtc) { $logonDeath = [DateTimeOffset]::Parse($replay.logonDeathUtc).UtcDateTime }
+    if ($null -ne $replay.logonDeathUtc) { $logonDeath = ConvertTo-UtcDateTime $replay.logonDeathUtc }
 
     foreach ($s in $replay.samples) {
         $drivingPort = if ($null -ne $s.drivingPort) { [int]$s.drivingPort } elseif ($DrivingPortByMachine.ContainsKey($s.machine)) { $DrivingPortByMachine[$s.machine] } else { $DefaultDrivingPort }
@@ -417,8 +431,8 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
         $r | Add-Member -NotePropertyName atUtc -NotePropertyValue $s.atUtc -Force
         $results += $r
 
-        if ($null -ne $logonDeath -and $null -eq $detectedAfterMinutes -and $r.verdict -eq 'reachable-but-unusable' -and -not [string]::IsNullOrEmpty($s.atUtc)) {
-            $at = [DateTimeOffset]::Parse($s.atUtc).UtcDateTime
+        if ($null -ne $logonDeath -and $null -eq $detectedAfterMinutes -and $r.verdict -eq 'reachable-but-unusable' -and $null -ne $s.atUtc) {
+            $at = ConvertTo-UtcDateTime $s.atUtc
             $detectedAfterMinutes = [math]::Round(($at - $logonDeath).TotalMinutes, 1)
         }
     }
