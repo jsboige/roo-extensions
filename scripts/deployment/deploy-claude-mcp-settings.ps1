@@ -154,6 +154,23 @@ if (Test-Path $SettingsPath) {
         $Changed = $true
     }
 
+    # MCP *startup* timeout (#3411). Distinct from MCP_TOOL_TIMEOUT above: this one bounds
+    # the initialize handshake. Unset -> Claude Code default 30s, while sk-agent cold start
+    # measures 10-15s standalone and exceeds 30s when several servers start at once -> the
+    # server is dropped with CONNECT_TIMEOUT at every session start (#4289). PROJECT_MEMORY
+    # documents 300000 for sk-agent; no deploy step ever wrote it, so the value only existed
+    # where someone set it by hand. Absent-only, like the window guard above: a machine that
+    # deliberately tuned its own value keeps it (WARN if lower than the documented floor).
+    if (-not $Settings.env.MCP_TIMEOUT) {
+        $Settings.env | Add-Member -NotePropertyName 'MCP_TIMEOUT' -NotePropertyValue "300000" -Force
+        Write-Host "[FIX] MCP_TIMEOUT absent -> set to 300000 in settings.json (#3411 sk-agent start)" -ForegroundColor Yellow
+        $Changed = $true
+    } elseif ([int64]$Settings.env.MCP_TIMEOUT -lt 300000) {
+        Write-Host "[WARN] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) < 300000 (documented sk-agent floor); preserved as configured" -ForegroundColor Yellow
+    } else {
+        Write-Host "[KEEP] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) (configured, preserved)" -ForegroundColor DarkGray
+    }
+
     if ($Changed) {
         $SettingsJson = $Settings | ConvertTo-Json -Depth 10
         [System.IO.File]::WriteAllText($SettingsPath, $SettingsJson, [System.Text.UTF8Encoding]::new($false))
