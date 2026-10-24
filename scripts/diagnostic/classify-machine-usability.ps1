@@ -589,8 +589,16 @@ function Read-SystemLogFacts {
     # means a healthy machine.
     param([string]$ComputerName, $Credential = $null, $ProbeTimeoutMs = 3000, [int]$WindowMinutes = 20)
 
-    $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4) -IdleTimeout ($ProbeTimeoutMs * 4)
-    $invokeArgs = @{ ComputerName = $ComputerName; SessionOption = $opts; ErrorAction = 'Stop' }
+    # New-PSSessionOption is resolved OUTSIDE any catch would be a silent death on a
+    # host that lacks the WSMan cmdlets (ci runs this suite on ubuntu, where the whole
+    # sweep once produced no output at all): a missing instrument must come back as
+    # ok=$false, never as a terminating error that kills the JSON.
+    try {
+        $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4) -IdleTimeout ($ProbeTimeoutMs * 4)
+        $invokeArgs = @{ ComputerName = $ComputerName; SessionOption = $opts; ErrorAction = 'Stop' }
+    } catch {
+        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @() }
+    }
     if ($null -ne $Credential) { $invokeArgs['Credential'] = $Credential }
 
     $bootBlock = {

@@ -442,6 +442,10 @@ Describe 'classify-machine-usability (#4327)' {
             # `-Machines a,b` under `powershell -File` arrives as ONE string (measured:
             # false `unreachable`, exit 1). Two loopback entries must yield two rows.
             $res = Invoke-Classifier -Arguments @('-Machines', '127.0.0.1,127.0.0.1', '-NoAlert', '-Json', '-ProbeTimeoutMs', '400')
+            # A live probe that prints nothing is not a "split" bug and not a pass: name
+            # the child's own words instead of letting ConvertFrom-Json fail on a blank
+            # line (the CI log otherwise says only "position 0").
+            $res.Output | Should -Not -BeNullOrEmpty -Because "the child produced no output at all (exit $($res.ExitCode))"
             $json = $res.Output | ConvertFrom-Json
             $json.machines.Count | Should -Be 2
             $json.machines[0].machine | Should -Be '127.0.0.1'
@@ -449,6 +453,7 @@ Describe 'classify-machine-usability (#4327)' {
 
         It 'produces a well-formed verdict for a live loopback probe (smoke, shape only)' {
             $res = Invoke-Classifier -Arguments @('-Machines', '127.0.0.1', '-NoAlert', '-Json', '-ProbeTimeoutMs', '400')
+            $res.Output | Should -Not -BeNullOrEmpty -Because "the child produced no output at all (exit $($res.ExitCode))"
             $json = $res.Output | ConvertFrom-Json
             @('healthy', 'unreachable', 'reachable-but-unusable') | Should -Contain $json.machines[0].verdict
             $json.thresholds.slowChannelMs | Should -Be 3000
