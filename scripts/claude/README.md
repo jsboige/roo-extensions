@@ -24,6 +24,22 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
     feature de l'ancien est byte-identique dans le canon ; blob conservé dans l'historique git).
     Garde : `scripts/testing/unit/deploy-global-config.Tests.ps1` (job CI `unit-pester`).
 
+### Disaster Recovery
+
+- **`backup-lane-essentials.ps1`** - Lane disaster-recovery backup to GDrive (mandate 2026-10-23)
+  - Usage: `scripts/claude/backup-lane-essentials.ps1 [-Keep 14] [-WhatIf]`
+  - Backs up lane memory dir + RSM server `.env` + `CLAUDE.local.md` (secrets on the shared
+    Drive = explicit user decision 2026-10-23) to `G:\...\RooSync\<lane>-backups\daily\`
+  - Timestamped zip, per-file sha256 manifest — one `manifest-<stamp>.txt` per archive (paired,
+    survives rotation) plus `latest-manifest.txt` convenience copy; bounded rotation (`-Keep`)
+    sorted by name (UTC stamp, immune to Drive re-sync mtime drift); empty-archive guard
+    (fail-loud — the 155-byte-archive trap measured 2026-10-23); never prints secret values
+  - Defaults = `myia-po-2027:roo-extensions`; other lanes override
+    `-TargetRoot/-MemoryDir/-RsmEnvFile/-LocalNotes`, plus:
+    `-LaneLabel 'CoursIA'` (manifest trace — a reusing lane is not roo-extensions),
+    `-Exclude @('*.bak-*')` (superseded local memory backups, 72% of web1's payload — pass `@()` to keep),
+    `-ExtraPath @('D:\repo\.secrets\master.env')` (extra files/dirs staged under `extras\`, fail-loud if missing)
+
 ### Provider Management
 
 - **`Switch-Provider.ps1`** - Switch between LLM providers and Claudish authentication contracts
