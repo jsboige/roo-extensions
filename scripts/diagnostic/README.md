@@ -85,7 +85,7 @@ python scripts/diagnostic/audit-stale-mcp-disables.py --selftest
 
 Vérification **lecture seule** du siège Claude Code de la machine contre le manifeste déclaratif `.claude/configs/fleet-manifest.json` (pattern source : devstack `pi-packages.json`). Le manifeste déclare l'état attendu (`required` / `allowed` / `retired`) ; le vérificateur lit les **trois emplacements** d'état MCP de `~/.claude.json` (#3137) — dont l'emplacement 3 `projects[<path>].disabledMcpServers`, qui **prime** sur l'activation. Complément de `audit-stale-mcp-disables.py` (qui audite les chemins fantômes en détail) : ici on compare à l'état attendu flotte, là-bas on détecte les résidus de déménagement.
 
-- **MANIFEST_UNKNOWN / MISSING_REQUIRED / REQUIRED_DISABLED / RETIRED_PRESENT** (exit 2) — la machine ou sa config vivante dévie du manifeste.
+- **MANIFEST_UNKNOWN / MISSING_REQUIRED / REQUIRED_DISABLED / RETIRED_PRESENT** (exit 2) — la machine ou sa config vivante dévie du manifeste. `required` est vérifié sur la **seule location 1** (user-scope, le contrat de `semantics.required`) — une install workspace-scope sous un autre projet ne le satisfait pas (#4336, réserve (A) de #4338) ; `retired`/`allowed` et les résidus restent mesurés sur l'union des locations 1+2.
 - **UNEXPECTED_SERVER / GHOST_DISABLE_PATH / DISABLE_OF_UNINSTALLED** (warns ; exit 2 avec `--strict`) — serveur hors inventaire, désactivations sous chemin disparu (#4195), désactivation résiduelle d'un serveur non installé.
 
 ```powershell
