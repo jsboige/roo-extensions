@@ -9,6 +9,7 @@ configs/
 ├── README.md                    # Ce fichier
 ├── user-global-claude.md        # Template pour ~/.claude/CLAUDE.md
 ├── settings.template.json       # Canon flotte ~/.claude/settings.json (merge, pas copie)
+├── fleet-manifest.json          # Etat MCP attendu par machine (verifie par scripts/diagnostic/verify-fleet-manifest.py, #2416)
 ├── agents/                      # Agents generiques (-> ~/.claude/agents/)
 │   ├── code-explorer.md
 │   ├── git-sync.md

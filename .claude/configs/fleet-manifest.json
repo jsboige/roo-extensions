@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "updated": "2026-10-24",
+  "source_issue": "https://github.com/jsboige/roo-extensions/issues/2416",
+  "scope": "Claude Code seat only (~/.claude.json). Roo/Zoo-side MCP config lives in %APPDATA% mcp_settings.json and is out of scope.",
+  "semantics": {
+    "required": "must be installed user-scope AND not disabled for the verified workspace (location 3 primes, #3137)",
+    "allowed": "optional; presence legitimate. Includes router/hub-injected remote MCPs (4_5v_mcp, web_reader) and activate-on-need servers (jupyter-papermill, harnais-tightening rule 2)",
+    "retired": "must not exist anywhere (#3423); names remain in the RSM RETIRED_MCP_NAMES guard",
+    "machine_override": "a list present at machine level REPLACES the fleet_common list (explicit over merged)"
+  },
+  "fleet_common": {
+    "required": ["roo-state-manager"],
+    "allowed": [
+      "google-workspace",
+      "playwright",
+      "searxng",
+      "sk-agent",
+      "jupyter-papermill",
+      "web_reader",
+      "4_5v_mcp"
+    ],
+    "retired": ["desktop-commander", "github-projects-mcp", "quickfiles"]
+  },
+  "machines": {
+    "myia-ai-01": {
+      "roles": ["coordinator"],
+      "verified": null,
+      "notes": "expected from tool-availability.md; not yet verified firsthand"
+    },
+    "myia-po-2023": {
+      "roles": ["executor"],
+      "verified": null,
+      "notes": "expected from tool-availability.md; not yet verified firsthand"
+    },
+    "myia-po-2024": {
+      "roles": ["executor"],
+      "verified": "2026-10-24",
+      "notes": "verified firsthand (user-scope: google-workspace, playwright, roo-state-manager, searxng, sk-agent). Known #4195 residue: ghost disables under pre-migration c:/dev/* paths"
+    },
+    "myia-po-2025": {
+      "roles": ["executor"],
+      "verified": null,
+      "notes": "expected from tool-availability.md; not yet verified firsthand"
+    },
+    "myia-po-2026": {
+      "roles": ["executor"],
+      "verified": null,
+      "notes": "expected from tool-availability.md; not yet verified firsthand"
+    },
+    "myia-po-2027": {
+      "roles": ["executor", "claude-only"],
+      "verified": null,
+      "notes": "Claude-only seat, portable; pwsh absent (#2368)"
+    },
+    "myia-web1": {
+      "roles": ["web"],
+      "verified": null,
+      "notes": "expected from tool-availability.md; not yet verified firsthand"
+    },
+    "myia-web2": {
+      "roles": ["web"],
+      "verified": null,
+      "notes": "post-CLAUDE.md roster addition (active on dashboards since at least 2026-10); roster reconciliation in flight (#4258)"
+    }
+  }
+}
