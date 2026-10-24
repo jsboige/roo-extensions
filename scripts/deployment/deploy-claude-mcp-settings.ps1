@@ -123,11 +123,18 @@ if (Test-Path $SettingsPath) {
     # Guard: preserve a deliberate HIGHER threshold (e.g. ai-01 user override =99, 2026-06-01).
     # 90 is the fleet default; >=90 means "compact later" = always safe. Only correct a
     # missing value or a dangerously-low one (<90, e.g. the 50/75 that caused boucle #502).
+    # A non-numeric value (e.g. "90%" typed by hand) can be neither classified nor trusted:
+    # warn and preserve -- the old [int] cast threw under $ErrorActionPreference=Stop and
+    # aborted the whole run BEFORE the window/MCP_TOOL_TIMEOUT/MCP_TIMEOUT fixes below
+    # (same class as the MCP_TIMEOUT floor guard; Hermes review of #4331).
     $currentPct = $Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
-    if (-not $currentPct -or ([int]$currentPct) -lt 90) {
+    $pctParsed = [int]0
+    if (-not $currentPct -or ([int]::TryParse([string]$currentPct, [ref]$pctParsed) -and $pctParsed -lt 90)) {
         $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "90" -Force
         Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 90 in settings.json (#2173)" -ForegroundColor Yellow
         $Changed = $true
+    } elseif ($currentPct -and -not [int]::TryParse([string]$currentPct, [ref]$pctParsed)) {
+        Write-Host "[WARN] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $currentPct non-numeric; preserved as configured" -ForegroundColor Yellow
     }
     # Guard: fill an ABSENT window only -- never rewrite a configured one.
     # This guard used to be asymmetric with the threshold guard above: the threshold was
@@ -156,8 +163,9 @@ if (Test-Path $SettingsPath) {
 
     # MCP *startup* timeout (#3411). Distinct from MCP_TOOL_TIMEOUT above: this one bounds
     # the initialize handshake. Unset -> Claude Code default 30s, while sk-agent cold start
-    # measures 10-15s standalone and exceeds 30s when several servers start at once -> the
-    # server is dropped with CONNECT_TIMEOUT at every session start (#4289). PROJECT_MEMORY
+    # measures 10-28 s across the fleet (po-2024 10.4 s, web1 13.0-23.8 s, web2 28.2 s) and
+    # exceeds 30 s when several servers start at once -> the server is dropped with
+    # CONNECT_TIMEOUT at every session start (#4289). PROJECT_MEMORY
     # documents 300000 for sk-agent; no deploy step ever wrote it, so the value only existed
     # where someone set it by hand. Absent-only, like the window guard above: a machine that
     # deliberately tuned its own value keeps it (WARN if lower than the documented floor).
@@ -165,10 +173,19 @@ if (Test-Path $SettingsPath) {
         $Settings.env | Add-Member -NotePropertyName 'MCP_TIMEOUT' -NotePropertyValue "300000" -Force
         Write-Host "[FIX] MCP_TIMEOUT absent -> set to 300000 in settings.json (#3411 sk-agent start)" -ForegroundColor Yellow
         $Changed = $true
-    } elseif ([int64]$Settings.env.MCP_TIMEOUT -lt 300000) {
-        Write-Host "[WARN] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) < 300000 (documented sk-agent floor); preserved as configured" -ForegroundColor Yellow
     } else {
-        Write-Host "[KEEP] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) (configured, preserved)" -ForegroundColor DarkGray
+        # #3411 follow-up (web1 review): a non-numeric value ("5m", "300s", a
+        # hand-mangled entry) must NOT throw here — under
+        # $ErrorActionPreference = 'Stop' that aborted the WHOLE deployment, and
+        # the PCT/WINDOW/MCP_TOOL_TIMEOUT fixes of the same run were lost over a
+        # cosmetic line. Unparsable is treated like "below floor": warn and keep
+        # the machine's value.
+        $ConfiguredTimeout = [int64]0
+        if ([int64]::TryParse([string]$Settings.env.MCP_TIMEOUT, [ref]$ConfiguredTimeout) -and $ConfiguredTimeout -ge 300000) {
+            Write-Host "[KEEP] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) (configured, preserved)" -ForegroundColor DarkGray
+        } else {
+            Write-Host "[WARN] MCP_TIMEOUT = $($Settings.env.MCP_TIMEOUT) < 300000 or non-numeric (documented sk-agent floor); preserved as configured" -ForegroundColor Yellow
+        }
     }
 
     if ($Changed) {

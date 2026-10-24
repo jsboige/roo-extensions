@@ -125,6 +125,20 @@ function run(cfg) {
     }
   });
 
+  // #3411 follow-up (web1 review): a server that dies mid-handshake used to
+  // leave the pending request waiting for the full timeout (180 s by default) —
+  // the probe exists to diagnose a broken server, so fail fast and say why.
+  // stdin EPIPE (a write after the child is gone) is swallowed for the same
+  // reason: the exit handler below already reports the real failure.
+  child.on('exit', (code, signal) => {
+    for (const [id, w] of waiters.entries()) {
+      clearTimeout(w.timer);
+      w.reject(new Error(`child exited (code=${code}${signal ? `, signal=${signal}` : ''}) avant la reponse a la requete #${id}`));
+    }
+    waiters.clear();
+  });
+  child.stdin.on('error', () => {});
+
   let nextId = 1;
   const request = (method, params = {}, ms = TIMEOUT_MS) =>
     new Promise((resolve, reject) => {
@@ -133,7 +147,7 @@ function run(cfg) {
         waiters.delete(id);
         reject(new Error(`${method}: timeout apres ${ms} ms`));
       }, ms);
-      waiters.set(id, { resolve, timer });
+      waiters.set(id, { resolve, reject, timer });
       child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
     });
 
@@ -221,7 +235,11 @@ function run(cfg) {
       report.stderr_tail = stderr.slice(-4000);
       report.total_ms = Date.now() - t0;
       console.log(JSON.stringify(report, null, 2));
-      process.exit(report.failed ? 1 : 0);
+      // #3411 follow-up (web1 review): stdout is asynchronous when piped on
+      // Windows, so process.exit() right after a large report can truncate it.
+      // Set the code and let the process end naturally — the child has already
+      // exited and its stdin was closed above, so nothing keeps the loop alive.
+      process.exitCode = report.failed ? 1 : 0;
     }
   })();
 }
