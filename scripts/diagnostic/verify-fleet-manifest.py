@@ -16,12 +16,19 @@ Checks the three MCP state locations of ~/.claude.json (#3137):
 
 Findings:
   MANIFEST_UNKNOWN       (error)  machine not described in the manifest
-  MISSING_REQUIRED       (error)  required server absent from the installed set
+  MISSING_REQUIRED       (error)  required server absent from USER-SCOPE installs
+                                  (location 1 — the contract of semantics.required;
+                                  a workspace-scoped install under another project
+                                  does not satisfy it, reserve (A) of PR #4338)
   REQUIRED_DISABLED      (error)  required server disabled for the verified workspace
   RETIRED_PRESENT        (error)  retired server present (installed anywhere)
   UNEXPECTED_SERVER      (warn)   installed server unknown to the manifest
   GHOST_DISABLE_PATH     (warn)   disables under a path that no longer exists (#4195)
   DISABLE_OF_UNINSTALLED (warn)   disable naming a server absent from installs
+
+`required` is checked against location 1 only; `retired`/`allowed` (hence
+UNEXPECTED_SERVER) and the residue disable check scan the union of locations
+1 and 2 — a server installed workspace-scope is "present" for those classes.
 
 Only server NAMES and booleans are ever printed — no config values.
 
@@ -94,9 +101,13 @@ def parse_disables(entry):
 def scan_config(cfg, workspace_norm):
     """Extract effective MCP state from a parsed ~/.claude.json.
 
-    Returns (installs, workspace_disables, ghost_disable_paths, disables_of_uninstalled).
+    Returns (installs, workspace_disables, ghost_disable_paths,
+    disables_of_uninstalled, user_installs). `installs` is the union of
+    locations 1 and 2; `user_installs` is location 1 alone — the set
+    semantics.required is checked against (PR #4338 reserve (A)).
     """
-    installs = set(cfg.get("mcpServers", {}).keys())
+    user_installs = set(cfg.get("mcpServers", {}).keys())
+    installs = set(user_installs)
     workspace_disables = set()
     ghost_paths = []
     all_disables = set()
@@ -114,7 +125,7 @@ def scan_config(cfg, workspace_norm):
             workspace_disables = set(dis)
 
     disables_of_uninstalled = sorted(all_disables - installs)
-    return installs, workspace_disables, ghost_paths, disables_of_uninstalled
+    return installs, workspace_disables, ghost_paths, disables_of_uninstalled, user_installs
 
 
 def verify(cfg, manifest, machine, workspace_norm, strict=False):
@@ -132,13 +143,18 @@ def verify(cfg, manifest, machine, workspace_norm, strict=False):
         return findings
 
     exp = resolve_expectations(manifest, entry)
-    installs, ws_disables, ghosts, stale_dis = scan_config(cfg, workspace_norm)
+    installs, ws_disables, ghosts, stale_dis, user_installs = scan_config(cfg, workspace_norm)
 
+    # `required` is checked against location 1 alone (semantics.required:
+    # "must be installed user-scope") — a workspace-scoped install under
+    # another project used to satisfy this via the union and under-report
+    # in silence (PR #4338 reserve (A), demonstrated by execution).
     for name in exp["required"]:
-        if name not in installs:
-            add("MISSING_REQUIRED", "error", f"required server '{name}' not installed")
+        if name not in user_installs:
+            add("MISSING_REQUIRED", "error",
+                f"required server '{name}' not installed user-scope (location 1)")
     for name in exp["required"]:
-        if name in installs and name in ws_disables:
+        if name in user_installs and name in ws_disables:
             add("REQUIRED_DISABLED", "error",
                 f"required server '{name}' disabled for workspace (location 3 primes, #3137)")
     for name in exp["retired"]:
@@ -178,7 +194,11 @@ def selftest():
         },
         "machines": {
             "myia-test": {"roles": ["executor"]},
-            "myia-override": {"allowed": ["searxng", "extra-one"]},
+            # override OMITS the fleet-allowed "searxng" on purpose: with the
+            # fleet member installed, REPLACE must flag it UNEXPECTED_SERVER
+            # while MERGE would stay clean — the fixture discriminates the
+            # two semantics (PR #4338 reserve (B)).
+            "myia-override": {"allowed": ["extra-one"]},
         },
     }
     with tempfile.TemporaryDirectory() as tmp:
@@ -210,7 +230,15 @@ def selftest():
             ("machine-override-replaces-allowed",
              {"mcpServers": {"roo-state-manager": {}, "extra-one": {}, "searxng": {}}, "projects": {}},
              "myia-override", live_ws, False,
-             []),
+             ["UNEXPECTED_SERVER"]),
+            # reserve (A): roo-state-manager installed ONLY workspace-scope
+            # under another project — the union used to satisfy required and
+            # this exited CLEAN; the contract is location 1.
+            ("required-userscope-only (reserve A)",
+             {"mcpServers": {},
+              "projects": {"D:/some/other/repo": {"mcpServers": {"roo-state-manager": {}}}}},
+             "myia-test", live_ws, False,
+             ["MISSING_REQUIRED"]),
             ("unknown-machine",
              {"mcpServers": {"roo-state-manager": {}}, "projects": {}},
              "someone-else", live_ws, False,
