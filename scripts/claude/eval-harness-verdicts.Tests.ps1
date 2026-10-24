@@ -161,8 +161,112 @@ Describe 'Get-EvalHarnessScenarioResults — le storm guard ne doit pas lire com
     }
 }
 
-Describe 'câblage du wrapper (statique)' {
+Describe 'Get-EvalHarnessScenarioResults — un verdict de rubric FAIL dans un test vert ne doit pas lire comme PASS' {
+    # Régression gardée ici (mesurée 2026-10-24 sur ai-01) : les tests eval golden CALCULENT
+    # leurs checks d'exploitabilité et loguent `[<tool>] verdict=FAIL`, mais n'assertent que
+    # la présence — vitest imprime donc le marqueur vert. Le classifieur lisait ce marqueur
+    # seul et publiait « 7 PASS / 0 FAIL » alors que le log gardé disait
+    # `[codebase_search] verdict=FAIL` (snippet 54 < 80) depuis quatre jours.
 
+    It 'verdict=FAIL logué sous un test vert classe le scénario FAIL et fait échouer le run' {
+        $marker = [string][char]0x2713
+        $lines = @(
+            'stdout | tests/eval-harness/tools/codebase-search.eval.test.ts > presence: status=success'
+            '[codebase_search] verdict=FAIL latency=13543ms'
+            '  [FAIL] results[0].snippet.length >= 80 -> 54'
+            ''
+            " $marker tests/eval-harness/tools/codebase-search.eval.test.ts (1 test) 13548ms"
+        )
+        foreach ($f in @('roosync-search.eval.test.ts', 'conversation-browser.eval.test.ts', 'v2-block-granularity.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        @($r.Scenarios | Where-Object { $_.File -eq 'codebase-search.eval.test.ts' }).Verdict | Should -Be 'FAIL'
+        $r.FailCount | Should -Be 1
+        $r.PassCount | Should -Be 3
+        Get-RunSuccess -Result $r | Should -BeFalse
+    }
+
+    It 'attribue le verdict du tool au fichier de son entête (pas aux autres scénarios)' {
+        $marker = [string][char]0x2713
+        $lines = @(
+            'stdout | tests/eval-harness/tools/v2-block-granularity.eval.test.ts > case'
+            '[codebase_search] verdict=FAIL latency=100ms'
+            ''
+            " $marker tests/eval-harness/tools/v2-block-granularity.eval.test.ts (1 test) 100ms"
+        )
+        foreach ($f in @('roosync-search.eval.test.ts', 'codebase-search.eval.test.ts', 'conversation-browser.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        @($r.Scenarios | Where-Object { $_.File -eq 'v2-block-granularity.eval.test.ts' }).Verdict | Should -Be 'FAIL'
+        @($r.Scenarios | Where-Object { $_.File -eq 'codebase-search.eval.test.ts' }).Verdict | Should -Be 'PASS'
+    }
+
+    It 'un verdict=FAIL n_est jamais rétrogradé par un verdict=PASS ultérieur du même fichier' {
+        $marker = [string][char]0x2713
+        $lines = @(
+            'stdout | tests/eval-harness/tools/roosync-search.eval.test.ts > case'
+            '[roosync_search] verdict=FAIL latency=100ms'
+            '[roosync_search] verdict=PASS latency=200ms'
+            ''
+            " $marker tests/eval-harness/tools/roosync-search.eval.test.ts (1 test) 200ms"
+        )
+        foreach ($f in @('codebase-search.eval.test.ts', 'conversation-browser.eval.test.ts', 'v2-block-granularity.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        @($r.Scenarios | Where-Object { $_.File -eq 'roosync-search.eval.test.ts' }).Verdict | Should -Be 'FAIL'
+    }
+
+    It 'un marqueur tool-level INCONCLUSIVE: (forme non standard) classe INCONCLUSIVE, pas PASS' {
+        # Forme réelle du test conversation-browser : checks FAIL (0 conversation) puis
+        # déclaration d'environnement par le test lui-même.
+        $marker = [string][char]0x2713
+        $lines = @(
+            'stdout | tests/eval-harness/tools/conversation-browser.eval.test.ts > case'
+            '[conversation_browser] verdict=FAIL latency=30000ms'
+            '  [FAIL] conversations.length > 0 -> 0'
+            '[conversation_browser] INCONCLUSIVE: 0 conversations returned - no local Roo data matching roosync'
+            ''
+            " $marker tests/eval-harness/tools/conversation-browser.eval.test.ts (1 test) 34002ms"
+        )
+        foreach ($f in @('roosync-search.eval.test.ts', 'codebase-search.eval.test.ts', 'v2-block-granularity.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        @($r.Scenarios | Where-Object { $_.File -eq 'conversation-browser.eval.test.ts' }).Verdict | Should -Be 'INCONCLUSIVE'
+        $r.InconclusiveCount | Should -Be 1
+        $r.FailCount | Should -Be 0
+    }
+
+    It 'un verdict=PASS du tool sur un test vert reste PASS (aucun rouge fabriqué)' {
+        $lines = @(
+            'stdout | tests/eval-harness/tools/roosync-search.eval.test.ts > case'
+            '[roosync_search] verdict=PASS latency=410ms'
+            ''
+        )
+        $lines += (New-EvalLogLine -File 'roosync-search.eval.test.ts' -Kind 'pass')
+        foreach ($f in @('codebase-search.eval.test.ts', 'conversation-browser.eval.test.ts', 'v2-block-granularity.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        $r.PassCount | Should -Be 4
+        Get-RunSuccess -Result $r | Should -BeTrue
+    }
+}
+
+Describe 'câblage du wrapper (statique)' {
     It 'run-eval-harness.ps1 dot-source le classifieur et l_utilise pour le résumé et l_exit' {
         $src = Get-Content -Path $script:WrapperPath -Raw -Encoding UTF8
 

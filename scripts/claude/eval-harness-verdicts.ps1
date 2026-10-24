@@ -14,6 +14,13 @@
     marker is the only in-log witness of the no-measurement state, and the
     `stdout | tests/eval-harness/tools/<file> > ...` header above it names the file.
 
+    SECOND false-green, measured 2026-10-24: a scenario whose rubric FAILED still prints the
+    vitest pass marker, because the golden eval tests assert presence only while computing
+    their exploitability checks into `[<tool>] verdict=...`. The kept log said
+    `[codebase_search] verdict=FAIL` (snippet 54 chars < 80) four days straight while every
+    summary read PASS. The per-file tool verdict line is therefore read too, and a FAIL is
+    never downgraded by the marker.
+
     ASCII-only on purpose: PowerShell 5.1 decodes a BOM-less .ps1 as cp1252, so a literal
     check mark in the source would not match the UTF-8 log line it is meant to find. The
     marker is built from its code point instead.
@@ -48,16 +55,49 @@ function Get-EvalHarnessScenarioResults {
 
     $passMarker = [string][char]0x2713
 
-    # ---- Pass 1: attribute each storm-guard marker to the file named by the nearest
+    # ---- Pass 1: attribute each in-test marker to the file named by the nearest
     # preceding vitest stream header. Attribution matters: a run-level "some scenario was
     # inconclusive" would mislabel every healthy scenario as unmeasured.
+    #
+    # Three marker shapes are read, all under that header:
+    #   [INCONCLUSIVE] ...                       (storm guard short-circuit)
+    #   [<tool>] verdict=PASS|FAIL latency=..    (the test's own rubric verdict)
+    #   [<tool>] INCONCLUSIVE: ...               (test-declared environment state)
+    #
+    # WHY the tool verdict line matters (measured 2026-10-24 on ai-01): the eval tests
+    # COMPUTE their rubric checks and log `verdict=FAIL`, but only assert presence
+    # (no-throw, status=success, results>0). Vitest therefore prints the pass marker for a
+    # scenario whose exploitability rubric failed -- and a classifier reading the marker
+    # alone published "7 PASS / 0 FAIL" while the kept log said
+    # `[codebase_search] verdict=FAIL` four days straight (snippet 54 chars < 80), and
+    # `[conversation_browser] verdict=FAIL` (0 conversations). That is the same false-green
+    # class as the storm guard this module already guards (#637: green tests, engine OFF).
     $inconclusiveByFile = @{}
+    $toolVerdictByFile = @{}
     $ctxFile = $null
     foreach ($ln in $LogLines) {
         if ($ln -match '^(?:stdout|stderr) \|\s*tests/eval-harness/tools/([^\s>]+)') {
             $ctxFile = $Matches[1]
         }
-        elseif ($null -ne $ctxFile -and $ln -match '^\[INCONCLUSIVE\]\s*(.*)$') {
+        elseif ($null -eq $ctxFile) {
+            continue
+        }
+        elseif ($ln -match '^\[INCONCLUSIVE\]\s*(.*)$') {
+            if (-not $inconclusiveByFile.ContainsKey($ctxFile)) {
+                $inconclusiveByFile[$ctxFile] = $Matches[1].Trim()
+            }
+        }
+        elseif ($ln -match '^\[[^\]]+\]\s+(?:target=\S+ \(\d+ msgs\) )?verdict=(PASS|FAIL|INCONCLUSIVE)\b') {
+            # Precedence inside the file: a FAIL is never downgraded by a later PASS.
+            $v = $Matches[1]
+            if ($v -eq 'INCONCLUSIVE') {
+                if (-not $inconclusiveByFile.ContainsKey($ctxFile)) { $inconclusiveByFile[$ctxFile] = 'tool reported INCONCLUSIVE' }
+            }
+            elseif ($v -eq 'FAIL' -or -not $toolVerdictByFile.ContainsKey($ctxFile)) {
+                $toolVerdictByFile[$ctxFile] = $v
+            }
+        }
+        elseif ($ln -match '^\[[^\]]+\]\s+INCONCLUSIVE:\s*(.*)$') {
             if (-not $inconclusiveByFile.ContainsKey($ctxFile)) {
                 $inconclusiveByFile[$ctxFile] = $Matches[1].Trim()
             }
@@ -81,6 +121,14 @@ function Get-EvalHarnessScenarioResults {
             foreach ($ln in $LogLines) {
                 if ($ln -match "^\s*FAIL\s+tests/eval-harness/tools/$escaped(\s|$)") { $verdict = 'FAIL'; break }
                 if ($ln -match "^\s*$passMarker\s+tests/eval-harness/tools/$escaped(\s|$)") { $verdict = 'PASS'; break }
+            }
+            # The tool's own rubric verdict is authoritative when it is stricter than the
+            # vitest marker (a green test that logged verdict=FAIL is a result failure, not
+            # a pass), and supplies the verdict when the marker is absent.
+            if ($toolVerdictByFile.ContainsKey($file)) {
+                $tv = $toolVerdictByFile[$file]
+                if ($tv -eq 'FAIL' -or $verdict -eq 'MISSING') { $verdict = $tv }
+                if ($tv -eq 'FAIL') { $detail = 'tool rubric verdict=FAIL (see the [FAIL] checks in the log)' }
             }
         }
 
