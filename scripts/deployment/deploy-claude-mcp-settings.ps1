@@ -123,11 +123,18 @@ if (Test-Path $SettingsPath) {
     # Guard: preserve a deliberate HIGHER threshold (e.g. ai-01 user override =99, 2026-06-01).
     # 90 is the fleet default; >=90 means "compact later" = always safe. Only correct a
     # missing value or a dangerously-low one (<90, e.g. the 50/75 that caused boucle #502).
+    # A non-numeric value (e.g. "90%" typed by hand) can be neither classified nor trusted:
+    # warn and preserve -- the old [int] cast threw under $ErrorActionPreference=Stop and
+    # aborted the whole run BEFORE the window/MCP_TOOL_TIMEOUT/MCP_TIMEOUT fixes below
+    # (same class as the MCP_TIMEOUT floor guard; Hermes review of #4331).
     $currentPct = $Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
-    if (-not $currentPct -or ([int]$currentPct) -lt 90) {
+    $pctParsed = [int]0
+    if (-not $currentPct -or ([int]::TryParse([string]$currentPct, [ref]$pctParsed) -and $pctParsed -lt 90)) {
         $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "90" -Force
         Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 90 in settings.json (#2173)" -ForegroundColor Yellow
         $Changed = $true
+    } elseif ($currentPct -and -not [int]::TryParse([string]$currentPct, [ref]$pctParsed)) {
+        Write-Host "[WARN] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $currentPct non-numeric; preserved as configured" -ForegroundColor Yellow
     }
     # Guard: fill an ABSENT window only -- never rewrite a configured one.
     # This guard used to be asymmetric with the threshold guard above: the threshold was
