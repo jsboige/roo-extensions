@@ -81,6 +81,23 @@ python scripts/diagnostic/audit-stale-mcp-disables.py --json
 python scripts/diagnostic/audit-stale-mcp-disables.py --selftest
 ```
 
+### `verify-fleet-manifest.py` (#2416 — prototype « fleet extension manifest »)
+
+Vérification **lecture seule** du siège Claude Code de la machine contre le manifeste déclaratif `.claude/configs/fleet-manifest.json` (pattern source : devstack `pi-packages.json`). Le manifeste déclare l'état attendu (`required` / `allowed` / `retired`) ; le vérificateur lit les **trois emplacements** d'état MCP de `~/.claude.json` (#3137) — dont l'emplacement 3 `projects[<path>].disabledMcpServers`, qui **prime** sur l'activation. Complément de `audit-stale-mcp-disables.py` (qui audite les chemins fantômes en détail) : ici on compare à l'état attendu flotte, là-bas on détecte les résidus de déménagement.
+
+- **MANIFEST_UNKNOWN / MISSING_REQUIRED / REQUIRED_DISABLED / RETIRED_PRESENT** (exit 2) — la machine ou sa config vivante dévie du manifeste.
+- **UNEXPECTED_SERVER / GHOST_DISABLE_PATH / DISABLE_OF_UNINSTALLED** (warns ; exit 2 avec `--strict`) — serveur hors inventaire, désactivations sous chemin disparu (#4195), désactivation résiduelle d'un serveur non installé.
+
+```powershell
+# Vérifier la machine courante (machine = COMPUTERNAME, workspace = cwd)
+python scripts/diagnostic/verify-fleet-manifest.py
+
+# Machine / workspace / config explicites, sortie JSON, warns bloquants, fixture synthétique
+python scripts/diagnostic/verify-fleet-manifest.py --machine myia-po-2024 --json
+python scripts/diagnostic/verify-fleet-manifest.py --strict
+python scripts/diagnostic/verify-fleet-manifest.py --selftest
+```
+
 ### `../transcript/Find-DuplicateToolUse.ps1` (PR #3498)
 
 Variante PowerShell du même détecteur, ajoutée post-#3278. Mêmes signatures (`EMIT_FORK` / `EXEC_DOUBLE` / `EXEC_COPY`) sur un transcript unique, avec sortie `Object` / `Json` / `Summary` — utile quand le harnais cible est Windows natif (`powershell`) et que le Python n'est pas disponible. Tests Pester dans `scripts/testing/unit/Find-DuplicateToolUse.Tests.ps1` (12/12 verts).

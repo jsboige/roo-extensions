@@ -2,8 +2,8 @@
 
 **Issue :** [#2416](https://github.com/jsboige/roo-extensions/issues/2416)
 **Auteur :** myia-po-2026 (GLM-5.1, Claude Code)
-**Date :** 2026-06-13
-**Statut :** Draft v1 — first research pass (issue dispatched to po-2026 by ai-01 on 2026-05-28, no prior deliverable)
+**Date :** 2026-06-13 (v1) · 2026-10-13 (§11 benchmark, po-2027) · 2026-10-24 (v2 prototype + issues, po-2024)
+**Statut :** **v2** — étude (v1) + benchmark mesuré (§11) + prototype « fleet extension manifest » livré (§12) + issues d'implémentation créées (#4335, #4336, #4337)
 
 ---
 
@@ -124,17 +124,17 @@ Ranked by impact/effort ratio:
 ### 🥇 #2 + #3 — Deterministic + recoverable compaction (bundle)
 - **Why:** Long sessions hit summarizer 400 errors → fallback truncation (circuit-breaker). Deterministic pre-extraction reduces model load; Qdrant-backed pruned content makes compaction lossless-on-demand.
 - **Concrete plan:** Prototype a `deterministic-prune.ts` in roo-state-manager that (a) extracts tool-result blocks + verbatim code into a side-store keyed by message index, (b) replaces them with a recoverable pointer, (c) runs *before* LLM summarization. Gate behind a flag. Measure summarizer-call reduction over 5 sessions.
-- **Follow-up issue:** yes.
+- **Follow-up issue:** [#4335](https://github.com/jsboige/roo-extensions/issues/4335) (24/10). **Re-classement** : la prémisse « summarizer 400s » a été partiellement résolue ailleurs depuis juin (#4095 cause racine fermée, #4205 ~88 % de sortie LLM économisée, #3962 porte le reste) — l'intégration reste de forte valeur mais exige son propre cycle de review (`dashboard.ts` = chemin le plus gardé du dépôt), voir §12.
 
 ### 🥈 #9 — Fleet extension manifest
 - **Why:** Config drift across 6 machines is a recurring idle-task finding (I4). A declarative manifest (`fleet-manifest.json`: MCP servers, skills, rules per machine role) + a `verify-manifest` script would make drift a CI-checkable invariant.
 - **Concrete plan:** Define schema (machine role → expected MCP list + skill list). Script `scripts/scheduling/verify-fleet-manifest.ps1` compares `~/.claude.json` + `.mcp.json` against manifest, exits non-zero on drift. Wire into coordinator cycle.
-- **Follow-up issue:** yes.
+- **Statut :** **PROTOTYPÉ 24/10** (§12) — livré en Python (`scripts/diagnostic/verify-fleet-manifest.py`, pattern `audit-stale-mcp-disables.py`) plutôt qu'en PowerShell, pour l'ubuntu-CI et PS 5.1. Rollout flotte : [#4336](https://github.com/jsboige/roo-extensions/issues/4336).
 
 ### 🥉 #6 — Auto-continue post-compaction
 - **Why:** Lowest effort. A schtask watcher that detects post-compact state and injects `continue` prevents dead cycles after auto-compaction.
 - **Concrete plan:** Tiny `pi-continue`-equivalent: schtask every 2 min checks a sentinel (session idle + just-compacted marker) → sends continue. 50-line script.
-- **Follow-up issue:** yes.
+- **Follow-up issue:** [#4337](https://github.com/jsboige/roo-extensions/issues/4337) (24/10) — rescopé **mesure d'abord** : la prémisse « stalls post-compaction » n'a jamais été mesurée chez nous ; kill criterion < 1 % d'incidence.
 
 ---
 
@@ -157,7 +157,7 @@ Ranked by impact/effort ratio:
 - [x] Comparative analysis document created in `docs/harness/reference/` — **this file**
 - [x] Top 3 adaptation opportunities identified with concrete implementation plans — §7
 - [x] Decision documented: adopt / adapt / defer for each opportunity — §6, §8
-- [ ] If adopting: issues created for implementation tasks — **deferred to follow-up** (3 issues to create: compaction bundle, fleet manifest, auto-continue). Will be created in a follow-up cycle or by the coordinator.
+- [x] If adopting: issues created for implementation tasks — **24/10** : [#4335](https://github.com/jsboige/roo-extensions/issues/4335) (compaction bundle), [#4336](https://github.com/jsboige/roo-extensions/issues/4336) (manifest rollout), [#4337](https://github.com/jsboige/roo-extensions/issues/4337) (auto-continue). Le lead #7 (rotation de clés) reste couvert par l'existant (#864, rotation `.env` post-#4095) — pas d'issue dédiée, conforme §6.
 
 ---
 
@@ -216,6 +216,52 @@ Deux réserves de méthode sur la télémétrie elle-même : le champ `ms` des l
 ### 11.4 Limites
 
 n=1 par bras, un seul task de taille modeste, un seul modèle, runs séquentiels (pas d'entrelacement), machine unique (po-2027, mobile). Les fenêtres UTC ci-dessus servent de périmètre exact pour la lecture télémétrique. Aucun bras n'a eu accès aux MCPs ou dashboards flotte (by design).
+
+---
+
+## 12. Prototype (2026-10-24) — « fleet extension manifest », livré et mesuré
+
+### 12.1 Sélection du lead prototypé (re-classement motivé)
+
+Le re-scope user du 23/09 (« poursuivre et lancer un proto ») demandait le pattern **le plus prometteur** de l'étude. Le classement de juin est réévalué sur les événements **postérieurs à l'étude** :
+
+| Lead | Prémisse de juin | État au 24/10 | Verdict |
+|---|---|---|---|
+| 🥇 Compaction bundle | Summarizer 400s / fallback-truncation | Cause racine fermée (#4095, rotation clés vLLM), ~88 % sortie LLM déjà économisés (#4205), reste porté par #3962 (OPEN) | Toujours valable, mais l'intégration touche `dashboard.ts` (30+ fichiers de tests) → **issue dédiée** [#4335](https://github.com/jsboige/roo-extensions/issues/4335), pas un proto une-session |
+| 🥈 Fleet manifest | Dérive de config flotte (I4) | Douleur **live** : incident #4195 (désactivation chemin-périmée, OAuth fantôme po-204 09/10), #4258 (roster), #3137 (3 emplacements d'état MCP) | **Prototypé ce cycle** — tractable bout-en-bout, valeur flotte immédiate |
+| 🥉 Auto-continue | Stalls post-compaction | Prémisse jamais mesurée ; fenêtres/seuils stabilisés depuis | [#4337](https://github.com/jsboige/roo-extensions/issues/4337), mesure d'abord |
+
+### 12.2 Ce qui est livré
+
+- **`.claude/configs/fleet-manifest.json`** — manifeste déclaratif v1 : `fleet_common` (`required` / `allowed` / `retired`) + 8 entrées machines (rôles, `verified` daté uniquement là où vérifié firsthand — po-204 le 24/10). Sémantique : un override machine **remplace** la liste commune (explicite > fusion).
+- **`scripts/diagnostic/verify-fleet-manifest.py`** — vérificateur **lecture seule**, même pattern que `audit-stale-mcp-disables.py` (`--json`, `--selftest`, exit 0 propre / 2 findings / 1 erreur, n'imprime que des noms de serveurs et booléens — jamais de valeurs de config). Couvre les **trois emplacements** d'état MCP (#3137), l'emplacement 3 (`disabledMcpServers`) primant. 7 classes de findings (4 error, 3 warn, `--strict` promeut).
+- Déviation assumée vs plan §7 : **Python au lieu de PowerShell** — la suite `unit-pester` CI tourne sur ubuntu (#3711) et PS 5.1 ajoute ses pièges (BOM, `Join-Path`) ; le précédent `audit-stale-mcp-disables.py` (#4195) a validé le pattern Python `--selftest` pour ce dépôt.
+
+### 12.3 Mesure (run réel po-204, 2026-10-24)
+
+```
+$ python scripts/diagnostic/verify-fleet-manifest.py
+machine=myia-po-2024 workspace=d:/dev/roo-extensions/.claude/worktrees/wt-worker-...
+[WARN] DISABLE_OF_UNINSTALLED: a disable names server 'jupyter-papermill' which is not installed anywhere — residue entry
+[WARN] DISABLE_OF_UNINSTALLED: a disable names server 'qc-mcp' which is not installed anywhere — residue entry
+exit 0          (--strict → exit 2)
+
+$ python scripts/diagnostic/verify-fleet-manifest.py --selftest
+[SELFTEST] PASS (8 cases: all finding classes, override, strict, path normalization)
+```
+
+Lecture :
+
+1. **Zéro error-severity** sur po-204 — le siège est conforme au manifeste (roo-state-manager installé et actif, aucun retiré présent, aucun serveur hors inventaire).
+2. **2 résidus de désactivation** (`qc-mcp`, `jupyter-papermill` nommés dans des disables sans exister nulle part comme installs) — exactement la classe de résidu invisible que le manifeste rend visible.
+3. **Les disables sous `c:/dev/*` ne sont PAS signalés fantômes** — vérifié firsthand : l'arbre `C:\dev` existe encore (migration 17/09 = copie, pas move). Ces disables restent « actifs » sur des checkouts périmés ; ils deviendront fantômes (#4195) à la suppression de `C:\dev`, et le vérificateur attrapera la transition. L'outil est honnête : il mesure l'état du disque, pas une hypothèse.
+4. Complémentarité mesurée : `audit-stale-mcp-disables.py` (vue par chemin) et le vérificateur (vue par état attendu) couvrent deux axes orthogonaux de la même surface.
+
+### 12.4 Limites et suite
+
+- Manifeste v1 : `verified` ne couvre que po-204 ; les 7 autres entrées sont des attentes documentaires (`tool-availability.md`) à vérifier firsthand — c'est le rollout [#4336](https://github.com/jsboige/roo-extensions/issues/4336).
+- Scope volontairement restreint au siège Claude Code (`~/.claude.json`) — le côté Roo/Zoo (`%APPDATA%/mcp_settings.json`) reste hors manifeste (décision de scope, pas d'oubli).
+- Le wiring (pré-vol de session / cron CI) est une décision du rollout avec les données flotte en main.
 
 ---
 
