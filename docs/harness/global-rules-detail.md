@@ -403,7 +403,7 @@ Deux bornes restent entières :
 - **pas de licence pour `git worktree remove --force`**, qui reste un invariant du protocole de recyclage ;
 - **pas de contournement de la garde intégrée de Claude Code** sur les dossiers à la racine d'un disque : ce geste reste au user.
 
-La règle shell #4214 (jamais `rm` dans une commande composée) est inchangée. Les suppressions elles-mêmes appartiennent aux lanes propriétaires des dossiers.
+La règle shell #4214 est inchangée. Pour ce seul geste, l'exception Q27 déroge à deux de ses clauses, « suppression sur fichiers nommés » et « jamais `rm -rf` sur un chemin absolu » : un dossier hors du répertoire courant a nécessairement un chemin absolu. L'interdiction de `rm` dans une commande composée reste entière. Les suppressions elles-mêmes appartiennent aux lanes propriétaires des dossiers.
 
 **Archive de préservation ≠ scratch** (pré-review 10/10) : l'étape 3 de la [postcondition de fin de cycle](reference/clean-cycle-exit.md) range une archive hors dépôt (manifeste NUL + SHA-256) sous `~/.claude/scratch/…`. Elle doit survivre à la session, elle n'est pas jetable : elle garde son emplacement documenté.
 
