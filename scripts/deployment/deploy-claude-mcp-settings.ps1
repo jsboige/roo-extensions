@@ -56,8 +56,6 @@ $McpServers = @{
     }
 }
 
-$McpServersJson = $McpServers | ConvertTo-Json -Depth 10
-
 # --- Update ~/.claude.json (user scope - MCP servers only) ---
 
 Write-Host "`n=== Claude Code MCP Deployment ===" -ForegroundColor Cyan
@@ -72,17 +70,31 @@ if (Test-Path $ClaudeJsonPath) {
     exit 1
 }
 
-# Replace only the mcpServers key
-$ClaudeJson.mcpServers = $McpServers
+# Upsert the managed servers INTO the existing map. A blind assignment here
+# replaced the whole object: on a seat carrying five registrations, deploying
+# these three deleted the other two (#3411 keeps the global sk-agent entry
+# load-bearing — measure 24/10 po-2028: sk-agent, searxng and jupyter-papermill
+# would have vanished on the next run).
+$MergedServers = @{}
+if ($ClaudeJson.mcpServers) {
+    foreach ($prop in $ClaudeJson.mcpServers.PSObject.Properties) {
+        $MergedServers[$prop.Name] = $prop.Value
+    }
+}
+foreach ($name in $McpServers.Keys) {
+    $MergedServers[$name] = $McpServers[$name]
+}
+$ClaudeJson.mcpServers = $MergedServers
 
 # Use -Depth 10 to preserve array structure for args (PowerShell 5.1+)
 $OutputJson = $ClaudeJson | ConvertTo-Json -Depth 10
 
 if ($WhatIf) {
     Write-Host "`n[WHATIF] Would write mcpServers to: $ClaudeJsonPath" -ForegroundColor Cyan
-    Write-Host "[WHATIF] MCP servers: $($McpServers.Keys -join ', ')" -ForegroundColor Cyan
+    Write-Host "[WHATIF] Managed: $($McpServers.Keys -join ', ')" -ForegroundColor Cyan
+    Write-Host "[WHATIF] Merged (preserved + managed): $($MergedServers.Keys -join ', ')" -ForegroundColor Cyan
     Write-Host "`n[WHATIF] mcpServers content:" -ForegroundColor Cyan
-    Write-Host $McpServersJson
+    Write-Host ($MergedServers | ConvertTo-Json -Depth 10)
     exit 0
 }
 
