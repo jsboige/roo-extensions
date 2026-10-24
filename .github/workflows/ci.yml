@@ -45,6 +45,11 @@ on:
       # (locale-proof CIM logger); the guarded script itself must re-trigger
       # it on main pushes (same rule as the entries above).
       - 'scripts/diagnostic/log-commit-charge.ps1'
+      # #4327: classify-machine-usability.Tests.ps1 drives the classifier as a
+      # powershell.exe 5.1 child and guards its replay verdicts; the guarded
+      # script must re-trigger the unit-pester job on a main push (same rule as
+      # every entry above — eleventh instance of the gap, not a new exception).
+      - 'scripts/diagnostic/classify-machine-usability.ps1'
       - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
       # #833: the audit-grader Pester fixture below runs the REAL

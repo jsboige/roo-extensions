@@ -1,0 +1,371 @@
+{
+  "machine": "myia-po-2028",
+  "note": "po-2028 morning wedge of 23/10: burst at 07:48:41Z (x6, _ab668), T+3m28s. Probe samples are synthesized inside the spec's healthy baseline; the events are verbatim.",
+  "lastBootUtc": "2026-10-23T07:45:13Z",
+  "events": [
+    {
+      "utc": "2026-10-23T07:44:38Z",
+      "id": 1074,
+      "provider": "User32",
+      "message": "C:\\Windows\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe (MYIA-PO-2028)",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T07:44:56Z",
+      "id": 6006,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a été arrêté.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T07:45:00Z",
+      "id": 13,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS shutdown",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T07:45:13Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T07:45:28Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T07:48:41Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur de notifications Push Windows_ab668 s’est terminé de manière inattendue. Ceci s’est produ",
+      "count": 6
+    },
+    {
+      "utc": "2026-10-23T08:09:12Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service pour utilisateur de plateforme d’appareils connectés_ab668 s’est terminé de manière inattendue. Ceci",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T08:15:45Z",
+      "id": 7034,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur du Presse-papiers_ab668 s’est terminé de façon inattendue pour la 3ème fois.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T08:26:10Z",
+      "id": 1074,
+      "provider": "User32",
+      "message": "wininit.exe (MYIA-PO-2028) | MYIA-PO-2028 | Aucun titre à cette raison n’a pu être trouvé | 0x800000ff | Redémarrer | Ma",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T08:37:28Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur de notifications Push Windows_ab668 s’est terminé de manière inattendue. Ceci s’est produ",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T08:47:03Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur de notifications Push Windows_ab668 s’est terminé de manière inattendue. Ceci s’est produ",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T08:47:54Z",
+      "id": 7034,
+      "provider": "Service Control Manager",
+      "message": "Le service WSL Service s’est terminé de façon inattendue pour la 1ème fois.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T09:08:01Z",
+      "id": 7034,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur de notifications Push Windows_ab668 s’est terminé de façon inattendue pour la 6ème fois.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T09:50:53Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T09:50:55Z",
+      "id": 41,
+      "provider": "Microsoft-Windows-Kernel-Power",
+      "message": "BugCheck=0",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T09:51:09Z",
+      "id": 6008,
+      "provider": "EventLog",
+      "message": "arret inattendu precedent",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T09:51:09Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:45:50Z",
+      "id": 1074,
+      "provider": "User32",
+      "message": "C:\\Windows\\SystemApps\\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\\StartMenuExperienceHost.exe (MYIA-PO-2028)",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:45:58Z",
+      "id": 6006,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a été arrêté.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:46:02Z",
+      "id": 13,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS shutdown",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:46:16Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:46:36Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T21:50:47Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur du kit de développement sans station d’accueil_bc4af s’est terminé de manière inattendue.",
+      "count": 6
+    },
+    {
+      "utc": "2026-10-23T21:53:07Z",
+      "id": 1074,
+      "provider": "User32",
+      "message": "C:\\Windows\\System32\\shutdown.exe (MYIA-PO-2028) | MYIA-PO-2028 | Aucun titre à cette raison n’a pu être trouvé | 0x80000",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:12:04Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:12:06Z",
+      "id": 41,
+      "provider": "Microsoft-Windows-Kernel-Power",
+      "message": "BugCheck=0",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:12:20Z",
+      "id": 6008,
+      "provider": "EventLog",
+      "message": "arret inattendu precedent",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:12:20Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:49:05Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:49:06Z",
+      "id": 41,
+      "provider": "Microsoft-Windows-Kernel-Power",
+      "message": "BugCheck=209",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:49:20Z",
+      "id": 6008,
+      "provider": "EventLog",
+      "message": "arret inattendu precedent",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:49:20Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T22:49:32Z",
+      "id": 1001,
+      "provider": "Microsoft-Windows-WER-SystemErrorReporting",
+      "message": "L’ordinateur a redémarré après une vérification d’erreur. La vérification d’erreur était : 0x000000d1 (0xffff9805cacca01",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:02:58Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:02:59Z",
+      "id": 41,
+      "provider": "Microsoft-Windows-Kernel-Power",
+      "message": "BugCheck=209",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:03:13Z",
+      "id": 6008,
+      "provider": "EventLog",
+      "message": "arret inattendu precedent",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:03:13Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:03:15Z",
+      "id": 1001,
+      "provider": "Microsoft-Windows-WER-SystemErrorReporting",
+      "message": "L’ordinateur a redémarré après une vérification d’erreur. La vérification d’erreur était : 0x000000d1 (0xffffc68ba10765a",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:06:36Z",
+      "id": 7031,
+      "provider": "Service Control Manager",
+      "message": "Le service Service utilisateur du kit de développement sans station d’accueil_b39d2 s’est terminé de manière inattendue.",
+      "count": 6
+    },
+    {
+      "utc": "2026-10-23T23:52:20Z",
+      "id": 12,
+      "provider": "Microsoft-Windows-Kernel-General",
+      "message": "OS start",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:52:22Z",
+      "id": 41,
+      "provider": "Microsoft-Windows-Kernel-Power",
+      "message": "BugCheck=209",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:52:39Z",
+      "id": 6008,
+      "provider": "EventLog",
+      "message": "arret inattendu precedent",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:52:39Z",
+      "id": 6005,
+      "provider": "EventLog",
+      "message": "Le service d’Enregistrement d’événement a démarré.",
+      "count": 1
+    },
+    {
+      "utc": "2026-10-23T23:52:41Z",
+      "id": 1001,
+      "provider": "Microsoft-Windows-WER-SystemErrorReporting",
+      "message": "L’ordinateur a redémarré après une vérification d’erreur. La vérification d’erreur était : 0x000000d1 (0xffffb98b67cca01",
+      "count": 1
+    }
+  ],
+  "samples": [
+    {
+      "atUtc": "2026-10-23T07:47:00Z",
+      "machine": "myia-po-2028",
+      "openPorts": [
+        5985,
+        22,
+        445
+      ],
+      "drivingChannelAnswered": true,
+      "drivingStatusCode": 401,
+      "drivingLatencyMs": 4,
+      "latencySamplesMs": [
+        391,
+        412,
+        445
+      ],
+      "heartbeatAgeSeconds": 107
+    },
+    {
+      "atUtc": "2026-10-23T07:50:00Z",
+      "machine": "myia-po-2028",
+      "openPorts": [
+        5985,
+        22,
+        445
+      ],
+      "drivingChannelAnswered": true,
+      "drivingStatusCode": 401,
+      "drivingLatencyMs": 4,
+      "latencySamplesMs": [
+        391,
+        412,
+        445
+      ],
+      "heartbeatAgeSeconds": 79
+    },
+    {
+      "atUtc": "2026-10-23T07:55:00Z",
+      "machine": "myia-po-2028",
+      "openPorts": [
+        5985,
+        22,
+        445
+      ],
+      "drivingChannelAnswered": true,
+      "drivingStatusCode": 401,
+      "drivingLatencyMs": 4,
+      "latencySamplesMs": [
+        391,
+        412,
+        445
+      ],
+      "heartbeatAgeSeconds": 379
+    }
+  ]
+}
