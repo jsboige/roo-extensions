@@ -32,8 +32,11 @@ doivent être cohérents dans `settings.json` **par machine** :
 ```json
 "ANTHROPIC_DEFAULT_OPUS_MODEL":   "claude-opus-5-5[1m]",
 "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5[1m]",
-"ANTHROPIC_DEFAULT_HAIKU_MODEL":  "claude-haiku-4-5-20251001[1m]"
+"ANTHROPIC_DEFAULT_HAIKU_MODEL":  "claude-haiku-5-5[1m]"
 ```
+
+Jamais `claude-haiku-4-5-20251001` : Claude Code le traite en Haiku 4.5 et masque le réglage
+d'effort, mesuré par claudish sur 8 687/8 687 requêtes du 23/10 (régression du 24/10).
 
 Le suffixe vit **hors dépôt** (mesuré 2026-08-22, deux instruments — doc détaillée) : aucune PR ne
 peut corriger le suffixe à votre place.
