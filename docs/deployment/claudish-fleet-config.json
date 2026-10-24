@@ -45,8 +45,8 @@
       "models": {
         "opus": "anthropic@claude-opus-5-5",
         "sonnet": "anthropic@claude-sonnet-5-5",
-        "haiku": "anthropic@claude-haiku-4-5-20251001",
-        "subagent": "anthropic@claude-haiku-4-5-20251001"
+        "haiku": "anthropic@claude-haiku-5-5",
+        "subagent": "anthropic@claude-haiku-5-5"
       },
       "createdAt": "2026-05-14T00:00:00.000Z",
       "updatedAt": "2026-05-14T00:00:00.000Z"
