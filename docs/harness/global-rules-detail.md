@@ -384,7 +384,26 @@ roosync_dashboard(action:"append", type:"global", content:"...",
 | `mkdir -p` + extraction 7z vers `%TEMP%\claude\…` | passe (~4 min) |
 | **`rm -rf`** + `mkdir` + même extraction | **bloquée 84 min** |
 
-La seule différence est le `rm -rf`. **L'emplacement n'était pas la cause**, puisque la même écriture dans `%TEMP%\claude\…` a réussi. D'où le texte de la règle : le scratchpad de session que le harnais désigne lui-même (Claude Code l'annonce dans son prompt système et l'isole par session) reste un emplacement légitime. Ce qui est interdit, c'est d'écrire du scratch **ailleurs** sous `~/.claude/` (configuration, mémoire, règles) ou sous `%TEMP%\claude\`. La règle de nettoyage vise donc le geste : on supprime ses fichiers nommés, sans `rm -rf`, quelle que soit la cible.
+La seule différence est le `rm -rf`. **L'emplacement n'était pas la cause**, puisque la même écriture dans `%TEMP%\claude\…` a réussi. D'où le texte de la règle : le scratchpad de session que le harnais désigne lui-même (Claude Code l'annonce dans son prompt système et l'isole par session) reste un emplacement légitime. Ce qui est interdit, c'est d'écrire du scratch **ailleurs** sous `~/.claude/` (configuration, mémoire, règles) ou sous `%TEMP%\claude\`. La règle de nettoyage vise donc le geste : on supprime ses fichiers nommés, sans `rm -rf`, quelle que soit la cible (sauf l'exception Q27 ci-dessous).
+
+**Exception Q27 — un dossier nommé, preuve d'abord (décision user 25/10)** : réponse verbatim « OK pour a » (24/10 23:24Z, journal des paroles de la lane Maintenance ai-01), à l'option (a) telle qu'elle a été posée. La règle stricte contredisait la politique Maintenance du 23/10, selon laquelle les worktrees livrés sont nettoyables d'office, et laissait sur le disque deux restes que seule une suppression récursive retire :
+- le dossier qu'un `git worktree remove` laisse derrière lui sous Windows (« Directory not empty », à cause de `node_modules` ; ~10 Go chez claudish sur D: d'ai-01) ;
+- le dossier `<git-dir>/modules` d'un worktree à sous-modules, qui bloque `git worktree remove` sans `--force` (Maintenance#127).
+
+Ce qui est autorisé : la suppression récursive d'**un seul dossier nommé** par **commande isolée**, jamais un joker ni un parent, et seulement quand la **preuve de préservation est écrite avant** le geste :
+1. arbre propre (`git status` vide) ;
+2. HEAD présent sur origin ;
+3. aucun lien qui sort du dossier : énumérer les reparse points et délier les jonctions sans les traverser, voir [`worktree-lifecycle`](../../.claude/rules/worktree-lifecycle.md) ;
+4. pour un orphelin, archive 7z d'abord de ce qui n'est pas régénérable ;
+5. pour `<git-dir>/modules`, chaque dépôt de sous-module a 0 commit absent de son remote, mesuré après un fetch **complet** (piège *single-branch*).
+
+Après le geste, on **mesure** l'absence (`Test-Path` faux).
+
+Deux bornes restent entières :
+- **pas de licence pour `git worktree remove --force`**, qui reste un invariant du protocole de recyclage ;
+- **pas de contournement de la garde intégrée de Claude Code** sur les dossiers à la racine d'un disque : ce geste reste au user.
+
+La règle shell #4214 est inchangée. Pour ce seul geste, l'exception Q27 déroge à deux de ses clauses, « suppression sur fichiers nommés » et « jamais `rm -rf` sur un chemin absolu » : un dossier hors du répertoire courant a nécessairement un chemin absolu. L'interdiction de `rm` dans une commande composée reste entière. Les suppressions elles-mêmes appartiennent aux lanes propriétaires des dossiers.
 
 **Archive de préservation ≠ scratch** (pré-review 10/10) : l'étape 3 de la [postcondition de fin de cycle](reference/clean-cycle-exit.md) range une archive hors dépôt (manifeste NUL + SHA-256) sous `~/.claude/scratch/…`. Elle doit survivre à la session, elle n'est pas jetable : elle garde son emplacement documenté.
 
