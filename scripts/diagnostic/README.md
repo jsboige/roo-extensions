@@ -169,6 +169,26 @@ python scripts/diagnostic/detect-approval-stalls.py --json
 python scripts/diagnostic/detect-approval-stalls.py --selftest
 ```
 
+### `classify-machine-usability.ps1` (#4327)
+
+Classifieur **par machine** lancé depuis ai-01, en **lecture seule sur les cibles** : `healthy` / `unreachable` / `reachable-but-unusable`. Le troisième verdict est le sujet : une machine peut répondre sur le réseau et être morte pour le travail — po-2028 s'est bloquée deux fois le 23/10, logon mort 3,5 à 4,5 min après un boot propre, WinRM répondant (~10 s), six demandes d'arrêt acceptées par `wininit` et jamais exécutées. Aucun organe existant ne le dit : `check-all-listeners.ps1` annonce « listener STALE » après 2 h (même ligne sur une machine saine au listener mort), `detect-approval-stalls.py` ne voit que les sessions vivantes et gelées.
+
+- **Entrée décisive : le journal Système de la cible**, pas la latence WinRM. Au moins 5 événements `7031`/`7034` pour des instances de service suffixées `_<5 hex>` (LUID de session) dans la même seconde, dans la fenêtre `[boot+2 min, boot+20 min]` : mesuré 3/3 sur les blocages (T+3 min 28 s, 4 min 31 s, 3 min 38 s, ×6) et 0 sur les trois contrôles négatifs.
+- **Latence** : aller-retour `Invoke-Command { 1 }` **authentifié**, anormal au-delà de 3 s sur 2 de 3 sondes (sain mesuré 249-445 ms ; bloqué ~10 s). WS-Identify (non authentifié) est une **reachabilité seule** — un 401 est une réponse, jamais un silence — et ne nourrit aucun verdict de blocage.
+- **Barre de liveness à deux moitiés** (spec `ai-01:Maintenance`, 24/10 §2) : heartbeat du listener **plus vieux que 30 min** **ET** aucun append dashboard d'aucune lane de la machine. Une seule moitié fraîche suffit à écarter la corroboration ; une moitié **non mesurée** ne corrobore pas et est nommée (`dashboard-append-unknown`). Auteurs synthétiques exclus de la lecture des dashboards (`system` = condenseur, `listener`, `classifier` — sinon une alerte se corroborerait elle-même au tour suivant).
+- **Verdict** : `unreachable` = 5985 **et** 3389 fermés (22 pour les sièges Linux) ; `reachable-but-unusable` = joignable **et** (burst, suffisant seul, **ou** latence anormale **et** les deux moitiés silencieuses) ; sinon `healthy` avec les findings (`listener-stale`, `heartbeat-unknown`, `dashboard-append-unknown`, `driving-channel-slow`, `system-log-unavailable`, `external-4624-logons`…). `heartbeat-unknown` (fichier absent) reste `healthy` + exit 0 **délibérément** : l'absence du fichier est une mesure de l'entrée, et po-2028 vit et publie sans ce fichier (mesuré 25/10) — la replier dans l'exit 3 signalerait une machine qui travaille.
+- **Alerte** : un seul `[FLEET-ALERT]` sur le dashboard de la machine **affectée** (cross-post `workspace:Maintenance`), première ligne nommant la machine, corps nommant chaque entrée et son seuil. **Le levier dur n'est pas tiré ici** — il reste à la lane Maintenance (`fleet_remote_reboot.ps1 -Hard`), qui répond sur le même fil.
+- **Rejeu** : `-ReplayFile` rejoue un relevé enregistré (même détecteur que le chemin live) et **mesure** le délai de détection depuis la mort de logon enregistrée — rejeu du 23/10 sur la fixture issue du CSV Maintenance : `reachable-but-unusable`, détecté **1,3 min** après le burst, cible 10 min.
+- **Exit codes** : 0 tout va bien / 1 une machine injoignable / 2 au moins une `reachable-but-unusable` / 3 mesure incomplète (instrument absent, journal Système illisible sur un siège Windows) — jamais « tout va bien » sur une mesure manquante. **Le tir planifié (qui lance, à quelle cadence) n'est pas câblé ici** : c'est une décision d'ordonnancement du coordinateur, et le chemin authentifié exige des identifiants (sans eux, `system-log-unavailable` → exit 3, jamais un vert silencieux).
+
+```powershell
+# Balayage live de la flotte (aucune alerte, JSON)
+powershell -ExecutionPolicy Bypass -File scripts\diagnostic\classify-machine-usability.ps1 -NoAlert -Json
+
+# Rejeu du 23/10 (fixture générée depuis le CSV de la spec Maintenance)
+powershell -ExecutionPolicy Bypass -File scripts\diagnostic\classify-machine-usability.ps1 -ReplayFile scripts\diagnostic\fixtures\po2028-20261023.json -NoAlert
+```
+
 ### `check-deny-fallback.py`
 
 Sonde **deny-sans-repli** au démarrage (#4340, mandat user 24/10 — incident po-2027 : le repli `jupyter-papermill` désigné par la règle n'a jamais été provisionné, indétecté des semaines, fallback interdit normalisé à la place). Pour chaque outil deny dont une règle désigne un repli canonique unique (`DENY_FALLBACK_MAP`, démarre à `NotebookEdit` → `jupyter-papermill`) : le serveur repli est-il configuré et **répond-il** ? La vérification est un **handshake stdio réel** (`initialize` → `tools/list`) — jamais les drapeaux : `disabled: true` dans une entrée `.mcp.json` est inert sur un siège Claude Code (mesuré po-2025 24/10), seul `projects[<ws>].disabledMcpServers` désactive effectivement.
