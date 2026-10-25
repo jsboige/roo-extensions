@@ -359,6 +359,63 @@ $dirtyLanded = New-WorktreeFacts -Path 'D:/repo-wt/dl' -IsDetached $true -IsDirt
 Assert-Equal 'dirty wins over patch identity' 'DIRTY' (Get-WorktreeClass -Facts $dirtyLanded).Class
 
 # ============================================================================
+# Test 11: two live sessions on one worktree -- the #4221 collision signal
+# ============================================================================
+Write-Host "=== Test 11: live-session signal ===" -ForegroundColor Cyan
+
+# The slug rule, checked against directory names measured on po-2027 (25/10).
+Assert-Equal 'drive, colon and separators each become a dash' `
+    'D--dev-roo-extensions--claude-worktrees-wt-foo' `
+    (Convert-ToProjectSlug -Path 'D:\dev\roo-extensions\.claude\worktrees\wt-foo')
+Assert-Equal 'computed slug matches the observed real one (case-insensitive)' $true `
+    ((Convert-ToProjectSlug -Path 'D:\dev\roo-extensions') -ieq 'd--dev-roo-extensions')
+Assert-Equal 'spaces collapse too (observed g--Mon-Drive-Maintenance)' $true `
+    ((Convert-ToProjectSlug -Path 'G:\Mon Drive\Maintenance') -ieq 'g--Mon-Drive-Maintenance')
+Assert-Equal 'forward slashes slug identically (git worktree list form)' $true `
+    ((Convert-ToProjectSlug -Path 'D:/dev/roo-extensions') -ieq (Convert-ToProjectSlug -Path 'D:\dev\roo-extensions'))
+
+# Two fresh transcripts: the collision case the issue measured three times.
+$now = [DateTime]::UtcNow
+$twin = @(
+    (New-SessionHeartbeat -Id 'sess-a' -LastWriteUtc $now.AddMinutes(-10)),
+    (New-SessionHeartbeat -Id 'sess-b' -LastWriteUtc $now.AddMinutes(-30))
+)
+$s = Get-WorktreeSessionSignal -Sessions $twin -NowUtc $now
+Assert-Equal 'two fresh sessions signal MULTI-SESSION' 'MULTI-SESSION' $s.Signal
+Assert-Equal 'both live sessions are counted'          2               $s.LiveSessionCount
+Assert-Equal 'live session ids are reported'           'sess-a; sess-b' $s.LiveSessions
+
+# One live + one long-finished: a dead session must not hold the signal on.
+$oneLive = @(
+    (New-SessionHeartbeat -Id 'sess-a'    -LastWriteUtc $now.AddMinutes(-10)),
+    (New-SessionHeartbeat -Id 'sess-old'  -LastWriteUtc $now.AddHours(-5))
+)
+$s = Get-WorktreeSessionSignal -Sessions $oneLive -NowUtc $now
+Assert-Equal 'one live + one stale raises no signal' '' $s.Signal
+Assert-Equal 'the stale session is not counted'      1  $s.LiveSessionCount
+
+# Pin the DEFECT: "2 sessions in the directory" without freshness fires on a
+# worktree whose second session ended hours ago -- the sweep would cry wolf.
+$naiveCount = $oneLive.Count -ge 2
+Assert-Equal 'a count-only rule WOULD have fired on stale sessions' $true $naiveCount
+
+# No session ever ran there; a transcript-less heartbeat never reads as live.
+Assert-Equal 'no transcripts, no signal' '' (Get-WorktreeSessionSignal -Sessions @() -NowUtc $now).Signal
+Assert-Equal 'no transcripts, zero live' 0  (Get-WorktreeSessionSignal -Sessions @() -NowUtc $now).LiveSessionCount
+$noFile = Get-WorktreeSessionSignal -Sessions @((New-SessionHeartbeat -Id 'sess-x')) -NowUtc $now
+Assert-Equal 'a missing transcript (MinValue) never reads as live' 0 $noFile.LiveSessionCount
+
+# The threshold is inclusive, and clock skew (future mtime) reads as live:
+# "absurdly fresh" must not mean "dead".
+Assert-Equal 'a session exactly at the threshold still counts' 1 `
+    (Get-WorktreeSessionSignal -Sessions @((New-SessionHeartbeat -Id 's' -LastWriteUtc $now.AddHours(-2))) -NowUtc $now).LiveSessionCount
+$skew = Get-WorktreeSessionSignal -Sessions @(
+    (New-SessionHeartbeat -Id 'sess-a' -LastWriteUtc $now.AddMinutes(3)),
+    (New-SessionHeartbeat -Id 'sess-b' -LastWriteUtc $now.AddMinutes(-1))
+) -NowUtc $now
+Assert-Equal 'future mtimes count as live (clock skew)' 'MULTI-SESSION' $skew.Signal
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""

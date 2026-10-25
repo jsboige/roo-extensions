@@ -135,6 +135,23 @@ detached — assurance contre une erreur de classification, non poussée. Les su
 submodule #2772 et anti-imbrication #2123), et par `git worktree remove` **sans** `--force` : git
 refuse alors un worktree sale, ce qui ne peut se produire que si la classification s'est trompée.
 
+### Signal « sessions vivantes » (#4221)
+
+Chaque session Claude Code qui ouvre un chemin reçoit un répertoire projet
+`~/.claude/projects/<slug>/` (le slug = chemin hors caractères non alphanumériques, cf.
+`Convert-ToProjectSlug`) contenant un `<sessionId>.jsonl` par session qui y a tourné. Les trois
+collisions mesurées dans #4221 (15/10) étaient deux agents écrivant le même worktree en même temps,
+sans qu'aucun artefact sur dise à l'un que l'autre y était.
+
+L'audit croise donc chaque worktree avec son slug : **2+ transcripts touchés il y a moins de 2 h**
+(seuil `-SessionLiveHours`, moitié de la cadence executor 4 h) = signal `MULTI-SESSION`, ligne
+WARN console + section « Attention » du rapport. La fraîcheur d'un mtime est un **proxy de
+battement de cœur, pas un état de session** — une session qui attend son prochain tick cron
+n'écrit rien pendant des heures ; l'absence du signal n'est donc **pas** la preuve qu'un worktree
+est libre. Pour la même raison, `-Apply` **refuse** de supprimer tout worktree portant ne serait-ce
+qu'une session probablement vivante (`REFUSED (live-session)`), quelle que soit sa classe. La
+moitié écriture du garde (hook `.wt-lock`) fait l'objet d'un levier séparé sur la même issue.
+
 ---
 
 ## Auto-Cleanup (Scheduler Executor)
