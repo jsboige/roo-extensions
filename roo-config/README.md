@@ -36,6 +36,8 @@ Le composant `roo-config` fournit :
 
 Un mode Roo est une configuration qui definit le comportement d'un agent : son role (`roleDefinition`), ses instructions systeme (`customInstructions`), les groupes d'outils accessibles (`groups`) et optionnellement le modele LLM a utiliser. Chaque mode est identifie par un `slug` unique (ex: `code-simple`, `architect-complex`, `code-medium`).
 
+> **`roleDefinition` est COMMUNE a tous les modes generes (#4334).** Roo/Zoo la place en premier element du prompt systeme : un texte propre a un mode y ferait diverger le prefixe des le premier octet et empecherait le prefix-cache (blocs KV vLLM, prompt-cache Anthropic a 0.1x, cache OpenAI) de servir un mode depuis les blocs d'un autre. L'identite d'un mode vit donc dans `customInstructions`, rendu en FIN de prompt : le generateur y deplace la phrase `roleDefinition` de chaque famille/niveau. Mesure : `python scripts/diagnostic/measure-mode-prompt-prefix.py` ; garde : `scripts/testing/unit/mode-role-definition-prefix.Tests.ps1`.
+
 ---
 
 ## 2. Architecture des modes
