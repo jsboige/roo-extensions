@@ -914,14 +914,20 @@ class CitedByOpenPrSkipRules(unittest.TestCase):
             return run_main(picker, ["--json", "--top", top, "--seed", seed])
 
     def _skip(self, issue_number, prs, urn="grain"):
-        """(skip, reason) pour une issue du depot 1 face aux PRs donnees."""
+        """(skip, reason) pour une issue du depot 1 face aux PRs donnees.
+
+        no_claims() obligatoire : un candidat NON ecarte par la citation
+        poursuit jusqu'au verrou de claim (fetch_issue -> gh). Sans ce mock,
+        le test touche le gh reel — rouge en CI sans GH_TOKEN (mesure 25/10).
+        """
         item = picker.normalize_rest_item(rest_issue(issue_number, ["bug"]), REPOS[0])
         cited = picker.cited_issues_by_open_prs(
             [picker.normalize_rest_item(pr, REPOS[0]) for pr in prs]
         )
-        return picker.check_candidate(
-            urn, item, "myia-po-2027", "myia-po-2027:roo-extensions", cited
-        )
+        with no_claims():
+            return picker.check_candidate(
+                urn, item, "myia-po-2027", "myia-po-2027:roo-extensions", cited
+            )
 
     def test_issue_cited_in_pr_title_is_skipped_with_named_reason(self):
         # 4348 (le cas reel) est cite par le titre de la PR 4350 : ecarte, avec
