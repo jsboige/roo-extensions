@@ -292,6 +292,32 @@ jobs:
           path: mcps/internal/servers/roo-state-manager/test-results/
           retention-days: 7
 
+  # Root node:test suite for scripts/monitoring (#4348 / #4350): the price-guard
+  # file is tests/monitoring/*.test.mjs, which neither the root vitest include
+  # (vitest.config.ts: 'tests/**/*.test.ts') nor the only vitest step of this
+  # workflow (build-and-test above, scoped by working-directory to the
+  # roo-state-manager submodule at ci.yml:280) ever collects. Measured by po-2023
+  # and re-measured by po-2025 on 25/10: a root suite named .mjs OR .ts ran
+  # nowhere, so the -5-5 pricing regression could come back silently — the exact
+  # silent mode #4348 exists to kill. Same precedent as #2985: a suite nothing
+  # runs is documentation, not a guard. The glob is QUOTED so node expands it
+  # itself (positional globs, Node >= 22 — hence the pinned version); a bare
+  # directory argument is not expanded by the runner at all, it tries to execute
+  # the directory and fails (measured 25/10: `node --test tests/monitoring/`
+  # => pass 0 / fail 1, same file passed 4/4 by explicit path).
+  monitoring-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run monitoring node:test suites
+        shell: bash
+        run: node --test "tests/monitoring/**/*.test.mjs"
+
   # Static scheduling-harness (#2985): test-escalation.ps1 is a pure in-memory
   # harness (368 lines, 46 assertions, no network/Docker/schtask/disk writes) that
   # reads start-claude-worker.ps1 as text and compares strings. It ran nowhere —
