@@ -15,6 +15,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { globSync } from 'fs'; // Node 22+ has globSync; fallback below
+import { pathToFileURL } from 'url';
 
 // ── Cost per 1M tokens (USD) — approximate, update as needed ──────────────────
 const PRICING = {
@@ -23,6 +24,14 @@ const PRICING = {
     'claude-sonnet-4-6':           { input:  3.00, output: 15.00 },
     'claude-sonnet-4-5-20250929':  { input:  3.00, output: 15.00 },
     'claude-haiku-4-5-20251001':   { input:  0.80, output:  4.00 },
+    // Claude 5 family (5-5) — list prices per 1M tokens USD:
+    // Opus $4/$20, Sonnet $2/$10, Haiku $0.10/$0.50
+    // Source (2026-10-25): https://www.anthropic.com/claude-opus-5-5
+    // · https://www.anthropic.com/claude-sonnet-5-5 · https://www.anthropic.com/claude-haiku-5-5
+    // Consolidated table: https://platform.claude.com/docs/en/about-claude/pricing
+    'claude-opus-5-5':             { input:  4.00, output: 20.00 },
+    'claude-sonnet-5-5':           { input:  2.00, output: 10.00 },
+    'claude-haiku-5-5':            { input:  0.10, output:  0.50 },
     // z.ai / GLM
     'glm-5':                       { input:  0.70, output:  2.80 },
     'glm-4.7':                     { input:  0.14, output:  0.56 },
@@ -30,16 +39,17 @@ const PRICING = {
     'glm-4.5-air':                 { input:  0.07, output:  0.14 },
 };
 
-const DEFAULT_PRICE = { input: 1.00, output: 3.00 }; // fallback
+// Strip a trailing context-window suffix, e.g. 'claude-haiku-5-5[1m]' → 'claude-haiku-5-5'
+function stripModelSuffix(model) {
+    return model.replace(/\[[^\]]*\]$/, '');
+}
 
-function getPrice(model) {
-    // Exact match
-    if (PRICING[model]) return PRICING[model];
-    // Prefix match
-    for (const [key, price] of Object.entries(PRICING)) {
-        if (model.startsWith(key.split('-').slice(0, 2).join('-'))) return price;
-    }
-    return DEFAULT_PRICE;
+export function getPrice(model) {
+    const id = stripModelSuffix(model);
+    if (PRICING[id]) return PRICING[id];
+    // Unknown id: return null so the caller surfaces it (#4348) — never
+    // price it silently from a sibling generation.
+    return null;
 }
 
 // ── Argument parsing ───────────────────────────────────────────────────────────
@@ -186,27 +196,37 @@ function generateReport(data) {
     let grandCost = 0;
     let grandInput = 0;
     let grandOutput = 0;
+    const unpricedModels = [];
 
-    // Compute costs first, then sort by cost descending
+    // Compute costs first, then sort by cost descending (unpriced last)
     const modelEntries = Object.entries(byModel)
         .filter(([model]) => model !== '<synthetic>' && model !== 'unknown')
         .map(([model, stats]) => {
             const price = getPrice(model);
+            if (!price) {
+                unpricedModels.push(model);
+                return { model, stats, price, cost: null };
+            }
             // Cache reads billed at ~10% of input price
             const cost = ((stats.input / 1e6) * price.input)
                        + ((stats.output / 1e6) * price.output)
                        + ((stats.cache_read / 1e6) * price.input * 0.1);
             return { model, stats, price, cost };
         })
-        .sort((a, b) => b.cost - a.cost);
+        .sort((a, b) => (b.cost ?? -Infinity) - (a.cost ?? -Infinity));
+
+    for (const model of unpricedModels) {
+        console.error(`[token-usage-report] WARNING: no pricing row for model '${model}' — cost listed as 'unpriced' and excluded from the total. Add the id to PRICING.`);
+    }
 
     for (const { model, stats, cost } of modelEntries) {
-        grandCost += cost;
+        if (cost !== null) grandCost += cost;
         grandInput += stats.input;
         grandOutput += stats.output;
 
+        const costCell = cost === null ? 'unpriced' : fmtCost(cost);
         lines.push(
-            `| \`${model}\` | ${stats.sessions} | ${stats.apiCalls} | ${fmtNum(stats.input)} | ${fmtNum(stats.output)} | ${fmtNum(stats.cache_read)} | ${fmtCost(cost)} |`
+            `| \`${model}\` | ${stats.sessions} | ${stats.apiCalls} | ${fmtNum(stats.input)} | ${fmtNum(stats.output)} | ${fmtNum(stats.cache_read)} | ${costCell} |`
         );
     }
 
@@ -221,6 +241,7 @@ function generateReport(data) {
     lines.push('');
     lines.push('- **Cache reads** are counted per API call: a 100K-token context makes 100 calls = 10M cache read tokens counted');
     lines.push('- Cache read pricing: ~10% of input price (e.g., $1.50/MTok for Opus vs $15/MTok input)');
+    lines.push('- Models without a PRICING row are listed as `unpriced` and excluded from the cost estimate (no silent fallback)');
     lines.push('- **All Claude Code projects** on this machine are included, not just roo-extensions');
     lines.push('- z.ai / GLM sessions not captured here (Roo Code uses different trace format)');
     lines.push('- Cross-machine aggregation requires running this script on each machine separately');
@@ -232,13 +253,18 @@ function generateReport(data) {
     return lines.join('\n');
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────────
-const data = aggregate();
-const report = generateReport(data);
+// ── Main (guarded so tests can import getPrice without scanning sessions) ──────
+const isMain = process.argv[1]
+    && import.meta.url === pathToFileURL(process.argv[1]).href;
 
-if (outputFile) {
-    fs.writeFileSync(outputFile, report, 'utf-8');
-    console.error(`Report written to ${outputFile}`);
-} else {
-    process.stdout.write(report + '\n');
+if (isMain) {
+    const data = aggregate();
+    const report = generateReport(data);
+
+    if (outputFile) {
+        fs.writeFileSync(outputFile, report, 'utf-8');
+        console.error(`Report written to ${outputFile}`);
+    } else {
+        process.stdout.write(report + '\n');
+    }
 }
