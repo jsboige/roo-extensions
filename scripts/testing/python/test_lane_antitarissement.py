@@ -79,9 +79,10 @@ def rest_issue(number, labels, title="issue"):
     }
 
 
-def rest_pr(number, title="pr", labels=()):
+def rest_pr(number, title="pr", labels=(), body=""):
     """Item REST brut d'une PR : la cle `pull_request` la distingue d'une issue."""
     return {**rest_issue(number, list(labels), title),
+            "body": body,
             "pull_request": {"url": f"https://api.github.com/repos/x/pulls/{number}"}}
 
 
@@ -889,6 +890,117 @@ class LaneSeedDivergence(unittest.TestCase):
             code, out = run_main(picker, ["--json", "--seed", "99"])
         data = json.loads(out)
         self.assertEqual(data["seed"], 99)
+
+
+class CitedByOpenPrSkipRules(unittest.TestCase):
+    """Decision ai-01 du 25/10 : une issue deja portee par une PR ouverte est ecartee.
+
+    Mesure fondatrice : le 25/10, la lane po-2025 a pose un [CLAIMED] sur #4348
+    alors que la PR #4350 le livrait deja (titre `fix(monitoring,#4348): ...`).
+
+    Deux formes de citation comptent, et seulement deux : le numero dans le
+    TITRE de la PR, ou une reference de FERMETURE explicite dans son corps.
+    Une mention nue de corps ne compte pas - forme large mesuree sur le pool
+    reel : elle ecartait #3962 et #2428, cites par le bump #4353 dans sa liste
+    de commits, sans que ce bump les livre.
+    """
+
+    def _pick_with(self, page, prs, top="2", seed="11"):
+        """Un seul depot alimente : issues de `page`, PRs ouvertes de `prs`."""
+        r1 = rest_page(list(page) + list(prs))
+        with mock.patch("subprocess.run", side_effect=[r1, rest_page([])]), \
+                no_claims(), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            return run_main(picker, ["--json", "--top", top, "--seed", seed])
+
+    def _skip(self, issue_number, prs, urn="grain"):
+        """(skip, reason) pour une issue du depot 1 face aux PRs donnees.
+
+        no_claims() obligatoire : un candidat NON ecarte par la citation
+        poursuit jusqu'au verrou de claim (fetch_issue -> gh). Sans ce mock,
+        le test touche le gh reel — rouge en CI sans GH_TOKEN (mesure 25/10).
+        """
+        item = picker.normalize_rest_item(rest_issue(issue_number, ["bug"]), REPOS[0])
+        cited = picker.cited_issues_by_open_prs(
+            [picker.normalize_rest_item(pr, REPOS[0]) for pr in prs]
+        )
+        with no_claims():
+            return picker.check_candidate(
+                urn, item, "myia-po-2027", "myia-po-2027:roo-extensions", cited
+            )
+
+    def test_issue_cited_in_pr_title_is_skipped_with_named_reason(self):
+        # 4348 (le cas reel) est cite par le titre de la PR 4350 : ecarte, avec
+        # la PR nommee dans la raison (ecart auditable, pas un silence).
+        skip, reason = self._skip(
+            4348, [rest_pr(4350, title="fix(monitoring,#4348): price 5-5 ids")]
+        )
+        self.assertTrue(skip)
+        self.assertEqual(reason, "cited by open PR #4350")
+
+    def test_closing_reference_in_pr_body_is_skipped(self):
+        # `Closes #N` dans le corps est une promesse de livraison : meme
+        # traitement que la citation en titre.
+        skip, reason = self._skip(
+            4348,
+            [rest_pr(4350, title="fix(monitoring): unpriced ids",
+                     body="Fixes the report.\n\nCloses #4348")],
+        )
+        self.assertTrue(skip)
+        self.assertEqual(reason, "cited by open PR #4350")
+
+    def test_uncited_issue_is_free(self):
+        # Contre-epreuve : sans citation, aucun ecart (mutation du garde).
+        skip, reason = self._skip(4349, [rest_pr(4350, title="fix(#4348): x")])
+        self.assertFalse(skip)
+        self.assertEqual(reason, "")
+
+    def test_bare_body_mention_does_not_skip(self):
+        # Le bump #4353 cite #3962 et #2428 dans sa liste de commits sans les
+        # livrer : une mention nue ne doit PAS ecarter un grain actionnable.
+        page = [rest_issue(3962, ["bug"])]
+        prs = [rest_pr(4353, title="chore(submod): bump (#4352 search repair)",
+                       body="cites #3962 and #2428 among merged commits")]
+        _code, out = self._pick_with(page, prs, top="1")
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["pick"]["number"], 3962)
+
+    def test_title_citation_needs_a_word_boundary(self):
+        # `#435` ne doit pas ecarter `#4352` (piege du pre-claim #3407).
+        page = [rest_issue(4352, ["bug"])]
+        prs = [rest_pr(4353, title="chore(submod): bump (#435 search repair)")]
+        _code, out = self._pick_with(page, prs, top="1")
+        data = json.loads(out)
+        self.assertEqual(data["pick"]["number"], 4352)
+
+    def test_citation_in_another_repo_does_not_skip(self):
+        # Les numeros vivent dans l'espace de leur depot (#608 existe des deux
+        # cotes) : une PR du depot 2 citant #4348 n'ecarte pas l'issue du depot 1.
+        # Ici la PR est collectee sur le depot 2, l'issue sur le depot 1.
+        issue_page = rest_page([rest_issue(4348, ["bug"])])
+        pr_page = rest_page([rest_pr(4400, title="fix(#4348): other repo")])
+        with mock.patch("subprocess.run", side_effect=[issue_page, pr_page]), \
+                no_claims(), \
+                mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
+            code, out = run_main(picker, ["--json", "--top", "1", "--seed", "11"])
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["pick"]["number"], 4348)
+        # et la PR elle-meme reste servie par l'urne delivered, jamais ecartee
+        self.assertTrue(all(not c["skipped"] or c["urn"] != "delivered"
+                            for c in data["candidates"]))
+
+    def test_delivered_urn_is_never_skipped_even_if_it_cites_itself(self):
+        # Une PR qui cite sa propre issue ne s'auto-ecarte pas : l'urne
+        # delivered reste le but de la review cross-lane (ADR 016).
+        prs = [rest_pr(4350, title="fix(monitoring,#4348): price 5-5 ids")]
+        code, out = self._pick_with([], prs, top="1")
+        self.assertEqual(code, 0)
+        data = json.loads(out)
+        self.assertEqual(data["verdict"], "PICK")
+        self.assertEqual(data["urn"], "delivered")
+        self.assertFalse(data["pick"] is None)
 
 
 if __name__ == "__main__":

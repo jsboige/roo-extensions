@@ -85,6 +85,18 @@ doit la porter.
 **Verdict IDLE-REAL :** declenche UNIQUEMENT si `grain + umbrella + delivered = 0` APRES collecte
 reussie sur les 2 depots. Sinon PICK.
 
+**Amendement 2026-10-25 — issue deja portee par une PR ouverte (decision ai-01) :** le picker
+resservait des grains dont le travail etait deja en review — mesure du jour, un `[CLAIMED]` a ete
+pose sur #4348 alors que la PR #4350 le livrait deja depuis 02:22Z. Une issue citee par une PR
+ouverte est desormais ecartee, avec la PR nommee dans la raison (`cited by open PR #NNNN`). Deux
+formes de citation comptent, et seulement deux : le numero dans le **titre** de la PR, ou une
+**reference de fermeture** explicite dans son corps (`Closes/Fixes/Resolves #N`). Une **mention nue
+de corps ne compte pas** — forme large mesuree sur le pool reel le 25/10 : elle ecartait deux grains
+(#3962 et #2428) que le bump #4353 cite dans sa liste de commits sans les livrer, tandis que la
+forme retenue ecartait exactement #4348 (PR #4350) et #4352 (PR #4353), zero faux positif. Les deux
+formes sont lues sur l'urne `delivered` DEJA collectee : aucun appel API supplementaire. Le pre-claim
+`check_issue_claim.py` reste la barriere — le picker ne la remplace pas.
+
 ### 2. Test de fin de cycle — `scripts/scheduling/test_cycle_end.py`
 
 Remplace « idle-honnete » (vocabulaire) par **test-resultat** (sortie).
