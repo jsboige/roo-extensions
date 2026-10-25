@@ -49,7 +49,7 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer 
 
 `settings.json` : deny `AskUserQuestion`/`EnterPlanMode`/`ExitPlanMode`/`DesignSync`, `mode: auto-approve`, `outputStyle: Proactive`, `ENABLE_TOOL_SEARCH: "true"`, `disableBundledSkills`, `disableClaudeAiConnectors`, `disableRemoteControl`. Conséquences :
 - **Zéro question bloquante** — question non bloquante = registre persistant (`memory/open-questions-ledger.md` par workspace), représenté à chaque fin de cycle, sorti **que sur réponse user**. Détail : [`harnais-tightening.md`](../../.claude/rules/harnais-tightening.md).
-- **Notebooks** via MCP `jupyter-papermill` (activé au besoin) ; `NotebookEdit` est deny, pas de fallback.
+- **Notebooks** via MCP `jupyter-papermill` (activé au besoin) ; `NotebookEdit` est deny, pas de fallback. Le repli se **vérifie par handshake** au démarrage (`scripts/diagnostic/check-deny-fallback.py`, #4340) — absent/sourd = capacité bloquée, jamais de workaround.
 - **Harnais maigre** — schémas MCP en différé ; effet à mesurer par lane.
 
 ## Harness Amplification Control
