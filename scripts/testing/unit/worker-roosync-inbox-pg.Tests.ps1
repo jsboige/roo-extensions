@@ -12,8 +12,11 @@
         repli fichiers sur une lecture PG réussie) ;
       - exit 3 / 1 / CLI absent / exception = repli chemin fichiers legacy ;
       - filtres [TASK]/[URGENT]/status/self côté APPELANT (contrat) ;
-      - pas de messageFile sous PG : le marquage « consommé » passe par le
-        canal ; Mark-TaskAsComplete ne doit rien écrire dans ce cas.
+      - pas de messageFile sous PG. B17 (25/10) : le marquage « consommé »
+        passe par le CLI --mark-read du submodule (même chemin per-reader que
+        le mark_read MCP) — sans lui le worker resservait le MÊME [TASK] à
+        chaque cycle (6 servis en 30 h, ai-01). Aucune erreur CLI ne doit
+        faire échouer le run : WARN et poursuite.
 
     Les fonctions sont extraites du worker via AST (pas de dot-source du
     script entier — convention worker-resume-prompt.Tests.ps1). Le seam
@@ -344,7 +347,7 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
 
     Context 'Mark-TaskAsComplete : branche PG (garde de structure)' {
 
-        It 'la branche pg precede le elseif messageFile et necrit aucun fichier' {
+        It 'la branche pg precede le elseif messageFile, appelle --mark-read et ne peut pas faire echouer le run' {
             $idxStart = $script:Content.IndexOf('"roosync" {')
             $idxStart | Should -BeGreaterThan -1
             $idxEnd = $script:Content.IndexOf('"github" {', $idxStart)
@@ -354,7 +357,125 @@ Describe 'Worker inbox PG-first (B14 #4131)' {
             $posPg = $roosyncCase.IndexOf('inboxSource -eq "pg"')
             $posFile = $roosyncCase.IndexOf('elseif ($Task.messageFile')
             $posFile | Should -BeGreaterThan $posPg
-            $roosyncCase | Should -Match 'consommé via canal PG'
+            # B17 : le marquage consommé passe par le CLI (même chemin per-reader
+            # que le mark_read MCP), avec l'id du message servi.
+            $roosyncCase | Should -Match '--mark-read \$\(\$Task\.id\)'
+            # B17 : toute erreur CLI est WARN, jamais un throw — le run continue.
+            $posTry = $roosyncCase.IndexOf('try {')
+            $posTry | Should -BeGreaterThan $posPg
+            $posTry | Should -BeLessThan $posFile
+            $roosyncCase | Should -Match 'catch \{'
+        }
+    }
+
+    Context 'Mark-TaskAsComplete : branche PG (B17, vrai appel CLI via faux node)' {
+
+        BeforeAll {
+            # Re-extraction de la VRAIE fonction dans ce scope (elle fait ombre
+            # au stub du Describe pour les tests de ce contexte).
+            $fn = $script:Ast.FindAll({
+                param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                          $n.Name -eq 'Mark-TaskAsComplete'
+            }, $true) | Select-Object -First 1
+            . ([scriptblock]::Create($fn.Extent.Text))
+
+            # Même fake-node cross-plateforme que le contexte Get-RooSyncInboxMessages,
+            # + capture d'argv : le faux node écrit ses arguments dans $script:ArgvFile
+            # avant de répondre, pour assert que --machine/--mark-read atteignent le CLI.
+            $script:FakeBin2 = Join-Path ([System.IO.Path]::GetTempPath()) "b17-fake-node-$(Get-Random)"
+            New-Item -ItemType Directory -Force -Path $script:FakeBin2 | Out-Null
+            $script:ArgvFile = Join-Path $script:FakeBin2 'argv.txt'
+            $script:CliRoot2 = Join-Path ([System.IO.Path]::GetTempPath()) "b17-fake-root-$(Get-Random)"
+            $cliDir2 = Join-Path $script:CliRoot2 'mcps/internal/servers/roo-state-manager/scripts'
+            New-Item -ItemType Directory -Force -Path $cliDir2 | Out-Null
+            Set-Content -Path (Join-Path $cliDir2 'read-roosync-inbox.mjs') -Value '// stub' -Encoding ascii
+            $RepoRoot = $script:CliRoot2
+
+            function Set-FakeMarkNode {
+                param([string]$PayloadLine, [int]$ExitCode)
+                if ($env:OS -eq 'Windows_NT') {
+                    Set-Content -Path (Join-Path $script:FakeBin2 'node.cmd') `
+                        -Value "@echo off`r`necho %*> `"$script:ArgvFile`"`r`necho $PayloadLine`r`nexit /b $ExitCode" -Encoding ascii
+                }
+                else {
+                    Set-Content -Path (Join-Path $script:FakeBin2 'node') `
+                        -Value "#!/bin/sh`necho `"`$@`" > '$script:ArgvFile'`necho '$PayloadLine'`nexit $ExitCode" -Encoding ascii
+                    & chmod +x (Join-Path $script:FakeBin2 'node')
+                    Set-Content -Path (Join-Path $script:FakeBin2 'cmd') `
+                        -Value "#!/bin/sh`nshift`nexec sh -c `"`$*`"" -Encoding ascii
+                    & chmod +x (Join-Path $script:FakeBin2 'cmd')
+                }
+            }
+
+            $script:PgTask = @{
+                id = 'msg-b17-1'; subject = '[TASK] B17'; priority = 'HIGH'
+                prompt = 'corps'; source = 'roosync'; messageFile = $null; inboxSource = 'pg'
+            }
+        }
+
+        AfterAll {
+            if ($script:FakeBin2 -and (Test-Path $script:FakeBin2)) {
+                Remove-Item $script:FakeBin2 -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            if ($script:CliRoot2 -and (Test-Path $script:CliRoot2)) {
+                Remove-Item $script:CliRoot2 -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        It 'exit 0 : marque lu sans exception, argv contient --machine et --mark-read avec id du message' {
+            Set-FakeMarkNode -PayloadLine '{"source":"pg","written":true}' -ExitCode 0
+            $old = $env:PATH
+            try {
+                $env:PATH = "$($script:FakeBin2)$([IO.Path]::PathSeparator)$env:PATH"
+                { Mark-TaskAsComplete -Task $script:PgTask -MachineId 'ci-b14-machine' } | Should -Not -Throw
+                ($script:CapturedLogs | Where-Object { $_ -match 'marqué lu' }).Count | Should -BeGreaterThan 0
+                $argv = (Get-Content $script:ArgvFile -Raw)
+                $argv | Should -Match '--machine ci-b14-machine'
+                $argv | Should -Match '--mark-read msg-b17-1'
+            }
+            finally { $env:PATH = $old }
+        }
+
+        It 'exit 3 (gate off) : WARN, jamais de throw — le run continue' {
+            Set-FakeMarkNode -PayloadLine '{"source":"file","reason":"gate-off"}' -ExitCode 3
+            $old = $env:PATH
+            try {
+                $env:PATH = "$($script:FakeBin2)$([IO.Path]::PathSeparator)$env:PATH"
+                { Mark-TaskAsComplete -Task $script:PgTask -MachineId 'ci-b14-machine' } | Should -Not -Throw
+                ($script:CapturedLogs | Where-Object { $_ -match 'exit 3' }).Count | Should -BeGreaterThan 0
+            }
+            finally { $env:PATH = $old }
+        }
+
+        It 'exit 4 (PG na rien ecrit) : WARN avec la reason du payload' {
+            Set-FakeMarkNode -PayloadLine '{"source":"pg","written":false,"reason":"denied"}' -ExitCode 4
+            $old = $env:PATH
+            try {
+                $env:PATH = "$($script:FakeBin2)$([IO.Path]::PathSeparator)$env:PATH"
+                { Mark-TaskAsComplete -Task $script:PgTask -MachineId 'ci-b14-machine' } | Should -Not -Throw
+                ($script:CapturedLogs | Where-Object { $_ -match 'exit 4' -and $_ -match 'denied' }).Count | Should -BeGreaterThan 0
+            }
+            finally { $env:PATH = $old }
+        }
+
+        It 'CLI absent (RepoRoot sans .mjs) : WARN, sans exception' {
+            $oldRoot = $RepoRoot
+            try {
+                $RepoRoot = $script:FakeBin2  # aucun .mjs ici
+                { Mark-TaskAsComplete -Task $script:PgTask -MachineId 'ci-b14-machine' } | Should -Not -Throw
+                ($script:CapturedLogs | Where-Object { $_ -match 'introuvable' }).Count | Should -BeGreaterThan 0
+            }
+            finally { $RepoRoot = $oldRoot }
+        }
+
+        It 'branche fichiers legacy inchangée : inboxSource file + messageFile reecrit le JSON' {
+            $legacyDir = Join-Path $script:FakeBin2 'legacy'
+            New-Item -ItemType Directory -Force -Path $legacyDir | Out-Null
+            $legacyFile = Join-Path $legacyDir 'msg-legacy.json'
+            [System.IO.File]::WriteAllText($legacyFile, '{"id":"msg-legacy","status":"unread"}', [System.Text.UTF8Encoding]::new($false))
+            $fileTask = @{ id = 'msg-legacy'; subject = '[TASK] legacy'; priority = 'LOW'; prompt = 'b'; source = 'roosync'; messageFile = $legacyFile; inboxSource = 'file' }
+            { Mark-TaskAsComplete -Task $fileTask -MachineId 'ci-b14-machine' } | Should -Not -Throw
+            (Get-Content $legacyFile -Raw | ConvertFrom-Json).status | Should -Be 'read'
         }
     }
 }

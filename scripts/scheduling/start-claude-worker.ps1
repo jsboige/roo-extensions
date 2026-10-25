@@ -1213,16 +1213,58 @@ function Mark-TaskAsComplete {
         $Task,
         [string]$PrUrl = $null,
         [bool]$Success = $false,
-        [array]$DeliveredArtifacts = @()
+        [array]$DeliveredArtifacts = @(),
+        # B17 (#4131) : identité lecteur du worker pour le mark-read PG — même
+        # forme bare-machine que la lecture (Get-RooSyncInboxMessages), pour
+        # écrire la MÊME per-reader state qui servait le [TASK].
+        [string]$MachineId = $env:COMPUTERNAME.ToLower()
     )
 
     switch ($Task.source) {
         "roosync" {
             if ($Task.inboxSource -eq "pg") {
-                # B14 (#4131) : pas de fichier sous PG — le marquage « consommé »
-                # passe par le canal (status per-reader côté PG), rien à écrire
-                # ici (checklist review ms#1481 : "no messageFile under PG").
-                Write-Log "Message RooSync consommé via canal PG (B14, pas de messageFile)" "DEBUG"
+                # B17 (#4131) : B14 laissait le marquage « consommé » vide sous PG
+                # — le worker relisait donc le MÊME [TASK] à chaque cycle (6 servis
+                # en 30 h, ai-01 25/10) car son reader bare-machine n'était jamais
+                # marqué lu. Le CLI --mark-read écrit cette per-reader state par le
+                # même chemin PG que le mark_read MCP. AUCUNE erreur CLI ne fait
+                # échouer le run : WARN et poursuite — un message resservi est le
+                # statu quo pré-B17, strictement mieux qu'un run perdu.
+                try {
+                    $CliPath = Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager/scripts/read-roosync-inbox.mjs"
+                    if (-not (Test-Path $CliPath)) {
+                        Write-Log "read-roosync-inbox.mjs introuvable ($CliPath) - [TASK] PG non marqué lu, resservi au prochain cycle" "WARN"
+                    }
+                    else {
+                        # Même ceinture #3731 que Get-RooSyncInboxMessages : merge
+                        # stderr côté cmd.exe, EAP relâchée puis restaurée.
+                        $PrevPref = $ErrorActionPreference
+                        $ErrorActionPreference = "Continue"
+                        try {
+                            $output = (& cmd /c "node ""$CliPath"" --machine $MachineId --mark-read $($Task.id) 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
+                            $exit = $LASTEXITCODE
+                        }
+                        finally {
+                            $ErrorActionPreference = $PrevPref
+                        }
+                        $jsonLine = ($output -split "\r?\n" | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                        $detail = ""
+                        try {
+                            $parsed = $jsonLine | ConvertFrom-Json
+                            if ($parsed.reason) { $detail = " ($($parsed.reason))" }
+                            elseif ($parsed.alreadyRead) { $detail = " (deja lu, aucune ecriture)" }
+                        } catch { $detail = "" }
+                        switch ($exit) {
+                            0 { Write-Log "Message RooSync PG marqué lu pour le reader worker ($MachineId)$detail" }
+                            3 { Write-Log "mark-read exit 3 : canal hors lecture PG$detail - message resservi (chemin fichiers conservé)" "WARN" }
+                            4 { Write-Log "mark-read exit 4 : PG n'a rien écrit$detail - message resservi au prochain cycle" "WARN" }
+                            default { Write-Log "mark-read exit inattendu $exit$detail - message resservi au prochain cycle" "WARN" }
+                        }
+                    }
+                }
+                catch {
+                    Write-Log "mark-read exception: $_ - message resservi au prochain cycle" "WARN"
+                }
             }
             elseif ($Task.messageFile -and (Test-Path $Task.messageFile)) {
                 try {
