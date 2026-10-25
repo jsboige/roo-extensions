@@ -121,7 +121,9 @@ if (-not (Test-Path $McpConfig)) {
 $lockFile = Join-Path $LockDir "spawn-$Workspace.lock"
 
 function Write-Log($level, $msg) {
-    $ts = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+    # Real UTC, same idiom as dashboard-listener.ps1 (#3277 fix 5): this helper writes into the
+    # listener log, and a literal "Z" on local time put its lines one hour off their neighbours.
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     Write-Host "[$ts] [$level] $msg"
 }
 
