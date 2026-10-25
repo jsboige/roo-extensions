@@ -53,6 +53,11 @@
       "verified": null,
       "notes": "Claude-only seat, portable; pwsh absent (#2368)"
     },
+    "myia-po-2028": {
+      "roles": ["executor"],
+      "verified": "2026-10-25",
+      "notes": "verified firsthand (user-scope: jupyter-papermill, playwright, roo-state-manager, searxng, sk-agent); verifier exit 0, 0 findings 2026-10-25 after entry added (no retired, no ghost disables); explicit override: jupyter-papermill disabled for projects[C:/dev/roo-extensions] — activate-on-need per harnais-tightening rule 2, installed user-scope; sk-agent stdio validated in-session 2026-10-25 (#3411, 3 probes OK); lane inaugurated 2026-10-20 — post-manifest-v1 addition, roster reconciliation in flight (#4258)"
+    },
     "myia-web1": {
       "roles": ["web"],
       "verified": null,

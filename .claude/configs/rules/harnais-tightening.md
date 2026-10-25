@@ -23,6 +23,17 @@ qui exige l'user va au registre, une décision tranchable se tranche et se consi
 base64, cell IDs, kernelspecs — piégeux). Si le MCP ne peut pas être activé sur la
 machine : question au registre, pas d'édition.
 
+**Le prérequis de provisioning se vérifie, il ne se présume pas (#4340)** : incident
+po-2027 24/10 — repli jamais provisionné, rien détecté pendant des semaines, fallback
+interdit normalisé (bytesplice JSON). Au démarrage d'une session d'un siège où
+`NotebookEdit` est deny : `python <roo-extensions>/scripts/diagnostic/check-deny-fallback.py --workspace <ws>`
+— sonde **handshake** (jamais les drapeaux : `disabled: true` est inert sur un siège
+Claude Code). Échec = capacité notebook **BLOQUÉE** (jamais de workaround) + entrée
+registre ; le provisioning est une décision par workspace. Câblage canonique UNIQUE :
+`.mcp.json` local du workspace (gitignoré) + install editable dans le venv + entrée
+`{"type":"stdio","command":"<venv-python>","args":["-m","papermill_mcp.main"]}` sans
+drapeau. Détail : [`deny-fallback-probe.md`](../../docs/harness/reference/deny-fallback-probe.md).
+
 ## 3. Harnais maigre — `ENABLE_TOOL_SEARCH` + drapeaux de réduction
 
 Les drapeaux (`ENABLE_TOOL_SEARCH`, `disableBundledSkills`,

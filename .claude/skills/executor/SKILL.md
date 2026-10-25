@@ -60,6 +60,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - **Deploy-lag nudge (#2591)** : si le pré-vol rend `10`, fusionner au rapport `[INFO]` le gitlink activé ; build frais sur disque ≠ hôte MCP qui le sert en mémoire.
    - **Escalade après N=3 formes absorbantes (#3605, spec user 13/09)** : sur exit `10`, le pré-vol émet une de trois banderoles. `[RESTART-REQUIRED]` (répétitions 1-2) : poster **UN** `[ASK]` user (restart full-quit VS Code) et stopper le cycle. `[ESCALATE]` (3ᵉ répétition de la forme absorbante — hôtes vivants précèdent un build que CE run n'a **pas** rebuildé) : poster **UN seul** `[ASK]`, puis stop — ni kill, ni retry automatique. `[SHORT-CYCLE]` (escalade déjà émise) : rapport **1 ligne** — pas de collecte Phase 1, pas de nouveau `[ASK]`. Dès que le pré-vol rend `0` (signature disparue), les cycles reprennent normalement.
    - **Relay `[OAUTH-EXPIRED]` (#3169 option b)** : un exit `0` peut porter le WARN non bloquant `[executor-preflight][OAUTH-EXPIRED]` (vraies erreurs API OAuth-expired dans les 48h — le discriminateur `isApiErrorMessage` exclut les citations). Le relayer sur le dashboard workspace avec le tag `WARN` (compteur + sessions touchées) : le tueur de cadence silencieux n'est visible qu'une fois relayé. Le cycle continue normalement — jamais de STOP sur ce signal.
+   - **Relay `[DENY-FALLBACK]` (#4340)** : un exit `0` peut aussi porter le WARN non bloquant `[executor-preflight][DENY-FALLBACK]` (sonde handshake : un outil deny n'a pas de repli répondant sur ce siège). Le relayer sur le dashboard workspace avec le tag `WARN` + une entrée registre `[ASK]` : la capacité touchée (édition notebook si `NotebookEdit` deny) est **BLOQUÉE** — jamais de workaround (bytesplice JSON, `NotebookEdit`). Le provisioning du repli est une décision par workspace (arbitrage user 24/10) ; le cycle continue.
 3. **Win-cli timeout guard** (anti-régression #2333) :
    - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
@@ -171,9 +172,13 @@ Le picker collecte **une fois par depot en REST** (`gh api repos/{repo}/issues`,
 GraphQL flotte n'est plus consomme), scanne **les 2 depots** (anti-double-claim #3407), repartit dans
 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et rend une **liste ordonnee de K
 candidats tires sans remise** (`--top K`, defaut 5) : **parcours la liste jusqu'au premier grain
-LIBRE** — un candidat portant un claim etranger actif (ADR 017, peremption 24 h) ou une etiquette de
-lane `myia-*` autre que la tienne est ecarte, avec la raison rendue dans la sortie. Tous les K pris →
-elargissement au pool entier ; rien de libre → verdict `ALL_CLAIMED` (exit 0, ni IDLE_REAL ni ERROR).
+LIBRE** — un candidat portant un claim etranger actif (ADR 017, peremption 24 h), une etiquette de
+lane `myia-*` autre que la tienne, ou **une issue deja portee par une PR ouverte** est ecarte, avec la
+raison rendue dans la sortie. Cette derniere exclusion (decision ai-01 du 25/10) lit le **titre** de la
+PR et ses **references de fermeture** de corps (`Closes/Fixes/Resolves #N`) — pas une mention nue :
+mesure du jour, la forme large ecartait #3962 et #2428 que le bump #4353 cite sans les livrer. Tous
+les K pris → elargissement au pool entier ; rien de libre → verdict `ALL_CLAIMED` (exit 0, ni
+IDLE_REAL ni ERROR).
 `IDLE-REAL` reste declenche UNIQUEMENT si toutes les urnes sont vides ; la sortie `--json` rend
 `machine`, `seed`, `slot` (tracabilite du tirage) et `unlabelled_open` (issues prenables sans
 etiquette d'urne — le trou visible pour le coordinateur). **Fail-closed :** toute panne gh (exit

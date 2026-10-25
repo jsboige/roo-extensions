@@ -38,6 +38,15 @@ Le picker tire dans 3 urnes ponderees :
     liste codee en dur. Le prefixe de titre `[CLAUDE-<machine>]` n'est PAS
     consulte : il designe la machine qui a CREE l'issue, pas celle qui doit
     la porter.
+  - Saut des issues DEJA PORTEES par une PR ouverte (decision ai-01 du
+    25/10) : le picker resservait des grains dont le travail etait deja en
+    review. Deux formes de citation comptent, et seulement deux - le numero
+    dans le TITRE de la PR, ou une reference de FERMETURE explicite dans son
+    corps (`Closes/Fixes/Resolves #N`). Une simple mention de corps ne compte
+    PAS : mesure 25/10 sur le pool reel, la forme large ecartait #3962 et
+    #2428, que le bump #4353 cite dans sa liste de commits sans les livrer,
+    alors que la forme retenue ecarte exactement #4348 (PR #4350) et #4352
+    (PR #4353) - zero faux positif mesure.
   - Collecte REST UNE fois par depot (`gh api repos/{repo}/issues?state=open`,
     paginee) : le quota GraphQL, partage par toute la flotte, n'est plus
     consomme. La meme reponse sert les 3 urnes (les PRs y figurent avec la
@@ -109,6 +118,20 @@ CLAIM_STALE_THRESHOLD_H = 24.0
 # resservait a une lane son propre grain deja livre (2 lanes touchees le 21/10 :
 # #2767/#4287 po-2027, #4286 po-2023).
 OWN_SERVED_MARKERS = {"RESULT", "RELEASED", "DONE", "DELIVERED"}
+
+# Issue deja portee par une PR ouverte (decision ai-01 du 25/10) : le numero
+# cite dans le TITRE de la PR. Frontiere de mot obligatoire - `#(\d+)(?![0-9])` :
+# `#435` ne doit pas matcher `#4352` (meme piege que le pre-claim #3407, ou
+# `--search` ramenait des PRs sans rapport).
+CITATION_IN_TITLE_RE = re.compile(r"#(\d+)(?![0-9])")
+
+# Reference de FERMETURE explicite dans le corps de la PR (`Closes #4348`,
+# `fixes: #4348`, `Resolved #4348`). Seule cette forme compte dans le corps :
+# une mention nue ne dit pas que la PR livre l'issue - mesure 25/10, le bump
+# #4353 cite #3962 et #2428 dans sa liste de commits sans les livrer.
+CLOSING_REFERENCE_RE = re.compile(
+    r"(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\b[ \t]*:?[ \t]*#(\d+)(?![0-9])"
+)
 
 
 class GhCommandError(RuntimeError):
@@ -184,6 +207,7 @@ def normalize_rest_item(raw: dict, repo: str) -> dict:
     return {
         "number": raw.get("number"),
         "title": raw.get("title", ""),
+        "body": raw.get("body") or "",
         "labels": [{"name": l.get("name")} for l in raw.get("labels", [])],
         "assignees": raw.get("assignees", []),
         "createdAt": raw.get("created_at", ""),
@@ -221,6 +245,30 @@ def bucketize_items(items: list):
         else:
             unlabelled_open += 1
     return buckets, unlabelled_open, open_issues
+
+
+def cited_issues_by_open_prs(prs: list) -> dict:
+    """{(repo, numero_issue): numero_de_la_PR} des issues portees par une PR ouverte.
+
+    Decision ai-01 du 25/10 (statut dashboard) : le picker resservait des grains
+    dont le travail etait deja en review - mesure du jour, un claim de lane a
+    ete pose sur #4348 alors que la PR #4350 le livrait deja.
+
+    La cle porte le DEPOT : le numero seul n'identifie rien quand les deux
+    depots l'utilisent (meme regle que partout ailleurs dans le picker).
+    Le premier citant gagne (`setdefault`) : l'ordre de collecte est stable et
+    une seule PR nommee suffit a rendre l'ecart auditable dans `reason`.
+
+    `delivered` fournit les PRs deja collectees - aucun appel API en plus.
+    """
+    cited = {}
+    for pr in prs:
+        repo = pr.get("repo", "")
+        numbers = [int(n) for n in CITATION_IN_TITLE_RE.findall(pr.get("title") or "")]
+        numbers += [int(n) for n in CLOSING_REFERENCE_RE.findall(pr.get("body") or "")]
+        for number in numbers:
+            cited.setdefault((repo, number), pr.get("number"))
+    return cited
 
 
 def own_machine_id() -> str:
@@ -364,12 +412,15 @@ def own_served_no_followup(comments: list, own_lane: str) -> bool:
     return served
 
 
-def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None) -> tuple:
+def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None,
+                    cited_by: dict = None) -> tuple:
     """(skip, raison) pour un candidat. Leve GhCommandError sur panne instrument.
 
     - Urne delivered : jamais ecartee (ADR 016 : pas de lecture de verrou sur
       une PR ouverte - elle n'est pas encore un grain transforme ; la review
       cross-lane est le but de cette urne).
+    - Issue deja portee par une PR ouverte (decision ai-01 du 25/10) : ecartee
+      sur donnee LOCALE (aucun appel API), avant toute lecture de claim.
     - Etiquette de lane etrangere : ecarte sans appel API (donnee locale),
       comparee sur la MACHINE (les etiquettes du depot portent la machine).
     - Claim etranger actif : REUTILISE check_issue_claim (ADR 017, peremption
@@ -383,6 +434,9 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
     """
     if urn == "delivered":
         return False, ""
+    cited_pr = (cited_by or {}).get((item.get("repo", ""), item.get("number")))
+    if cited_pr is not None:
+        return True, f"cited by open PR #{cited_pr}"
     labels = {lbl.get("name") for lbl in item.get("labels", [])}
     foreign = foreign_machine_labels(labels, own_machine)
     if foreign:
@@ -504,6 +558,9 @@ def main() -> int:
 
     # Urnes + trous visibles
     buckets, unlabelled_open, total_backlog = bucketize_items(all_items)
+    # Issues deja portees par une PR ouverte (decision ai-01 du 25/10), lues sur
+    # l'urne delivered DEJA collectee : aucun appel API supplementaire.
+    cited_by = cited_issues_by_open_prs(buckets["delivered"])
     grain_count = len(buckets["grain"])
     umbrella_count = len(buckets["umbrella"])
     delivered_count = len(buckets["delivered"])
@@ -541,14 +598,14 @@ def main() -> int:
     pick = None
     try:
         for urn, item in candidates:
-            skip, reason = check_candidate(urn, item, machine, lane)
+            skip, reason = check_candidate(urn, item, machine, lane, cited_by)
             checked.append(_candidate_entry(urn, item, skip, reason))
             if not skip:
                 pick = (urn, item)
                 break
         if pick is None:
             for urn, item in draw_candidates(buckets, weights, rng, None, pool=draw_pool):
-                skip, reason = check_candidate(urn, item, machine, lane)
+                skip, reason = check_candidate(urn, item, machine, lane, cited_by)
                 checked.append(_candidate_entry(urn, item, skip, reason))
                 if not skip:
                     pick = (urn, item)
