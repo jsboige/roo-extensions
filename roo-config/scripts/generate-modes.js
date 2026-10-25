@@ -442,14 +442,29 @@ function main() {
 
       var customInstructions = renderTemplate(template, vars);
 
+      // #4334: roleDefinition is the FIRST element of the system prompt
+      // (zoo-code/src/core/prompts/system.ts), so any per-mode text here forks the
+      // prefix at byte ~18 and stops prefix caching from sharing the whole socle
+      // (tools, rules, global instructions) between modes. When the config declares
+      // a fleet-common roleDefinition, every mode emits it verbatim and the mode's
+      // own identity sentence is relocated into customInstructions -- rendered at
+      // the END of the system prompt by addCustomInstructions, where divergence is
+      // free. Configs without the key keep the legacy per-mode behaviour.
+      var fleetRoleDefinition = String(config.fleetRoleDefinition || '').trim();
+      var roleDefinition = fleetRoleDefinition || levelDef.roleDefinition;
+      var modeInstructions =
+        fleetRoleDefinition && levelDef.roleDefinition
+          ? levelDef.roleDefinition.trim() + '\n\n' + customInstructions
+          : customInstructions;
+
       var mode = {
         slug: family + '-' + level,
         name: fam.emoji + ' ' + capitalize(family) + ' ' + capitalize(level),
-        roleDefinition: levelDef.roleDefinition,
+        roleDefinition: roleDefinition,
         description: levelDef.description || '',
         whenToUse: levelDef.whenToUse || '',
         groups: effectiveGroups,
-        customInstructions: customInstructions,
+        customInstructions: modeInstructions,
       };
 
       // Add apiConfigId if profile is specified (slug override wins over level override)
