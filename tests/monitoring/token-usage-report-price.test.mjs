@@ -37,8 +37,12 @@ test('unknown ids return null — never priced silently from a sibling', () => {
     assert.equal(getPrice('claude-haiku-7-2'), null);
     // entirely unknown vendor/model
     assert.equal(getPrice('some-future-model'), null);
-    // unknown id WITH suffix stays unknown
-    assert.equal(getPrice('claude-fable-5-1[1m]'), null);
+    // unknown id WITH suffix stays unknown. Synthetic id on purpose: asserting
+    // null for a REAL current id (claude-fable-5-1 was the first version) locks
+    // its absence, so adding its PRICING row tomorrow would read as a test
+    // regression (po-2023 review, 25/10 04:20Z — the lock had to be broken
+    // whichever option was chosen).
+    assert.equal(getPrice('claude-future-9[1m]'), null);
 });
 
 test('existing exact rows keep working (caller contract)', () => {

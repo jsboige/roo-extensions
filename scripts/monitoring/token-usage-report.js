@@ -213,7 +213,10 @@ function generateReport(data) {
                        + ((stats.cache_read / 1e6) * price.input * 0.1);
             return { model, stats, price, cost };
         })
-        .sort((a, b) => (b.cost ?? -Infinity) - (a.cost ?? -Infinity));
+        // Unpriced entries sort last. Two unpriced entries compare 0 instead of
+        // NaN (-Infinity - -Infinity), which left their relative order
+        // unspecified (review nit, 25/10).
+        .sort((a, b) => ((b.cost ?? -Infinity) - (a.cost ?? -Infinity)) || 0);
 
     for (const model of unpricedModels) {
         console.error(`[token-usage-report] WARNING: no pricing row for model '${model}' — cost listed as 'unpriced' and excluded from the total. Add the id to PRICING.`);
@@ -242,6 +245,7 @@ function generateReport(data) {
     lines.push('- **Cache reads** are counted per API call: a 100K-token context makes 100 calls = 10M cache read tokens counted');
     lines.push('- Cache read pricing: ~10% of input price (e.g., $1.50/MTok for Opus vs $15/MTok input)');
     lines.push('- Models without a PRICING row are listed as `unpriced` and excluded from the cost estimate (no silent fallback)');
+    lines.push('- Bare `-5` ids (`claude-opus-5`, `claude-sonnet-5`), `claude-fable-5-1` and unversioned aliases (e.g. `sonnet`) are intentionally **unpriced** until their tariffs are confirmed at the source: they show as `unpriced` and leave the total. Add a PRICING row to price them');
     lines.push('- **All Claude Code projects** on this machine are included, not just roo-extensions');
     lines.push('- z.ai / GLM sessions not captured here (Roo Code uses different trace format)');
     lines.push('- Cross-machine aggregation requires running this script on each machine separately');
@@ -254,8 +258,11 @@ function generateReport(data) {
 }
 
 // ── Main (guarded so tests can import getPrice without scanning sessions) ──────
+// realpathSync on argv[1]: a junction/symlink path never matched import.meta.url,
+// so launching through one exited 0 with no report and no error (review nit,
+// 25/10 — worktrees and mklink /J junctions do exist on the fleet).
 const isMain = process.argv[1]
-    && import.meta.url === pathToFileURL(process.argv[1]).href;
+    && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href;
 
 if (isMain) {
     const data = aggregate();
