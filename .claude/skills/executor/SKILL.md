@@ -171,9 +171,13 @@ Le picker collecte **une fois par depot en REST** (`gh api repos/{repo}/issues`,
 GraphQL flotte n'est plus consomme), scanne **les 2 depots** (anti-double-claim #3407), repartit dans
 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et rend une **liste ordonnee de K
 candidats tires sans remise** (`--top K`, defaut 5) : **parcours la liste jusqu'au premier grain
-LIBRE** — un candidat portant un claim etranger actif (ADR 017, peremption 24 h) ou une etiquette de
-lane `myia-*` autre que la tienne est ecarte, avec la raison rendue dans la sortie. Tous les K pris →
-elargissement au pool entier ; rien de libre → verdict `ALL_CLAIMED` (exit 0, ni IDLE_REAL ni ERROR).
+LIBRE** — un candidat portant un claim etranger actif (ADR 017, peremption 24 h), une etiquette de
+lane `myia-*` autre que la tienne, ou **une issue deja portee par une PR ouverte** est ecarte, avec la
+raison rendue dans la sortie. Cette derniere exclusion (decision ai-01 du 25/10) lit le **titre** de la
+PR et ses **references de fermeture** de corps (`Closes/Fixes/Resolves #N`) — pas une mention nue :
+mesure du jour, la forme large ecartait #3962 et #2428 que le bump #4353 cite sans les livrer. Tous
+les K pris → elargissement au pool entier ; rien de libre → verdict `ALL_CLAIMED` (exit 0, ni
+IDLE_REAL ni ERROR).
 `IDLE-REAL` reste declenche UNIQUEMENT si toutes les urnes sont vides ; la sortie `--json` rend
 `machine`, `seed`, `slot` (tracabilite du tirage) et `unlabelled_open` (issues prenables sans
 etiquette d'urne — le trou visible pour le coordinateur). **Fail-closed :** toute panne gh (exit
