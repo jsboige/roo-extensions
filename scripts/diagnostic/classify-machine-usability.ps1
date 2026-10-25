@@ -27,8 +27,10 @@
       2. reachable-but-unusable -> reachable AND either
                                    (a) a logon-death burst since the last boot, which
                                        is sufficient ON ITS OWN, or
-                                   (b) abnormal authenticated WinRM latency AND a
-                                       listener heartbeat older than the threshold
+                                   (b) abnormal authenticated WinRM latency AND the
+                                       machine SILENT on BOTH liveness halves: listener
+                                       heartbeat older than the threshold AND no
+                                       dashboard append from any lane of the machine
       3. healthy                -> everything else, findings naming whatever is off
 
     THE DECISIVE INPUT IS THE TARGET'S OWN SYSTEM LOG, not WinRM latency. Within one
@@ -46,12 +48,17 @@
       - Latency is measured on an AUTHENTICATED `Invoke-Command { 1 }` round trip,
         abnormal when > 3 s on 2 of 3 consecutive probes (healthy baseline measured
         24/10: 249-445 ms; wedged value ~10 s).
-      - The listener heartbeat only CORROBORATES; it never decides alone. A machine
-        with no heartbeat file gets `heartbeat-unknown`, not a death sentence:
-        absence of the instrument is not a measurement of the machine. A missing
-        INSTRUMENT (ROOSYNC_SHARED_PATH unset) is a different thing and is loud:
-        exit 3, because a classifier that cannot read liveness must not print
-        "all clear".
+      - The listener heartbeat only CORROBORATES; it never decides alone, and the
+        spec gives it a second half: "> 30 min with no RSM heartbeat AND no dashboard
+        append from any lane". Both halves must be silent before the corroborator may
+        fire - one fresh signal (a heartbeat, or a message posted by any lane of the
+        machine on any shared dashboard) clears it. A machine with no heartbeat file
+        gets `heartbeat-unknown`, not a death sentence: absence of the FILE is a
+        measurement of the input and is measured today on a working machine (see
+        Get-UsabilityVerdict). A missing INSTRUMENT (ROOSYNC_SHARED_PATH unset) is a
+        different thing and is loud: exit 3, because a classifier that cannot read
+        liveness must not print "all clear". An append age that could not be measured
+        never corroborates either - the finding says so.
       - LogonUI >= 1 is deliberately NOT a criterion: it is the normal console lock
         screen, and that coarse test misled the Maintenance lane on the night of 23/10.
       - The count of 4624 logons from an external address in the window is REPORTED
@@ -63,6 +70,10 @@
       - last boot (System log event 12), the logon-death burst, external 4624 count:
         read over the same authenticated WinRM channel, in [boot, boot+20 min].
       - listener heartbeat age, read from <shared>/listener-heartbeats/<machine>.heartbeat.
+      - dashboard append age: the newest message header posted by ANY lane of the
+        machine on any shared dashboard (synthetic authors excluded - the condenser
+        `system`, the wake-`listener` and this `classifier` itself; see
+        Get-DashboardAppendAges). Second half of the liveness bar.
 
 .PARAMETER Machines
     Machines to classify. Defaults to $env:ROO_FLEET_ROSTER, else the 9-machine roster
@@ -73,8 +84,12 @@
 .PARAMETER ReplayFile
     JSON timeline instead of live probes. Two shapes:
       - {machine, events:[{utc,id,message}], samples:[{atUtc,machine,openPorts,
-         drivingChannelAnswered,drivingLatencySamplesMs,heartbeatAgeSeconds}],
+         drivingChannelAnswered,drivingLatencySamplesMs,heartbeatAgeSeconds,
+         dashboardAppendAgeSeconds?}],
          lastBootUtc?, logonDeathUtc?}
+      A sample without `dashboardAppendAgeSeconds` leaves that half of the liveness
+      bar unmeasured: the verdict is computed, the finding says `dashboard-append-unknown`,
+      and the corroborator cannot fire on the heartbeat alone.
       - a bare array of samples (legacy), or {logonDeathUtc, samples:[...]}
     `events` feeds the SAME burst detector the live path uses, so the replay of the
     po-2028 timeline of 23/10 exercises the real decision code on the real rows.
@@ -89,8 +104,9 @@
     channel counts as abnormal (default 2 of 3).
 
 .PARAMETER HeartbeatStaleSeconds
-    Listener heartbeat age above which the heartbeat CORROBORATES a wedge (default
-    1800 = the spec's 30 min). Never decisive on its own.
+    Liveness bar (default 1800 = the spec's 30 min). Applies to BOTH halves: the
+    listener heartbeat age AND the dashboard-append age. The corroborator fires only
+    when both are over the bar; a fresh sample of either one clears it.
 
 .PARAMETER VerdictDeadlineMinutes
     AC2 target: the burst must be turned into a verdict within 10 min of the logon
@@ -122,11 +138,14 @@
     instrument (ROOSYNC_SHARED_PATH unset in live mode): the measurement is
     incomplete, which is never reported as "all clear". Precedence 2 > 3 > 1 > 0.
 
-    Partial implementation, named rather than hidden: the spec's heartbeat bar is
-    "> 30 min with no RSM heartbeat AND no dashboard append from any lane". Only the
-    heartbeat file is read here; the dashboard-append half is not wired, so the
-    corroboration may fire slightly earlier than the spec allows. It stays
-    corroborating-only, so the blast radius is bounded.
+    Liveness bar (spec section 2) - BOTH halves are implemented: the listener
+    heartbeat AND the last dashboard append from any lane of the machine (shared
+    dashboards, newest non-synthetic message header per machine). They only ever
+    corroborate; the decisive input stays the target's System log. A machine with no
+    heartbeat file is `heartbeat-unknown` with verdict `healthy` and exit 0, and that
+    is deliberate rather than an oversight - the rationale and its measured
+    counter-example are on Get-UsabilityVerdict. An append age that could not be
+    measured yields `dashboard-append-unknown` and never corroborates.
 
     Related: #4327, #2576 (listener check), #4243 (approval stalls), #4258 (roster).
 #>
@@ -208,6 +227,7 @@ function Get-UsabilityVerdict {
         [int[]]$LatencySamplesMs = @(),
         $HeartbeatAgeSeconds = $null,
         [bool]$HeartbeatInstrumentPresent = $true,
+        $DashboardAppendAgeSeconds = $null,
         $LastBootUtc = $null,
         $Burst = $null,
         [bool]$SystemLogAvailable = $true,
@@ -246,6 +266,7 @@ function Get-UsabilityVerdict {
             latencySamplesMs    = @($LatencySamplesMs)
             latencyAbnormal     = $false
             heartbeatAgeSeconds = $HeartbeatAgeSeconds
+            dashboardAppendAgeSeconds = $DashboardAppendAgeSeconds
             lastBootUtc         = $LastBootUtc
             burst               = $Burst
             externalLogonCount  = $ExternalLogonCount
@@ -272,16 +293,44 @@ function Get-UsabilityVerdict {
         $findings += 'driving-channel-slow'
     }
 
-    # Session liveness - corroborating only, never decisive.
-    $sessionsDead = $false
+    # Session liveness - corroborating only, never decisive. The spec's bar has TWO
+    # halves (ai-01:Maintenance, 2026-10-24, section 2): "> 30 min with no RSM
+    # heartbeat AND no dashboard append from any lane of the machine". Both must be
+    # silent before the corroborator may fire, and one fresh sample of either clears
+    # it: a lane that posted a message recently proved the machine can run work,
+    # whatever the listener heartbeat says.
+    $heartbeatStale = $false
     if (-not $HeartbeatInstrumentPresent) {
         $findings += 'no-instrument'
     } elseif ($null -eq $HeartbeatAgeSeconds) {
+        # DELIBERATE, and measured - this answers the coordinator's residual review on
+        # #4329 (24/10): a MISSING file is a measurement of the input (the detector
+        # looked and there is nothing), not a failure to read it, which is what earns
+        # exit 3 in `no-instrument` and `system-log-unavailable`. Measured
+        # counter-example, ai-01 25/10: myia-po-2028 carries NO heartbeat file at all
+        # while posting [DONE] c.24 at 16:32Z and opening PR #4359 - folding this into
+        # the exit-3 guard would flag a demonstrably working machine on every sweep and
+        # make exit 3 meaningless. The dashboard-append half below still measures
+        # liveness for exactly such a machine.
         $findings += 'heartbeat-unknown'
     } elseif ([int]$HeartbeatAgeSeconds -gt $HeartbeatStaleSeconds) {
-        $sessionsDead = $true
+        $heartbeatStale = $true
         $findings += 'listener-stale'
     }
+
+    # Second half of the bar. An UNMEASURED append age (no shared dashboards, no header
+    # from any lane of this machine) is named and never corroborates: the corroborator
+    # fires on evidence of silence, not on the absence of an instrument.
+    $appendSilent = $false
+    if ($HeartbeatInstrumentPresent) {
+        if ($null -eq $DashboardAppendAgeSeconds) {
+            $findings += 'dashboard-append-unknown'
+        } elseif ([int]$DashboardAppendAgeSeconds -gt $HeartbeatStaleSeconds) {
+            $appendSilent = $true
+            $findings += 'no-recent-dashboard-append'
+        }
+    }
+    $sessionsDead = $heartbeatStale -and $appendSilent
 
     # Logon-death burst - decisive on its own when it was seen.
     $burstDecisive = $false
@@ -324,6 +373,7 @@ function Get-UsabilityVerdict {
         latencySamplesMs    = @($LatencySamplesMs)
         latencyAbnormal     = $latencyAbnormal
         heartbeatAgeSeconds = $HeartbeatAgeSeconds
+        dashboardAppendAgeSeconds = $DashboardAppendAgeSeconds
         lastBootUtc         = $LastBootUtc
         burst               = $Burst
         externalLogonCount  = $ExternalLogonCount
@@ -433,6 +483,9 @@ function New-AlertContent {
 
     $ports = if (@($Result.openPorts).Count -gt 0) { ($Result.openPorts -join ', ') } else { 'none' }
     $boot = if ($null -ne $Result.lastBootUtc) { $Result.lastBootUtc.ToString('yyyy-MM-ddTHH:mm:ssZ') } else { 'unknown' }
+    $append = if ($null -ne $Result.dashboardAppendAgeSeconds) {
+        "$($Result.dashboardAppendAgeSeconds) s"
+    } else { 'unknown (not measured this sweep)' }
 
     if ($null -ne $Result.burst) {
         $burstText = "$($Result.burst.utcText) x$($Result.burst.count) suffix $($Result.burst.suffix) (T+$($Result.burst.minutesAfterBoot) min after boot)"
@@ -455,6 +508,7 @@ function New-AlertContent {
         "- authenticated WinRM latency (Invoke-Command {1}), $($AbnormalMinCount) of $(@($Result.latencySamplesMs).Count) over the threshold: $lat (threshold $SlowThresholdMs ms)",
         "- WS-Identify reachability (never a wedge input): $wsman",
         "- listener heartbeat: $hb (corroborating threshold $HeartbeatStaleSeconds s; never decisive alone)",
+        "- dashboard append from any lane of the machine: $append (same threshold $HeartbeatStaleSeconds s; both liveness halves must be silent before they corroborate)",
         "- external 4624 logons in the window: $ext",
         "- ports answering: $ports (probed 5985 WinRM, 22 SSH, 3389 RDP, 445 SMB)",
         "- findings: $(@($Result.findings) -join ', ')",
@@ -665,6 +719,101 @@ function Get-HeartbeatFacts {
 }
 
 # ---------------------------------------------------------------------------
+# Dashboard-append half of the liveness bar (spec section 2). Synthetic authors are
+# infrastructure, not a session that proves the machine can run work: `system` is the
+# condenser (it writes on every dashboard and would zero out every age), the
+# wake-`listener` posts its own reports, and this classifier's [FLEET-ALERT] lands as
+# `<target>|listener` through the RSM CLI - so matching by author machine alone would
+# let an alert corroborate itself on the next sweep.
+# ---------------------------------------------------------------------------
+$SyntheticAuthorWorkspaces = @('system', 'listener', 'classifier')
+
+function Test-MachineAuthorMatch {
+    # Author ids on the shared dashboards are not all canonical: `po-2026` and
+    # `po-2025` (legacy short ids), `MYIA-PO-2025` (upper case) and
+    # `myia-po-2025-win32-x64` (platform-suffixed lane) all belong to their roster
+    # machine. Exact match first, then the two variations actually measured.
+    param([string]$AuthorMachine, [string]$RosterMachine)
+    $am = $AuthorMachine.Trim().ToLowerInvariant()
+    $rm = $RosterMachine.Trim().ToLowerInvariant()
+    if ($am -eq $rm) { return $true }
+    if ($am -eq ($rm -replace '^myia-', '')) { return $true }
+    if ($am.StartsWith("$rm-")) { return $true }
+    return $false
+}
+
+function Get-DashboardAppendAges {
+    # Newest message header per roster machine across the shared dashboards, as an
+    # age in seconds. READ-ONLY, and per sweep not per probe: the answer is a fact
+    # about the fleet, not about one machine. A machine with no header at all is
+    # absent from agesByMachine - the caller reports `dashboard-append-unknown`
+    # instead of inventing an age.
+    param([string]$SharedPath, [string[]]$Machines = @(), $Now = $null)
+
+    $state = [PSCustomObject]@{
+        available     = $false
+        agesByMachine = @{}
+        filesRead     = 0
+        filesFailed   = 0
+        unreadable    = @()
+    }
+    if ([string]::IsNullOrEmpty($SharedPath)) { return $state }
+    $dir = Join-Path $SharedPath 'dashboards'
+    if (-not (Test-Path $dir)) { return $state }
+    $state.available = $true
+    if ($null -eq $Now) { $Now = (Get-Date).ToUniversalTime() }
+
+    $latest = @{}
+    $files = @(Get-ChildItem -Path $dir -File -Filter '*.md' -ErrorAction SilentlyContinue)
+    foreach ($f in $files) {
+        $text = $null
+        try { $text = [System.IO.File]::ReadAllText($f.FullName) }
+        catch {
+            # A dashboard locked by Drive sync is a file that was NOT measured; count
+            # it so the payload names the gap instead of narrowing the scan silently.
+            $state.filesFailed++
+            $state.unreadable += $f.Name
+            continue
+        }
+        $state.filesRead++
+        foreach ($m in [regex]::Matches($text, '(?m)^### \[([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+Z)\] ([^|\r\n]+)\|([^|\r\n]*)')) {
+            $rawAuthor = $m.Groups[2].Value.Trim()
+            $parts = @($rawAuthor -split ':')
+            $authorMachine = $parts[0].Trim()
+            $workspaces = @()
+            if ($parts.Count -gt 1) { $workspaces += ($parts[1..($parts.Count - 1)] -join ':') }
+            $workspaces += $m.Groups[3].Value.Trim()
+
+            $synthetic = ($authorMachine.ToLowerInvariant() -eq 'system')
+            foreach ($w in $workspaces) {
+                $first = ($w -split '\s+')[0].ToLowerInvariant()
+                if ($SyntheticAuthorWorkspaces -contains $first) { $synthetic = $true; break }
+            }
+            if ($synthetic) { continue }
+
+            $ts = $null
+            foreach ($rm in $Machines) {
+                if (-not (Test-MachineAuthorMatch -AuthorMachine $authorMachine -RosterMachine $rm)) { continue }
+                if ($null -eq $ts) {
+                    try { $ts = ConvertTo-UtcDateTime $m.Groups[1].Value } catch { $ts = $null }
+                    if ($null -eq $ts) { break }
+                }
+                if (-not $latest.ContainsKey($rm) -or $ts -gt $latest[$rm]) { $latest[$rm] = $ts }
+            }
+        }
+    }
+
+    foreach ($rm in $Machines) {
+        if ($latest.ContainsKey($rm)) {
+            $age = ($Now - $latest[$rm]).TotalSeconds
+            if ($age -lt 0) { $age = 0 }
+            $state.agesByMachine[$rm] = [int]$age
+        }
+    }
+    return $state
+}
+
+# ---------------------------------------------------------------------------
 # Dashboard alert - same write path as check-all-listeners.ps1 (#4131 etape 3,
 # arbitrage ai-01 14/10 option a): RSM CLI first (dual-write journal PG + file,
 # append lock, format at the store), direct file write as fallback. The helper
@@ -767,7 +916,7 @@ function Write-MachineDashboardAlert {
 # Inputs: live probes, or a recorded timeline (replay)
 # ---------------------------------------------------------------------------
 function New-LiveSample {
-    param([string]$Machine)
+    param([string]$Machine, $DashboardAppendAgeSeconds = $null)
 
     $drivingPort = if ($DrivingPortByMachine.ContainsKey($Machine)) { $DrivingPortByMachine[$Machine] } else { $DefaultDrivingPort }
 
@@ -807,6 +956,7 @@ function New-LiveSample {
         LatencySamplesMs           = $latencySamples
         heartbeatAgeSeconds        = $heartbeat.ageSeconds
         heartbeatInstrumentPresent = $heartbeat.instrumentPresent
+        dashboardAppendAgeSeconds  = $DashboardAppendAgeSeconds
         lastBootUtc                = $lastBoot
         burst                      = $burst
         externalLogonCount         = $external
@@ -843,6 +993,7 @@ function Read-ReplaySamples {
 if ($env:CLASSIFIER_LIB_ONLY -eq '1') { return }
 
 $results = @()
+$appendFacts = $null
 $detectedAfterMinutes = $null
 $logonDeath = $null
 $lastBoot = $null
@@ -891,6 +1042,7 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
             -LatencySamplesMs $samplesMs `
             -HeartbeatAgeSeconds $s.heartbeatAgeSeconds `
             -HeartbeatInstrumentPresent $(if ($null -ne $s.heartbeatInstrumentPresent) { [bool]$s.heartbeatInstrumentPresent } else { $true }) `
+            -DashboardAppendAgeSeconds $s.dashboardAppendAgeSeconds `
             -LastBootUtc $lastBoot -Burst $sampleBurst `
             -SystemLogAvailable $(if ($null -ne $s.systemLogAvailable) { [bool]$s.systemLogAvailable } else { $true }) `
             -SystemLogApplicable ($drivingPort -eq 5985) -ExternalLogonCount $externalLogonCount `
@@ -914,12 +1066,20 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
 
     $instrumentPresent = -not [string]::IsNullOrEmpty($env:ROOSYNC_SHARED_PATH)
 
+    # Second half of the liveness bar, measured ONCE per sweep (it is a fact about the
+    # fleet, not about one probe). A machine absent from agesByMachine gets $null and
+    # is reported as `dashboard-append-unknown`.
+    $appendFacts = Get-DashboardAppendAges -SharedPath $env:ROOSYNC_SHARED_PATH -Machines $roster
+
     foreach ($m in $roster) {
-        $sample = New-LiveSample -Machine $m
+        $appendAge = $null
+        if ($appendFacts.available -and $appendFacts.agesByMachine.ContainsKey($m)) { $appendAge = $appendFacts.agesByMachine[$m] }
+        $sample = New-LiveSample -Machine $m -DashboardAppendAgeSeconds $appendAge
         $r = Get-UsabilityVerdict -Machine $sample.machine -OpenPorts @($sample.openPorts) `
             -DrivingChannelAnswered $sample.drivingChannelAnswered -DrivingLatencyMs $sample.drivingLatencyMs `
             -DrivingStatusCode $sample.drivingStatusCode -LatencySamplesMs @($sample.LatencySamplesMs) `
             -HeartbeatAgeSeconds $sample.heartbeatAgeSeconds -HeartbeatInstrumentPresent $sample.heartbeatInstrumentPresent `
+            -DashboardAppendAgeSeconds $sample.dashboardAppendAgeSeconds `
             -LastBootUtc $sample.lastBootUtc -Burst $sample.burst -SystemLogAvailable $sample.systemLogAvailable `
             -SystemLogApplicable ($sample.drivingPort -eq 5985) `
             -ExternalLogonCount $sample.externalLogonCount -DrivingPort $sample.drivingPort `
@@ -967,21 +1127,32 @@ if ($Json) {
         burst                 = $burst
         detectedAfterMinutes  = $detectedAfterMinutes
         instrumentPresent     = (-not [string]::IsNullOrEmpty($env:ROOSYNC_SHARED_PATH))
+        # Coverage of the second liveness half, so a consumer can tell "every lane was
+        # silent for 2 h" from "the dashboards were not readable this sweep".
+        dashboardAppendScan   = $(if ($null -ne $appendFacts) {
+                [PSCustomObject]@{
+                    available   = $appendFacts.available
+                    filesRead   = $appendFacts.filesRead
+                    filesFailed = $appendFacts.filesFailed
+                    unreadable  = @($appendFacts.unreadable)
+                }
+            } else { $null })
         machines              = $results
         alerts                = $alerts
     } | ConvertTo-Json -Depth 6
 } else {
     Write-Output "### Machine usability - $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')) UTC (detector $env:COMPUTERNAME)"
     Write-Output ""
-    Write-Output "| Machine | Verdict | Ports | WinRM latency (auth) | WS-Identify | Heartbeat | Findings |"
-    Write-Output "|---------|---------|-------|----------------------|-------------|-----------|----------|"
+    Write-Output "| Machine | Verdict | Ports | WinRM latency (auth) | WS-Identify | Heartbeat | Dash append | Findings |"
+    Write-Output "|---------|---------|-------|----------------------|-------------|-----------|-------------|----------|"
     foreach ($r in $results) {
         $ports = if (@($r.openPorts).Count -gt 0) { $r.openPorts -join ',' } else { 'none' }
         $lat = if (@($r.latencySamplesMs).Count -gt 0) { ($r.latencySamplesMs -join '/') + 'ms' } else { 'n/a' }
         $wsman = if ($r.drivingAnswered) { "answered $($r.drivingStatusCode)" } else { 'silent' }
         $hb = if ($null -ne $r.heartbeatAgeSeconds) { "$($r.heartbeatAgeSeconds)s" } else { 'n/a' }
+        $ap = if ($null -ne $r.dashboardAppendAgeSeconds) { "$($r.dashboardAppendAgeSeconds)s" } else { 'n/a' }
         $findings = if (@($r.findings).Count -gt 0) { $r.findings -join ', ' } else { '-' }
-        Write-Output "| $($r.machine) | $(if ($r.verdict -eq 'reachable-but-unusable') { '**' + $r.verdict + '**' } else { $r.verdict }) | $ports | $lat | $wsman | $hb | $findings |"
+        Write-Output "| $($r.machine) | $(if ($r.verdict -eq 'reachable-but-unusable') { '**' + $r.verdict + '**' } else { $r.verdict }) | $ports | $lat | $wsman | $hb | $ap | $findings |"
     }
     Write-Output ""
     if ($null -ne $burst) {
@@ -1014,6 +1185,9 @@ if ($unusable.Count -gt 0) { exit 2 }
 # heartbeat instrument, or an unreadable System log on a Windows seat (the decisive
 # input), outranks a clean sweep and outranks `unreachable` (which at least names a
 # machine), but never outranks a wedge alert.
+# `heartbeat-unknown` and `dashboard-append-unknown` stay exit 0 ON PURPOSE: they
+# name a corroborating-only input that is ABSENT (looked for, not there), not an
+# instrument that failed to read - the measured rationale is on Get-UsabilityVerdict.
 if ($instrumentMissing -or $logUnavailable) { exit 3 }
 if ($unreachable.Count -gt 0) { exit 1 }
 exit 0

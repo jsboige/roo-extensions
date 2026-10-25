@@ -19,7 +19,9 @@
         The negative-control boot of the same day stays healthy.
       AC3 - heartbeat staleness is corroboration, never a verdict on its own: a dead
         listener on a healthy, fast machine stays `healthy` with a `listener-stale`
-        finding, and abnormal latency with a FRESH heartbeat also stays healthy.
+        finding, and abnormal latency with a FRESH heartbeat also stays healthy. The
+        spec's bar has a second half (no dashboard append from any lane): a recent
+        append clears the corroborator, an UNMEASURED one never corroborates.
       AC4 - a machine with no interactive port answering is `unreachable`.
       AC5 - the alert names the affected machine on its first line and carries every
         input and its threshold, so Maintenance decides without a second measurement.
@@ -317,9 +319,9 @@ Describe 'classify-machine-usability (#4327)' {
             @($json.machines[0].findings) | Should -Contain 'driving-channel-slow'
         }
 
-        It 'reaches the verdict through corroboration when latency is abnormal AND the heartbeat is stale' {
+        It 'reaches the verdict through corroboration when latency is abnormal AND BOTH liveness halves are silent' {
             $payload = @(
-                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2028'; openPorts = @(5985, 22, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 4; latencySamplesMs = @(12000, 11000, 9000); heartbeatAgeSeconds = 2400 }
+                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2028'; openPorts = @(5985, 22, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 4; latencySamplesMs = @(12000, 11000, 9000); heartbeatAgeSeconds = 2400; dashboardAppendAgeSeconds = 2500 }
             )
             $path = Write-ReplayFile -Name 'slow-stale.json' -Payload $payload
             $res = Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')
@@ -328,7 +330,40 @@ Describe 'classify-machine-usability (#4327)' {
             $json.machines[0].verdict | Should -Be 'reachable-but-unusable'
             @($json.machines[0].findings) | Should -Contain 'driving-channel-slow'
             @($json.machines[0].findings) | Should -Contain 'listener-stale'
+            @($json.machines[0].findings) | Should -Contain 'no-recent-dashboard-append'
             $res.ExitCode | Should -Be 2
+        }
+
+        It 'clears the corroborator when ANY lane of the machine posted recently, heartbeat notwithstanding' {
+            # The spec's bar is an AND (ai-01:Maintenance 24/10, section 2). A lane that
+            # appended 2 min ago proves the machine can run work, so stale heartbeat +
+            # abnormal latency must NOT manufacture a wedge - this is the separating
+            # control for the second half, exactly as AC3 is for the first.
+            $payload = @(
+                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2028'; openPorts = @(5985, 22, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 4; latencySamplesMs = @(12000, 11000, 9000); heartbeatAgeSeconds = 2400; dashboardAppendAgeSeconds = 120 }
+            )
+            $path = Write-ReplayFile -Name 'slow-stale-append-fresh.json' -Payload $payload
+            $res = Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')
+            $json = $res.Output | ConvertFrom-Json
+
+            $json.machines[0].verdict | Should -Be 'healthy'
+            @($json.machines[0].findings) | Should -Contain 'listener-stale'
+            @($json.machines[0].findings) | Should -Contain 'driving-channel-slow'
+            @($json.machines[0].findings) | Should -Not -Contain 'no-recent-dashboard-append'
+            $res.ExitCode | Should -Be 0
+        }
+
+        It 'does not corroborate on an UNMEASURED append age: a missing input is named, never assumed silent' {
+            $payload = @(
+                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2028'; openPorts = @(5985, 22, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 4; latencySamplesMs = @(12000, 11000, 9000); heartbeatAgeSeconds = 2400 }
+            )
+            $path = Write-ReplayFile -Name 'slow-stale-append-unknown.json' -Payload $payload
+            $res = Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')
+            $json = $res.Output | ConvertFrom-Json
+
+            $json.machines[0].verdict | Should -Be 'healthy' -Because 'the spec requires evidence of silence, not absence of an instrument'
+            @($json.machines[0].findings) | Should -Contain 'dashboard-append-unknown'
+            $res.ExitCode | Should -Be 0
         }
 
         It 'needs 2 of 3 probes over the threshold, not one' {
@@ -342,15 +377,22 @@ Describe 'classify-machine-usability (#4327)' {
             @($json.machines[0].findings) | Should -Not -Contain 'driving-channel-slow'
         }
 
-        It 'treats an absent heartbeat as missing evidence, not as death' {
+        It 'treats an absent heartbeat as missing evidence, not as death - and stays exit 0 on purpose' {
+            # This pins the coordinator's residual review on #4329 (24/10): either fold
+            # `heartbeat-unknown` into the exit-3 guard or declare it deliberate. It is
+            # deliberate, and the counter-example is measured: myia-po-2028 carried NO
+            # heartbeat file on 25/10 while posting [DONE] c.24 at 16:32Z and opening
+            # PR #4359. Exit 3 would have flagged a working machine on every sweep.
             $payload = @(
-                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2027'; openPorts = @(5985, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 9000; latencySamplesMs = @(9000, 8000, 7000); heartbeatAgeSeconds = $null }
+                [PSCustomObject]@{ atUtc = '2026-10-24T01:00:00Z'; machine = 'myia-po-2027'; openPorts = @(5985, 445); drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 9000; latencySamplesMs = @(9000, 8000, 7000); heartbeatAgeSeconds = $null; dashboardAppendAgeSeconds = 5400 }
             )
             $path = Write-ReplayFile -Name 'no-heartbeat.json' -Payload $payload
-            $json = (Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')).Output | ConvertFrom-Json
+            $res = Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')
+            $json = $res.Output | ConvertFrom-Json
 
             $json.machines[0].verdict | Should -Be 'healthy'
             @($json.machines[0].findings) | Should -Contain 'heartbeat-unknown'
+            $res.ExitCode | Should -Be 0 -Because 'absence of the FILE is a measurement of the input, unlike a missing instrument'
         }
 
         It 'exits 3 when the INSTRUMENT is missing, instead of printing all clear' {
@@ -362,6 +404,7 @@ Describe 'classify-machine-usability (#4327)' {
             $json = $res.Output | ConvertFrom-Json
 
             @($json.machines[0].findings) | Should -Contain 'no-instrument'
+            @($json.machines[0].findings) | Should -Not -Contain 'dashboard-append-unknown' -Because 'one missing instrument is named once, not twice'
             $json.machines[0].verdict | Should -Be 'healthy' -Because 'absence of the instrument is not a measurement of the machine'
             $res.ExitCode | Should -Be 3 -Because 'the sweep is incomplete and must not read as clean'
         }
@@ -414,6 +457,8 @@ Describe 'classify-machine-usability (#4327)' {
             $res.Output | Should -Match '391, 412, 445 ms \(threshold 3000 ms\)'
             $res.Output | Should -Match 'status 401'
             $res.Output | Should -Match 'corroborating threshold 1800 s'
+            $res.Output | Should -Match 'dashboard append from any lane of the machine: unknown \(not measured this sweep\)'
+            $res.Output | Should -Match 'same threshold 1800 s; both liveness halves must be silent'
             $res.Output | Should -Match 'external 4624 logons in the window'
             $res.Output | Should -Match 'within 10 min of the logon death'
             $res.Output | Should -Match 'NOT fired by this script'
@@ -491,6 +536,67 @@ Describe 'classify-machine-usability (#4327)' {
 
             @($json.machines[0].findings) | Should -Not -Contain 'system-log-unavailable'
             $res.ExitCode | Should -Be 0
+        }
+    }
+
+    Context 'Dashboard-append liveness half - the reader' {
+        BeforeAll {
+            $env:CLASSIFIER_LIB_ONLY = '1'
+            try { . $script:ClassifierPath } finally { Remove-Item Env:CLASSIFIER_LIB_ONLY -ErrorAction SilentlyContinue }
+        }
+
+        It 'takes the newest REAL lane header per machine and skips the synthetic authors' {
+            # Author ids in the wild are not canonical (measured on the shared
+            # dashboards, 25/10): `po-2026`/`po-2025` legacy short ids, `MYIA-PO-2025`
+            # in upper case, `myia-po-2025-win32-x64` platform-suffixed. And the two
+            # synthetic writers would break the rule in opposite directions: the
+            # condenser touches every dashboard, and this classifier's own alert lands
+            # as `<target>|listener` through the RSM CLI - ignore both, or a wedge
+            # corroborates itself on the next sweep.
+            $shared = Join-Path $script:Tmp ("shared-" + [guid]::NewGuid().ToString('N').Substring(0, 6))
+            $dir = Join-Path $shared 'dashboards'
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            $now = [DateTimeOffset]::Parse('2026-10-25T12:00:00Z').UtcDateTime
+            $body = [string]::Join("`r`n", @(
+                '### [2026-10-25T11:58:00.000Z] myia-po-2028|roo-extensions'
+                '[msg: a]'
+                ''
+                '### [2026-10-25T11:00:00.000Z] myia-po-2028|listener'
+                '[msg: b]'
+                ''
+                '### [2026-10-25T11:59:30.000Z] system|system'
+                '[msg: c]'
+                ''
+                '### [2026-10-25T11:30:00.000Z] po-2026|Maintenance'
+                '[msg: d]'
+                ''
+                '### [2026-10-25T11:45:00.000Z] MYIA-PO-2025|roo-extensions'
+                '[msg: e]'
+            ))
+            [System.IO.File]::WriteAllText((Join-Path $dir 'workspace-roo-extensions.md'), $body)
+            $other = [string]::Join("`r`n", @(
+                '### [2026-10-25T11:10:00.000Z] myia-po-2025-win32-x64|CoursIA'
+                '[msg: f]'
+            ))
+            [System.IO.File]::WriteAllText((Join-Path $dir 'workspace-CoursIA.md'), $other)
+
+            $roster = @('myia-po-2025', 'myia-po-2026', 'myia-po-2028', 'myia-ai-01')
+            $state = Get-DashboardAppendAges -SharedPath $shared -Machines $roster -Now $now
+
+            $state.available | Should -BeTrue
+            $state.filesRead | Should -Be 2
+            $state.agesByMachine['myia-po-2028'] | Should -Be 120 -Because 'the listener message (1 h) and the condenser (30 s) must not count'
+            $state.agesByMachine['myia-po-2026'] | Should -Be 1800 -Because 'the legacy short author id belongs to myia-po-2026'
+            $state.agesByMachine['myia-po-2025'] | Should -Be 900 -Because 'the newest of the upper-case and platform-suffixed ids wins'
+            $state.agesByMachine.ContainsKey('myia-ai-01') | Should -BeFalse -Because 'no header at all is unknown, not zero'
+        }
+
+        It 'reports the scan as unavailable when there is no dashboards directory' {
+            $shared = Join-Path $script:Tmp ("empty-" + [guid]::NewGuid().ToString('N').Substring(0, 6))
+            New-Item -ItemType Directory -Path $shared -Force | Out-Null
+            $state = Get-DashboardAppendAges -SharedPath $shared -Machines @('myia-po-2028')
+            $state.available | Should -BeFalse
+            $state.agesByMachine.Count | Should -Be 0
         }
     }
 }
