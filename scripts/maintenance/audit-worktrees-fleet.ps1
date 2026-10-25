@@ -46,6 +46,15 @@
     Do not fetch before judging. Use only offline: a stale origin/<default>
     makes merged work look unmerged, which turns deletable worktrees into
     false "forgotten PR" reports.
+.PARAMETER SessionsRoot
+    Where Claude Code keeps per-workspace session directories. Default:
+    <user profile>\.claude\projects. Missing root disables the live-session
+    signal silently (a machine without Claude Code sessions has none).
+.PARAMETER SessionLiveHours
+    A session counts as probably-live while its transcript JSONL is younger
+    than this. Default 2 (half the 4 h executor cadence). See Stage 2c.
+.PARAMETER SkipSessionSignal
+    Disable the live-session signal (#4221) entirely.
 .EXAMPLE
     pwsh -File scripts/maintenance/audit-worktrees-fleet.ps1
     pwsh -File scripts/maintenance/audit-worktrees-fleet.ps1 -Repos D:\roo-extensions -Apply
@@ -60,7 +69,10 @@ param(
     [int]$MaxDepth = 3,
     [switch]$Apply,
     [string]$ReportPath,
-    [switch]$SkipFetch
+    [switch]$SkipFetch,
+    [string]$SessionsRoot,
+    [double]$SessionLiveHours = 2,
+    [switch]$SkipSessionSignal
 )
 
 $ErrorActionPreference = 'Continue'
@@ -429,6 +441,67 @@ if ($scannedWorktreeDirs.Count -gt 0) {
 }
 
 # ---------------------------------------------------------------------------
+# Stage 2c -- live-session signal (#4221, lever 3)
+# ---------------------------------------------------------------------------
+# Every Claude Code session that opens a path gets a project directory
+# <SessionsRoot>/<slug>/ holding one <sessionId>.jsonl per session that ran
+# there; Convert-ToProjectSlug maps a working-tree path to its slug. The three
+# collisions measured in #4221 (15/10) were two agents writing the same
+# worktree at the same time, and nothing on disk told either agent the other
+# was there. This stage is the read-only half of closing that gap: a worktree
+# whose slug directory holds 2+ recently-touched transcripts carries 2+
+# probably-live sessions, and the report says so.
+#
+# Liveness is a heartbeat proxy, not session state: a session waiting on its
+# next cron tick writes nothing for hours, hence the 2 h default (half the
+# 4 h executor cadence). Absence of the signal is NOT proof a worktree is
+# free -- which is why the signal only WARNs here and holds -Apply back; the
+# write-side guard (.wt-lock hook) is a separate lever on the same issue.
+foreach ($r in $allResults) {
+    # Initialized on every row (even when skipped) so Stage 3 and the report
+    # can read the members unconditionally under StrictMode.
+    $r | Add-Member -NotePropertyName LiveSessionCount -NotePropertyValue 0 -Force
+    $r | Add-Member -NotePropertyName LiveSessions     -NotePropertyValue '' -Force
+    $r | Add-Member -NotePropertyName SessionSignal    -NotePropertyValue '' -Force
+}
+
+$multiSessionRows = @()
+if (-not $SkipSessionSignal) {
+    $root = if ($SessionsRoot) { $SessionsRoot } else { Join-Path $env:USERPROFILE '.claude\projects' }
+    if (Test-Path -LiteralPath $root) {
+        # One scan of the projects root, indexed case-insensitively: the slug's
+        # drive letter is not case-normalized on disk (d--dev-roo-extensions
+        # and C--Users-... coexist on one machine).
+        $slugDirs = @{}
+        foreach ($d in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+            $slugDirs[$d.Name.ToLowerInvariant()] = $d.FullName
+        }
+        $nowUtc = [DateTime]::UtcNow
+
+        foreach ($r in $allResults) {
+            # The main checkout routinely hosts several sessions by design
+            # (one per lane); only worktrees carry the collision risk.
+            if ($r.Class -eq 'MAIN') { continue }
+
+            $dir = $slugDirs[(Convert-ToProjectSlug -Path $r.Path).ToLowerInvariant()]
+            if (-not $dir) { continue }
+
+            $heartbeats = @(Get-ChildItem -LiteralPath $dir -Filter '*.jsonl' -File -ErrorAction SilentlyContinue |
+                ForEach-Object { New-SessionHeartbeat -Id $_.BaseName -LastWriteUtc $_.LastWriteTimeUtc })
+            $signal = Get-WorktreeSessionSignal -Sessions $heartbeats -NowUtc $nowUtc -LiveWithinHours $SessionLiveHours
+
+            $r.LiveSessionCount = $signal.LiveSessionCount
+            $r.LiveSessions     = $signal.LiveSessions
+            $r.SessionSignal    = $signal.Signal
+            if ($signal.Signal) {
+                Write-Host "  MULTI-SESSION $($r.Path) -- $($signal.LiveSessionCount) probably-live Claude session(s): $($signal.LiveSessions)" -ForegroundColor Yellow
+            }
+        }
+        $multiSessionRows = @($allResults | Where-Object { $_.SessionSignal })
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Stage 3 -- act, only on the proven-safe classes
 # ---------------------------------------------------------------------------
 if ($Apply) {
@@ -441,6 +514,16 @@ if ($Apply) {
         if (-not $verdict.Safe) {
             $r.Applied = "REFUSED: $($verdict.Reason)"
             Write-Host "  REFUSED $($r.Path) -- $($verdict.Reason)" -ForegroundColor Red
+            continue
+        }
+
+        # Live-session guard (#4221): a probably-live session's CWD is the
+        # collision the issue measured -- deleting the tree out from under a
+        # writer would cause the very incident this sweep exists to surface.
+        # One live session is enough to hold the deletion back.
+        if ($r.LiveSessionCount -ge 1) {
+            $r.Applied = "REFUSED (live-session): $($r.LiveSessionCount) probably-live Claude session(s): $($r.LiveSessions)"
+            Write-Host "  REFUSED $($r.Path) -- $($r.LiveSessionCount) probably-live session(s)" -ForegroundColor Red
             continue
         }
 
@@ -509,6 +592,22 @@ foreach ($g in @($allResults | Group-Object Class | Sort-Object Name)) {
     [void]$sb.AppendLine("| $($g.Name) | $($g.Count) | $del |")
 }
 [void]$sb.AppendLine()
+
+# The #4221 collision signal goes above the per-class sections: a worktree
+# carrying 2+ probably-live sessions needs attention regardless of its class,
+# and the per-class tables below do not repeat it.
+if ($multiSessionRows.Count -gt 0) {
+    [void]$sb.AppendLine("## Attention -- 2+ probably-live Claude Code sessions  ($($multiSessionRows.Count))")
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine("Two or more sessions have written to this working tree within the last $SessionLiveHours h. A second concurrent writer is exactly what #4221 measured three times on 15/10 -- check the claim on the issue the worktree carries before writing to it. Sessions are transcript JSONLs under the worktree's project slug; 'probably-live' is an mtime proxy, not session state.")
+    [void]$sb.AppendLine()
+    [void]$sb.AppendLine('| Worktree | Branch | Class | Live sessions |')
+    [void]$sb.AppendLine('|---|---|---|---|')
+    foreach ($r in @($multiSessionRows | Sort-Object Path)) {
+        [void]$sb.AppendLine("| $($r.Path) | $(if ($r.Branch) { $r.Branch } else { '-' }) | $($r.Class) | $($r.LiveSessionCount) ($($r.LiveSessions)) |")
+    }
+    [void]$sb.AppendLine()
+}
 
 $sections = @(
     @{ Title = 'Needs a decision -- unmerged work'; Classes = @('PR-FORGOTTEN', 'PR-MERGED-DIVERGED', 'DETACHED-ORPHANABLE', 'PR-CLOSED') },
@@ -588,6 +687,9 @@ Write-Host ""
 Write-Host "=== SUMMARY ($Machine) ===" -ForegroundColor Cyan
 $allResults | Group-Object Class | Sort-Object Name | ForEach-Object {
     Write-Host ("  {0,-22} {1,3}" -f $_.Name, $_.Count)
+}
+if ($multiSessionRows.Count -gt 0) {
+    Write-Host "  MULTI-SESSION: $($multiSessionRows.Count) worktree(s) with 2+ probably-live sessions (#4221)" -ForegroundColor Yellow
 }
 if ($written) {
     Write-Host "  report: $written" -ForegroundColor Cyan

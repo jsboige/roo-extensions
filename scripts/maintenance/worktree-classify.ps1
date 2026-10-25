@@ -303,3 +303,89 @@ function Get-WorktreeClass {
 
     return New-Verdict 'UNDETERMINED' $false 'facts do not match any known class'
 }
+
+function Convert-ToProjectSlug {
+    <#
+    .SYNOPSIS
+        Maps a working-tree path to its ~/.claude/projects/<slug> directory name. Pure.
+    .DESCRIPTION
+        Claude Code names a session's project directory after the workspace path
+        with every character outside [A-Za-z0-9] replaced by '-'. Measured 25/10
+        on po-2027 across the seven project dirs on that machine:
+        D:\dev\roo-extensions -> d--dev-roo-extensions,
+        C:\Users\...\Temp     -> C--Users-...-Temp,
+        G:\Mon Drive\Maintenance -> g--Mon-Drive-Maintenance (a space collapses
+        to '-' too).
+
+        The drive letter's CASE is not normalized -- both 'd--dev-roo-extensions'
+        and 'C--Users-...' exist on the same machine -- so matching a computed
+        slug against real directories must compare case-INSENSITIVELY.
+    .OUTPUTS
+        [string] the slug.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    return ($Path -replace '[^A-Za-z0-9]', '-')
+}
+
+function New-SessionHeartbeat {
+    <#
+    .SYNOPSIS
+        Builds one session's heartbeat fact with an explicit default. Pure.
+    .DESCRIPTION
+        LastWriteUtc is the mtime of the session's transcript JSONL, UTC.
+        [datetime]::MinValue means "no transcript found" and never reads as
+        live. Id is diagnostic only (the JSONL file name); it is never matched
+        on.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Id,
+        [datetime]$LastWriteUtc = [datetime]::MinValue
+    )
+    return [pscustomobject]@{ Id = $Id; LastWriteUtc = $LastWriteUtc }
+}
+
+function Get-WorktreeSessionSignal {
+    <#
+    .SYNOPSIS
+        Reports whether 2+ probably-live sessions share a working tree. Pure.
+    .DESCRIPTION
+        A session is (probably) live when its transcript JSONL was written to
+        within the threshold. Mtime is a heartbeat proxy, not session state: a
+        session waiting on its next cron tick writes nothing for hours, so the
+        default threshold is half the 4 h executor cadence. Absence of a live
+        signal is therefore NOT proof that a worktree is free -- which is why
+        the audit only WARNs on this signal and holds -Apply back; the
+        write-side guard (.wt-lock hook) is a separate lever.
+
+        Measured in #4221: the three collisions of 15/10 came from two agents
+        writing the same worktree at the same time, and nothing on disk told
+        either agent the other was there. This signal is the read-only half of
+        closing that gap.
+
+        A future mtime (clock skew between filesystem and clock) reads as live:
+        its age is negative, and "absurdly fresh" must not mean "dead".
+    .OUTPUTS
+        [pscustomobject] @{ LiveSessionCount; LiveSessions; Signal }
+        Signal is 'MULTI-SESSION' when 2+ sessions are live, '' otherwise.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][psobject[]]$Sessions = @(),
+        [Parameter(Mandatory)][datetime]$NowUtc,
+        [double]$LiveWithinHours = 2
+    )
+
+    $live = @($Sessions | Where-Object {
+        $_.LastWriteUtc -gt [datetime]::MinValue -and
+        ($NowUtc - $_.LastWriteUtc).TotalHours -le $LiveWithinHours
+    })
+
+    return [pscustomobject]@{
+        LiveSessionCount = $live.Count
+        LiveSessions     = (@($live | ForEach-Object { $_.Id }) -join '; ')
+        Signal           = $(if ($live.Count -ge 2) { 'MULTI-SESSION' } else { '' })
+    }
+}
