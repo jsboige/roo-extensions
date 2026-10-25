@@ -77,6 +77,8 @@ git log --oneline -5
 
 > **WARN `[OAUTH-EXPIRED]` sur exit `0`** (#3169 option b) : relayer sur le dashboard workspace en `[WARN]` (compteur + sessions touchées) — non bloquant, le cycle continue. Le WARN ne quitte pas la sortie locale de son propre chef : sans relay, le signal reste invisible hors session.
 
+> **WARN `[DENY-FALLBACK]` sur exit `0`** (#4340) : sonde handshake — un outil deny (p.ex. `NotebookEdit`) n'a pas de repli répondant sur ce siège. Relayer en `[WARN]` + entrée registre `[ASK]`. La capacité touchée est **BLOQUÉE** (jamais de workaround : bytesplice JSON, `NotebookEdit`) ; le provisioning est une décision par workspace ; le cycle continue.
+
 Puis (en parallele) :
 1. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)

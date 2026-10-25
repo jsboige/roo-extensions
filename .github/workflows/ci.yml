@@ -123,6 +123,11 @@ on:
       # nothing, exactly like mcp-chain-watchdog.ps1 above.
       - 'scripts/claude/ensure-build-fresh.ps1'
       - 'scripts/claude/executor-preflight.ps1'
+      # #4340: executor-preflight-deny-fallback.Tests.ps1 text-guards the probe
+      # source (EXIT_FINDINGS=2 finding contract) and the python wrapper in
+      # scripts/testing/python/ runs its selftest — a change to the probe
+      # landing on main must re-run both (same gap as every entry above).
+      - 'scripts/diagnostic/check-deny-fallback.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'

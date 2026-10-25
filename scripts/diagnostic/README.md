@@ -169,6 +169,25 @@ python scripts/diagnostic/detect-approval-stalls.py --json
 python scripts/diagnostic/detect-approval-stalls.py --selftest
 ```
 
+### `check-deny-fallback.py`
+
+Sonde **deny-sans-repli** au démarrage (#4340, mandat user 24/10 — incident po-2027 : le repli `jupyter-papermill` désigné par la règle n'a jamais été provisionné, indétecté des semaines, fallback interdit normalisé à la place). Pour chaque outil deny dont une règle désigne un repli canonique unique (`DENY_FALLBACK_MAP`, démarre à `NotebookEdit` → `jupyter-papermill`) : le serveur repli est-il configuré et **répond-il** ? La vérification est un **handshake stdio réel** (`initialize` → `tools/list`) — jamais les drapeaux : `disabled: true` dans une entrée `.mcp.json` est inert sur un siège Claude Code (mesuré po-2025 24/10), seul `projects[<ws>].disabledMcpServers` désactive effectivement.
+
+- **Statuts** : `INERT` (outil non deny — le workspace décide) / `OK` / `DENY-WITHOUT-FALLBACK` (l'incident po-2027) / `FALLBACK-DISABLED-SEAT` / `FALLBACK-DEAF` (handshake muet ou 0 outil).
+- **Exit codes** : 0 rien à signaler / 1 erreur d'instrument / 2 ≥1 finding — c'est le contrat sur lequel branche le pré-vol executor (`scripts/claude/executor-preflight.ps1`, WARN-never-block posture #3169 : la **capacité** est bloquée, jamais de workaround ; le cycle continue).
+- **Timeout défaut 30 s**, délibéré sur le `CONNECT_TIMEOUT` de l'hôte : un serveur plus lent que le cutoff de l'hôte est un repli effectivement absent, pas lent.
+- Le provisioning reste une **décision par workspace** (arbitrage user 24/10) — pas de déploiement flotte aveugle.
+
+```powershell
+# Sonder un siege (le deny actif EST le signal d'opt-in de la verification)
+python scripts/diagnostic/check-deny-fallback.py --workspace <chemin>
+
+# Fixtures synthetiques + handshake reel contre un fake serveur MCP (7 scenarios)
+python scripts/diagnostic/check-deny-fallback.py --selftest
+```
+
+Détail complet (câblage canonique `jupyter-papermill`, intégration pré-vol, conduite sur finding) : [`docs/harness/reference/deny-fallback-probe.md`](../../docs/harness/reference/deny-fallback-probe.md).
+
 ## Compteurs mémoire
 
 ### `log-commit-charge.ps1` (#2992)

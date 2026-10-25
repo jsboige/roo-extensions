@@ -209,6 +209,27 @@ try {
         Write-Warning ("[executor-preflight][OAUTH-EXPIRED] {0} local session(s) hit 'OAuth session expired' API errors in the last 48h: {1}. Executor cadence can die silently while the session looks alive — re-auth via /login is INTERACTIVE-ONLY (#3169)." -f $oauthExpiredSessions.Count, $firstSessions)
     }
 
+    # #4340: deny-sans-repli probe (handshake, never flags). Same WARN-never-block
+    # posture as #3169 above: a finding means the affected CAPABILITY (notebook
+    # editing on a NotebookEdit-deny seat) is impossible and must never be worked
+    # around — the cycle itself continues, the standing signal stays visible at
+    # every pre-flight until the workspace decides to provision the fallback
+    # (per-workspace arbitration 24/10, #4340 point 4 — no blind fleet deploy).
+    # Absent script = older checkout: skip silently, the pull above brings it.
+    $denyProbe = Join-Path $RepoRoot 'scripts/diagnostic/check-deny-fallback.py'
+    if (Test-Path $denyProbe) {
+        # Merge stderr at the cmd.exe layer (#3731 class): the probe writes its
+        # findings to stdout but python can chatter on stderr on a clean run.
+        $probeOutput = @(& cmd /c "python ""$denyProbe"" --workspace ""$RepoRoot"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $probeOutput) { Write-Host $line }
+        $probeExit = $LASTEXITCODE
+        if ($probeExit -eq 2) {
+            Write-Warning ("[executor-preflight][DENY-FALLBACK] deny-sans-repli finding above: a denied tool's designated fallback does not answer on this seat. The capability is BLOCKED — never work around it (no .ipynb JSON bytesplice, no NotebookEdit). Relay [WARN]+[ASK] on the workspace dashboard; provisioning is a per-workspace user decision (#4340). The cycle continues.")
+        } elseif ($probeExit -ne 0) {
+            Write-Warning ("[executor-preflight][DENY-FALLBACK] probe instrument error (exit $probeExit) — the deny-fallback state is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+        }
+    }
+
     Write-Host '[executor-preflight][READY] Parent, submodule, and RSM build are synchronized.' -ForegroundColor Green
     exit 0
 } catch {
