@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-24",
+  "updated": "2026-10-25",
   "source_issue": "https://github.com/jsboige/roo-extensions/issues/2416",
   "scope": "Claude Code seat only (~/.claude.json). Roo/Zoo-side MCP config lives in %APPDATA% mcp_settings.json and is out of scope.",
   "semantics": {
@@ -60,8 +60,8 @@
     },
     "myia-web2": {
       "roles": ["web"],
-      "verified": null,
-      "notes": "post-CLAUDE.md roster addition (active on dashboards since at least 2026-10); roster reconciliation in flight (#4258)"
+      "verified": "2026-10-25",
+      "notes": "verified firsthand (user-scope: playwright, roo-state-manager, searxng, sk-agent); verifier exit 0, 0 findings 2026-10-25 (no retired, no ghost disables, no DISABLE_OF_UNINSTALLED); sk-agent install present, connection DOWN pending host restart (#4289) — state verified, liveness not; roster reconciliation in flight (#4258)"
     }
   }
 }
