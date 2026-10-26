@@ -36,6 +36,13 @@ Describe "Test-MeteredLink" {
             -AdapterDescription 'Intel(R) Ethernet Connection (17) I219-LM' `
             -TetherAdapterPattern 'Remote NDIS|Apple Mobile Device Ethernet' | Should -BeFalse
     }
+    It "A phone shared over USB is billed even when the caller omits the pattern" {
+        # The default must be the shared pattern. An empty default would let a
+        # direct call pass green while ignoring the tether -- the shape of the
+        # defect that cost ~20 GB on 2026-10-26.
+        Test-MeteredLink -CostType 'Unrestricted' -ProfileName 'Reseau 29' `
+            -AdapterDescription 'SAMSUNG Mobile USB Remote NDIS Network Device' | Should -BeTrue
+    }
 }
 
 Describe "Get-LinkDelta" {
