@@ -11,7 +11,23 @@
     Base URL of the embeddings API (default: https://embeddings.myia.io/v1).
 
 .PARAMETER TimeoutSeconds
-    HTTP request timeout in seconds (default: 15).
+    HTTP request timeout in seconds (default: 90).
+
+    90 s, pas 15 s : le vhost embeddings.myia.io repond en 5,9-26 s (mesure
+    ai-01 26/10 04:18-04:25Z). Un budget de 15 s classait un service SANTE
+    comme DOWN (8 fausses alertes [CRITICAL] le 26/10) et faisait dire
+    restart vLLM alors que le conteneur vLLM etait healthy. Le budget doit
+    couvrir la latence du vhost, pas seulement celle du modele.
+
+.PARAMETER ConfirmTimeoutSeconds
+    Budget du second essai (default: 150), lance uniquement quand le premier
+    a expire. Distingue « lent mais vivant » (DEGRADED) de « mort » (FAIL).
+    Il doit etre STRICTEMENT SUPERIEUR au premier budget : un budget egal
+    n apporte aucune information (les deux expireraient ensemble). A 150 s, un
+    second timeout prouve la MORT (aucune reponse en 4 min), pas la lenteur.
+
+.PARAMETER SlowThresholdMs
+    Latence au-dela de laquelle la reponse est classee SLOW (vivant mais lent) plutot que OK. Default 5000 ms.
 
 .PARAMETER DryRun
     Test endpoint but skip dashboard alert on failure.
@@ -27,7 +43,9 @@
 
 param(
     [string]$ApiBase = "https://embeddings.myia.io/v1",
-    [int]$TimeoutSeconds = 15,
+    [int]$TimeoutSeconds = 90,
+    [int]$ConfirmTimeoutSeconds = 150,
+    [int]$SlowThresholdMs = 5000,
     [switch]$DryRun
 )
 
@@ -35,6 +53,12 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $machineName = ($env:COMPUTERNAME).ToLower()
+$verdictFile = Join-Path $scriptDir "embeddings-verdict.ps1"
+if (-not (Test-Path $verdictFile)) {
+    Write-Host "[ERROR] verdict helper not found: $verdictFile" -ForegroundColor Red
+    exit 1
+}
+. $verdictFile
 
 # --- Read API key from MCP .env ---
 $envFile = "$repoRoot/mcps/internal/servers/roo-state-manager/.env"
@@ -59,21 +83,83 @@ if ([string]::IsNullOrEmpty($apiKey)) {
 $status = "OK"
 $detail = ""
 $models = ""
+$failureKind = ""
+
+# Un service lent n est pas un service mort : les deux se ressemblent au
+# premier essai (un timeout), mais ils ne se soignent pas de la meme facon.
+# Un timeout sur le vhost (mesure ai-01 26/10 : conteneur vLLM healthy,
+# 5,9-26 s de latence vhost) n a jamais justifie un restart de vLLM.
+# La levee de cette ambiguite est une CONFIRMATION : si le premier essai
+# expire, on reessaie avec un budget plus long sur la MEME URL.
+#   - le second essai repond  -> DEGRADED : lent mais vivant -> [WARN]
+#   - le second essai echoue -> FAIL : mort               -> [CRITICAL]
+$headers = @{ "Authorization" = "Bearer $apiKey" }
 
 try {
-    $headers = @{ "Authorization" = "Bearer $apiKey" }
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     $response = Invoke-RestMethod -Uri "$ApiBase/models" -Headers $headers -TimeoutSec $TimeoutSeconds
     $sw.Stop()
     $models = ($response.data | ForEach-Object { $_.id }) -join ", "
     $detail = "$($sw.ElapsedMilliseconds)ms, models: $models"
-    Write-Host "[OK] Embeddings healthy ($detail)" -ForegroundColor Green
+    if ($sw.ElapsedMilliseconds -gt $SlowThresholdMs) {
+        $status = "SLOW"
+        Write-Host "[SLOW] Embeddings alive but slow ($detail) (threshold $SlowThresholdMs ms)" -ForegroundColor Yellow
+    } else {
+        Write-Host "[OK] Embeddings healthy ($detail)" -ForegroundColor Green
+    }
 } catch {
-    $status = "FAIL"
-    $detail = $_.Exception.Message
-    Write-Host "[FAIL] Embeddings DOWN: $detail" -ForegroundColor Red
-}
+    $firstError = $_.Exception.Message
+    $verdict = Get-EmbeddingsVerdict -ErrorRecord $_.Exception -Message $firstError
 
+    if ($verdict.Status -eq "TIMEOUT") {
+        # Un timeout ne prouve pas la mort : on CONFIRME avec un budget plus
+        # grand sur la MEME URL. Un budget egal n apporte rien (les deux
+        # expireraient ensemble) : celui de confirmation est plus long.
+        $sw2 = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            $response2 = Invoke-RestMethod -Uri "$ApiBase/models" -Headers $headers -TimeoutSec $ConfirmTimeoutSeconds
+            $sw2.Stop()
+            $models2 = ($response2.data | ForEach-Object { $_.id }) -join ", "
+            $status = "DEGRADED"
+            $detail = "timeout apres $TimeoutSeconds s ($firstError) ; reponse a $($sw2.ElapsedMilliseconds) ms au second essai (budget $ConfirmTimeoutSeconds s) -> service VIVANT mais lent, models: $models2"
+            Write-Host "[DEGRADED] Embeddings lent mais vivant: $detail" -ForegroundColor Yellow
+        } catch {
+            $sw2.Stop()
+            $verdict2 = Get-EmbeddingsVerdict -ErrorRecord $_.Exception
+            if ($verdict2.Status -eq "AUTH") {
+                # Le vhost a repondu en refusant la cle : il est VIVANT. Le
+                # timeout initial etait la latence, pas la mort.
+                $status = "AUTH"
+                $failureKind = "auth"
+                $detail = $verdict2.Detail
+                Write-Host "[AUTH] Embeddings a repondu mais refuse la cle: $detail" -ForegroundColor Yellow
+            } elseif ($verdict2.Status -eq "HTTP") {
+                $status = "FAIL"
+                $failureKind = "http"
+                $detail = $verdict2.Detail
+                Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            } else {
+                $status = "FAIL"
+                $failureKind = "timeout"
+                $detail = "timeout apres $TimeoutSeconds s ($firstError) ; second essai en echec apres $($sw2.ElapsedMilliseconds) ms (budget $ConfirmTimeoutSeconds s) ($($_.Exception.Message))"
+                Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            }
+        }
+    } elseif ($verdict.Status -eq "AUTH") {
+        # 401/403 : le service REPOND et refuse la cle. Il n est pas mort,
+        # et redemarrer vLLM ne changerait rien a un probleme de cle.
+        $status = "AUTH"
+        $failureKind = "auth"
+        $detail = $verdict.Detail
+        Write-Host "[AUTH] Embeddings a repondu mais refuse la cle: $detail" -ForegroundColor Yellow
+    } else {
+        $status = "FAIL"
+        $failureKind = $verdict.FailureKind
+        $detail = $verdict.Detail
+        Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+    }
+
+}
 # --- Log ---
 $logDir = "$repoRoot/outputs/monitoring/logs"
 if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
@@ -81,23 +167,57 @@ $logFile = "$logDir/embeddings-$(Get-Date -Format 'yyyy-MM-dd').log"
 $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 "$ts | $status | $detail" | Out-File $logFile -Append -Encoding utf8
 
-# --- Alert on failure ---
-if ($status -eq "FAIL" -and -not $DryRun) {
-    $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is DOWN on $machineName. Error: $detail. Semantic search and meta-analysis are affected. Action: check vLLM backend and restart if needed."
-
+function Send-DashboardAlert {
+    param([string]$Prompt)
     $mcpConfig = Join-Path $env:USERPROFILE ".claude.json"
     $claudeExe = Get-Command claude -ErrorAction SilentlyContinue
+    if (-not $claudeExe) {
+        Write-Host "[WARN] claude not in PATH -- dashboard alert skipped" -ForegroundColor Yellow
+        return $false
+    }
+    $prevErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $exitCode = -1
+    try {
+        & claude -p $Prompt --mcp-config $mcpConfig --model haiku --allowedTools "mcp__roo-state-manager__roosync_dashboard" --permission-mode acceptEdits --output-format text 2>$null | Out-Null
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prevErrorActionPreference
+    }
+    if ($exitCode -eq 0) { return $true }
+    Write-Host "[WARN] claude -p failed (exit $exitCode)" -ForegroundColor Yellow
+    return $false
+}
 
-    if ($claudeExe) {
-        try {
-            & claude -p $prompt --mcp-config $mcpConfig --model haiku --output-format text 2>$null
-            Write-Host "[ALERT] Dashboard notification sent" -ForegroundColor Yellow
-        } catch {
-            Write-Host "[WARN] claude -p failed: $_" -ForegroundColor Yellow
-        }
+# --- Alert on failure ---
+# DEGRADED : le service repond, seule la latence du vhost est mauvaise ->
+# [WARN] et AUCUN restart de vLLM (le backend est vivant : le dire serait
+# un faux diagnostic). FAIL : le backend ne repond pas -> [CRITICAL].
+if ($status -eq "DEGRADED" -and -not $DryRun) {
+    $prompt = "Post a [WARN] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=[WARN,health-check]) saying: Embeddings endpoint $ApiBase is DEGRADED on $machineName. Error: $detail. The embeddings backend is ALIVE (it answered a second attempt with a longer budget) -- the latency comes from the vhost, so DO NOT restart vLLM. Action: check the vhost/ARR path and the upstream routing; semantic search and meta-analysis are degraded by the added latency."
+
+    if (Send-DashboardAlert -Prompt $prompt) {
+        Write-Host "[ALERT] Dashboard notification sent (DEGRADED)" -ForegroundColor Yellow
+    }
+}
+
+# AUTH (401/403) : le service REPOND et refuse la cle. Probleme de
+# configuration, pas panne : signale dans le journal et sur stdout, SANS
+# spawn d agent -- une alerte toutes les 30 min pour une cle a faire
+# tourner serait exactement le multiplicateur que ce correctif combat.
+if ($status -eq "FAIL" -and -not $DryRun) {
+    if ($failureKind -eq "timeout") {
+        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE on $machineName. Error: $detail. Both attempts timed out (first budget $TimeoutSeconds seconds, confirmation budget $ConfirmTimeoutSeconds seconds), so the vhost embeddings.myia.io no longer answers at all. Action: DO NOT restart vLLM first -- check the vhost/ARR path, the TLS termination and the upstream routing to the embeddings backend; the vLLM container may well be healthy while the vhost is the broken link. Semantic search and meta-analysis are affected."
     } else {
-        Write-Host "[WARN] claude not in PATH — dashboard alert skipped" -ForegroundColor Yellow
+        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is DOWN on $machineName. Error: $detail. The endpoint answered with an explicit HTTP error (not a timeout), so the backend itself may be at fault. Action: check vLLM backend and restart if needed. Semantic search and meta-analysis are affected."
+    }
+
+    if (Send-DashboardAlert -Prompt $prompt) {
+        Write-Host "[ALERT] Dashboard notification sent" -ForegroundColor Yellow
     }
 }
 
 if ($status -eq "FAIL") { exit 1 }
+if ($status -eq "AUTH") { exit 0 }
+if ($status -eq "DEGRADED") { exit 0 }
+if ($status -eq "SLOW") { exit 0 }
