@@ -18,8 +18,9 @@
     -CooldownMinutes.
 
     Run it every 15 minutes from a user scheduled task, under Windows
-    PowerShell 5.1 (the WinRT connection-cost API is not reachable from pwsh 7;
-    there the link counts as metered only through -MeteredProfiles).
+    PowerShell 5.1. The WinRT connection-cost API does not exist in pwsh 7:
+    there the probe throws and the run exits 2, BEFORE any classification --
+    there is no degraded fallback to -MeteredProfiles.
 
 .PARAMETER ThresholdMB
     Volume (Rx + Tx) since the previous sample that triggers the alert.
@@ -46,7 +47,7 @@
 param(
     [int]$ThresholdMB = 500,
     [int]$CooldownMinutes = 60,
-    [string[]]$MeteredProfiles = @(($env:ROO_METERED_PROFILES -split ';') | Where-Object { $_ }),
+    [string[]]$MeteredProfiles = @(),
     [string]$TetherAdapterPattern = '',
     [string]$StatePath = '',
     [switch]$NoAlert
@@ -62,11 +63,14 @@ if (-not (Test-Path -LiteralPath $script:LinkHelperPath)) {
 }
 . $script:LinkHelperPath
 if (-not $TetherAdapterPattern) { $TetherAdapterPattern = $script:DefaultTetherAdapterPattern }
+# The environment list is parsed by the shared helper, not here: a name typed
+# with a space around it must still match the profile Windows reports.
+if (-not $PSBoundParameters.ContainsKey('MeteredProfiles')) { $MeteredProfiles = Get-MeteredProfiles }
 
 function Test-MeteredLink {
     param([string]$CostType, [bool]$Roaming, [bool]$ApproachingLimit, [bool]$OverLimit,
           [string]$ProfileName, [string[]]$MeteredProfiles = @(),
-          [string]$AdapterDescription = '', [string]$TetherAdapterPattern = '')
+          [string]$AdapterDescription = '', [string]$TetherAdapterPattern = $script:DefaultTetherAdapterPattern)
     $link = [pscustomobject]@{
         CostType = $CostType; Roaming = $Roaming; ApproachingDataLimit = $ApproachingLimit
         OverDataLimit = $OverLimit; ProfileName = $ProfileName; AdapterDescription = $AdapterDescription

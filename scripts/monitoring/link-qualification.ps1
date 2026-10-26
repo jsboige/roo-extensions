@@ -67,6 +67,22 @@ function Get-LinkProfileInfo {
     }
 }
 
+function Get-MeteredProfiles {
+    <#
+    .SYNOPSIS
+        The metered profile names, from a ';'-separated list.
+    .DESCRIPTION
+        One implementation for both consumers, so a name typed with a space
+        around it still matches the profile Windows reports: "Jesse hotspot;
+        OtherNet" must give "OtherNet", not " OtherNet". Trimming here is what
+        makes that true; a caller that splits the variable itself gets it
+        wrong.
+    #>
+    param([string]$Raw = $env:ROO_METERED_PROFILES)
+    if (-not $Raw) { return @() }
+    return @($Raw -split ';' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+}
+
 function Test-LinkBilled {
     <#
     .SYNOPSIS

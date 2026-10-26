@@ -26,7 +26,8 @@
     Either way, "exit 0" alone is not enough to mean "go": read the first word.
 
     A known hotspot name can be forced billed through -MeteredProfiles or the
-    ROO_METERED_PROFILES environment variable (';'-separated). That is the
+    ROO_METERED_PROFILES environment variable (';'-separated, spaces around a
+    name are trimmed). That is the
     second signal for a phone hotspot whose Windows metered flag was lost: the
     cost type says Unrestricted, the adapter is ordinary Wi-Fi, and only the
     profile name still identifies it.
@@ -45,7 +46,7 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts\monitoring\test-link-billed.ps1 -MeteredProfiles 'Jesse hotspot'
 #>
 param(
-    [string[]]$MeteredProfiles = @(($env:ROO_METERED_PROFILES -split ';') | Where-Object { $_ }),
+    [string[]]$MeteredProfiles = @(),
     [string]$TetherAdapterPattern = '',
     [switch]$Quiet
 )
@@ -60,6 +61,9 @@ if (-not (Test-Path -LiteralPath $helper)) {
 . $helper
 
 if (-not $TetherAdapterPattern) { $TetherAdapterPattern = $script:DefaultTetherAdapterPattern }
+# The environment list is parsed by the shared helper, not here: a name typed
+# with a space around it must still match the profile Windows reports.
+if (-not $PSBoundParameters.ContainsKey('MeteredProfiles')) { $MeteredProfiles = Get-MeteredProfiles }
 
 try {
     $link = Get-LinkProfileInfo

@@ -22,6 +22,24 @@ BeforeAll {
     }
 }
 
+Describe "Get-MeteredProfiles" {
+    It "Trims the names, so a space typed around one does not break the match" {
+        # "ROO_METERED_PROFILES=Jesse hotspot; OtherNet" must yield "OtherNet",
+        # not " OtherNet" -- the untrimmed name never matches the profile.
+        $profiles = Get-MeteredProfiles -Raw 'Jesse hotspot; OtherNet'
+        $profiles | Should -HaveCount 2
+        $profiles[0] | Should -Be 'Jesse hotspot'
+        $profiles[1] | Should -Be 'OtherNet'
+    }
+    It "Is empty when nothing is configured" {
+        Get-MeteredProfiles -Raw '' | Should -HaveCount 0
+        Get-MeteredProfiles -Raw $null | Should -HaveCount 0
+    }
+    It "Drops empty entries" {
+        Get-MeteredProfiles -Raw 'a;;b;' | Should -HaveCount 2
+    }
+}
+
 Describe "Test-LinkBilled" {
     It "Fixed and Variable costs are billed" {
         Test-LinkBilled -Link (New-Link -cost 'Fixed') | Should -BeTrue
@@ -105,5 +123,21 @@ Describe "test-link-billed.ps1 (CLI contract)" {
         $watch = Get-Content (Join-Path $projectRoot "scripts/monitoring/metered-link-watch.ps1") -Raw
         $watch | Should -Match 'link-qualification\.ps1'
         $watch | Should -Match 'Test-LinkBilled'
+    }
+    It "The watch wrapper defaults to the shared tether pattern" {
+        # A direct call of Test-MeteredLink without the pattern must still see
+        # a phone shared over USB: an empty default would pass green while
+        # ignoring the tether -- the shape of the defect that cost ~20 GB.
+        $watch = Get-Content (Join-Path $projectRoot "scripts/monitoring/metered-link-watch.ps1") -Raw
+        $watch | Should -Match '\[string\]\$TetherAdapterPattern = \$script:DefaultTetherAdapterPattern\)'
+    }
+    It "Both consumers parse the environment list through the helper" {
+        # The trimming lives in Get-MeteredProfiles; a consumer that splits the
+        # variable itself reintroduces the untrimmed name.
+        foreach ($file in @('scripts/monitoring/metered-link-watch.ps1', 'scripts/monitoring/test-link-billed.ps1')) {
+            $text = Get-Content (Join-Path $projectRoot $file) -Raw
+            $text | Should -Match 'Get-MeteredProfiles'
+            $text | Should -Not -Match "ROO_METERED_PROFILES -split"
+        }
     }
 }
