@@ -300,12 +300,15 @@ def selftest():
                 print(f"[SELFTEST] FAIL {label}: expected {expected}, got {got}")
                 return EXIT_ERROR
 
-        # workspace path normalization: backslashes + case must match the config key
+        # workspace path normalization: backslashes + case must match the config key.
+        # The directory is created at the KEY's case, not the probe's: on a
+        # case-sensitive filesystem the key must exist verbatim or the ghost
+        # check fires and buries the assertion being probed.
         backslash_key = os.path.join(tmp, "Back", "WS")
+        os.makedirs(backslash_key)
         cfg = {"mcpServers": {"roo-state-manager": {}},
                "projects": {backslash_key: {"disabledMcpServers": ["roo-state-manager"]}}}
         probe = os.path.join(tmp, "back", "ws")
-        os.makedirs(probe)
         got = [f["code"] for f in verify(cfg, manifest, "myia-test", norm_path(probe), False)]
         if got != ["REQUIRED_DISABLED"]:
             print(f"[SELFTEST] FAIL path-normalization: expected [REQUIRED_DISABLED], got {got}")
