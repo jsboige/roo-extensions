@@ -81,6 +81,17 @@ The coordinator and meta-analyst use a subset of roo-state-manager tools for fle
 2. **Check provenance** — `lastSeenByMachine[mid] === null` = "never seen on this mirror", the strongest tell of a stale observer-side mirror rather than a dead machine.
 3. **Check listener heartbeats** (`$ROOSYNC_SHARED_PATH/listener-heartbeats/*.heartbeat`, 2h staleness) — a different, per-machine signal with its own cadence.
 
+#### A dated `lastSeen` is a LOWER BOUND, not "last activity" (#4344, 2026-10-26)
+
+`lastSeenByMachine[mid]` is the **maximum of the `### [ts] machine|workspace` headers currently LIVE**, across **all** workspace dashboards on THIS observer's mirror. Archive recovery (#3695) is armed only for machines **entirely absent** from live — `missingFromCurrent = registryMachineIds.filter(mid => !activity.has(mid))`, the same predicate in three places (`inventory.ts:346`, `get-status.ts:357`, `health-view.ts:235`). Consequences:
+
+- **One old line freezes the field.** A machine still present with any (old) live line never triggers archive lookup, so newer messages already archived by condensation are never consulted — the value stays old while the machine keeps working.
+- **The maximum spans workspaces.** Lane A's freshness can be carried by lane B's dashboard: measured 2026-10-26, web2's frozen `20/10 19:17:13Z` was its last `workspace-claudish` line, while its `workspace-roo-extensions` `[DONE]`s existed but had been archived.
+
+Read a dated `lastSeen` older than ~2 h as **"at least this date"**, never as "last activity": the same caution as `null`, one notch weaker. The listener heartbeat file (step 3) stays the liveness signal.
+
+Measured 2026-10-24 → 26 (#4344, three `[RESULT]`: po-2024, ai-01, web2). The listener itself was alive in all three (web2 uptime 6.29 d, heartbeat 87 s old) — the frozen values were reader-side. The durable fix (widen the predicate, **bound** archive retrieval by the live max) is deliberately **not applied**: it touches the three sites above and is bundled with the RX123 archive-cost rework, which must first cap how many archive files one health call reads (12 473 files measured, `ls -t` >180 s off-LAN).
+
 Measurement 2026-08-18 (#3160): the "2h threshold vs 4h cadence" hypothesis was refuted — the 2h threshold lives in the in-memory, local-only `HeartbeatService` (ADR 008) and is not in the cross-machine causal chain; both observed UNKNOWN flips that day were true positives. UNKNOWN means "unobserved", not "down" — never escalate on a single UNKNOWN reading.
 
 ### Usage Scenarios
