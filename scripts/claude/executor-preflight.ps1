@@ -230,6 +230,25 @@ try {
         }
     }
 
+    # #4336: fleet-manifest drift check (read-only, measured 0.117 s median over
+    # 5 runs on ai-01). The MCP state a seat carries cannot be read from inside
+    # the session it affects: location 3 disables are indexed by the ABSOLUTE
+    # workspace path, so a relocated workspace silently re-enables a server
+    # (#4195) and nothing in the session says so. Same WARN-never-block posture
+    # as #3169/#4340 above — the pre-flight never fails on drift.
+    # Absent script = older checkout: skip silently, the pull above brings it.
+    $manifestCheck = Join-Path $RepoRoot 'scripts/diagnostic/verify-fleet-manifest.py'
+    if (Test-Path $manifestCheck) {
+        $manifestOutput = @(& cmd /c "python ""$manifestCheck"" --workspace ""$RepoRoot"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $manifestOutput) { Write-Host $line }
+        $manifestExit = $LASTEXITCODE
+        if ($manifestExit -eq 2) {
+            Write-Warning '[executor-preflight][MANIFEST-DRIFT] live MCP config deviates from .claude/configs/fleet-manifest.json (finding above). Relay [WARN] on the workspace dashboard: a required server missing or disabled means this seat cannot do its job. Repair the config, or record an explicit override in the manifest — never work around a missing required server, and never re-enable a workspace disable blind.'
+        } elseif ($manifestExit -ne 0) {
+            Write-Warning ("[executor-preflight][MANIFEST-DRIFT] verifier instrument error (exit $manifestExit) — declared-vs-live MCP state is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+        }
+    }
+
     Write-Host '[executor-preflight][READY] Parent, submodule, and RSM build are synchronized.' -ForegroundColor Green
     exit 0
 } catch {

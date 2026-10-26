@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated": "2026-10-25",
+  "updated": "2026-10-26",
   "source_issue": "https://github.com/jsboige/roo-extensions/issues/2416",
   "scope": "Claude Code seat only (~/.claude.json). Roo/Zoo-side MCP config lives in %APPDATA% mcp_settings.json and is out of scope.",
   "semantics": {
@@ -25,8 +25,8 @@
   "machines": {
     "myia-ai-01": {
       "roles": ["coordinator"],
-      "verified": null,
-      "notes": "expected from tool-availability.md; not yet verified firsthand"
+      "verified": "2026-10-26",
+      "notes": "verified firsthand (user-scope: jupyter-papermill, playwright, roo-state-manager, searxng, sk-agent). Verifier selftest 11/11 and live run exit 0: 0 errors, 1 warn 2026-10-26 — the two warns observed before the run were one genuine residue ('qc-mcp' under projects[d:/CoursIA]) and one false positive ('claude.ai Livres Agites Streamable', a claude.ai CONNECTOR: present in claudeAiMcpEverConnected, never in mcpServers), fixed in the verifier the same day. qc-mcp residue documented, NOT removed: d:/CoursIA is another lane's workspace. Workspace-scoped installs under d:/vllm (roo-state-manager, sk-agent) are location-2 state, not drift. No retired server, no ghost disable path."
     },
     "myia-po-2023": {
       "roles": ["executor"],
