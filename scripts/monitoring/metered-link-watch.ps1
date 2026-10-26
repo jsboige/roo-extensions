@@ -47,19 +47,31 @@ param(
     [int]$ThresholdMB = 500,
     [int]$CooldownMinutes = 60,
     [string[]]$MeteredProfiles = @(($env:ROO_METERED_PROFILES -split ';') | Where-Object { $_ }),
-    [string]$TetherAdapterPattern = 'Remote NDIS|Apple Mobile Device Ethernet',
+    [string]$TetherAdapterPattern = '',
     [string]$StatePath = '',
     [switch]$NoAlert
 )
+
+# The classification itself lives in link-qualification.ps1, shared with
+# test-link-billed.ps1: one implementation, so the watch and the CI gate can
+# never disagree about what "billed" means. This wrapper keeps the watch's own
+# parameter shape (its tests call it that way).
+$script:LinkHelperPath = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'link-qualification.ps1'
+if (-not (Test-Path -LiteralPath $script:LinkHelperPath)) {
+    throw "link-qualification.ps1 not found next to this script ($script:LinkHelperPath)"
+}
+. $script:LinkHelperPath
+if (-not $TetherAdapterPattern) { $TetherAdapterPattern = $script:DefaultTetherAdapterPattern }
 
 function Test-MeteredLink {
     param([string]$CostType, [bool]$Roaming, [bool]$ApproachingLimit, [bool]$OverLimit,
           [string]$ProfileName, [string[]]$MeteredProfiles = @(),
           [string]$AdapterDescription = '', [string]$TetherAdapterPattern = '')
-    if ($MeteredProfiles -contains $ProfileName) { return $true }
-    if ($TetherAdapterPattern -and $AdapterDescription -match $TetherAdapterPattern) { return $true }
-    if ($CostType -eq 'Fixed' -or $CostType -eq 'Variable') { return $true }
-    return ($Roaming -or $ApproachingLimit -or $OverLimit)
+    $link = [pscustomobject]@{
+        CostType = $CostType; Roaming = $Roaming; ApproachingDataLimit = $ApproachingLimit
+        OverDataLimit = $OverLimit; ProfileName = $ProfileName; AdapterDescription = $AdapterDescription
+    }
+    return Test-LinkBilled -Link $link -MeteredProfiles $MeteredProfiles -TetherAdapterPattern $TetherAdapterPattern
 }
 
 # Counters restart at zero after a reboot or a reconnect, and a new adapter
@@ -68,6 +80,20 @@ function Test-MeteredLink {
 function Get-LinkDelta {
     param($Previous, $Current)
     if (-not $Previous -or $Previous.AdapterId -ne $Current.AdapterId) {
+        return [pscustomobject]@{ Status = 'BASELINE'; Bytes = 0; Minutes = 0 }
+    }
+    # A sample whose counters could not be read is not a measurement. Comparing
+    # it with a real one would either invent a negative volume or, the other way
+    # round, turn the next good sample into a huge false delta.
+    $currentHasCounters = $true
+    if ($null -ne $Current.PSObject.Properties['CountersAvailable']) {
+        $currentHasCounters = [bool]$Current.CountersAvailable
+    }
+    $previousHasCounters = $true
+    if ($null -ne $Previous.PSObject.Properties['CountersAvailable']) {
+        $previousHasCounters = [bool]$Previous.CountersAvailable
+    }
+    if (-not $currentHasCounters -or -not $previousHasCounters) {
         return [pscustomobject]@{ Status = 'BASELINE'; Bytes = 0; Minutes = 0 }
     }
     $rx = [int64]$Current.RxBytes - [int64]$Previous.RxBytes
@@ -87,23 +113,26 @@ function Get-WatchVerdict {
 }
 
 function Get-InternetLinkSample {
-    try {
-        $null = [Windows.Networking.Connectivity.NetworkInformation, Windows.Networking.Connectivity, ContentType = WindowsRuntime]
-    } catch {
-        throw 'WinRT connectivity API unavailable: run this watch under Windows PowerShell 5.1 (powershell.exe)'
+    # The profile read is shared with test-link-billed.ps1 (link-qualification.ps1),
+    # so the watch and the CI gate qualify a link the same way.
+    $link = Get-LinkProfileInfo
+    if (-not $link) { return $null }
+    # An adapter that cannot be resolved leaves the counters unreadable, but the
+    # cost type, the profile name and the flags still qualify the link: losing
+    # the whole sample would hide a metered link behind a lookup hiccup.
+    $stats = $null
+    if ($link.AdapterName) {
+        try { $stats = Get-NetAdapterStatistics -Name $link.AdapterName -ErrorAction Stop } catch { $stats = $null }
     }
-    $p = [Windows.Networking.Connectivity.NetworkInformation]::GetInternetConnectionProfile()
-    if (-not $p) { return $null }
-    $cost = $p.GetConnectionCost()
-    $guid = $p.NetworkAdapter.NetworkAdapterId
-    $adapter = Get-NetAdapter | Where-Object { [guid]$_.InterfaceGuid -eq $guid } | Select-Object -First 1
-    if (-not $adapter) { return $null }
-    $stats = Get-NetAdapterStatistics -Name $adapter.Name
     return [pscustomobject]@{
-        Epoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); AdapterId = $guid.ToString(); Adapter = $adapter.Name
-        AdapterDescription = "$($adapter.InterfaceDescription)"; Profile = $p.ProfileName; CostType = "$($cost.NetworkCostType)"; Roaming = [bool]$cost.Roaming
-        ApproachingLimit = [bool]$cost.ApproachingDataLimit; OverLimit = [bool]$cost.OverDataLimit
-        RxBytes = [int64]$stats.ReceivedBytes; TxBytes = [int64]$stats.SentBytes
+        Epoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); AdapterId = $link.AdapterId
+        Adapter = $link.AdapterName
+        AdapterDescription = $link.AdapterDescription; Profile = $link.ProfileName; CostType = $link.CostType
+        Roaming = $link.Roaming
+        ApproachingLimit = $link.ApproachingDataLimit; OverLimit = $link.OverDataLimit
+        CountersAvailable = [bool]$stats
+        RxBytes = if ($stats) { [int64]$stats.ReceivedBytes } else { 0 }
+        TxBytes = if ($stats) { [int64]$stats.SentBytes } else { 0 }
     }
 }
 
@@ -126,6 +155,12 @@ $verdict = Get-WatchVerdict -Metered $metered -Delta $delta -ThresholdBytes ([in
 $mb = [math]::Round($delta.Bytes / 1MB)
 Write-Output ("[metered-link-watch] {0} profile='{1}' adapter='{2}' cost={3} metered={4} delta={5} MB in {6} min" -f `
     $verdict, $sample.Profile, $sample.Adapter, $sample.CostType, $metered, $mb, $delta.Minutes)
+if ($sample.CountersAvailable -eq $false) {
+    # The link is still qualified (cost, profile, adapter), but the volume could
+    # not be measured. Say so: a watch that cannot count must not look like a
+    # watch that counted nothing.
+    Write-Output "[metered-link-watch] WARNING adapter counters unreadable for '$($sample.Adapter)' -- volume not measured this run"
+}
 
 if ($verdict -eq 'ALERT' -and -not $NoAlert) {
     $machine = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }
