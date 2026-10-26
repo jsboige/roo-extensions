@@ -28,6 +28,12 @@
     Profile names (Wi-Fi SSID) treated as billed even when Windows reports the
     link as unrestricted. Default: $env:ROO_METERED_PROFILES (';'-separated).
 
+.PARAMETER TetherAdapterPattern
+    Regex on the adapter description. A matching adapter is a phone shared
+    over USB, billed whatever Windows reports: the 2026-10-26 leak ran over
+    "SAMSUNG Mobile USB Remote NDIS Network Device", a plain Ethernet link to
+    Windows, with no Wi-Fi profile to list.
+
 .PARAMETER NoAlert
     Measure and print the verdict, never post.
 
@@ -41,14 +47,17 @@ param(
     [int]$ThresholdMB = 500,
     [int]$CooldownMinutes = 60,
     [string[]]$MeteredProfiles = @(($env:ROO_METERED_PROFILES -split ';') | Where-Object { $_ }),
+    [string]$TetherAdapterPattern = 'Remote NDIS|Apple Mobile Device Ethernet',
     [string]$StatePath = '',
     [switch]$NoAlert
 )
 
 function Test-MeteredLink {
     param([string]$CostType, [bool]$Roaming, [bool]$ApproachingLimit, [bool]$OverLimit,
-          [string]$ProfileName, [string[]]$MeteredProfiles = @())
+          [string]$ProfileName, [string[]]$MeteredProfiles = @(),
+          [string]$AdapterDescription = '', [string]$TetherAdapterPattern = '')
     if ($MeteredProfiles -contains $ProfileName) { return $true }
+    if ($TetherAdapterPattern -and $AdapterDescription -match $TetherAdapterPattern) { return $true }
     if ($CostType -eq 'Fixed' -or $CostType -eq 'Variable') { return $true }
     return ($Roaming -or $ApproachingLimit -or $OverLimit)
 }
@@ -92,7 +101,7 @@ function Get-InternetLinkSample {
     $stats = Get-NetAdapterStatistics -Name $adapter.Name
     return [pscustomobject]@{
         Epoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); AdapterId = $guid.ToString(); Adapter = $adapter.Name
-        Profile = $p.ProfileName; CostType = "$($cost.NetworkCostType)"; Roaming = [bool]$cost.Roaming
+        AdapterDescription = "$($adapter.InterfaceDescription)"; Profile = $p.ProfileName; CostType = "$($cost.NetworkCostType)"; Roaming = [bool]$cost.Roaming
         ApproachingLimit = [bool]$cost.ApproachingDataLimit; OverLimit = [bool]$cost.OverDataLimit
         RxBytes = [int64]$stats.ReceivedBytes; TxBytes = [int64]$stats.SentBytes
     }
@@ -107,7 +116,8 @@ if (-not $sample) { Write-Output '[metered-link-watch] no internet profile -- no
 $state = $null
 if (Test-Path $StatePath) { try { $state = Get-Content $StatePath -Raw | ConvertFrom-Json } catch { } }
 $metered = Test-MeteredLink -CostType $sample.CostType -Roaming $sample.Roaming -ApproachingLimit $sample.ApproachingLimit `
-    -OverLimit $sample.OverLimit -ProfileName $sample.Profile -MeteredProfiles $MeteredProfiles
+    -OverLimit $sample.OverLimit -ProfileName $sample.Profile -MeteredProfiles $MeteredProfiles `
+    -AdapterDescription $sample.AdapterDescription -TetherAdapterPattern $TetherAdapterPattern
 $delta = Get-LinkDelta -Previous $state -Current $sample
 $lastAlert = if ($state) { $state.LastAlertEpoch } else { $null }
 $verdict = Get-WatchVerdict -Metered $metered -Delta $delta -ThresholdBytes ([int64]$ThresholdMB * 1MB) `

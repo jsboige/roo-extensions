@@ -26,6 +26,16 @@ Describe "Test-MeteredLink" {
         Test-MeteredLink -CostType 'Unrestricted' -Roaming $true -ProfileName 'x' | Should -BeTrue
         Test-MeteredLink -CostType 'Unknown' -OverLimit $true -ProfileName 'x' | Should -BeTrue
     }
+    It "A phone shared over USB is billed even when Windows reports it unrestricted" {
+        Test-MeteredLink -CostType 'Unrestricted' -ProfileName 'Reseau 29' `
+            -AdapterDescription 'SAMSUNG Mobile USB Remote NDIS Network Device' `
+            -TetherAdapterPattern 'Remote NDIS|Apple Mobile Device Ethernet' | Should -BeTrue
+    }
+    It "An ordinary Ethernet adapter is not billed by the tether pattern" {
+        Test-MeteredLink -CostType 'Unrestricted' -ProfileName 'Reseau 29' `
+            -AdapterDescription 'Intel(R) Ethernet Connection (17) I219-LM' `
+            -TetherAdapterPattern 'Remote NDIS|Apple Mobile Device Ethernet' | Should -BeFalse
+    }
 }
 
 Describe "Get-LinkDelta" {
