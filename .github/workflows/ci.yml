@@ -193,6 +193,9 @@ on:
       # that runs them (same rule as every entry above: a guard change landing
       # on main re-runs nothing without its path here).
       - 'scripts/hooks/**'
+      # Bandwidth leak 26/10: metered-link-watch.Tests.ps1 (unit-pester) guards
+      # this script -- same rule, the guarded source re-triggers its suite.
+      - 'scripts/monitoring/metered-link-watch.ps1'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
