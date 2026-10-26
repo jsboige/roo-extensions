@@ -137,7 +137,8 @@ if (-not [string]::IsNullOrEmpty($AllowedAuthors)) {
 }
 
 function Write-Log($level, $msg) {
-    $ts = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+    # Real UTC, same idiom as dashboard-listener.ps1 (#3277 fix 5).
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     Write-Host "[$ts] [$level] $msg"
 }
 
