@@ -115,6 +115,12 @@ Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** 
 
 **Ordre OBLIGATOIRE** : commit + PR AVANT le rapport `[DONE]`. Ne jamais annoncer un travail non commite.
 
+## Délégation tier mini (FrogNano, po-2025 :5003) — réflexe fan-out
+
+**Réflexe entropie (début de session / tâche longue)** : si un balayage >100 items serait utile mais ne sera jamais fait (docs en retard, issues/PRs non lues, dashboard non consolidé, fichiers à nettoyer, veille), lancer EN ARRIÈRE-PLAN un sous-agent `mini-sweeper` / `mini-fanout-extractor` (dépôt jsboige/vllm, `.claude/agents/` — fan-out FrogNano-4B, sortie = citations verbatim), continuer SA tâche, puis valider la liste en fin de session. Coût parent : ~0 contexte (la délégation préserve la fenêtre de l'appelant) + la validation.
+
+**Garde-fous mesurés (4 corpus, 25-26/10)** : classe validée = **extraction verbatim** (sortie = sous-ensemble exact de l'entrée ; 98,6-100 % rappel, 0 fabrication ; vérification mécanique `comm`+grep par l'appelant — producteur jamais son propre vérificateur). Interdit au mini : comptage/agrégation (échecs mesurés dès 6 lignes ; le mot `DONE` sous-compte), verdicts, blocs > 50 lignes par appel, passage de fichiers (texte inline seul — canal fichier HS). Presets sk-agent valides : `mini-summarizer|mini-repo-scan|mini-coder-fix|mini-web-research` — **jamais `agent:"frognano-4b"`** (nom du modèle, pas de l'agent : fallback silencieux vers swift ai-01, mesuré 26/10) ; contrôler `model_used` dans chaque réponse. Sources à quota partagé (`gh`) : appels bulk uniquement, jamais de boucle per-item. Recette complète + sous-agents : dépôt jsboige/vllm `myia_vllm/docs/frognano-fanout-delegation.md` (suivi : issue jsboige/vllm#205).
+
 ## Knowledge Preservation
 
 Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avant la fin. Hierarchie : `~/.claude/CLAUDE.md` (global) · `CLAUDE.md` repo (projet) · `~/.claude/projects/<hash>/memory/MEMORY.md` (par machine) · `.claude/rules/*.md` (auto-loaded). Le CLAUDE.md projet recoit les **decisions** ; detail, mesures et incidents vont dans `docs/` avec un pointeur d'une ligne. Apres chaque tache significative : MAJ CLAUDE.md projet + MEMORY.md, consigner les approches **testees-et-rejetees**.
