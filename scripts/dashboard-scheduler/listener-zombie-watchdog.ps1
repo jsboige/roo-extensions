@@ -29,8 +29,9 @@
          source of truth, may lag via the sync client).
 
     Timestamps: ONLY file mtimes (LastWriteTimeUtc) are compared. Listener log
-    lines stamp LOCAL time with a misleading Z suffix (documented trap, #3686) —
-    they are never used for staleness math.
+    lines are real UTC since #3277 fix 5 (listener) and #4364 (spawn-claude);
+    lines written by spawn-claude before #4364 carry LOCAL time with a misleading
+    Z suffix — log stamps are never used for staleness math.
 
     Forensics (issue demand 2): BEFORE any restart, the watchdog snapshots
     LastTaskResult + the tail of the latest listener log into
@@ -279,7 +280,7 @@ if ($verdict -eq "ZOMBIE") {
     $latestLog = Get-ChildItem -Path $logDir -Filter "listener-*.log" -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($latestLog) {
-        $forensics += "--- tail of $($latestLog.Name) (last 30 lines; note: log line stamps are LOCAL time with a misleading Z suffix) ---"
+        $forensics += "--- tail of $($latestLog.Name) (last 30 lines; note: stamps are UTC, except spawn-claude lines written before #4364, which are LOCAL time with a misleading Z) ---"
         $forensics += @(Get-Content $latestLog.FullName -Tail 30 -ErrorAction SilentlyContinue)
     } else {
         $forensics += "--- no listener-*.log found in $logDir ---"
