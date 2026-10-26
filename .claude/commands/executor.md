@@ -79,6 +79,8 @@ git log --oneline -5
 
 > **WARN `[DENY-FALLBACK]` sur exit `0`** (#4340) : sonde handshake — un outil deny (p.ex. `NotebookEdit`) n'a pas de repli répondant sur ce siège. Relayer en `[WARN]` + entrée registre `[ASK]`. La capacité touchée est **BLOQUÉE** (jamais de workaround : bytesplice JSON, `NotebookEdit`) ; le provisioning est une décision par workspace ; le cycle continue.
 
+> **WARN `[MANIFEST-DRIFT]` sur exit `0`** (#4336) : `scripts/diagnostic/verify-fleet-manifest.py` — config MCP vivante ≠ manifeste `.claude/configs/fleet-manifest.json`. Relayer en `[WARN]`. Un `required` absent ou désactivé pour ce workspace = capacité perdue : réparer la config ou consigner une override explicite, jamais réactiver à l'aveugle (#4195). Non bloquant, le cycle continue.
+
 Puis (en parallele) :
 1. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)

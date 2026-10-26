@@ -98,6 +98,10 @@ python scripts/diagnostic/verify-fleet-manifest.py --strict
 python scripts/diagnostic/verify-fleet-manifest.py --selftest
 ```
 
+**Exclusion `claude.ai`** (mesurée au rollout #4336, ai-01 26/10) — un **connecteur** claude.ai désactivé pour un workspace apparaît dans `disabledMcpServers` mais **jamais** dans `mcpServers` (son registre est `claudeAiMcpEverConnected`) : sans exclusion, `DISABLE_OF_UNINSTALLED` se déclenche sur tout siège ayant éteint un connecteur, et `--strict` en fait une erreur. Le même nom reste signalé tant qu'**aucune** entrée de registre ne le porte (résidu réel) — la paire est testée des deux côtés.
+
+**Décision de câblage (#4336)** — contrôle **au pré-vol de session**, pas en CI : `executor-preflight.ps1` lance le vérificateur en lecture seule (**0,117 s médiane sur 5 runs ai-01**, même posture WARN-never-block que `[OAUTH-EXPIRED]`/`[DENY-FALLBACK]`). La CI ne peut pas le faire : la dérive porte sur le `~/.claude.json` **d'un siège**, qu'un runner GitHub n'a pas — un job CI n'exécuterait que `--selftest`, déjà couvert par `executor-preflight-manifest.Tests.ps1` (9 tests, dont 4 qui **exécutent** le vérificateur).
+
 ### `../transcript/Find-DuplicateToolUse.ps1` (PR #3498)
 
 Variante PowerShell du même détecteur, ajoutée post-#3278. Mêmes signatures (`EMIT_FORK` / `EXEC_DOUBLE` / `EXEC_COPY`) sur un transcript unique, avec sortie `Object` / `Json` / `Summary` — utile quand le harnais cible est Windows natif (`powershell`) et que le Python n'est pas disponible. Tests Pester dans `scripts/testing/unit/Find-DuplicateToolUse.Tests.ps1` (12/12 verts).

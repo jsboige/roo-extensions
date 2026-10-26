@@ -25,6 +25,8 @@ Findings:
   UNEXPECTED_SERVER      (warn)   installed server unknown to the manifest
   GHOST_DISABLE_PATH     (warn)   disables under a path that no longer exists (#4195)
   DISABLE_OF_UNINSTALLED (warn)   disable naming a server absent from installs
+                                  (claude.ai CONNECTORS excluded: they are never
+                                  in mcpServers — roster is claudeAiMcpEverConnected)
 
 `required` is checked against location 1 only; `retired`/`allowed` (hence
 UNEXPECTED_SERVER) and the residue disable check scan the union of locations
@@ -98,6 +100,20 @@ def parse_disables(entry):
     return list(dis)
 
 
+def connector_names(cfg):
+    """Names of claude.ai connectors this seat knows about.
+
+    Connectors are disabled per workspace exactly like MCP servers (location 3)
+    but are never installed into `mcpServers` — their roster is
+    `claudeAiMcpEverConnected`. A disable naming one is a real workspace
+    choice, not a residue entry (#4336 rollout measure, myia-ai-01).
+    """
+    raw = cfg.get("claudeAiMcpEverConnected") or []
+    if isinstance(raw, dict):
+        raw = raw.keys()
+    return {n for n in raw if isinstance(n, str)}
+
+
 def scan_config(cfg, workspace_norm):
     """Extract effective MCP state from a parsed ~/.claude.json.
 
@@ -144,6 +160,12 @@ def verify(cfg, manifest, machine, workspace_norm, strict=False):
 
     exp = resolve_expectations(manifest, entry)
     installs, ws_disables, ghosts, stale_dis, user_installs = scan_config(cfg, workspace_norm)
+    # A connector disabled for a workspace appears in `disabledMcpServers` but
+    # never in `mcpServers`, so without this exclusion every seat that turned a
+    # connector off carries a permanent warn (and `--strict` an error) — the
+    # class would be measuring the connector registry, not residue (#4336).
+    connectors = connector_names(cfg)
+    stale_dis = [n for n in stale_dis if n not in connectors]
 
     # `required` is checked against location 1 alone (semantics.required:
     # "must be installed user-scope") — a workspace-scoped install under
@@ -247,6 +269,22 @@ def selftest():
              {"mcpServers": {"roo-state-manager": {}, "mystery-mcp": {}}, "projects": {}},
              "myia-test", live_ws, True,
              ["UNEXPECTED_SERVER"]),
+            # A claude.ai connector disabled for a workspace lives in
+            # disabledMcpServers but never in mcpServers (roster:
+            # claudeAiMcpEverConnected). Before the exclusion this exited with
+            # DISABLE_OF_UNINSTALLED on every seat that disabled a connector —
+            # measured firsthand on myia-ai-01, 2026-10-26 (#4336).
+            ("connector-disable-is-not-residue",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["Some Connector"]}},
+              "claudeAiMcpEverConnected": ["Some Connector"]},
+             "myia-test", live_ws, False, []),
+            # ...and the control that keeps the class alive: the SAME disable
+            # with no registry entry is still a residue.
+            ("unregistered-disable-is-residue",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["Some Connector"]}}},
+             "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
         ]
 
         passed = 0
@@ -262,12 +300,15 @@ def selftest():
                 print(f"[SELFTEST] FAIL {label}: expected {expected}, got {got}")
                 return EXIT_ERROR
 
-        # workspace path normalization: backslashes + case must match the config key
+        # workspace path normalization: backslashes + case must match the config key.
+        # The directory is created at the KEY's case, not the probe's: on a
+        # case-sensitive filesystem the key must exist verbatim or the ghost
+        # check fires and buries the assertion being probed.
         backslash_key = os.path.join(tmp, "Back", "WS")
+        os.makedirs(backslash_key)
         cfg = {"mcpServers": {"roo-state-manager": {}},
                "projects": {backslash_key: {"disabledMcpServers": ["roo-state-manager"]}}}
         probe = os.path.join(tmp, "back", "ws")
-        os.makedirs(probe)
         got = [f["code"] for f in verify(cfg, manifest, "myia-test", norm_path(probe), False)]
         if got != ["REQUIRED_DISABLED"]:
             print(f"[SELFTEST] FAIL path-normalization: expected [REQUIRED_DISABLED], got {got}")
