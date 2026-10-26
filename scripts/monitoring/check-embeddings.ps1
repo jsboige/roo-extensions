@@ -53,6 +53,12 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $machineName = ($env:COMPUTERNAME).ToLower()
+$verdictFile = Join-Path $scriptDir "embeddings-verdict.ps1"
+if (-not (Test-Path $verdictFile)) {
+    Write-Host "[ERROR] verdict helper not found: $verdictFile" -ForegroundColor Red
+    exit 1
+}
+. $verdictFile
 
 # --- Read API key from MCP .env ---
 $envFile = "$repoRoot/mcps/internal/servers/roo-state-manager/.env"
@@ -103,15 +109,12 @@ try {
     }
 } catch {
     $firstError = $_.Exception.Message
-    $isTimeout = ($_.Exception -is [System.Net.WebException]) -and
-                  ($_.Exception.Status -eq [System.Net.WebExceptionStatus]::Timeout)
+    $verdict = Get-EmbeddingsVerdict -ErrorRecord $_.Exception -Message $firstError
 
-    if (-not $isTimeout) {
-        $status = "FAIL"
-        $failureKind = "http"
-        $detail = $firstError
-        Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
-    } else {
+    if ($verdict.Status -eq "TIMEOUT") {
+        # Un timeout ne prouve pas la mort : on CONFIRME avec un budget plus
+        # grand sur la MEME URL. Un budget egal n apporte rien (les deux
+        # expireraient ensemble) : celui de confirmation est plus long.
         $sw2 = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $response2 = Invoke-RestMethod -Uri "$ApiBase/models" -Headers $headers -TimeoutSec $ConfirmTimeoutSeconds
@@ -122,12 +125,40 @@ try {
             Write-Host "[DEGRADED] Embeddings lent mais vivant: $detail" -ForegroundColor Yellow
         } catch {
             $sw2.Stop()
-            $status = "FAIL"
-            $failureKind = "timeout"
-            $detail = "timeout apres $TimeoutSeconds s ($firstError) ; second essai en echec apres $($sw2.ElapsedMilliseconds) ms ($($_.Exception.Message))"
-            Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            $verdict2 = Get-EmbeddingsVerdict -ErrorRecord $_.Exception
+            if ($verdict2.Status -eq "AUTH") {
+                # Le vhost a repondu en refusant la cle : il est VIVANT. Le
+                # timeout initial etait la latence, pas la mort.
+                $status = "AUTH"
+                $failureKind = "auth"
+                $detail = $verdict2.Detail
+                Write-Host "[AUTH] Embeddings a repondu mais refuse la cle: $detail" -ForegroundColor Yellow
+            } elseif ($verdict2.Status -eq "HTTP") {
+                $status = "FAIL"
+                $failureKind = "http"
+                $detail = $verdict2.Detail
+                Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            } else {
+                $status = "FAIL"
+                $failureKind = "timeout"
+                $detail = "timeout apres $TimeoutSeconds s ($firstError) ; second essai en echec apres $($sw2.ElapsedMilliseconds) ms (budget $ConfirmTimeoutSeconds s) ($($_.Exception.Message))"
+                Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            }
         }
+    } elseif ($verdict.Status -eq "AUTH") {
+        # 401/403 : le service REPOND et refuse la cle. Il n est pas mort,
+        # et redemarrer vLLM ne changerait rien a un probleme de cle.
+        $status = "AUTH"
+        $failureKind = "auth"
+        $detail = $verdict.Detail
+        Write-Host "[AUTH] Embeddings a repondu mais refuse la cle: $detail" -ForegroundColor Yellow
+    } else {
+        $status = "FAIL"
+        $failureKind = $verdict.FailureKind
+        $detail = $verdict.Detail
+        Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
     }
+
 }
 # --- Log ---
 $logDir = "$repoRoot/outputs/monitoring/logs"
@@ -170,6 +201,10 @@ if ($status -eq "DEGRADED" -and -not $DryRun) {
     }
 }
 
+# AUTH (401/403) : le service REPOND et refuse la cle. Probleme de
+# configuration, pas panne : signale dans le journal et sur stdout, SANS
+# spawn d agent -- une alerte toutes les 30 min pour une cle a faire
+# tourner serait exactement le multiplicateur que ce correctif combat.
 if ($status -eq "FAIL" -and -not $DryRun) {
     if ($failureKind -eq "timeout") {
         $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE on $machineName. Error: $detail. Both attempts timed out (first budget $TimeoutSeconds seconds, confirmation budget $ConfirmTimeoutSeconds seconds), so the vhost embeddings.myia.io no longer answers at all. Action: DO NOT restart vLLM first -- check the vhost/ARR path, the TLS termination and the upstream routing to the embeddings backend; the vLLM container may well be healthy while the vhost is the broken link. Semantic search and meta-analysis are affected."
@@ -183,5 +218,6 @@ if ($status -eq "FAIL" -and -not $DryRun) {
 }
 
 if ($status -eq "FAIL") { exit 1 }
+if ($status -eq "AUTH") { exit 0 }
 if ($status -eq "DEGRADED") { exit 0 }
 if ($status -eq "SLOW") { exit 0 }

@@ -17,6 +17,7 @@ BeforeAll {
     $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
     $scriptPath = Join-Path $projectRoot "scripts/monitoring/check-embeddings.ps1"
     $script:mon = Get-Content $scriptPath -Raw
+    $script:verdict = Get-Content (Join-Path $projectRoot "scripts/monitoring/embeddings-verdict.ps1") -Raw
 }
 Describe "Moniteur embeddings -- budget de timeout" {
     It "Le budget par defaut doit couvrir la latence mesuree du vhost" {
@@ -31,7 +32,25 @@ Describe "Moniteur embeddings -- budget de timeout" {
 }
 Describe "Moniteur embeddings -- timeout confirme, pas presume panne" {
     It "Doit distinguer un timeout d une panne franche" {
-        $script:mon | Should -Match 'WebExceptionStatus\]::Timeout'
+        $script:verdict | Should -Match 'WebExceptionStatus\]::Timeout'
+    }
+
+    It "Le moniteur doit classer via la fonction de verdict" {
+        $script:mon | Should -Match 'Get-EmbeddingsVerdict -ErrorRecord'
+        $script:mon | Should -Match 'embeddings-verdict\.ps1'
+    }
+
+    It "Le classifieur doit couvrir le timeout de PowerShell 7" {
+        $script:verdict | Should -Match 'OperationCanceledException'
+    }
+
+    It "Le classifieur doit distinguer un 401/403 : service vivant, cle refusee" {
+        $script:verdict | Should -Match 'StatusCode'
+        $script:verdict | Should -Match 'Status = "AUTH"'
+    }
+
+    It "Un 401 ne doit ni alerte ni code de sortie en echec" {
+        $script:mon | Should -Match 'if \(\$status -eq "AUTH"\)\ { exit 0 }'
     }
     It "Doit confirmer par un second essai quand le premier expire" {
         $script:mon | Should -Match 'ConfirmTimeoutSeconds'
