@@ -6,7 +6,8 @@
 ## Pourquoi cette page existe
 
 Chaque processus client MCP (`roo-state-manager`) porte **son propre** cache squelette et,
-par défaut, l'hydrate de façon **eager** (`background-services.ts`, `enablePrewarm`). Sur une
+quand le prewarm est actif, l'hydrate de façon **eager** (`background-services.ts`, `enablePrewarm`) —
+**OFF par défaut depuis ms#1536** (27/10). Avant ce défaut, sur une
 machine qui héberge N clients (multiplicité courante : 27+ hôtes), chaque client inactif
 coûte ~3,2 Go de mémoire privée — soit ~93 Go cumulés sur 29 hôtes au pic mesuré.
 
@@ -14,7 +15,7 @@ coûte ~3,2 Go de mémoire privée — soit ~93 Go cumulés sur 29 hôtes au pic
 
 | Axe | Phénomène | Geste |
 |---|---|---|
-| 1 — hydratation eager | cache dupliqué N× (Tier 2 + Tier 3) | **A** : `ROO_AUTO_DISABLE_PREWARM=1` (opt-in par machine, décision opérationnelle) |
+| 1 — hydratation eager | cache dupliqué N× (Tier 2 + Tier 3) | **A** : prewarm **OFF par défaut** (ms#1536) ; opt-in `SKELETON_PREWARM=true` (ou `1`), `ROO_AUTO_DISABLE_PREWARM=1` l'emporte |
 | 2 — scans de démarrage + Worker A | chaque hôte ré-indexe le disque local | **B** : élection machine-locale de Worker A + scans (lock dédié `roosync-worker-a-leader-${machineId}.lock`, fail-closed) |
 | 3 — accès lazy du client | le cold-load est payé à la première requête | **C** (à l'étude) : clients secondaires légers vs daemon de cache partagé |
 
@@ -29,8 +30,8 @@ par machine.
 
 ## Rappels mesurés
 
-- `SKELETON_PREWARM=false` (legacy) désactive l'hydratation eager ; le geste A moderne est `ROO_AUTO_DISABLE_PREWARM=1`.
-- Le kill-switch n'est **pas** appliqué par défaut : la bascule est une décision par machine.
+- Défaut **OFF** depuis ms#1536 (27/10) : l'opt-out par machine n'avait jamais atteint les sièges (po-2023 : 11 hôtes à 3,5-3,9 Go, VM WSL tombée). Opt-in `SKELETON_PREWARM=true`/`1` ; `ROO_AUTO_DISABLE_PREWARM=1` et `SKELETON_PREWARM=false` coupent toujours.
+- Le leader Worker A garde la sweep des sessions Claude : `scanForOutdatedQdrantIndex` (leader-only) itère ce cache — un hôte par machine paie la sweep, les followers la sautent.
 - Une fausse réfutation classique : mesurer un build dont `build/` est antérieur au fix, ou
   sans le flag opt-in posé — la fenêtre de redémarrage est consommée à vide. Vérifier
   `build/build-info.json` et les deux drapeaux avant de conclure.

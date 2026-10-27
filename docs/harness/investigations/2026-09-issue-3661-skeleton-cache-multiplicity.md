@@ -1,5 +1,7 @@
 # Issue #3661 — Design study: borner cache + scans N× par client MCP
 
+> **Remplacée (27/10/2026) :** le prewarm est **OFF par défaut** depuis ms#1536 — les mécanismes ci-dessous (`SKELETON_PREWARM !== 'false'`, `ROO_AUTO_DISABLE_PREWARM=auto`) ne décrivent plus le code. État courant : [`skeleton-cache-multiplicity.md`](../reference/skeleton-cache-multiplicity.md).
+
 **Statut :** étude d'analyse (rapport seulement — aucune modification de `background-services.ts`).
 **Périmètre :** `mcps/internal/servers/roo-state-manager/src/services/background-services.ts:699-903, 1075-1179`
 **Référence :** complémentaire de #2352 (élections Qdrant), préserve #1110 (zéro I/O bloquant), préserve #1747 (visibilité Tier 2/3).
