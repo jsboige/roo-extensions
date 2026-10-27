@@ -224,10 +224,14 @@ Croise les deux instruments par `job_id` et ventile les faux `ok` par famille :
 - **`errored`** — dernier fire porteur d'une erreur alors que le job dit `ok` ;
 - **`ok-last-error`** — le job dit `ok` mais `last_error` est renseigné.
 
+Un statut de ledger **hors vocabulaire connu** (`claimed`/`running`/`completed`/`failed`/`unknown`) n'est ni un finding ni un silence : il est surfacé dans `latest_unrecognized_status` — l'instrument ne suppose pas un état qu'il ne sait pas lire.
+
+**`false_ok_pct` est une métrique de croisement ledger** : son numérateur ne compte que des jobs que le ledger a réellement vérifiés. Un signal `ok-last-error` sur un job **sans** ledger reste un finding (contradiction interne à `jobs.json`), compté à part dans `ok_last_error_without_ledger`, mais n'entre jamais dans le pourcentage — qui ne peut pas dépasser 100.
+
 Les familles (a) `no_agent` sans preuve et (b) agent muet de l'issue **ne sont pas mesurables par le ledger** : elles sont silencieuses-**par conception**, et le rappel anti-pendule du diagnostic du 20/10 tient — le correctif est de rendre le silence **distinguable** d'un run qui a rapporté, jamais de transformer le silence en erreur. La sonde ne les invente pas : elle mesure la moitié que le ledger prouve et dit quelle part de la population reste inexpliquée.
 
 - **Schéma tolérant** : la table et les colonnes sont découvertes (`job_id`/`jobid`/`job`, `status`/`state`, `error`/`err`, `finished_at`/`updated_at`/`started_at`…), et `jobs.json` est accepté en liste, `{"jobs": [...]}` ou `{"jobs": {id: {...}}}` — l'instrument ne suppose pas une forme qu'il n'a pas vérifiée.
-- **Fail-closed** : entrée absente ou illisible = exit 1, jamais « aucune contradiction » (exit 0) ; pas de table exploitable = erreur, pas un résultat vide.
+- **Fail-closed** : entrée absente ou illisible = exit 1, jamais « aucune contradiction » (exit 0) ; pas de table exploitable = erreur, pas un résultat vide. **Gardié par le selftest au niveau CLI** (deux appels subprocess assert exit 1) — un mutant qui remapperait le chemin d'erreur sur exit 0 rend le selftest rouge.
 - **Lecture seule** : `executions.db` est ouvert en mode SQLite `mode=ro` + `PRAGMA query_only` (le runtime appartient au siège qui héberge Hermes) ; le selftest vérifie qu'une écriture **échoue**.
 - **Aucun secret en sortie** : les payloads des jobs (prompts) et le **texte** des erreurs ne sont jamais imprimés — seulement ids, noms, statuts et la **longueur** de l'erreur.
 
@@ -238,7 +242,8 @@ python scripts/diagnostic/probe-hermes-liveness.py
 # Cibles explicites + seuil de blocage + sortie machine
 python scripts/diagnostic/probe-hermes-liveness.py --jobs <jobs.json> --executions-db <executions.db> --wedged-minutes 60 --json
 
-# Fixture synthetique : une famille par cas + les deux controles negatifs
+# Fixture synthetique : une famille par cas + controles negatifs (fire anterieur, fire
+# en vol, job sans ledger, statut hors vocabulaire, fail-closed au niveau CLI)
 python scripts/diagnostic/probe-hermes-liveness.py --selftest
 ```
 

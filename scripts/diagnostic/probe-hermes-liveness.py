@@ -45,8 +45,16 @@ Usage:
     python probe-hermes-liveness.py --json                # machine-readable
     python probe-hermes-liveness.py --selftest            # fixture synthetique
 
+Metrics: `false_ok_pct` is a ledger-crossing metric — its numerator only counts
+jobs the ledger actually checked, so an `ok-last-error` signal on a ledger-less
+job is reported (and counted in `ok_last_error_without_ledger`) but never
+inflates the percentage. Ledger statuses outside the known vocabulary
+(claimed/running/completed/failed/unknown) are surfaced as
+`latest_unrecognized_status` instead of being silently ignored.
+
 Exit codes: 0 = no contradiction, 2 = findings, 1 = instrument error. Fail-closed:
-a missing or unreadable input is never reported as "no contradiction".
+a missing or unreadable input is never reported as "no contradiction" — asserted
+by the selftest at the CLI boundary, not just in-process.
 
 Security: job payloads (prompts) and error TEXT are never printed — only ids,
 names, statuses and an error LENGTH. The runtime belongs to the seat; the database
@@ -58,6 +66,7 @@ import json
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import time
@@ -74,6 +83,9 @@ DEFAULT_WEDGED_MINUTES = 30
 # Ledger rows that mean "this fire has not concluded".
 IN_FLIGHT = ("claimed", "running")
 REAPED = ("unknown",)
+# Full ledger state vocabulary (hermes-agent, cron/jobs.py at 16e747a8). Anything
+# outside it is surfaced as `latest_unrecognized_status` instead of ignored.
+KNOWN_STATUSES = ("claimed", "running", "completed", "failed", "unknown")
 
 JOB_ID_KEYS = ("job_id", "jobid", "job", "jobId", "id")
 STATUS_KEYS = ("status", "state")
@@ -249,6 +261,7 @@ def probe(jobs_path, db_path, wedged_minutes=DEFAULT_WEDGED_MINUTES, now=None):
 
     findings = []
     without_ledger = []
+    unrecognized = []
     for job in ok_jobs:
         job_id = _job_id(job)
         label = _job_label(job)
@@ -316,11 +329,28 @@ def probe(jobs_path, db_path, wedged_minutes=DEFAULT_WEDGED_MINUTES, now=None):
                     "detail": f"latest fire carries an error of {latest['error_len']} chars while job says ok",
                 }
             )
+        elif status not in KNOWN_STATUSES:
+            # Outside the known vocabulary: surfaced, never silently dropped.
+            unrecognized.append({"job_id": job_id, "name": label, "status": status})
+        # else: completed with no error — the fire concluded cleanly.
 
-    # A job can appear once per family; count job-level false-ok once.
-    false_ok_ids = {f["job_id"] for f in findings if f["job_id"]}
+    # A job can appear once per family; count job-level false-ok once. The
+    # ok-last-error check needs no ledger, so its findings can also name jobs the
+    # ledger never saw: the pct is a ledger-crossing metric and its numerator is
+    # restricted to jobs the ledger actually checked (can never exceed 100%).
+    ledger_less = {w["job_id"] for w in without_ledger}
+    false_ok_ids = {
+        f["job_id"]
+        for f in findings
+        if f["job_id"] and f["job_id"] not in ledger_less
+    }
     by_family = {fam: sum(1 for f in findings if f["family"] == fam) for fam in FAMILIES}
     checked = len(ok_jobs) - len(without_ledger)
+    ok_last_error_no_ledger = sum(
+        1
+        for f in findings
+        if f["family"] == "ok-last-error" and f["job_id"] in ledger_less
+    )
 
     return {
         "jobs_file": str(jobs_path),
@@ -330,11 +360,13 @@ def probe(jobs_path, db_path, wedged_minutes=DEFAULT_WEDGED_MINUTES, now=None):
         "ok_jobs": len(ok_jobs),
         "ok_jobs_with_ledger": checked,
         "ok_jobs_without_ledger": without_ledger,
+        "latest_unrecognized_status": unrecognized,
         "findings": findings,
         "by_family": by_family,
         "false_ok_jobs": len(false_ok_ids),
         "false_ok_pct": round(100.0 * len(false_ok_ids) / checked, 1) if checked else 0.0,
         "explained_pct": round(100.0 * len(false_ok_ids) / len(ok_jobs), 1) if ok_jobs else 0.0,
+        "ok_last_error_without_ledger": ok_last_error_no_ledger,
         "wedged_minutes": wedged_minutes,
     }
 
@@ -374,6 +406,8 @@ def selftest() -> int:
         ("job-inflight", "running", None, iso(30), None),
         # 'ok-last-error' job: ledger is clean, the job field is not
         ("job-last-error", "completed", None, iso(600), iso(590)),
+        # status outside the known vocabulary: surfaced, never silently ignored
+        ("job-unrecognized", "in_progress", None, iso(600), None),
     ]
     conn.executemany(
         "INSERT INTO executions (job_id, status, error, started_at, finished_at) VALUES (?,?,?,?,?)",
@@ -399,6 +433,10 @@ def selftest() -> int:
                     job("job-clean"),
                     job("job-inflight"),
                     job("job-last-error", error="stale error text"),
+                    # ok + last_error but NO ledger rows: a real finding, yet
+                    # outside the ledger-crossing pct (pinned below)
+                    job("job-le-noledger", error="orphan error text"),
+                    job("job-unrecognized"),
                     job("job-noledger"),
                     job("job-ok-real", status="error"),  # not part of the ok population
                 ]
@@ -409,23 +447,35 @@ def selftest() -> int:
 
     report = probe(jobs_path, db_path, wedged_minutes=30, now=now)
 
-    assert report["jobs_total"] == 9, report["jobs_total"]
-    assert report["ok_jobs"] == 8, report["ok_jobs"]
+    assert report["jobs_total"] == 11, report["jobs_total"]
+    assert report["ok_jobs"] == 10, report["ok_jobs"]
     families = report["by_family"]
     assert families == {
         "wedged": 1,
         "reaped": 1,
         "failed": 1,
         "errored": 1,
-        "ok-last-error": 1,
+        # job-last-error (with ledger) + job-le-noledger (ledger-less)
+        "ok-last-error": 2,
     }, families
+    assert report["ok_jobs_with_ledger"] == 8, report["ok_jobs_with_ledger"]
+    assert sorted(w["job_id"] for w in report["ok_jobs_without_ledger"]) == [
+        "job-le-noledger",
+        "job-noledger",
+    ]
+    # The pct is pinned as a ledger-crossing metric: job-le-noledger's finding
+    # must NOT enter the numerator. A mutant that drops the restriction turns
+    # this red (6/8 = 75.0 instead of 5/8 = 62.5, and >100% in degenerate cases).
     assert report["false_ok_jobs"] == 5, report["false_ok_jobs"]
-    assert report["ok_jobs_with_ledger"] == 7, report["ok_jobs_with_ledger"]
-    assert [w["job_id"] for w in report["ok_jobs_without_ledger"]] == ["job-noledger"]
+    assert report["false_ok_pct"] == 62.5, report["false_ok_pct"]
+    assert report["ok_last_error_without_ledger"] == 1, report["ok_last_error_without_ledger"]
+    # Unknown ledger vocabulary is surfaced, not swallowed.
+    assert [u["status"] for u in report["latest_unrecognized_status"]] == ["in_progress"]
     # job-clean's older failed fire must not be blamed, and an in-flight fire is normal
     blamed = {f["job_id"] for f in report["findings"]}
     assert "job-clean" not in blamed, blamed
     assert "job-inflight" not in blamed, blamed
+    assert "job-unrecognized" not in blamed, blamed
 
     # Control: the ledger must be opened read-only (a write attempt has to fail).
     ro = _connect_ro(str(db_path))
@@ -442,17 +492,42 @@ def selftest() -> int:
     # Control: error TEXT is never echoed, only its length.
     assert "boom" not in json.dumps(report), "error text leaked into the report"
     assert "partial failure" not in json.dumps(report), "error text leaked into the report"
+    assert "orphan error text" not in json.dumps(report), "error text leaked into the report"
+
+    # Control: fail-closed at the CLI boundary. These run the real CLI in a
+    # subprocess so a mutant that maps the instrument-error path onto EXIT_CLEAN
+    # turns the selftest red instead of staying invisible.
+    script = Path(__file__).resolve()
+
+    def cli_exit(*args):
+        proc = subprocess.run(
+            [sys.executable, str(script), *args], capture_output=True, text=True
+        )
+        return proc.returncode
+
+    rc_missing = cli_exit("--jobs", str(tmp / "absent-jobs.json"), "--executions-db", str(db_path))
+    assert rc_missing == EXIT_ERROR, f"missing jobs.json must exit 1, got {rc_missing}"
+
+    bad_db = tmp / "not-an-executions.db"
+    bad = sqlite3.connect(str(bad_db))
+    bad.execute("CREATE TABLE irrelevant (payload TEXT)")
+    bad.commit()
+    bad.close()
+    rc_badtable = cli_exit("--jobs", str(jobs_path), "--executions-db", str(bad_db))
+    assert rc_badtable == EXIT_ERROR, f"unusable table must exit 1, got {rc_badtable}"
 
     # Cleanup: named files only, never a wild rmtree.
     jobs_path.unlink()
     db_path.unlink()
+    bad_db.unlink()
     try:
         tmp.rmdir()
     except OSError:
         pass
 
     print("[SELFTEST] PASS (5 families discriminated, in-flight normal, older fires ignored, "
-          "read-only enforced, error text withheld)")
+          "pct pinned to ledger-checked jobs, unknown statuses surfaced, fail-closed guarded "
+          "at the CLI boundary, read-only enforced, error text withheld)")
     return EXIT_CLEAN
 
 
@@ -490,6 +565,14 @@ def main() -> int:
             print(f"[{finding['family'].upper()}] job {finding['job_id']}{name}: {finding['detail']}")
         for gap in report["ok_jobs_without_ledger"]:
             print(f"[NO-LEDGER] job {gap['job_id']} dit ok mais n'a aucune execution (non comptabilise)")
+        if report["ok_last_error_without_ledger"]:
+            print(
+                f"[SUMMARY] ok-last-error: {report['ok_last_error_without_ledger']} job(s) sans ledger "
+                "- signal jobs.json seul, hors false_ok_pct"
+            )
+        for gap in report["latest_unrecognized_status"]:
+            name = f" ({gap['name']})" if gap["name"] else ""
+            print(f"[UNRECOGNIZED] job {gap['job_id']}{name}: statut ledger inconnu '{gap['status']}' - non classe")
         if report["false_ok_jobs"]:
             print(
                 f"[SUMMARY] {report['false_ok_jobs']}/{report['ok_jobs_with_ledger']} jobs ok contredits "
