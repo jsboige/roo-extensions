@@ -176,6 +176,18 @@ Describe 'harden-hidden-tasks eligibility (defect A, #4118)' {
         $d.Method | Should -Be 'name-list'
     }
 
+    It 'the BARE name of a fallback host matches the list (no .exe required)' {
+        # Deterministe sur tout poste : le chemin est absolu et n existe pas, donc on
+        # passe TOUJOURS par la liste de noms, que pwsh soit installe ou non. C est le
+        # ratage mesure du nom nu de #4118 : `pwsh` compare a `pwsh.exe` ne correspondait
+        # jamais, et le test voisin ne le voyait pas en CI (pwsh y est installe, donc il
+        # sortait par le sous-systeme PE).
+        $d = Get-HardenDecision -Task (New-SyntheticTask -Execute '"C:\gone\pwsh"')
+        $d.Decision | Should -Be 'plan'
+        $d.Unresolved | Should -BeTrue
+        $d.Method | Should -Be 'name-list'
+    }
+
     It 'a non-Interactive principal is not eligible (session 0 -> already invisible)' {
         $d = Get-HardenDecision -Task (New-SyntheticTask -Execute $ps51 -LogonType 'S4U')
         $d.Decision | Should -Be 'non-interactive'
@@ -226,5 +238,95 @@ Describe 'harden-hidden-tasks lane guard (defect B, #4118)' {
     It '-TaskName bypasses the ownership guard (explicit opt-in, unchanged behaviour)' {
         $d = Get-HardenDecision -Task (New-SyntheticTask -Execute 'powershell.exe' -Arguments '-File C:\ProgramData\maint-scripts\foo.ps1') -TaskNameFilter @('SYN-Test')
         $d.Decision | Should -Be 'plan'
+    }
+}
+
+# --- Modele de lanceur VBS : quoting Execute + propagation d'echec (incident vllm 26/10) ------
+# La construction du VBS vit dans le .lib pour etre testable SANS toucher une tache
+# reelle : on ecrit le lanceur en scratch et on l'execute via wscript //B. Reproduit
+# le cas mesure sur po-2028 : cible absente -> wscript rend 0 sans la garde (tache
+# muette, LastTaskResult menteur), et chemin a espaces -> l'enfant ne part jamais si
+# l'Execute n'est pas quote. Machine Windows requise (skip sinon : ce fichier tourne
+# aussi sur les hotes de dev non-Windows via run-pester-tests.ps1).
+
+Describe 'harden-hidden-tasks launcher VBS (quoting + failure propagation)' {
+    BeforeAll {
+        . (Join-Path $PSScriptRoot 'harden-hidden-tasks.lib.ps1')
+        $script:canRun = $true
+        $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
+        $cmdSrc = Join-Path $env:SystemRoot 'System32\cmd.exe'
+        if (-not $env:SystemRoot -or -not (Test-Path $wscript) -or -not (Test-Path $cmdSrc)) {
+            $script:canRun = $false
+        } else {
+            $script:scratch = Join-Path ([System.IO.Path]::GetTempPath()) ('hhn-vbs-' + [guid]::NewGuid().ToString('N'))
+            $spaced = Join-Path $script:scratch 'My Tools'
+            New-Item -ItemType Directory -Force $spaced -ErrorAction Stop | Out-Null
+            # cmd.exe copie sous un chemin A ESPACES : la forme exacte du champ Execute
+            # qui cassait les lanceurs vllm (CreateProcess resolvait 'C:\Program').
+            $script:spacedExe = Join-Path $spaced 'my cmd.exe'
+            Copy-Item $cmdSrc $script:spacedExe -ErrorAction Stop
+            $script:missing = Join-Path $spaced 'does-not-exist.exe'
+        }
+    }
+    AfterAll {
+        if ($script:scratch -and (Test-Path $script:scratch)) {
+            Remove-Item $script:scratch -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'quotes the Execute : a spaced path launches and the child exit code propagates' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required (wscript/cmd)'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-Quoted' -Execute $script:spacedExe -Arguments '/c exit 7'
+        $path = Join-Path $script:scratch 'quoted.vbs'
+        [System.IO.File]::WriteAllText($path, $vbs, [System.Text.UTF8Encoding]::new($false))
+        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\wscript.exe') `
+             -ArgumentList '//B', '//Nologo', ('"{0}"' -f $path) -PassThru -Wait -WindowStyle Hidden
+        $p.ExitCode | Should -Be 7
+    }
+
+    It 'a quoted-Execute task (residual outer quotes) still gets ONE clean quote layer' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required (wscript/cmd)'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-Dequote' -Execute ('"{0}"' -f $script:spacedExe) -Arguments '/c exit 5'
+        $path = Join-Path $script:scratch 'dequoted.vbs'
+        [System.IO.File]::WriteAllText($path, $vbs, [System.Text.UTF8Encoding]::new($false))
+        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\wscript.exe') `
+             -ArgumentList '//B', '//Nologo', ('"{0}"' -f $path) -PassThru -Wait -WindowStyle Hidden
+        $p.ExitCode | Should -Be 5
+    }
+
+    It 'missing target exits NON-ZERO (was: silent LastTaskResult=0, incident vllm 26/10)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required (wscript/cmd)'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-Missing' -Execute $script:missing -Arguments '/c exit 3'
+        $path = Join-Path $script:scratch 'missing.vbs'
+        [System.IO.File]::WriteAllText($path, $vbs, [System.Text.UTF8Encoding]::new($false))
+        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\wscript.exe') `
+             -ArgumentList '//B', '//Nologo', ('"{0}"' -f $path) -PassThru -Wait -WindowStyle Hidden
+        $p.ExitCode | Should -Not -Be 0
+    }
+
+    It 'missing target propagates the HRESULT 0x80070002 (not an opaque 1)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required (wscript/cmd)'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-Hresult' -Execute $script:missing -Arguments '/c exit 3'
+        $path = Join-Path $script:scratch 'hresult.vbs'
+        [System.IO.File]::WriteAllText($path, $vbs, [System.Text.UTF8Encoding]::new($false))
+        $p = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\wscript.exe') `
+             -ArgumentList '//B', '//Nologo', ('"{0}"' -f $path) -PassThru -Wait -WindowStyle Hidden
+        # WScript.Quit rend Err.Number tel quel : 0x80070002 file-not-found = -2147024894
+        # en int32. C'est ce que le scheduler affiche dans LastTaskResult.
+        $p.ExitCode | Should -Be -2147024894
+    }
+
+    It 'template embeds the command literally (doubled quotes for the VBS literal)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-Literal' -Execute $script:spacedExe -Arguments '/c exit 7'
+        $vbs | Should -Match ([regex]::Escape('sh.Run("""' + $script:spacedExe + '"" /c exit 7"'))
+        $vbs | Should -Match 'On Error Resume Next'
+        $vbs | Should -Match 'WScript\.Quit rc'
+    }
+
+    It 'empty Arguments still yields a bare quoted exe (no trailing space artifact)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'Windows host required (wscript/cmd)'; return }
+        $vbs = New-HardenLauncherVbs -TaskName 'HHN-VBS-NoArgs' -Execute $script:spacedExe
+        $vbs | Should -Match ([regex]::Escape('sh.Run("""' + $script:spacedExe + '""", 0, True)'))
     }
 }

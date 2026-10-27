@@ -343,29 +343,15 @@ foreach ($item in $plan) {
         continue
     }
 
-    # Ligne de commande d'origine, reconstruite telle quelle.
-    $origCmd = if ([string]::IsNullOrWhiteSpace($a.Arguments)) { '"{0}"' -f $a.Execute }
-               else { '"{0}" {1}' -f $a.Execute, $a.Arguments }
-
     $safeName = $t.TaskName -replace '[\\/:*?"<>|]', '_'
     $vbsPath  = Join-Path $LauncherDir ("{0}.vbs" -f $safeName)
 
     # VBS auto-suffisant : la commande est en dur, wscript ne recoit aucun argument.
-    # Les guillemets de la commande sont doubles ("" ) pour la syntaxe litterale VBScript.
-    $vbsCmdLiteral = $origCmd -replace '"', '""'
-    $vbs = @"
-' Genere par scripts/scheduling/harden-hidden-tasks.ps1 -- NE PAS EDITER A LA MAIN.
-' Tache      : $($t.TaskName)
-' Objet      : lancer la commande sans jamais afficher de console.
-' Mecanisme  : Run(cmd, 0, True) passe SW_HIDE dans le STARTUPINFO du CreateProcess, donc
-'              conhost n'est jamais affiche -- contrairement a `-WindowStyle Hidden`, applique
-'              seulement APRES que PowerShell ait alloue et montre sa console (le "flash").
-Option Explicit
-Dim sh, rc
-Set sh = CreateObject("WScript.Shell")
-rc = sh.Run("$vbsCmdLiteral", 0, True)
-WScript.Quit rc
-"@
+    # Construction (Execute systematiquement quote, guillemets doubles pour la syntaxe
+    # litterale VBScript) et garde de propagation d'echec : New-HardenLauncherVbs dans
+    # le .lib, executee reellement dans harden-hidden-tasks.Tests.ps1 (incident vllm
+    # 26/10 : lanceurs muets avec LastTaskResult=0 sur cible perimee).
+    $vbs = New-HardenLauncherVbs -TaskName $t.TaskName -Execute $a.Execute -Arguments $a.Arguments
 
     if ($DryRun) {
         Write-Host ("[DRY] {0}" -f $t.TaskName) -ForegroundColor Cyan

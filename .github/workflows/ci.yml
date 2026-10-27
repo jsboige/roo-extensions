@@ -649,7 +649,12 @@ jobs:
   # same reason as scheduling-rotate-harness above, hence windows-latest. No
   # network, no GDrive, no schtask. The #3905 start-claude-worker suite is static
   # (text guards on the 5000-line worker, not drivable from a bench) and
-  # joins here too — it ran nowhere before this job took it.
+  # joins here too — it ran nowhere before this job took it. The
+  # harden-hidden-tasks suite (vllm incident 26/10) joins for the same reason:
+  # it drives the generated .vbs launcher through `wscript //B` and pins the
+  # exit code the child propagated, so it needs the same Windows host, and no
+  # CI job executed it either. Paths already covered: `scripts/scheduling/**`
+  # is in the main-push filter above, so a launcher change re-runs this job.
   marshall-scripts-pester:
     runs-on: windows-latest
     steps:
@@ -682,6 +687,9 @@ jobs:
       - name: Run eval-harness verdict classifier suite (#2609)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/claude/eval-harness-verdicts.Tests.ps1 -CI
+      - name: Run harden-hidden-tasks suite (vllm incident 26/10)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/harden-hidden-tasks.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead

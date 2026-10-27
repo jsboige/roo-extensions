@@ -23,9 +23,14 @@
     (le fichier est aussi dot-source par Windows PowerShell 5.1).
 #>
 
-# Repli quand le sous-systeme PE ne peut pas etre lu : la liste historique de 3 noms,
-# appliquee au leaf NORMALISE (guillemets/espaces retires, variables expandees).
-$script:ConsoleHostFallback = @('powershell.exe', 'pwsh.exe', 'cmd.exe')
+# Repli quand le sous-systeme PE ne peut pas etre lu : la liste historique des trois
+# hotes console, comparee au leaf NORMALISE puis ramene a son NOM DE BASE. Le nom nu
+# sans extension (`pwsh`) est un des trois ratages mesures de #4118 ; compare a une
+# liste de noms suffixes `.exe`, il ne correspondait JAMAIS tant que le binaire n'est
+# pas installe -- d'ou une suite verte en CI (pwsh present sur le runner) et rouge sur
+# un poste de la flotte ou pwsh est absent. `pwsh` et `pwsh.exe` designent le meme
+# hote : ils tombent desormais dans le meme seau.
+$script:ConsoleHostFallback = @('powershell', 'pwsh', 'cmd')
 
 # Marqueurs de chemin par lane : ce qui est « le staging d'UNE AUTRE lane » vu de -Lane.
 # roo-extensions (defaut) exclut maint-scripts\ ; Maintenance exclut roo-extensions\.
@@ -105,6 +110,16 @@ function Test-ConsoleSubsystem {
     } finally { $fs.Dispose() }
 }
 
+function Get-ConsoleHostName {
+    # Nom de base du leaf, pour la comparaison a $script:ConsoleHostFallback :
+    # 'PWSh.EXE' et 'pwsh' rendent tous deux 'pwsh'. $null si le leaf est vide.
+    param([string]$Leaf)
+    if ([string]::IsNullOrWhiteSpace($Leaf)) { return $null }
+    $base = $Leaf.Trim()
+    if ($base -imatch '\.exe$') { $base = $base.Substring(0, $base.Length - 4) }
+    return $base.ToLowerInvariant()
+}
+
 function Test-ConsoleExecute {
     # Verdict d'eligibilite "cette action lance-t-elle une console ?" sur le champ
     # Execute seul. Hashtable : Console (bool), Resolved (bool), Method
@@ -123,11 +138,12 @@ function Test-ConsoleExecute {
             return $result
         }
     }
-    # Non resoluble (ou PE illisible) : repli sur la liste de noms, sur le leaf
-    # NORMALISE -- le verdict par liste reste possible, mais Resolved=$false pour
+    # Non resoluble (ou PE illisible) : repli sur la liste de noms, sur le NOM DE BASE
+    # du leaf NORMALISE -- le verdict par liste reste possible, mais Resolved=$false pour
     # que la tache soit RAPPORTEE non resolue plutot que silencieusement classee.
     $result.Method = 'name-list'
-    if ($leaf) { $result.Console = ($leaf -in $script:ConsoleHostFallback) }
+    $hostName = Get-ConsoleHostName -Leaf $leaf
+    if ($hostName) { $result.Console = ($hostName -in $script:ConsoleHostFallback) }
     return $result
 }
 
@@ -187,4 +203,49 @@ function Get-HardenDecision {
         return @{ Decision = 'non-interactive'; Unresolved = $false; Method = $console.Method; Path = $console.Path }
     }
     return @{ Decision = 'plan'; Unresolved = (-not $console.Resolved); Method = $console.Method; Path = $console.Path }
+}
+
+function New-HardenLauncherVbs {
+    # Contenu du lanceur VBS genere pour une tache durcie. L'Execute y est TOUJOURS
+    # quote (un chemin a espaces non quote fait resoudre 'C:\Program' par CreateProcess,
+    # 0x80070002) ; ses guillemets d'extremite residuels sont retires avant, sinon le
+    # re-emballage produirait des guillemets doubles vides au parsing CreateProcess.
+    # Les guillemets de la commande sont doubles ("" ) pour la syntaxe litterale VBScript.
+    #
+    # Garde de propagation d'echec (incident vllm 26/10, dispatch ai-01 23:52Z) : sans
+    # On Error, un sh.Run qui echoue (cible perimee, chemin introuvable) interrompt le
+    # VBS sur son erreur runtime et wscript rend 0 -- le scheduler affiche
+    # LastTaskResult=0 et la tache est muette (fstier-prune, traffic-census-hourly :
+    # 2 lanceurs morts en silence, dont un pendant 6 jours). Avec la garde,
+    # Err.Number remonte au scheduler : l'echec devient VISIBLE (0x80070002 dans
+    # LastTaskResult) au lieu d'un succes fantome.
+    param(
+        [Parameter(Mandatory = $true)] [string]$TaskName,
+        [Parameter(Mandatory = $true)] [string]$Execute,
+        [string]$Arguments = ''
+    )
+    $exe = $Execute.Trim().Trim('"').Trim("'").Trim()
+    if (-not $exe) { $exe = $Execute.Trim() }
+    $origCmd = if ([string]::IsNullOrWhiteSpace($Arguments)) { '"{0}"' -f $exe }
+               else { '"{0}" {1}' -f $exe, $Arguments }
+    $vbsCmdLiteral = $origCmd -replace '"', '""'
+    return @"
+' Genere par scripts/scheduling/harden-hidden-tasks.ps1 -- NE PAS EDITER A LA MAIN.
+' Tache      : $($TaskName)
+' Objet      : lancer la commande sans jamais afficher de console.
+' Mecanisme  : Run(cmd, 0, True) passe SW_HIDE dans le STARTUPINFO du CreateProcess, donc
+'              conhost n'est jamais affiche -- contrairement a `-WindowStyle Hidden`, applique
+'              seulement APRES que PowerShell ait alloue et montre sa console (le "flash").
+' Fiabilite  : un echec de Run (cible perimee, chemin introuvable) remonte Err.Number au
+'              scheduler. Sans cette garde wscript rend 0 : echec silencieux, LastTaskResult
+'              menteur (incident vllm 26/10 -- 2 taches muettes, dont une 6 jours).
+Option Explicit
+Dim sh, rc
+On Error Resume Next
+Set sh = CreateObject("WScript.Shell")
+If Err.Number <> 0 Then WScript.Quit Err.Number
+rc = sh.Run("$vbsCmdLiteral", 0, True)
+If Err.Number <> 0 Then WScript.Quit Err.Number
+WScript.Quit rc
+"@
 }
