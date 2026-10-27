@@ -13,6 +13,10 @@
 #      marqueur si le helper l appelait ; le marqueur doit rester absent.
 #   5. un CLI absent ne fait pas echouer la sonde : retour $false, pas d exception.
 #
+# #4393 ajoute le dernier Describe : OUVERTURE => 1 post, un kind different ou
+# un passage de 00:00Z => 0 post, CLOTURE => 1 [RESOLVED], etat corrompu =>
+# post, post refuse => etat non enregistre (sinon silence sur une panne non lue).
+#
 # Les motifs sont ecrits entre apostrophes simples (pas d interpolation du $),
 # et sans apostrophe interne.
 BeforeAll {
@@ -165,5 +169,171 @@ Describe "Helper d alerte embeddings -- le trou doit etre visible, pas silencieu
         $result = Send-DashboardAlert -Tag 'WARN' -Message 'x' -FailureKind 'degraded' `
             -MachineName 'myia-ai-01' -RsmRoot $absent -NowUtc $script:fixedNow 6>$null
         $result | Should -BeFalse
+    }
+}
+
+# ---------------------------------------------------------------------------
+# #4393 -- UN post par INCIDENT, pas par kind ni par jour.
+#
+# Incident 27/10 : une panne de ~5 h sur po-2023 a produit 4 [CRITICAL] qui se
+# contredisaient (le symptome mesure changeait : connexion coupee, puis 502),
+# et la FIN de la panne n etait jamais postee. Ces tests pilotent la machine a
+# etats avec un CLI factice : ils comptent les POSTS reellement partis, ils ne
+# lisent pas la forme du code.
+# ---------------------------------------------------------------------------
+Describe "Etat d incident embeddings -- un post par incident (#4393)" {
+    BeforeAll {
+        $script:incRoot = Join-Path $script:tmp ("incident-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:incRoot -Force | Out-Null
+        $script:incState = Join-Path $script:incRoot 'state/embeddings-incident.json'
+        $script:incLog = Join-Path $script:incRoot 'cli.log'
+        $script:prevIncCliLog = $env:EMB_ALERT_CLI_LOG
+        $env:EMB_ALERT_CLI_LOG = $script:incLog
+        $script:incMachine = 'myia-ai-01'
+        # 27/10 23:10Z : un incident qui traverse 00:00Z, comme celui du 27/10.
+        $script:incStart = [datetime]::new(2026, 10, 27, 23, 10, 0, [System.DateTimeKind]::Utc)
+
+        function Get-IncPostCount {
+            param([string]$Path)
+            if (-not (Test-Path $Path)) { return 0 }
+            return @(Get-Content $Path).Count
+        }
+
+        function Get-IncLastArgv {
+            param([string]$Path)
+            return ((Get-Content $Path | Select-Object -Last 1) | ConvertFrom-Json)
+        }
+
+        function Invoke-IncFail {
+            param(
+                [string]$Kind,
+                [datetime]$At,
+                [string]$StatePath = $script:incState,
+                [string]$Root = $script:fakeRoot
+            )
+            return Send-EmbeddingsIncidentAlert -Outcome 'FAIL' -FailureKind $Kind `
+                -FailureMessage "Embeddings endpoint http://dead/v1 is UNREACHABLE ($Kind)" `
+                -MachineName $script:incMachine -StatePath $StatePath -RsmRoot $Root -NowUtc $At
+        }
+
+        function Invoke-IncOk {
+            param([datetime]$At, [string]$StatePath = $script:incState)
+            return Send-EmbeddingsIncidentAlert -Outcome 'OK' -SuccessDetail '412ms, models: bge-m3' `
+                -MachineName $script:incMachine -StatePath $StatePath -RsmRoot $script:fakeRoot -NowUtc $At
+        }
+    }
+
+    AfterAll {
+        $env:EMB_ALERT_CLI_LOG = $script:prevIncCliLog
+        Remove-Item Env:\EMBEDDINGS_ALERT_INCIDENT_STATE -ErrorAction SilentlyContinue
+    }
+
+    It "OUVERTURE : premier echec sans incident ouvert => UN post, clef d incident" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'unknown' -At $script:incStart
+        $r.Action | Should -Be 'opened'
+        $r.Posted | Should -BeTrue
+        (Get-IncPostCount $script:incLog) | Should -Be ($before + 1)
+
+        $argv = Get-IncLastArgv $script:incLog
+        $argv[[array]::IndexOf($argv, '--message-id') + 1] |
+            Should -Be 'myia-ai-01:embeddings-incident:20261027T2310'
+        $argv[[array]::IndexOf($argv, '--content') + 1] | Should -Match '^\[CRITICAL\] '
+        Test-Path $script:incState | Should -BeTrue
+    }
+
+    It "PENDANT : meme kind 30 min plus tard => ZERO post, compteur mis a jour" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'unknown' -At $script:incStart.AddMinutes(30)
+        $r.Action | Should -Be 'suppressed'
+        $r.Posted | Should -BeFalse
+        (Get-IncPostCount $script:incLog) | Should -Be $before
+        ((Get-Content $script:incState -Raw | ConvertFrom-Json).FailureCount) | Should -Be 2
+    }
+
+    It "PENDANT : un KIND DIFFERENT (unknown -> http) => ZERO post, kinds accumules" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'http' -At $script:incStart.AddMinutes(45)
+        $r.Action | Should -Be 'suppressed'
+        (Get-IncPostCount $script:incLog) | Should -Be $before
+        $state = Get-Content $script:incState -Raw | ConvertFrom-Json
+        @($state.Kinds) | Should -Contain 'http'
+        $state.LastKind | Should -Be 'http'
+    }
+
+    It "PENDANT : passage de 00:00Z => ZERO post (la clef ne depend pas du jour)" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'http' -At $script:incStart.Date.AddDays(1).AddMinutes(5)
+        $r.Action | Should -Be 'suppressed'
+        (Get-IncPostCount $script:incLog) | Should -Be $before
+        ((Get-Content $script:incState -Raw | ConvertFrom-Json).FailureCount) | Should -Be 4
+    }
+
+    It "CLOTURE : premier succes => UN [RESOLVED] sous sa propre clef, puis etat efface" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncOk -At $script:incStart.AddMinutes(90)
+        $r.Action | Should -Be 'resolved'
+        $r.Posted | Should -BeTrue
+        $r.MessageId | Should -Be 'myia-ai-01:embeddings-incident:20261027T2310:resolved'
+        (Get-IncPostCount $script:incLog) | Should -Be ($before + 1)
+
+        $argv = Get-IncLastArgv $script:incLog
+        $argv[[array]::IndexOf($argv, '--message-id') + 1] | Should -Be $r.MessageId
+        $content = $argv[[array]::IndexOf($argv, '--content') + 1]
+        $content | Should -Match '^\[RESOLVED\] '
+        $content | Should -Match 'unknown -> http'
+        $content | Should -Match '1 h 30 min'
+        $content | Should -Match '4 failed probe'
+        Test-Path $script:incState | Should -BeFalse
+    }
+
+    It "CLOTURE : un succes sans incident ouvert => aucun post" {
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncOk -At $script:incStart.AddMinutes(120)
+        $r.Action | Should -Be 'none'
+        $r.Posted | Should -BeFalse
+        (Get-IncPostCount $script:incLog) | Should -Be $before
+    }
+
+    It "Un ETAT CORROMPU poste quand meme (jamais silencieux) et se repare" {
+        $badState = Join-Path $script:incRoot 'corrupt/embeddings-incident.json'
+        New-Item -ItemType Directory -Path (Split-Path $badState -Parent) -Force | Out-Null
+        [System.IO.File]::WriteAllText($badState, '{ ceci n est pas du json', [System.Text.UTF8Encoding]::new($false))
+
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'http' -At $script:incStart.AddMinutes(150) -StatePath $badState 6>$null
+        $r.Action | Should -Be 'opened'
+        $r.Posted | Should -BeTrue
+        (Get-IncPostCount $script:incLog) | Should -Be ($before + 1)
+        # L etat reecrit est exploitable : le tir suivant se tait.
+        ((Get-Content $badState -Raw | ConvertFrom-Json).IncidentId) | Should -Be $r.MessageId
+    }
+
+    It "Un POST REFUSE ne marque pas l incident comme annonce (sinon silence sur une panne non lue)" {
+        $refusedState = Join-Path $script:incRoot 'refused/embeddings-incident.json'
+        $absentRoot = Join-Path $script:incRoot 'rsm-absent'
+        $before = Get-IncPostCount $script:incLog
+        $r = Invoke-IncFail -Kind 'http' -At $script:incStart.AddMinutes(180) -StatePath $refusedState -Root $absentRoot 6>$null
+        $r.Action | Should -Be 'opened'
+        $r.Posted | Should -BeFalse
+        Test-Path $refusedState | Should -BeFalse
+        (Get-IncPostCount $script:incLog) | Should -Be $before
+    }
+
+    It "KILL-SWITCH EMBEDDINGS_ALERT_INCIDENT_STATE=0 : clef historique, aucun etat" {
+        $legacyState = Join-Path $script:incRoot 'legacy/embeddings-incident.json'
+        try {
+            $env:EMBEDDINGS_ALERT_INCIDENT_STATE = '0'
+            Test-EmbeddingsIncidentStateDisabled | Should -BeTrue
+            $before = Get-IncPostCount $script:incLog
+            $r = Invoke-IncFail -Kind 'http' -At $script:incStart.AddMinutes(20) -StatePath $legacyState
+            $r.Action | Should -Be 'legacy'
+            $r.MessageId | Should -Be 'myia-ai-01:embeddings-alert:http:20261027'
+            (Get-IncPostCount $script:incLog) | Should -Be ($before + 1)
+            Test-Path $legacyState | Should -BeFalse
+        } finally {
+            Remove-Item Env:\EMBEDDINGS_ALERT_INCIDENT_STATE -ErrorAction SilentlyContinue
+        }
+        Test-EmbeddingsIncidentStateDisabled | Should -BeFalse
     }
 }

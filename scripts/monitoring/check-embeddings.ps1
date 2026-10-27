@@ -4,9 +4,12 @@
 
 .DESCRIPTION
     Tests the embeddings API endpoint (/v1/models) with Bearer auth.
-    On failure, posts a [CRITICAL] alert on the workspace dashboard through
-    rsm-dashboard-append.mjs (deterministic, NO agent spawned), at most once
-    per UTC day and per failure kind -- see scripts/monitoring/embeddings-alert.ps1.
+    Posts on the workspace dashboard through rsm-dashboard-append.mjs
+    (deterministic, NO agent spawned). ONE post per INCIDENT, not per kind
+    and not per day (#4393) : the first failure posts a [CRITICAL], every
+    further failure of that incident is silent, and the first clean answer
+    posts one [RESOLVED] and clears the state. See
+    scripts/monitoring/embeddings-alert.ps1.
     Designed to run as a scheduled task every 30 minutes on any machine.
 
 .PARAMETER ApiBase
@@ -95,6 +98,9 @@ $status = "OK"
 $detail = ""
 $models = ""
 $failureKind = ""
+# Trace de la decision d alerte, ecrite dans la ligne de journal de fin.
+$alertAction = "none"
+$alertMessageId = ""
 
 # Un service lent n est pas un service mort : les deux se ressemblent au
 # premier essai (un timeout), mais ils ne se soignent pas de la meme facon.
@@ -181,12 +187,8 @@ try {
     }
 
 }
-# --- Log ---
-$logDir = "$repoRoot/outputs/monitoring/logs"
-if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
-$logFile = "$logDir/embeddings-$(Get-Date -Format 'yyyy-MM-dd').log"
-$ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-"$ts | $status | $detail" | Out-File $logFile -Append -Encoding utf8
+# La ligne de journal est ecrite APRES la decision d alerte (fin de fichier) :
+# elle porte l action d incident, donc une trace de ce qui a ete poste -- ou tu.
 
 # Send-DashboardAlert vit dans embeddings-alert.ps1 (source ci-dessus) : post
 # deterministe par le CLI RSM, AUCUN `claude -p`. Le spawn etait le
@@ -202,6 +204,7 @@ if ($status -eq "DEGRADED" -and -not $DryRun) {
 
     if (Send-DashboardAlert -Tag "WARN" -Message $message -FailureKind "degraded") {
         Write-Host "[ALERT] Dashboard notification sent (DEGRADED)" -ForegroundColor Yellow
+        $alertAction = "warn-posted"
     }
 }
 
@@ -218,13 +221,53 @@ if ($status -eq "FAIL" -and -not $DryRun) {
         $message = "Embeddings endpoint $ApiBase is UNREACHABLE from $machineName. Error: $detail. NO HTTP response was received (TCP connect failed or was dropped): neither the backend nor the model is implicated by this probe -- it measured that the connection did not complete, and nothing more. Action: do NOT restart anything. Check first whether the IIS host accepts connections (listener, backlog, ARR), from the LAN as well as from the public path, using curl --resolve so SNI and the certificate are kept. Semantic search and meta-analysis are affected."
     }
 
-    # Kind = clef d idempotence : 1 alerte par jour UTC et par kind. Un
-    # changement de kind (http -> tcp -> timeout) est une information
-    # nouvelle et poste donc a nouveau ; la meme panne repetee non.
-    if (Send-DashboardAlert -Tag "CRITICAL" -Message $message -FailureKind $failureKind) {
-        Write-Host "[ALERT] Dashboard notification sent" -ForegroundColor Yellow
+    # UN post par INCIDENT (#4393), pas par kind ni par jour : le premier echec
+    # poste le [CRITICAL], tout echec suivant (meme kind, kind different, ou
+    # apres 00:00Z) ne poste rien et met seulement l etat a jour. La clef du
+    # post est celle de l incident et ne bouge plus jusqu a sa cloture.
+    $alertResult = Send-EmbeddingsIncidentAlert -Outcome "FAIL" -FailureKind $failureKind -FailureMessage $message -MachineName $machineName
+    $alertAction = $alertResult.Action
+    $alertMessageId = [string]$alertResult.MessageId
+    if ($alertResult.Action -eq "opened") {
+        if ($alertResult.Posted) {
+            Write-Host "[ALERT] Incident opened, dashboard notification sent ($alertMessageId)" -ForegroundColor Yellow
+        } else {
+            Write-Host "[WARN] Incident post refused -- state not recorded, the next run retries" -ForegroundColor Yellow
+        }
+    } elseif ($alertResult.Action -eq "suppressed") {
+        Write-Host "[ALERT] Incident $alertMessageId already announced -- no new post" -ForegroundColor Yellow
+    } elseif ($alertResult.Posted) {
+        Write-Host "[ALERT] Dashboard notification sent (legacy per-kind key $alertMessageId)" -ForegroundColor Yellow
     }
 }
+
+# Un succes (reponse valide, meme lente) alors qu un incident est OUVERT poste
+# UNE cloture [RESOLVED] et efface l etat. Un DEGRADED n est PAS un succes : le
+# service a repondu, mais la latence qui a ouvert l incident n est pas levee --
+# l etat reste ouvert et la cloture partira au premier tir propre.
+if (($status -eq "OK" -or $status -eq "SLOW") -and -not $DryRun) {
+    $resolveResult = Send-EmbeddingsIncidentAlert -Outcome "OK" -SuccessDetail $detail -MachineName $machineName
+    if ($resolveResult.Action -eq "resolved") {
+        $alertAction = "resolved"
+        $alertMessageId = [string]$resolveResult.MessageId
+        if ($resolveResult.Posted) {
+            Write-Host "[RESOLVED] Dashboard notification sent ($alertMessageId)" -ForegroundColor Green
+        } else {
+            Write-Host "[WARN] RESOLVED post refused -- incident state kept for the next run" -ForegroundColor Yellow
+        }
+    }
+}
+
+# --- Log ---
+# Ecrit apres la decision d alerte : la ligne dit ce qui a ete poste, ou tu, et
+# sous quelle clef -- de quoi relire un incident sans re-mesurer.
+$logDir = "$repoRoot/outputs/monitoring/logs"
+if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+$logFile = "$logDir/embeddings-$(Get-Date -Format 'yyyy-MM-dd').log"
+$ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$logSuffix = " | incident=$alertAction"
+if ($alertMessageId) { $logSuffix = "$logSuffix | messageId=$alertMessageId" }
+"$ts | $status | $detail$logSuffix" | Out-File $logFile -Append -Encoding utf8
 
 if ($status -eq "FAIL") { exit 1 }
 if ($status -eq "AUTH") { exit 0 }
