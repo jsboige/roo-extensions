@@ -216,7 +216,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          # Full history is required (three-point diff below), but the blobs
+          # are not: git lazy-fetches only the blobs the diff actually reads.
+          # #4376 — measured handoff: keeps merge-base/diff semantics intact.
           fetch-depth: 0
+          filter: blob:none
 
       - name: Check if mcps/internal changed
         id: changed
@@ -238,8 +242,15 @@ jobs:
           SUBMOD_URL=$(git config -f .gitmodules --get submodule.mcps/internal.url)
           echo "Submodule URL: $SUBMOD_URL"
 
-          # Clone just the metadata (bare repo, no working tree)
-          git clone --bare "$SUBMOD_URL" /tmp/submod-bare
+          # Clone just the metadata (bare repo, no working tree). blob:none
+          # keeps the commit graph + trees and lazy-fetches the few blobs a
+          # merge-base/log read needs (#4376); single-branch main is enough
+          # because the pointer is required to be reachable from main.
+          git clone --bare --filter=blob:none --single-branch --branch main "$SUBMOD_URL" /tmp/submod-bare
+          # Explicit filtered fetch: a pointer outside main must fail the
+          # reachability check below with a diagnostic, not look like an
+          # "unknown object" artifact of the single-branch clone.
+          git -C /tmp/submod-bare fetch --filter=blob:none origin "$SUBMOD_COMMIT"
 
           # Check if the commit is reachable from main
           if git -C /tmp/submod-bare merge-base --is-ancestor "$SUBMOD_COMMIT" main; then
