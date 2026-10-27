@@ -138,6 +138,16 @@ try {
                 $failureKind = "http"
                 $detail = $verdict2.Detail
                 Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
+            } elseif ($verdict2.Status -eq "FAILURE") {
+                # Le second essai n a pas recu de reponse HTTP du tout (connexion
+                # refusee ou coupee). Ce n est pas un timeout : le premier essai
+                # a expire, mais celui-ci a echoue vite et sans reponse. Le
+                # classer « timeout » enverrait l alerte qui affirme « les DEUX
+                # essais ont expiré », soit une cause non mesuree.
+                $status = "FAIL"
+                $failureKind = "unknown"
+                $detail = "timeout apres $TimeoutSeconds s ($firstError) ; second essai SANS reponse HTTP apres $($sw2.ElapsedMilliseconds) ms (budget $ConfirmTimeoutSeconds s) ($($_.Exception.Message))"
+                Write-Host "[FAIL] Embeddings DOWN ($failureKind): $detail" -ForegroundColor Red
             } else {
                 $status = "FAIL"
                 $failureKind = "timeout"
@@ -208,8 +218,10 @@ if ($status -eq "DEGRADED" -and -not $DryRun) {
 if ($status -eq "FAIL" -and -not $DryRun) {
     if ($failureKind -eq "timeout") {
         $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE on $machineName. Error: $detail. Both attempts timed out (first budget $TimeoutSeconds seconds, confirmation budget $ConfirmTimeoutSeconds seconds), so the vhost embeddings.myia.io no longer answers at all. Action: DO NOT restart vLLM first -- check the vhost/ARR path, the TLS termination and the upstream routing to the embeddings backend; the vLLM container may well be healthy while the vhost is the broken link. Semantic search and meta-analysis are affected."
+    } elseif ($failureKind -eq "http") {
+        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is DOWN as seen from $machineName. Error: $detail. The probe received an explicit HTTP error (not a timeout): the endpoint DID answer, with an error status -- the probe did NOT establish which layer is at fault, so do not read the status code as a diagnosis. Action: identify FIRST the host that actually serves this endpoint (the probing machine $machineName is generally NOT the host running the embeddings backend -- for embeddings.myia.io the backend runs on another machine, po-2023), then check the vhost/ARR path, the TLS termination and the upstream routing to that backend. Do NOT restart a backend you have not proven to be the culprit. Semantic search and meta-analysis are affected."
     } else {
-        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is DOWN on $machineName. Error: $detail. The endpoint answered with an explicit HTTP error (not a timeout), so the backend itself may be at fault. Action: check vLLM backend and restart if needed. Semantic search and meta-analysis are affected."
+        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE from $machineName. Error: $detail. NO HTTP response was received (TCP connect failed or was dropped): neither the backend nor the model is implicated by this probe -- it measured that the connection did not complete, and nothing more. Action: do NOT restart anything. Check first whether the IIS host accepts connections (listener, backlog, ARR), from the LAN as well as from the public path, using curl --resolve so SNI and the certificate are kept. Semantic search and meta-analysis are affected."
     }
 
     if (Send-DashboardAlert -Prompt $prompt) {
