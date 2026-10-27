@@ -161,7 +161,10 @@ Describe "Moniteur embeddings -- pas de reponse HTTP : une cause distincte du 5x
         # laissait toute la suite verte, et un premier essai en timeout suivi d une
         # connexion refusee repartait en « Both attempts timed out ». Le classifieur
         # rend FAILURE pour ce cas (It plus haut) ; ce bloc doit le router a part.
-        $m = [regex]::Match($script:mon, '(?s)elseif \(\$verdict2\.Status -eq "FAILURE"\) \{(.*?)\} else \{')
+        # La capture s arrete a la branche SUIVANTE, quelle qu elle soit : arreter au
+        # seul `} else {` enjambait un `} elseif` et laissait survivre l inversion
+        # FAILURE<->HTTP (revue independante de #4383).
+        $m = [regex]::Match($script:mon, '(?s)elseif \(\$verdict2\.Status -eq "FAILURE"\) \{(.*?)\} else(?:if)?\b')
         $m.Success | Should -BeTrue
         $m.Groups[1].Value | Should -Match '\$failureKind = "unknown"'
         $m.Groups[1].Value | Should -Not -Match '\$failureKind = "timeout"'
