@@ -79,24 +79,44 @@ function Test-ConcurrentClaimActive {
 
 <#
 .SYNOPSIS
-    Project #67 Machine-field gate for Get-GitHubTask (#3827, #3832).
+    Project #67 Machine-field gate for Get-GitHubTask (#3827, #3832), with a
+    title-marker fallback (user GO 2026-10-27, registry Q18(a)).
 
 .DESCRIPTION
-    Returns $true when the issue's Machine field names a specific machine other
-    than $MachineId: the worker must skip it. An issue addressed to one machine
+    Returns $true when the issue is addressed to a specific machine other than
+    $MachineId: the worker must skip it. An issue addressed to one machine
     (its stores, its services) cannot be done elsewhere, yet the field was read
     and never used: web1 auto-claimed #3832 (po-2027's stores) and po-2025
     #3827 (ai-01's stores) on 2026-09-24.
 
-    Empty field, All or Any: not foreign (fail-open, the behaviour of every
-    issue that carries no Machine value). Comparison is case-insensitive:
-    the worker's MachineId is $env:COMPUTERNAME lower-cased.
+    Resolution order: the Machine FIELD primes. Empty field, All or Any fall
+    back to the TITLE: a bracketed machine marker ([AI-01], [PO-2023]…[PO-2028],
+    [WEB1], [WEB2], case-insensitive) names the addressee when the field does
+    not — #4247 ([HARNESS][AI-01], no Machine field) was eligible on every seat
+    and locked its real one behind a LEGACY_CLAIM (measured 2026-10-20). No
+    marker anywhere: not foreign (fail-open, unchanged).
+
+    Comparison is case-insensitive: the worker's MachineId is
+    $env:COMPUTERNAME lower-cased. -Title is optional and keeps every
+    pre-existing call (field-only) behaviourally identical.
 #>
 function Test-IssueMachineForeign {
-    param([string]$FieldMachine, [string]$MachineId)
+    param([string]$FieldMachine, [string]$MachineId, [string]$Title)
 
-    if ([string]::IsNullOrWhiteSpace($FieldMachine)) { return $false }
-    $Field = $FieldMachine.Trim()
-    if ($Field -in @('All', 'Any')) { return $false }
-    return ($Field -ne $MachineId.Trim())
+    if (-not [string]::IsNullOrWhiteSpace($FieldMachine)) {
+        $Field = $FieldMachine.Trim()
+        if ($Field -in @('All', 'Any')) { return $false }
+        return ($Field -ne $MachineId.Trim())
+    }
+
+    # Field empty -> title-marker fallback (Q18(a)). Marker grammar maps 1:1
+    # onto canonical machine ids: [AI-01] -> myia-ai-01, [PO-2026] -> myia-po-2026.
+    if (-not [string]::IsNullOrWhiteSpace($Title)) {
+        $Marker = [regex]::Match($Title, '\[(ai-01|po-20\d\d|web1|web2)\]', 'IgnoreCase, CultureInvariant')
+        if ($Marker.Success) {
+            $Addressee = 'myia-' + $Marker.Groups[1].Value.ToLowerInvariant()
+            return ($Addressee -ne $MachineId.Trim())
+        }
+    }
+    return $false
 }
