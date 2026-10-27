@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Post the embeddings alert to the dashboard WITHOUT spawning an agent.
 
@@ -315,7 +315,10 @@ function Send-DashboardAlert {
         Get-EmbeddingsAlertMessageId -MachineName $MachineName -FailureKind $FailureKind -NowUtc $NowUtc
     }
 
-    & $node $cli --machine $MachineName --dashboard $Dashboard --message-id $msgId --author-workspace $AuthorWorkspace --content $content
+    # Out-Host : la sortie du CLI va a la console, jamais dans la valeur de retour.
+    # Sans lui, la fonction rend Object[stdout, bool] et les gardes anti-silence
+    # testeraient un tableau non vide au lieu du code de sortie (review #4394).
+    & $node $cli --machine $MachineName --dashboard $Dashboard --message-id $msgId --author-workspace $AuthorWorkspace --content $content | Out-Host
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[ALERT] Dashboard post accepted (messageId $msgId)" -ForegroundColor Yellow
         return $true
@@ -414,7 +417,12 @@ function Send-EmbeddingsIncidentAlert {
         $data.FailureCount = [int]$data.FailureCount + 1
         $data.LastKind = $FailureKind
         $data.LastSeenUtc = $now.ToString('o')
-        Save-EmbeddingsIncidentState -StatePath $path -Data $data
+        try {
+            Save-EmbeddingsIncidentState -StatePath $path -Data $data
+        } catch {
+            # Le compteur est perdu, pas l incident : le post d ouverture est deja parti.
+            Write-Host "[WARN] incident state not updated ($($_.Exception.Message))" -ForegroundColor Yellow
+        }
         Write-Host "[ALERT] Incident $($data.IncidentId) still open -- no new post (kind $FailureKind, failure $($data.FailureCount))" -ForegroundColor Yellow
         return [pscustomobject]@{ Action = 'suppressed'; Posted = $false; MessageId = $data.IncidentId; StatePath = $path }
     }
@@ -438,7 +446,13 @@ function Send-EmbeddingsIncidentAlert {
 
     $postedOpen = Send-DashboardAlert -Tag 'CRITICAL' -Message $FailureMessage -FailureKind $FailureKind -MessageId $incidentId @common
     if ($postedOpen) {
-        Save-EmbeddingsIncidentState -StatePath $path -Data $newData
+        try {
+            Save-EmbeddingsIncidentState -StatePath $path -Data $newData
+        } catch {
+            # Le post est parti ; sans etat, le prochain tir re-postera. Mieux qu un
+            # abandon du tir sous ErrorActionPreference=Stop, qui perd aussi la ligne de journal.
+            Write-Host "[WARN] incident opened but state not saved ($($_.Exception.Message)) -- next run may post again" -ForegroundColor Yellow
+        }
     } else {
         # Post refuse : ne PAS marquer l incident comme annonce, sinon tous les
         # tirs suivants se taisent sur une panne que personne n a lue.

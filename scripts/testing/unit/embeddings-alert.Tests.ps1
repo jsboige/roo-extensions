@@ -320,6 +320,17 @@ Describe "Etat d incident embeddings -- un post par incident (#4393)" {
         (Get-IncPostCount $script:incLog) | Should -Be $before
     }
 
+    It "Un CLI qui ECRIT sur stdout puis echoue ne marque pas l incident (la garde lit le code de sortie)" {
+        $noisyRoot = Join-Path $script:incRoot 'rsm-noisy'
+        New-Item -ItemType Directory -Path (Join-Path $noisyRoot 'scripts') -Force | Out-Null
+        $noisy = 'process.stdout.write("partial output");process.exit(1);'
+        [System.IO.File]::WriteAllText((Join-Path $noisyRoot 'scripts/rsm-dashboard-append.mjs'), $noisy, [System.Text.UTF8Encoding]::new($false))
+        $noisyState = Join-Path $script:incRoot 'noisy/embeddings-incident.json'
+        $r = Invoke-IncFail -Kind 'http' -At $script:incStart.AddMinutes(240) -StatePath $noisyState -Root $noisyRoot 6>$null
+        $r.Posted | Should -BeFalse
+        Test-Path $noisyState | Should -BeFalse
+    }
+
     It "KILL-SWITCH EMBEDDINGS_ALERT_INCIDENT_STATE=0 : clef historique, aucun etat" {
         $legacyState = Join-Path $script:incRoot 'legacy/embeddings-incident.json'
         try {
