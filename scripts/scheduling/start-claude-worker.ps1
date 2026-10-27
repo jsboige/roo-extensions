@@ -4759,6 +4759,11 @@ Voir: $LogFile
     # Fallback: écriture GDrive brute si node/build indisponible — le canal de
     # signalement d'échec doit survivre à sa propre chaîne d'outils.
     $MachineId = $env:COMPUTERNAME.ToLower()
+    # #4131 B18(d): on the coordinator's own machine, "myia-ai-01 -> myia-ai-01" is a
+    # self-message that MessageManager refuses (INVALID_RECIPIENT, exit 1); every report
+    # then fell back to the raw G:-only write below. A distinct workspace suffix makes
+    # it a cross-lane message (the guard is workspace-aware) and keeps the PG path.
+    $ReportFrom = if ($MachineId -eq "myia-ai-01") { "$($MachineId):claude-worker" } else { $MachineId }
     $Priority = if ($Result.success) { "LOW" } else { "HIGH" }
     # #3752 F3 (po-2024 review on #3759): same quote hazard as F1 — a " in
     # the task subject closes the cmd.exe quoting context of --subject.
@@ -4779,7 +4784,7 @@ Voir: $LogFile
             # Body via fichier temp (quoting-safe) - sanctuary rule: body-files -> $TEMP
             [System.IO.File]::WriteAllText($BodyFile, $ReportMessage, [System.Text.UTF8Encoding]::new($false))
             $ErrorActionPreference = "Continue"
-            $CliOutput = (& cmd /c "node ""$SendCli"" --from $MachineId --to ""myia-ai-01"" --subject ""$Subject"" --body-file ""$BodyFile"" --priority $Priority --tags ""worker-report,scheduler"" 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
+            $CliOutput = (& cmd /c "node ""$SendCli"" --from $ReportFrom --to ""myia-ai-01"" --subject ""$Subject"" --body-file ""$BodyFile"" --priority $Priority --tags ""worker-report,scheduler"" 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
             $CliExit = $LASTEXITCODE
         }
         catch {
@@ -4802,7 +4807,7 @@ Voir: $LogFile
                 Write-Log "OK Message RooSync envoye, mais exit $CliExit APRES delivrance - pas de fallback (doublon evite, #3237): $CliOutput" "WARN"
             }
         } else {
-            Write-Log "CLI send sans marqueur SENT (exit $CliExit) - fallback ecriture GDrive brute" "WARN"
+            Write-Log "CLI send sans marqueur SENT (exit $CliExit) - fallback ecriture GDrive brute. Sortie CLI: $CliOutput" "WARN"
         }
     } else {
         Write-Log "CLI send introuvable ($SendCli) - fallback ecriture GDrive brute" "WARN"
@@ -4826,7 +4831,7 @@ Voir: $LogFile
 
         $Message = @{
             id = $MessageId
-            from = $MachineId
+            from = $ReportFrom
             to = "myia-ai-01"
             subject = $Subject
             body = $ReportMessage
