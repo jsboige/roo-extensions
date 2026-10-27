@@ -87,6 +87,28 @@ Describe "Moniteur embeddings -- pas de faux diagnostic" {
         $script:mon | Should -Match 'if \(\$status -eq "DEGRADED"\)\ { exit 0 }'
     }
 }
+Describe "Moniteur embeddings -- l alerte ne doit pas affirmer une cause non mesuree" {
+    # Incident 27/10 : quatre [CRITICAL] contradictoires pour UN incident, et une
+    # consigne qui envoyait un agent redemarrer un service situe sur une AUTRE
+    # machine (l embedder tourne sur po-2023, la machine qui alerte est ai-01).
+    # La branche `timeout` avait deja ete corrigee (#4366, ae8b8218) ; la branche
+    # `http` etait restee sur l ancienne formulation et affirmait « the backend
+    # itself may be at fault » alors que la sonde n a rien mesure de tel.
+    It "La branche HTTP ne doit pas affirmer que le backend est en cause" {
+        $httpLine = ($script:mon -split [char]10 | Where-Object { $_ -match "DOWN as seen from" }) -join " "
+        $httpLine | Should -Match 'did NOT establish which layer is at fault'
+    }
+    It "La branche HTTP ne doit pas ordonner un restart sur la machine qui sonde" {
+        $httpLine = ($script:mon -split [char]10 | Where-Object { $_ -match "DOWN as seen from" }) -join " "
+        $httpLine | Should -Not -Match 'the backend itself may be at fault'
+        $httpLine | Should -Match 'Do NOT restart a backend you have not proven to be the culprit'
+    }
+    It "La branche HTTP doit nommer le proprietaire du backend, pas le lecteur de l alerte" {
+        $httpLine = ($script:mon -split [char]10 | Where-Object { $_ -match "DOWN as seen from" }) -join " "
+        $httpLine | Should -Match 'the host that actually serves this endpoint'
+    }
+}
+
 Describe "Moniteur embeddings -- l alerte doit savoir partir" {
     It "claude -p doit etre autorise a poster sur le dashboard" {
         $script:mon | Should -Match '--allowedTools "mcp__roo-state-manager__roosync_dashboard"'
