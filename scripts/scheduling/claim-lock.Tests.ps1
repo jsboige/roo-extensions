@@ -213,3 +213,48 @@ Describe 'Test-IssueMachineForeign — Project #67 Machine field gate (#3827, #3
         $Body.IndexOf('return @{}') | Should -Be -1   # empty-tableau = "lu, sans champs" — réservé au succès
     }
 }
+
+Describe 'Test-IssueMachineForeign title-marker fallback (Q18(a), GO user 2026-10-27)' {
+    It 'the #4247 case: empty field, title [HARNESS][AI-01], worker po-2024 -> foreign (skip)' {
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title '[HARNESS][AI-01] Alignement hermes' | Should -Be $true
+    }
+
+    It 'marker names the worker itself -> eligible' {
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title '[PO-2024] tache locale' | Should -Be $false
+    }
+
+    It 'markers are case-insensitive ([ai-01] locks like [AI-01])' {
+        Test-IssueMachineForeign -FieldMachine $null -MachineId 'myia-po-2024' -Title '[ai-01] minuscule' | Should -Be $true
+    }
+
+    It 'the FIELD primes over the title: field=Any + foreign marker -> eligible' {
+        # A dispatcher who filled Any deliberately overrules whatever the title says.
+        Test-IssueMachineForeign -FieldMachine 'Any' -MachineId 'myia-po-2024' -Title '[AI-01] mais champ Any' | Should -Be $false
+    }
+
+    It 'field names the worker, title names another machine -> the field wins, eligible' {
+        Test-IssueMachineForeign -FieldMachine 'myia-po-2024' -MachineId 'myia-po-2024' -Title '[WEB1] contraire' | Should -Be $false
+    }
+
+    It 'no marker in title -> eligible (fail-open unchanged)' {
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title 'Titre sans marqueur machine' | Should -Be $false
+    }
+
+    It 'look-alike tokens do not match: [PO-20XX] placeholder, [AI-1], bare AI-01 -> no lock' {
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title '[PO-20XX] gabarit' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title '[AI-1] typo' | Should -Be $false
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' -Title 'AI-01 sans crochets' | Should -Be $false
+    }
+
+    It 'no -Title passed -> pre-existing field-only behaviour, byte-identical (backward compat)' {
+        Test-IssueMachineForeign -FieldMachine 'myia-ai-01' -MachineId 'myia-po-2024' | Should -Be $true
+        Test-IssueMachineForeign -FieldMachine '' -MachineId 'myia-po-2024' | Should -Be $false
+    }
+
+    It 'wired: Get-GitHubTask passes the issue title to the gate' {
+        $Worker = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'start-claude-worker.ps1')
+        $Start = $Worker.IndexOf('function Get-GitHubTask')
+        $Wired = $Worker.IndexOf('Test-IssueMachineForeign -FieldMachine $ProjectFields.Machine -MachineId $MachineId -Title $Issue.title', $Start)
+        $Wired | Should -BeGreaterThan $Start
+    }
+}
