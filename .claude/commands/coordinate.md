@@ -183,7 +183,7 @@ candidate bloquee.
 
 **Fraicheur et observation.** Reutiliser les lectures du tour, sauf mutation pertinente, acteur
 independant pertinent, ou frontiere de securite. Une condition asynchrone a **un seul observateur** :
-pas de polling concurrent si `Monitor`, une tache de fond ou `gh run watch` notifiera deja. Couvrir
+pas de polling concurrent si `Monitor`, une tache de fond ou `gh run watch -i 180` notifiera deja. Couvrir
 `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
 
 **Attribution et communication.** Attribuer d'abord par `session_id`, puis machine ; distinguer
