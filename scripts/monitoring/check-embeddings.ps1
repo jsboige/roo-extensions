@@ -4,7 +4,9 @@
 
 .DESCRIPTION
     Tests the embeddings API endpoint (/v1/models) with Bearer auth.
-    On failure, spawns claude -p to post a [CRITICAL] alert on the workspace dashboard.
+    On failure, posts a [CRITICAL] alert on the workspace dashboard through
+    rsm-dashboard-append.mjs (deterministic, NO agent spawned), at most once
+    per UTC day and per failure kind -- see scripts/monitoring/embeddings-alert.ps1.
     Designed to run as a scheduled task every 30 minutes on any machine.
 
 .PARAMETER ApiBase
@@ -59,6 +61,15 @@ if (-not (Test-Path $verdictFile)) {
     exit 1
 }
 . $verdictFile
+
+# Helper d alerte : post deterministe par CLI, sans spawn d agent. Fichier
+# separe pour etre testable sans executer la sonde (meme patron que le verdict).
+$alertFile = Join-Path $scriptDir "embeddings-alert.ps1"
+if (-not (Test-Path $alertFile)) {
+    Write-Host "[ERROR] alert helper not found: $alertFile" -ForegroundColor Red
+    exit 1
+}
+. $alertFile
 
 # --- Read API key from MCP .env ---
 $envFile = "$repoRoot/mcps/internal/servers/roo-state-manager/.env"
@@ -177,36 +188,19 @@ $logFile = "$logDir/embeddings-$(Get-Date -Format 'yyyy-MM-dd').log"
 $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 "$ts | $status | $detail" | Out-File $logFile -Append -Encoding utf8
 
-function Send-DashboardAlert {
-    param([string]$Prompt)
-    $mcpConfig = Join-Path $env:USERPROFILE ".claude.json"
-    $claudeExe = Get-Command claude -ErrorAction SilentlyContinue
-    if (-not $claudeExe) {
-        Write-Host "[WARN] claude not in PATH -- dashboard alert skipped" -ForegroundColor Yellow
-        return $false
-    }
-    $prevErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $exitCode = -1
-    try {
-        & claude -p $Prompt --mcp-config $mcpConfig --model haiku --allowedTools "mcp__roo-state-manager__roosync_dashboard" --permission-mode acceptEdits --output-format text 2>$null | Out-Null
-        $exitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $prevErrorActionPreference
-    }
-    if ($exitCode -eq 0) { return $true }
-    Write-Host "[WARN] claude -p failed (exit $exitCode)" -ForegroundColor Yellow
-    return $false
-}
+# Send-DashboardAlert vit dans embeddings-alert.ps1 (source ci-dessus) : post
+# deterministe par le CLI RSM, AUCUN `claude -p`. Le spawn etait le
+# multiplicateur : une boucle d agents par ligne FAIL, mesuree a 35 agents
+# pour UN incident le 27/10 (outillage de mesure : #4381 pour le texte).
 
 # --- Alert on failure ---
 # DEGRADED : le service repond, seule la latence du vhost est mauvaise ->
 # [WARN] et AUCUN restart de vLLM (le backend est vivant : le dire serait
 # un faux diagnostic). FAIL : le backend ne repond pas -> [CRITICAL].
 if ($status -eq "DEGRADED" -and -not $DryRun) {
-    $prompt = "Post a [WARN] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=[WARN,health-check]) saying: Embeddings endpoint $ApiBase is DEGRADED on $machineName. Error: $detail. The embeddings backend is ALIVE (it answered a second attempt with a longer budget) -- the latency comes from the vhost, so DO NOT restart vLLM. Action: check the vhost/ARR path and the upstream routing; semantic search and meta-analysis are degraded by the added latency."
+    $message = "Embeddings endpoint $ApiBase is DEGRADED on $machineName. Error: $detail. The embeddings backend is ALIVE (it answered a second attempt with a longer budget) -- the latency comes from the vhost, so DO NOT restart vLLM. Action: check the vhost/ARR path and the upstream routing; semantic search and meta-analysis are degraded by the added latency."
 
-    if (Send-DashboardAlert -Prompt $prompt) {
+    if (Send-DashboardAlert -Tag "WARN" -Message $message -FailureKind "degraded") {
         Write-Host "[ALERT] Dashboard notification sent (DEGRADED)" -ForegroundColor Yellow
     }
 }
@@ -217,14 +211,17 @@ if ($status -eq "DEGRADED" -and -not $DryRun) {
 # tourner serait exactement le multiplicateur que ce correctif combat.
 if ($status -eq "FAIL" -and -not $DryRun) {
     if ($failureKind -eq "timeout") {
-        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE on $machineName. Error: $detail. Both attempts timed out (first budget $TimeoutSeconds seconds, confirmation budget $ConfirmTimeoutSeconds seconds), so the vhost embeddings.myia.io no longer answers at all. Action: DO NOT restart vLLM first -- check the vhost/ARR path, the TLS termination and the upstream routing to the embeddings backend; the vLLM container may well be healthy while the vhost is the broken link. Semantic search and meta-analysis are affected."
+        $message = "Embeddings endpoint $ApiBase is UNREACHABLE on $machineName. Error: $detail. Both attempts timed out (first budget $TimeoutSeconds seconds, confirmation budget $ConfirmTimeoutSeconds seconds), so the vhost embeddings.myia.io no longer answers at all. Action: DO NOT restart vLLM first -- check the vhost/ARR path, the TLS termination and the upstream routing to the embeddings backend; the vLLM container may well be healthy while the vhost is the broken link. Semantic search and meta-analysis are affected."
     } elseif ($failureKind -eq "http") {
-        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is DOWN as seen from $machineName. Error: $detail. The probe received an explicit HTTP error (not a timeout): the endpoint DID answer, with an error status -- the probe did NOT establish which layer is at fault, so do not read the status code as a diagnosis. Action: identify FIRST the host that actually serves this endpoint (the probing machine $machineName is generally NOT the host running the embeddings backend -- for embeddings.myia.io the backend runs on another machine, po-2023), then check the vhost/ARR path, the TLS termination and the upstream routing to that backend. Do NOT restart a backend you have not proven to be the culprit. Semantic search and meta-analysis are affected."
+        $message = "Embeddings endpoint $ApiBase is DOWN as seen from $machineName. Error: $detail. The probe received an explicit HTTP error (not a timeout): the endpoint DID answer, with an error status -- the probe did NOT establish which layer is at fault, so do not read the status code as a diagnosis. Action: identify FIRST the host that actually serves this endpoint (the probing machine $machineName is generally NOT the host running the embeddings backend -- for embeddings.myia.io the backend runs on another machine, po-2023), then check the vhost/ARR path, the TLS termination and the upstream routing to that backend. Do NOT restart a backend you have not proven to be the culprit. Semantic search and meta-analysis are affected."
     } else {
-        $prompt = "Post a [CRITICAL] alert to the workspace dashboard (roosync_dashboard action=append type=workspace tags=['CRITICAL','health-check']) saying: Embeddings endpoint $ApiBase is UNREACHABLE from $machineName. Error: $detail. NO HTTP response was received (TCP connect failed or was dropped): neither the backend nor the model is implicated by this probe -- it measured that the connection did not complete, and nothing more. Action: do NOT restart anything. Check first whether the IIS host accepts connections (listener, backlog, ARR), from the LAN as well as from the public path, using curl --resolve so SNI and the certificate are kept. Semantic search and meta-analysis are affected."
+        $message = "Embeddings endpoint $ApiBase is UNREACHABLE from $machineName. Error: $detail. NO HTTP response was received (TCP connect failed or was dropped): neither the backend nor the model is implicated by this probe -- it measured that the connection did not complete, and nothing more. Action: do NOT restart anything. Check first whether the IIS host accepts connections (listener, backlog, ARR), from the LAN as well as from the public path, using curl --resolve so SNI and the certificate are kept. Semantic search and meta-analysis are affected."
     }
 
-    if (Send-DashboardAlert -Prompt $prompt) {
+    # Kind = clef d idempotence : 1 alerte par jour UTC et par kind. Un
+    # changement de kind (http -> tcp -> timeout) est une information
+    # nouvelle et poste donc a nouveau ; la meme panne repetee non.
+    if (Send-DashboardAlert -Tag "CRITICAL" -Message $message -FailureKind $failureKind) {
         Write-Host "[ALERT] Dashboard notification sent" -ForegroundColor Yellow
     }
 }

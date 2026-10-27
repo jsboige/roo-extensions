@@ -8,7 +8,7 @@
 #   1. le budget par defaut doit couvrir la latence mesuree du vhost ;
 #   2. un timeout doit etre CONFIRME avant d etre traite comme une panne, et
 #      un service lent mais vivant ne doit jamais recommander un restart ;
-#   3. l alerte elle-meme doit savoir partir (claude -p autorise).
+#   3. l alerte elle-meme doit savoir partir (post CLI deterministe, AUCUN agent).
 #
 # Assertions statiques sur le texte du script, plus UN test de comportement
 # (dernier Describe) qui fait echouer une vraie connexion sur la boucle locale :
@@ -21,6 +21,15 @@ BeforeAll {
     $scriptPath = Join-Path $projectRoot "scripts/monitoring/check-embeddings.ps1"
     $script:mon = Get-Content $scriptPath -Raw
     $script:verdict = Get-Content (Join-Path $projectRoot "scripts/monitoring/embeddings-verdict.ps1") -Raw
+
+    # Le moniteur RACONTE l incident dans ses commentaires (« aucun `claude -p` »).
+    # Asserter le motif sur le texte brut le ferait matcher la prose. On retire
+    # blocs <# ... #> et lignes # : l assertion porte alors sur le CODE.
+    function Get-EmbMonCodeOnly {
+        param([string]$Text)
+        $stripped = [regex]::Replace($Text, '(?s)<#.*?#>', '')
+        return (($stripped -split "\r?\n" | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
+    }
 }
 Describe "Moniteur embeddings -- budget de timeout" {
     It "Le budget par defaut doit couvrir la latence mesuree du vhost" {
@@ -66,7 +75,7 @@ Describe "Moniteur embeddings -- timeout confirme, pas presume panne" {
     }
     It "Le DEGRADED doit produire une alerte [WARN], pas [CRITICAL]" {
         $script:mon | Should -Match 'status\s*-eq\s*"DEGRADED"\s*-and'
-        $script:mon | Should -Match 'tags=\[WARN,health-check\]'
+        $script:mon | Should -Match 'Send-DashboardAlert -Tag "WARN"'
     }
 }
 Describe "Moniteur embeddings -- reponse lente mais vivante (SLOW)" {
@@ -171,13 +180,29 @@ Describe "Moniteur embeddings -- pas de reponse HTTP : une cause distincte du 5x
     }
 }
 
-Describe "Moniteur embeddings -- l alerte doit savoir partir" {
-    It "claude -p doit etre autorise a poster sur le dashboard" {
-        $script:mon | Should -Match '--allowedTools "mcp__roo-state-manager__roosync_dashboard"'
-        $script:mon | Should -Match '--permission-mode acceptEdits'
+Describe "Moniteur embeddings -- l alerte doit savoir partir SANS spawner d agent" {
+    # Incident 27/10 : une boucle `claude -p` par ligne FAIL => jusqu a 35 agents
+    # pour UN incident. Le post doit etre deterministe (CLI rsm-dashboard-append.mjs)
+    # et le spawn doit avoir disparu des DEUX fichiers.
+    It "Le detourage des commentaires doit mordre dans les DEUX sens" {
+        $proseOnly = @'
+# commentaire : un claude -p ici
+<#
+bloc : claude -p la aussi
+#>
+Write-Host 'ok'
+'@
+        (Get-EmbMonCodeOnly -Text $proseOnly) | Should -Not -Match 'claude\s+-p'
+        (Get-EmbMonCodeOnly -Text '& claude -p "prompt"') | Should -Match 'claude\s+-p'
     }
-    It "Le succes ne doit etre annonce que si claude -p sort en 0" {
-        $script:mon | Should -Match 'if \(\$exitCode -eq 0\) { return \$true }'
-        $script:mon | Should -Match 'if \(Send-DashboardAlert -Prompt \$prompt\)'
+    It "Le moniteur ne doit plus spawner claude (la prose citee ne compte pas)" {
+        $code = Get-EmbMonCodeOnly -Text $script:mon
+        $code | Should -Not -Match 'claude\s+-p'
+        $code | Should -Not -Match '--allowedTools'
+        $code | Should -Not -Match 'Start-Process[^\r\n]*claude'
+    }
+    It "Le moniteur doit sourcer le helper d alerte deterministe" {
+        $script:mon | Should -Match 'embeddings-alert\.ps1'
+        $script:mon | Should -Match 'Send-DashboardAlert -Tag'
     }
 }
