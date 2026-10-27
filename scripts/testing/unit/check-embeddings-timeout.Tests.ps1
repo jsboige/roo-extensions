@@ -155,6 +155,17 @@ Describe "Moniteur embeddings -- pas de reponse HTTP : une cause distincte du 5x
         $noResponse | Should -Match 'curl --resolve'
         $noResponse | Should -Not -Match 'the endpoint DID answer'
     }
+
+    It "Le second essai sans reponse HTTP doit sortir en 'unknown', pas en 'timeout'" {
+        # Revue po-2024 de #4381 : neutraliser `-eq "FAILURE"` sur le second essai
+        # laissait toute la suite verte, et un premier essai en timeout suivi d une
+        # connexion refusee repartait en « Both attempts timed out ». Le classifieur
+        # rend FAILURE pour ce cas (It plus haut) ; ce bloc doit le router a part.
+        $m = [regex]::Match($script:mon, '(?s)elseif \(\$verdict2\.Status -eq "FAILURE"\) \{(.*?)\} else \{')
+        $m.Success | Should -BeTrue
+        $m.Groups[1].Value | Should -Match '\$failureKind = "unknown"'
+        $m.Groups[1].Value | Should -Not -Match '\$failureKind = "timeout"'
+    }
 }
 
 Describe "Moniteur embeddings -- l alerte doit savoir partir" {
