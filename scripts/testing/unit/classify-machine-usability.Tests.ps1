@@ -599,4 +599,67 @@ Describe 'classify-machine-usability (#4327)' {
             $state.agesByMachine.Count | Should -Be 0
         }
     }
+
+    Context 'Scheduled fire (RX122) - one alert per incident' {
+        It 'derives the SAME incident id across two fires on the same boot, and a NEW id for a new boot' {
+            # The 5-minute cadence must not repost: two fires that read the same
+            # last boot are the SAME incident. Executed end to end (subprocess,
+            # replay mode): the id is read back from the JSON payload, and the
+            # content line that carries it is checked to match - that line is
+            # what the primary-post guard reads back from the dashboard file.
+            $fixture = Join-Path $script:FixtureDir 'po2028-20261023.json'
+            $fireA = (Invoke-Classifier -Arguments @('-ReplayFile', $fixture, '-Json', '-NoAlert')).Output | ConvertFrom-Json
+            $fireB = (Invoke-Classifier -Arguments @('-ReplayFile', $fixture, '-Json', '-NoAlert')).Output | ConvertFrom-Json
+
+            $fireA.alerts.Count | Should -BeGreaterThan 0
+            $idA1 = $fireA.alerts[0].messageId
+            $idA2 = $fireB.alerts[0].messageId
+            $idA1 | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0745' -Because 'machine + verdict + last boot, minute precision'
+            $idA1 | Should -Be $idA2 -Because 'two fires on the same boot are the same incident'
+            # The pattern goes through a VARIABLE: `[regex]::Escape($x)` in pipeline
+            # argument position is mis-parsed by 5.1 (the call splits into the method
+            # name as a string plus a stray positional argument - measured, Pester
+            # then received the literal text '[regex]::Escape' as the pattern).
+            $idPattern = [regex]::Escape($idA1)
+            $fireA.alerts[0].content | Should -Match $idPattern -Because 'the id travels in the content: the primary-post guard reads it back from the file'
+
+            # A new boot is a NEW incident: same machine, later boot, later burst.
+            $boot = '2026-10-23T08:30:00Z'
+            $events = @([PSCustomObject]@{ utc = $boot; id = 12; message = 'OS start' }) +
+                @(1..6 | ForEach-Object {
+                    [PSCustomObject]@{ utc = '2026-10-23T08:34:00Z'; id = 7031; message = "Le service Service utilisateur de notifications Push Windows_ab668 s'est termine de maniere inattendue." }
+                })
+            $payload = [PSCustomObject]@{
+                lastBootUtc = $boot
+                events = $events
+                samples = @([PSCustomObject]@{
+                    atUtc = '2026-10-23T08:40:00Z'; machine = 'myia-po-2028'; openPorts = @(5985, 22, 445)
+                    drivingChannelAnswered = $true; drivingStatusCode = 401; drivingLatencyMs = 4
+                    latencySamplesMs = @(391, 412, 445); heartbeatAgeSeconds = 90
+                })
+            }
+            $path = Write-ReplayFile -Name 'new-boot.json' -Payload $payload
+            $fireC = (Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')).Output | ConvertFrom-Json
+            $idC = $fireC.alerts[0].messageId
+            $idC | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0830'
+            $idC | Should -Not -Be $idA1 -Because 'a new boot is a new incident: the next wedge gets a fresh alert'
+        }
+
+        It 'exits 3 on a MISSING credential file, loudly, before any probe' {
+            $missing = Join-Path $script:Tmp 'no-such-cred.xml'
+            $fixture = Join-Path $script:FixtureDir 'po2028-20261023.json'
+            $res = Invoke-Classifier -Arguments @('-ReplayFile', $fixture, '-CredentialFile', $missing, '-NoAlert', '-Json')
+            $res.ExitCode | Should -Be 3 -Because 'a classifier told to run with a credential it cannot load must not fall back to running without one'
+            $res.Output | Should -Match 'CredentialFile not found'
+        }
+
+        It 'exits 3 on a credential file that is not a PSCredential' {
+            $bad = Join-Path $script:Tmp 'not-a-credential.xml'
+            'just a string' | Export-Clixml -Path $bad
+            $fixture = Join-Path $script:FixtureDir 'po2028-20261023.json'
+            $res = Invoke-Classifier -Arguments @('-ReplayFile', $fixture, '-CredentialFile', $bad, '-NoAlert', '-Json')
+            $res.ExitCode | Should -Be 3
+            $res.Output | Should -Match 'does not contain a PSCredential'
+        }
+    }
 }

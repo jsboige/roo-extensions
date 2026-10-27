@@ -117,6 +117,17 @@
     detector's identity; a failed authentication yields the `latency-unmeasurable` /
     `system-log-unavailable` findings, never a silent green.
 
+.PARAMETER CredentialFile
+    Path of a DPAPI-encrypted PSCredential (Export-Clixml) for the authenticated
+    WinRM reads - the scheduled 5-minute fire (RX122) carries a FILE, because a
+    scheduled task cannot carry a live credential object. Loaded only when
+    -Credential is NOT passed. A missing, unreadable, or non-PSCredential file is
+    a LOUD exit 3 BEFORE any probe: a classifier told to run with a credential it
+    cannot load must never silently fall back to the unauthenticated path - that
+    is exactly how the no-credential run of 28/10 measured
+    `system-log-unavailable` on every reachable seat and spent 81 s proving
+    nothing.
+
 .PARAMETER NoAlert
     Classify and print only, post nothing.
 
@@ -147,6 +158,15 @@
     counter-example are on Get-UsabilityVerdict. An append age that could not be
     measured yields `dashboard-append-unknown` and never corroborates.
 
+    SCHEDULED FIRE (RX122): the 5-minute task (install-usability-classifier-task.ps1)
+    runs this script with -CredentialFile. ONE ALERT PER INCIDENT: every post carries
+    the stable incident id `classifier-4327-<machine>-unusable-<boot yyyyMMddTHHmm>`
+    (UTC date when the boot is unknown) - identical across fires on the same boot,
+    new when the target reboots. The cross-post is deduped by the RSM CLI on that
+    id; the primary machine-dashboard post (whose id the escalation surface
+    GENERATES by contract) is guarded by reading the id back from the target's
+    dashboard file.
+
     Related: #4327, #2576 (listener check), #4243 (approval stalls), #4258 (roster).
 #>
 
@@ -163,6 +183,7 @@ param(
     [int]$BurstWindowStartMinutes = 2,
     [int]$BurstWindowEndMinutes = 20,
     [System.Management.Automation.PSCredential]$Credential = $null,
+    [string]$CredentialFile = "",
     [switch]$NoAlert,
     [switch]$Json
 )
@@ -465,6 +486,26 @@ function Measure-ExternalLogonCount {
 # Alert content (criterion 5): names every input and its value, and names the
 # affected machine on the FIRST line (a reader must not have to hunt for it).
 # ---------------------------------------------------------------------------
+
+function Get-ClassifierIncidentId {
+    # The ONE-ALERT-PER-INCIDENT key (RX122): machine + verdict + the target's
+    # LAST BOOT. Two fires inside the same wedge read the same boot and derive
+    # the SAME id, so a 5-minute cadence posts once per incident, not once per
+    # fire. A reboot is a NEW incident: the id moves with the boot and the next
+    # wedge gets a fresh alert. Boot unknown -> UTC date, so the id stays
+    # stable across the day even without the System log. The charset stays
+    # inside the RSM CLI's message-id grammar ([A-Za-z0-9._:-], <= 128).
+    param([string]$Machine, $LastBootUtc = $null, [string]$Verdict = 'unusable', $Now = $null)
+    $m = $Machine.ToLowerInvariant()
+    if ($null -ne $LastBootUtc) {
+        $stamp = $LastBootUtc.ToUniversalTime().ToString('yyyyMMddTHHmm')
+    } else {
+        if ($null -eq $Now) { $Now = (Get-Date).ToUniversalTime() }
+        $stamp = $Now.ToString('yyyyMMdd')
+    }
+    return "classifier-4327-$m-$Verdict-$stamp"
+}
+
 function New-AlertContent {
     param(
         [Parameter(Mandatory)] $Result,
@@ -472,7 +513,8 @@ function New-AlertContent {
         [int]$SlowThresholdMs = 3000,
         [int]$HeartbeatStaleSeconds = 1800,
         [int]$AbnormalMinCount = 2,
-        [int]$DeadlineMinutes = 10
+        [int]$DeadlineMinutes = 10,
+        [string]$IncidentId = ""
     )
 
     $hb = if (-not $Result.heartbeatInstrumentPresent -and $null -eq $Result.heartbeatAgeSeconds) {
@@ -503,6 +545,7 @@ function New-AlertContent {
         "Affected machine: **$($Result.machine)**. Measured by $Detector at $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')).",
         "",
         "- verdict: $($Result.verdict) (target: within $DeadlineMinutes min of the logon death, AC2)",
+        "- incident id: $IncidentId (one alert per incident; a new boot is a new incident)",
         "- last boot (System log, event 12): $boot",
         "- logon-death burst (7031/7034, suffix _<5 hex>, same second, >= 5): $burstText",
         "- authenticated WinRM latency (Invoke-Command {1}), $($AbnormalMinCount) of $(@($Result.latencySamplesMs).Count) over the threshold: $lat (threshold $SlowThresholdMs ms)",
@@ -859,13 +902,38 @@ function Invoke-RsmCliJson($scriptName, $cliArgs) {
 }
 
 function Write-MachineDashboardAlert {
-    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content)
+    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content, [Parameter(Mandatory)][string]$MessageId)
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     if ([string]::IsNullOrEmpty($sharedPath)) {
         Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set - alert on stdout only (no dashboard write)."
         return
     }
     $target = $TargetMachine.ToLowerInvariant()
+    $machineFile = Join-Path (Join-Path $sharedPath 'dashboards') "machine-$target.md"
+
+    # ONE ALERT PER INCIDENT (RX122). The escalation surface GENERATES its message
+    # id by contract - rsm-dashboard-append.mjs REFUSES --message-id without
+    # --dashboard (measured 28/10, dashboard-journal.mjs parseAppendArgs) - so the
+    # primary post cannot be deduped by the CLI. The incident id therefore travels
+    # in the CONTENT as a stable line (New-AlertContent) and the guard reads the
+    # target's own dashboard file: the id already there means this incident was
+    # already posted, and a 5-minute fire must not repost it. The file fallback
+    # writes the same id as its [msg:] marker, so the single guard covers both
+    # write paths.
+    if (Test-Path $machineFile) {
+        try {
+            $alreadyPosted = ([System.IO.File]::ReadAllText($machineFile)).Contains($MessageId)
+        } catch {
+            # A dashboard locked by DriveFS is not evidence the incident is (or is
+            # not) posted: name it and post, as the write path below would anyway.
+            Write-Output "[FLEET-ALERT] Incident guard could not read $machineFile ($($_.Exception.Message)) - posting."
+            $alreadyPosted = $false
+        }
+        if ($alreadyPosted) {
+            Write-Output "[FLEET-ALERT] Incident $MessageId already on machine-$target - skipping primary AND cross-post (one alert per incident)."
+            return
+        }
+    }
 
     # Primary: the affected machine's own dashboard. `--machine` is the dashboard KEY
     # in escalation mode, so this is the target's file, not the detector's.
@@ -877,10 +945,11 @@ function Write-MachineDashboardAlert {
         # CRLF, [msg:] marker, plural "(N messages)" from the seed on.
         try {
             $dashDir = Join-Path $sharedPath 'dashboards'
-            $machineFile = Join-Path $dashDir "machine-$target.md"
             $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            $rand = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
-            $msgId = "$target" + ':classifier:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $rand
+            # The file fallback carries the SAME incident id as the CLI path (the
+            # [msg:] marker is what the guard above reads back): a fire that lands
+            # here after the CLI path posted the same incident is a no-op.
+            $msgId = $MessageId
             $newMessage = "`r`n### [$timestamp] $target|classifier`r`n[msg: $msgId]`r`n`r`n$Content`r`n"
 
             if (-not (Test-Path $dashDir)) { New-Item -ItemType Directory -Path $dashDir -Force | Out-Null }
@@ -901,9 +970,12 @@ function Write-MachineDashboardAlert {
     }
 
     # Cross-post: one line on workspace:Maintenance pointing back at the machine
-    # thread, idempotent so a retry does not duplicate it.
+    # thread. The id is the INCIDENT key (not per UTC hour): the RSM CLI dedups on
+    # --message-id in --dashboard mode (#4090), so the whole wedge - every 5-minute
+    # fire on the same boot - converges on ONE cross-post, and a new boot opens a
+    # new one.
     $crossBody = "[FLEET-ALERT] $target - reachable-but-unusable (#4327): details and the answer thread on the machine dashboard of $target. Hard lever decision belongs to this lane."
-    $crossId = "classifier-4327-$target-" + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHH')
+    $crossId = "$MessageId-maint"
     $cross = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--dashboard', 'workspace:Maintenance', '--message-id', $crossId, '--author-workspace', 'classifier', '--content', $crossBody)
     if ($null -ne $cross -and $cross.ok -eq $true) {
         Write-Output "[FLEET-ALERT] Cross-posted to workspace:Maintenance (messageId $($cross.messageId))"
@@ -991,6 +1063,30 @@ function Read-ReplaySamples {
 # blocking review item is a probe behaviour, not a verdict rule - proving it through
 # a whole fleet run would need a broken seat).
 if ($env:CLASSIFIER_LIB_ONLY -eq '1') { return }
+
+# -CredentialFile is the scheduled-fire form of -Credential (RX122): a task
+# carries a file, not a live object. The load is fail-LOUD and happens BEFORE
+# any probe: a classifier told to run with a credential it cannot load must
+# never silently fall back to the unauthenticated path - that is exactly how
+# the no-credential run of 28/10 produced `system-log-unavailable` on every
+# reachable seat and an exit 3 that proved nothing about the fleet.
+if (-not [string]::IsNullOrEmpty($CredentialFile) -and $null -eq $Credential) {
+    if (-not (Test-Path -LiteralPath $CredentialFile)) {
+        Write-Error "CredentialFile not found: $CredentialFile - refusing to run without credentials."
+        exit 3
+    }
+    try {
+        $importedCredential = Import-Clixml -LiteralPath $CredentialFile
+    } catch {
+        Write-Error "CredentialFile is not readable CLI XML: $CredentialFile ($($_.Exception.Message))"
+        exit 3
+    }
+    if ($null -eq $importedCredential -or $importedCredential -isnot [System.Management.Automation.PSCredential]) {
+        Write-Error "CredentialFile does not contain a PSCredential: $CredentialFile (expected Export-Clixml of a PSCredential, DPAPI-encrypted)."
+        exit 3
+    }
+    $Credential = $importedCredential
+}
 
 $results = @()
 $appendFacts = $null
@@ -1101,10 +1197,15 @@ $logUnavailable = @($results | Where-Object { @($_.findings) -contains 'system-l
 # encountered after finished reading JSON content").
 $alerts = @()
 foreach ($r in $unusable) {
+    # ONE id per alert, computed ONCE: the content line and the post guard must
+    # read the same key, so both consume this value instead of re-deriving it.
+    $incidentId = Get-ClassifierIncidentId -Machine $r.machine -LastBootUtc $r.lastBootUtc
     $alerts += [PSCustomObject]@{
-        machine = $r.machine
+        machine   = $r.machine
+        messageId = $incidentId
         content = (New-AlertContent -Result $r -Detector $env:COMPUTERNAME -SlowThresholdMs $WinrmSlowMs `
-            -HeartbeatStaleSeconds $HeartbeatStaleSeconds -AbnormalMinCount $LatencyAbnormalMinCount -DeadlineMinutes $VerdictDeadlineMinutes)
+            -HeartbeatStaleSeconds $HeartbeatStaleSeconds -AbnormalMinCount $LatencyAbnormalMinCount -DeadlineMinutes $VerdictDeadlineMinutes `
+            -IncidentId $incidentId)
     }
 }
 
@@ -1176,7 +1277,7 @@ foreach ($a in $alerts) {
         Write-Output $a.content
     }
     if (-not $NoAlert -and [string]::IsNullOrEmpty($ReplayFile)) {
-        Write-MachineDashboardAlert -TargetMachine $a.machine -Content $a.content
+        Write-MachineDashboardAlert -TargetMachine $a.machine -Content $a.content -MessageId $a.messageId
     }
 }
 
