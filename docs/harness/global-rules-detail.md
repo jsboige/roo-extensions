@@ -126,9 +126,24 @@ condition est satisfaite.
 
 Une lecture faite dans le tour est réutilisable. La rafraîchir seulement après une mutation pouvant
 changer l'état, l'intervention pertinente d'un acteur indépendant, ou une frontière de sécurité.
-Une condition asynchrone n'a qu'un observateur : si une tâche de fond, `Monitor` ou `gh run watch`
+Une condition asynchrone n'a qu'un observateur : si une tâche de fond, `Monitor` ou `gh run watch -i 180`
 notifiera, aucun second poll ne la surveille. L'observateur doit rendre tous les états terminaux :
 succès, échec, annulation, timeout et terminaison inattendue.
+
+**Cadence d'un observateur GitHub (Maintenance#196, 27/10).** Par défaut, `gh pr checks --watch`
+interroge l'API toutes les 10 s et `gh run watch` toutes les 3 s. Chaque appel `gh` est un processus
+neuf qui refait sa résolution DNS. Le journal DNS client d'ai-01 a désigné une session Claude Code
+(`--watch --interval 30`) parmi les sources du fond continu vers `api.github.com`, à côté des runners
+CI et des scripts de merge.
+
+La recette : une boucle `sleep 180` bornée (par exemple 15 itérations) qui sort dès qu'aucun check
+n'est `pending`. Elle tourne **en tâche de fond ou dans `Monitor`**, car le harnais bloque un `sleep`
+au premier plan. Elle rend le même verdict avec 6 fois moins d'appels qu'un intervalle de 30 s, et
+18 fois moins que le défaut.
+
+À l'expiration de la borne, l'observateur rend l'état lu ; on en relance un seul si des checks sont
+encore en file. Une lecture ponctuelle après une mutation (push, rerun) n'est pas un observateur :
+elle n'est pas soumise à la cadence.
 
 ### Attribution et communication
 
