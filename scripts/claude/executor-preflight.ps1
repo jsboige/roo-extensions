@@ -249,6 +249,28 @@ try {
         }
     }
 
+    # #4289 grain h-RSM: a seat whose RSM is suffering cannot report it through RSM, so
+    # the coordinator reads silence as health (user, 27/10: "quand RSM est en souffrance,
+    # tu ne vois rien"). This is the seat's own voice, printed at every pre-flight: host
+    # count, max private memory per host, (cloud-only?) and connection-timeout events
+    # today, median [dashboard-pg] latency. Same WARN-never-block posture as #3169/#4340/
+    # #4336 above: exit 2 is relayed as a Write-Warning and the cycle continues.
+    # Absent script = older checkout: skip silently, the pull above brings it.
+    $rsmHealth = Join-Path $RepoRoot 'scripts/diagnostic/measure-rsm-health.ps1'
+    if (Test-Path $rsmHealth) {
+        # Merge stderr at the cmd.exe layer (#3731 class): on a WARN verdict the
+        # instrument writes through Write-Warning, i.e. on stderr, and a PS-level 2>&1
+        # under EAP=Stop would mint a terminating NativeCommandError from a clean run.
+        $rsmHealthOutput = @(& cmd /c "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$rsmHealth"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $rsmHealthOutput) { Write-Host $line }
+        $rsmHealthExit = $LASTEXITCODE
+        if ($rsmHealthExit -eq 2) {
+            Write-Warning '[executor-preflight][RSM-HEALTH] the [RSM-HEALTH] line above is a WARN: this seat''s RSM is under strain (reasons in the line). Relay [WARN] on the workspace dashboard -- otherwise the coordinator reads this seat as healthy while its indexing, dashboard reads and memory are suffering. The cycle continues: this never blocks.'
+        } elseif ($rsmHealthExit -ne 0) {
+            Write-Warning ("[executor-preflight][RSM-HEALTH] instrument error (exit $rsmHealthExit) -- this seat's RSM health is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+        }
+    }
+
     Write-Host '[executor-preflight][READY] Parent, submodule, and RSM build are synchronized.' -ForegroundColor Green
     exit 0
 } catch {
