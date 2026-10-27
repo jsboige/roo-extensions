@@ -130,6 +130,14 @@ Une condition asynchrone n'a qu'un observateur : si une tâche de fond, `Monitor
 notifiera, aucun second poll ne la surveille. L'observateur doit rendre tous les états terminaux :
 succès, échec, annulation, timeout et terminaison inattendue.
 
+**Cadence d'un observateur GitHub (Maintenance#196, 27/10).** `gh pr checks --watch` interroge l'API
+toutes les 10 s par défaut, et chaque appel `gh` est un processus neuf qui refait sa résolution DNS.
+Le journal DNS client d'ai-01 a désigné une session Claude Code (`--watch --interval 30`) parmi les
+sources du fond continu vers `api.github.com`, à côté des runners CI et des scripts de merge. Un
+cycle CI dure de 10 à 40 min : une boucle `sleep 180` bornée (par exemple 15 itérations), qui sort
+dès qu'aucun check n'est `pending`, rend le même verdict avec 6 fois moins d'appels qu'un intervalle
+de 30 s, et 18 fois moins que le défaut.
+
 ### Attribution et communication
 
 Attribuer une mesure par `session_id` avant toute agrégation machine ; distinguer

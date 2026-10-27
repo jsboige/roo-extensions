@@ -56,7 +56,7 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher** ou **commencer 
 
 - Tenir un **ledger turn-local** des obligations ; avant un sweep, chacune est `done`, `blocked` avec `WAIT_FOR` + `RESUME_WHEN`, ou `handed-off` explicitement. Pas de nouveau registre persistant.
 - **`always-pick-next` reste obligatoire** : exclure la candidate bloquee jusqu'a son evenement de reprise et prendre une autre tache actionnable. L'evenement autorise le reexamen, pas l'action bloquee.
-- Une condition asynchrone a **un seul observateur** ; ne jamais poller en parallele d'une notification existante, et couvrir succes, echec, annulation, timeout et terminaison inattendue.
+- Une condition asynchrone a **un seul observateur** ; ne jamais poller en parallele d'une notification existante, et couvrir succes, echec, annulation, timeout et terminaison inattendue. Un observateur qui interroge GitHub le fait a **3 min minimum**, borne dans le temps — jamais `gh pr checks --watch` nu (10 s par defaut).
 - Reutiliser les lectures du tour sauf mutation pertinente, acteur independant pertinent ou frontiere de securite. Attribuer par `session_id` avant machine, puis parent/sous-agent quand disponible.
 - Communication : **3-5 lignes par defaut** ; decision, blocage et preuve peuvent depasser ce format. [Detail](../../docs/harness/global-rules-detail.md#harness-amplification-control)
 
