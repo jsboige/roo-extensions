@@ -188,3 +188,48 @@ function Get-HardenDecision {
     }
     return @{ Decision = 'plan'; Unresolved = (-not $console.Resolved); Method = $console.Method; Path = $console.Path }
 }
+
+function New-HardenLauncherVbs {
+    # Contenu du lanceur VBS genere pour une tache durcie. L'Execute y est TOUJOURS
+    # quote (un chemin a espaces non quote fait resoudre 'C:\Program' par CreateProcess,
+    # 0x80070002) ; ses guillemets d'extremite residuels sont retires avant, sinon le
+    # re-emballage produirait des guillemets doubles vides au parsing CreateProcess.
+    # Les guillemets de la commande sont doubles ("" ) pour la syntaxe litterale VBScript.
+    #
+    # Garde de propagation d'echec (incident vllm 26/10, dispatch ai-01 23:52Z) : sans
+    # On Error, un sh.Run qui echoue (cible perimee, chemin introuvable) interrompt le
+    # VBS sur son erreur runtime et wscript rend 0 -- le scheduler affiche
+    # LastTaskResult=0 et la tache est muette (fstier-prune, traffic-census-hourly :
+    # 2 lanceurs morts en silence, dont un pendant 6 jours). Avec la garde,
+    # Err.Number remonte au scheduler : l'echec devient VISIBLE (0x80070002 dans
+    # LastTaskResult) au lieu d'un succes fantome.
+    param(
+        [Parameter(Mandatory = $true)] [string]$TaskName,
+        [Parameter(Mandatory = $true)] [string]$Execute,
+        [string]$Arguments = ''
+    )
+    $exe = $Execute.Trim().Trim('"').Trim("'").Trim()
+    if (-not $exe) { $exe = $Execute.Trim() }
+    $origCmd = if ([string]::IsNullOrWhiteSpace($Arguments)) { '"{0}"' -f $exe }
+               else { '"{0}" {1}' -f $exe, $Arguments }
+    $vbsCmdLiteral = $origCmd -replace '"', '""'
+    return @"
+' Genere par scripts/scheduling/harden-hidden-tasks.ps1 -- NE PAS EDITER A LA MAIN.
+' Tache      : $($TaskName)
+' Objet      : lancer la commande sans jamais afficher de console.
+' Mecanisme  : Run(cmd, 0, True) passe SW_HIDE dans le STARTUPINFO du CreateProcess, donc
+'              conhost n'est jamais affiche -- contrairement a `-WindowStyle Hidden`, applique
+'              seulement APRES que PowerShell ait alloue et montre sa console (le "flash").
+' Fiabilite  : un echec de Run (cible perimee, chemin introuvable) remonte Err.Number au
+'              scheduler. Sans cette garde wscript rend 0 : echec silencieux, LastTaskResult
+'              menteur (incident vllm 26/10 -- 2 taches muettes, dont une 6 jours).
+Option Explicit
+Dim sh, rc
+On Error Resume Next
+Set sh = CreateObject("WScript.Shell")
+If Err.Number <> 0 Then WScript.Quit Err.Number
+rc = sh.Run("$vbsCmdLiteral", 0, True)
+If Err.Number <> 0 Then WScript.Quit Err.Number
+WScript.Quit rc
+"@
+}
