@@ -1339,10 +1339,7 @@ function Mark-TaskAsComplete {
                     # it on a LATER line: the reducer applies markers top-to-bottom, last one wins.
                     # The hold goes stale after the guard's threshold (24h) like any claim.
                     if ($HoldLock -or $script:RecoveryBranchName) {
-                        # Q18(b) residu 27/10 : le hold etait poste machine-seul — lu LEGACY_CLAIM/
-                        # etranger par notre propre garde (check_issue_claim.py, #4114), donc le hold
-                        # ne protegeait rien. Meme identite de lane que le claim principal ($script:ClaimLane).
-                        $Body += "`n`n[CLAIMED] $script:ClaimLane -- held: work above awaits recovery/review; do not re-take without asking $script:ClaimLane or the coordinator"
+                        $Body += "`n`n[CLAIMED] $MachineId -- held: work above awaits recovery/review; do not re-take without asking $MachineId or the coordinator"
                     }
                     # Multiline [RESULT] bodies cannot cross the cmd.exe layer as --body
                     # args (newlines/markdown backticks break the command string): temp

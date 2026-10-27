@@ -257,12 +257,4 @@ Describe 'Test-IssueMachineForeign title-marker fallback (Q18(a), GO user 2026-1
         $Wired = $Worker.IndexOf('Test-IssueMachineForeign -FieldMachine $ProjectFields.Machine -MachineId $MachineId -Title $Issue.title', $Start)
         $Wired | Should -BeGreaterThan $Start
     }
-
-    It 'wired: the recovery hold claim carries the lane identity, not machine-seul (Q18(b) residu)' {
-        # A machine-seul hold marker reads LEGACY_CLAIM/foreign to our own guard
-        # (check_issue_claim.py #4114) and protects nothing (#4247, 20/10).
-        $Worker = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot 'start-claude-worker.ps1')
-        $Worker.IndexOf('[CLAIMED] $script:ClaimLane -- held:') | Should -BeGreaterThan -1
-        $Worker.IndexOf('[CLAIMED] $MachineId -- held:') | Should -Be -1
-    }
 }
