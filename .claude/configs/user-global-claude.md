@@ -109,7 +109,7 @@ Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** 
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
-1. **Debut** : `roosync_dashboard(action:"read", type:"workspace", section:"all")` + skill `memory-inject`.
+1. **Debut** : `roosync_dashboard(action:"read", type:"workspace", section:"all")` + skill `memory-inject`. Dans un checkout roo-extensions, controle MCP du siege : `python scripts/diagnostic/verify-fleet-manifest.py` (lecture seule, ~0,15 s, #4336) — exit 2 = MCP requis absent/desactive ou retire present : STOP & REPAIR.
 2. **Pendant** : travailler. Blocage -> `append` tag `ASK`.
 3. **Fin** : `append` tag `DONE` — **aucune exception**. Les rapports vont sur le dashboard, PAS dans des fichiers du depot.
 
