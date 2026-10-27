@@ -252,9 +252,18 @@ try {
     # #4289 grain h-RSM: a seat whose RSM is suffering cannot report it through RSM, so
     # the coordinator reads silence as health (user, 27/10: "quand RSM est en souffrance,
     # tu ne vois rien"). This is the seat's own voice, printed at every pre-flight: host
-    # count, max private memory per host, (cloud-only?) and connection-timeout events
-    # today, median [dashboard-pg] latency. Same WARN-never-block posture as #3169/#4340/
-    # #4336 above: exit 2 is relayed as a Write-Warning and the cycle continues.
+    # count, max AND total private memory, free RAM, (cloud-only?) and connection-timeout
+    # events today, median [dashboard-pg] latency. Same WARN-never-block posture as
+    # #3169/#4340/#4336 above: exit 2 is relayed as a Write-Warning and the cycle
+    # continues.
+    # #4388 review: on WARN or instrument error the pre-flight posts the line ITSELF,
+    # with no agent in the loop -- a relay "through RSM" is a relay through the very
+    # component that is suffering, and it depends on an agent reading its own log.
+    # Post through the #4385 dashboard CLI (machine escalation surface, WARN-class),
+    # one stable message id per machine per UTC day so a re-fire cannot multiply
+    # posts. If THAT post fails, the failure is itself the signal: fall back to
+    # `gh issue comment 4289`, which depends on neither RSM nor GDrive. An OK seat
+    # makes no noise.
     # Absent script = older checkout: skip silently, the pull above brings it.
     $rsmHealth = Join-Path $RepoRoot 'scripts/diagnostic/measure-rsm-health.ps1'
     if (Test-Path $rsmHealth) {
@@ -265,9 +274,52 @@ try {
         foreach ($line in $rsmHealthOutput) { Write-Host $line }
         $rsmHealthExit = $LASTEXITCODE
         if ($rsmHealthExit -eq 2) {
-            Write-Warning '[executor-preflight][RSM-HEALTH] the [RSM-HEALTH] line above is a WARN: this seat''s RSM is under strain (reasons in the line). Relay [WARN] on the workspace dashboard -- otherwise the coordinator reads this seat as healthy while its indexing, dashboard reads and memory are suffering. The cycle continues: this never blocks.'
+            Write-Warning '[executor-preflight][RSM-HEALTH] the [RSM-HEALTH] line above is a WARN: this seat''s RSM is under strain (reasons in the line). The pre-flight posts it below, no agent in the loop. The cycle continues: this never blocks.'
         } elseif ($rsmHealthExit -ne 0) {
-            Write-Warning ("[executor-preflight][RSM-HEALTH] instrument error (exit $rsmHealthExit) -- this seat's RSM health is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+            Write-Warning ("[executor-preflight][RSM-HEALTH] instrument error (exit $rsmHealthExit) -- this seat's RSM health is UNKNOWN this cycle. The pre-flight posts that below. The cycle continues.")
+        }
+        if ($rsmHealthExit -ne 0) {
+            $kind = if ($rsmHealthExit -eq 2) { 'warn' } else { 'instrument-error' }
+            $healthLine = @($rsmHealthOutput | Where-Object { $_ -match '^\[RSM-HEALTH\]' }) | Select-Object -First 1
+            if (-not $healthLine) {
+                $healthLine = ('[RSM-HEALTH] no line emitted (instrument error, exit {0})' -f $rsmHealthExit)
+            }
+            $machineId = ($env:COMPUTERNAME).ToLowerInvariant()
+            $msgId = '{0}:rsm-health:{1}' -f $machineId, (Get-Date).ToUniversalTime().ToString('yyyyMMdd')
+            $content = ('[WARN] {0} -- RSM-HEALTH {1}, posted by the pre-flight (no agent in the loop): {2}' -f $machineId, $kind, $healthLine)
+
+            $posted = $false
+            $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+            $dashboardCli = Join-Path $RepoRoot 'mcps\internal\servers\roo-state-manager\scripts\rsm-dashboard-append.mjs'
+            if ($nodeCmd -and (Test-Path $dashboardCli)) {
+                & $nodeCmd.Source $dashboardCli --machine $machineId --message-id $msgId --content $content | Out-Null
+                if ($LASTEXITCODE -eq 0) { $posted = $true }
+            }
+            if ($posted) {
+                Write-Warning ('[executor-preflight][RSM-HEALTH] WARN posted by the pre-flight itself to the machine dashboard (messageId {0}). The cycle continues.' -f $msgId)
+            } else {
+                # The dashboard post failing is itself a signal: GitHub depends on
+                # neither RSM nor GDrive. #2368 applies to agents; a pre-flight has no
+                # interactive identity to guard, gh posts as the machine account.
+                Write-Warning '[executor-preflight][RSM-HEALTH] dashboard post failed -- falling back to a comment on issue 4289.'
+                $ghCmd = Get-Command gh -ErrorAction SilentlyContinue
+                if ($ghCmd) {
+                    $bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) ('rsm-health-{0}-{1}.md' -f $machineId, (Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss'))
+                    try {
+                        [System.IO.File]::WriteAllText($bodyFile, $content, (New-Object System.Text.UTF8Encoding($false)))
+                        & $ghCmd.Source issue comment 4289 --repo jsboige/roo-extensions --body-file $bodyFile | Out-Null
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-Warning '[executor-preflight][RSM-HEALTH] WARN posted as a fallback comment on issue 4289. The cycle continues.'
+                        } else {
+                            Write-Warning '[executor-preflight][RSM-HEALTH] gh fallback failed too (exit code above) -- the WARN lives only in this log. The cycle continues.'
+                        }
+                    } finally {
+                        Remove-Item -LiteralPath $bodyFile -ErrorAction SilentlyContinue
+                    }
+                } else {
+                    Write-Warning '[executor-preflight][RSM-HEALTH] gh not found -- the WARN lives only in this log. The cycle continues.'
+                }
+            }
         }
     }
 

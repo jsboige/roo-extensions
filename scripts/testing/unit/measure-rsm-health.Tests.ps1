@@ -160,6 +160,89 @@ Describe 'Get-RsmHealthReport -- mediane et seuils' {
     }
 }
 
+Describe 'Get-RsmHealthReport -- RAM totale et connTimeout juges (review #4388)' {
+
+    It 'po-2023 (27/10) : WARN sur free-ram et conn-timeout alors qu aucun hote n est gras' {
+        # Snapshot mesure 17:4xZ, cite par la review : 24 hotes, 16.9 Go prives AU
+        # TOTAL (aucun hote ne depasse 1536 -- le mutant qui juge le max au lieu du
+        # total ne peut pas voir ce siege), 0.7 Go de RAM libre, 95 cold-pool
+        # timeouts sur 18.1 h = 5.25/h.
+        $hosts = @(1..24 | ForEach-Object { [pscustomobject]@{ ProcessId = $_; PrivateMB = 704 } })
+        $metrics = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 95; LogFiles = 1; PgLatencies = @() }
+        $ram = [pscustomobject]@{ FreeRamMB = 717; TotalRamMB = 32768 }
+
+        $r = Get-RsmHealthReport -Hosts $hosts -LogMetrics $metrics -RamMetrics $ram -HoursObserved 18.1
+
+        $r.Verdict | Should -Be 'WARN'
+        $r.MaxPrivateMB | Should -Be 704
+        $r.TotalPrivateMB | Should -Be 16896
+        ($r.Reasons -join '; ') | Should -Match 'free-ram: 717MB free of 32768MB \(2\.2%\)'
+        ($r.Reasons -join '; ') | Should -Match 'conn-timeout: 5\.25/h >= 5/h'
+        ($r.Reasons -join '; ') | Should -Not -Match 'max-memory'
+    }
+
+    It 'ai-01 (27/10) : OK -- 74 hotes, 8.2 Go au total, 28% de RAM libre, 0 timeout' {
+        # L autre snapshot de la review : le total eleve n est PAS un defaut quand la
+        # machine a de la marge (55 Go libres sur 192).
+        $hosts = @([pscustomobject]@{ ProcessId = 1; PrivateMB = 770 })
+        foreach ($i in 2..74) { $hosts += [pscustomobject]@{ ProcessId = $i; PrivateMB = 102 } }
+        $metrics = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 0; LogFiles = 1; PgLatencies = @(3) }
+        $ram = [pscustomobject]@{ FreeRamMB = 55194; TotalRamMB = 196301 }
+
+        $r = Get-RsmHealthReport -Hosts $hosts -LogMetrics $metrics -RamMetrics $ram -HoursObserved 18.1
+
+        $r.Verdict | Should -Be 'OK'
+        $r.TotalPrivateMB | Should -Be 8216
+        $r.FreeRamMB | Should -Be 55194
+        $r.ConnTimeoutPerHour | Should -Be 0
+        @($r.Reasons).Count | Should -Be 0
+    }
+
+    It 'free-ram : juge sur le pourcentage OU le plancher, bornes strictes' {
+        $metrics = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 0; LogFiles = 0; PgLatencies = @() }
+
+        # 19631 MB = 10.0005% du total : PAS sous 10%, PAS sous 4096 -> OK.
+        $atMargin = Get-RsmHealthReport -Hosts @() -LogMetrics $metrics -RamMetrics ([pscustomobject]@{ FreeRamMB = 19631; TotalRamMB = 196301 }) -HoursObserved 1
+        $atMargin.Verdict | Should -Be 'OK'
+        ($atMargin.Reasons -join '; ') | Should -Not -Match 'free-ram'
+        # Un MB de moins : sous 10% du total -> WARN (9.9995% s affiche 10).
+        $underPercent = Get-RsmHealthReport -Hosts @() -LogMetrics $metrics -RamMetrics ([pscustomobject]@{ FreeRamMB = 19629; TotalRamMB = 196301 }) -HoursObserved 1
+        $underPercent.Verdict | Should -Be 'WARN'
+        ($underPercent.Reasons -join '; ') | Should -Match 'free-ram: 19629MB free of 196301MB \(10%\)'
+        # 4000 MB sur 32 Go = 12.2% (pas sous 10%) mais sous le plancher 4096 -> WARN
+        # par le plancher SEUL : c est le cas po-2023 sans que le total soit en jeu.
+        $underFloor = Get-RsmHealthReport -Hosts @() -LogMetrics $metrics -RamMetrics ([pscustomobject]@{ FreeRamMB = 4000; TotalRamMB = 32768 }) -HoursObserved 1
+        $underFloor.Verdict | Should -Be 'WARN'
+        ($underFloor.Reasons -join '; ') | Should -Match 'free-ram: 4000MB free of 32768MB \(12\.2%\)'
+        # 4096 exactement sur 32 Go : pas sous 10%, PAS sous 4096 (strict) -> OK.
+        $atFloor = Get-RsmHealthReport -Hosts @() -LogMetrics $metrics -RamMetrics ([pscustomobject]@{ FreeRamMB = 4096; TotalRamMB = 32768 }) -HoursObserved 1
+        $atFloor.Verdict | Should -Be 'OK'
+    }
+
+    It 'conn-timeout : au seuil exact (=) s allume, un dixieme en dessous reste eteint' {
+        $atThreshold = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 50; LogFiles = 1; PgLatencies = @() }
+        $below = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 49; LogFiles = 1; PgLatencies = @() }
+        $ram = [pscustomobject]@{ FreeRamMB = 55194; TotalRamMB = 196301 }
+
+        $warn = Get-RsmHealthReport -Hosts @() -LogMetrics $atThreshold -RamMetrics $ram -HoursObserved 10
+        $warn.Verdict | Should -Be 'WARN'
+        ($warn.Reasons -join '; ') | Should -Match 'conn-timeout: 5/h >= 5/h'
+
+        $ok = Get-RsmHealthReport -Hosts @() -LogMetrics $below -RamMetrics $ram -HoursObserved 10
+        $ok.Verdict | Should -Be 'OK'
+    }
+
+    It 'RAM inconnue (non-Windows) : free-ram ne juge pas, la ligne dit n/a' {
+        $metrics = [pscustomobject]@{ CloudOnly = 0; ConnectionTimeouts = 0; LogFiles = 1; PgLatencies = @() }
+
+        $r = Get-RsmHealthReport -Hosts @() -LogMetrics $metrics -HoursObserved 1
+
+        $r.Verdict | Should -Be 'OK'
+        $r.FreeRamMB | Should -BeNullOrEmpty
+        (Format-RsmHealthLine -Report $r) | Should -Match 'freeRamMB=n/a'
+    }
+}
+
 Describe 'Format-RsmHealthLine -- contrat de ligne' {
 
     It 'emet une ligne unique greppable avec tous les champs demandes' {
@@ -171,6 +254,8 @@ Describe 'Format-RsmHealthLine -- contrat de ligne' {
 
         $line | Should -Match '^\[RSM-HEALTH\] hosts=1 '
         $line | Should -Match 'maxPrivMB=3988'
+        $line | Should -Match 'totalPrivMB=3988'
+        $line | Should -Match 'freeRamMB=n/a'
         $line | Should -Match 'cloudOnly=1'
         $line | Should -Match 'connTimeout=95'
         $line | Should -Match 'pgMedianMs=139'
