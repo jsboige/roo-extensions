@@ -25,6 +25,13 @@
     Un VBS dedie est genere PAR TACHE, avec la ligne de commande en dur. Aucun argument n'est
     passe a wscript : cela elimine tout risque de mauvais echappement des guillemets a la
     frontiere Task Scheduler -> wscript -> pwsh, qui est le piege classique de cette approche.
+    L'executable y est quote SEUL et les arguments restent hors des guillemets
+    (Get-VbsRunCommand, defaut C) : une tache creee par `schtasks /tr` non quote stocke
+    toute la ligne dans Execute, et la forme naive '"{0}" {1}' -f $Execute fabriquait un
+    token unique que CreateProcess prenait pour le chemin -- 0x80070002 silencieux,
+    LastTaskResult reste 0 (mesure ai-01 26-27/10 : census horaire mort 6 jours, pruneur
+    muet, tier fs +41 Go au-dessus du cap). Le lanceur propage desormais Err.Number pour
+    qu'un echec de CreateProcess sorte NON NUL.
 
     L'action d'origine est sauvegardee en JSON a cote du VBS, ce qui rend -Rollback exact.
 
@@ -343,9 +350,13 @@ foreach ($item in $plan) {
         continue
     }
 
-    # Ligne de commande d'origine, reconstruite telle quelle.
-    $origCmd = if ([string]::IsNullOrWhiteSpace($a.Arguments)) { '"{0}"' -f $a.Execute }
-               else { '"{0}" {1}' -f $a.Execute, $a.Arguments }
+    # Ligne de commande reconstruite pour le VBS : l'executable quote SEUL, les
+    # arguments hors des guillemets (defaut C -- voir Get-VbsRunCommand dans la lib :
+    # `schtasks /tr` non quote stocke toute la ligne dans Execute, et la forme naive
+    # '"{0}" {1}' -f $Execute fabriquait un token unique que CreateProcess prenait
+    # pour le chemin -> 0x80070002 silencieux, ai-01 26-27/10).
+    $origCmd = Get-VbsRunCommand -Execute ([string]$a.Execute) -Arguments ([string]$a.Arguments)
+    if (-not $origCmd) { $failed += ("{0} : action sans executable exploitable" -f $t.TaskName); continue }
 
     $safeName = $t.TaskName -replace '[\\/:*?"<>|]', '_'
     $vbsPath  = Join-Path $LauncherDir ("{0}.vbs" -f $safeName)
@@ -363,7 +374,13 @@ foreach ($item in $plan) {
 Option Explicit
 Dim sh, rc
 Set sh = CreateObject("WScript.Shell")
+' Un Run qui echoue au CreateProcess (0x80070002 : chemin/executable mal construit)
+' ne doit PAS sortir en 0 -- le scheduler lirait "reussite" d'une tache morte
+' (defaut C, ai-01 26-27/10 : LastTaskResult 0 pendant 6 jours sur un census mort).
+On Error Resume Next
 rc = sh.Run("$vbsCmdLiteral", 0, True)
+If Err.Number <> 0 Then WScript.Quit Err.Number
+On Error Goto 0
 WScript.Quit rc
 "@
 
