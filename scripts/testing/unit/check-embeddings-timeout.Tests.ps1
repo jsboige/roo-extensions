@@ -10,7 +10,10 @@
 #      un service lent mais vivant ne doit jamais recommander un restart ;
 #   3. l alerte elle-meme doit savoir partir (claude -p autorise).
 #
-# Assertions statiques sur le texte du script : pas de reseau, pas de cle.
+# Assertions statiques sur le texte du script, plus UN test de comportement
+# (dernier Describe) qui fait echouer une vraie connexion sur la boucle locale :
+# une classification se verifie par la sortie du classifieur, pas seulement par
+# la presence d'une chaine dans le fichier. Pas de reseau externe, pas de cle.
 # Les motifs sont ecrits entre apostrophes simples : une chaine a guillemets
 # doubles interpolerait le $ des variables PowerShell et casserait le motif.
 BeforeAll {
@@ -106,6 +109,51 @@ Describe "Moniteur embeddings -- l alerte ne doit pas affirmer une cause non mes
     It "La branche HTTP doit nommer le proprietaire du backend, pas le lecteur de l alerte" {
         $httpLine = ($script:mon -split [char]10 | Where-Object { $_ -match "DOWN as seen from" }) -join " "
         $httpLine | Should -Match 'the host that actually serves this endpoint'
+    }
+}
+
+Describe "Moniteur embeddings -- pas de reponse HTTP : une cause distincte du 5xx" {
+    # Incident 27/10 : sur ai-01 (PS 5.1), une connexion refusee sortait
+    # Status=FAILURE FailureKind=unknown http=0. Le classifieur etait juste ;
+    # c est l ALERTE qui tombait dans la branche « l endpoint a repondu » et
+    # affirmait une cause que la sonde n avait pas mesuree. Les tests qui
+    # precedent lisent le TEXTE ; celui-ci fait echouer une vraie connexion et
+    # verifie ce que le classifieur en DIT.
+    BeforeAll {
+        $verdictPath = Join-Path (Resolve-Path -Path "$PSScriptRoot/../../..").Path "scripts/monitoring/embeddings-verdict.ps1"
+        . $verdictPath
+
+        # Port 1 sur la boucle locale : personne n ecoute, le noyau refuse la
+        # connexion immediatement. Aucun service externe en depend.
+        $script:connectError = $null
+        try {
+            Invoke-RestMethod -Uri "http://127.0.0.1:1/v1/models" -TimeoutSec 5 | Out-Null
+        } catch {
+            $script:connectError = $_.Exception
+        }
+        $script:connectVerdict = Get-EmbeddingsVerdict -ErrorRecord $script:connectError -Message $script:connectError.Message
+    }
+
+    It "La connexion doit vraiment echouer (sinon ce Describe ne mesure rien)" {
+        $script:connectError | Should -Not -BeNullOrEmpty
+    }
+
+    It "Une connexion refusee doit sortir en 'unknown', jamais en 'http'" {
+        $script:connectVerdict.FailureKind | Should -Be 'unknown'
+        $script:connectVerdict.Status | Should -Be 'FAILURE'
+    }
+
+    It "Aucun code HTTP ne doit etre lu quand il n y a pas de reponse" {
+        Get-EmbeddingsHttpStatus -ErrorRecord $script:connectError | Should -Be 0
+    }
+
+    It "L alerte doit traiter ce cas dans une branche propre, pas dans celle du 5xx" {
+        $script:mon | Should -Match 'elseif \(\$failureKind -eq "http"\)'
+        $noResponse = ($script:mon -split [char]10 | Where-Object { $_ -match 'NO HTTP response was received' }) -join " "
+        $noResponse | Should -Not -BeNullOrEmpty
+        $noResponse | Should -Match 'do NOT restart anything'
+        $noResponse | Should -Match 'curl --resolve'
+        $noResponse | Should -Not -Match 'the endpoint DID answer'
     }
 }
 
