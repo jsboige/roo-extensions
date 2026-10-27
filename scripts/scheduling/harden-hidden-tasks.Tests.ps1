@@ -176,6 +176,18 @@ Describe 'harden-hidden-tasks eligibility (defect A, #4118)' {
         $d.Method | Should -Be 'name-list'
     }
 
+    It 'the BARE name of a fallback host matches the list (no .exe required)' {
+        # Deterministe sur tout poste : le chemin est absolu et n existe pas, donc on
+        # passe TOUJOURS par la liste de noms, que pwsh soit installe ou non. C est le
+        # ratage mesure du nom nu de #4118 : `pwsh` compare a `pwsh.exe` ne correspondait
+        # jamais, et le test voisin ne le voyait pas en CI (pwsh y est installe, donc il
+        # sortait par le sous-systeme PE).
+        $d = Get-HardenDecision -Task (New-SyntheticTask -Execute '"C:\gone\pwsh"')
+        $d.Decision | Should -Be 'plan'
+        $d.Unresolved | Should -BeTrue
+        $d.Method | Should -Be 'name-list'
+    }
+
     It 'a non-Interactive principal is not eligible (session 0 -> already invisible)' {
         $d = Get-HardenDecision -Task (New-SyntheticTask -Execute $ps51 -LogonType 'S4U')
         $d.Decision | Should -Be 'non-interactive'

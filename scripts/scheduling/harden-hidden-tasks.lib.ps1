@@ -23,9 +23,14 @@
     (le fichier est aussi dot-source par Windows PowerShell 5.1).
 #>
 
-# Repli quand le sous-systeme PE ne peut pas etre lu : la liste historique de 3 noms,
-# appliquee au leaf NORMALISE (guillemets/espaces retires, variables expandees).
-$script:ConsoleHostFallback = @('powershell.exe', 'pwsh.exe', 'cmd.exe')
+# Repli quand le sous-systeme PE ne peut pas etre lu : la liste historique des trois
+# hotes console, comparee au leaf NORMALISE puis ramene a son NOM DE BASE. Le nom nu
+# sans extension (`pwsh`) est un des trois ratages mesures de #4118 ; compare a une
+# liste de noms suffixes `.exe`, il ne correspondait JAMAIS tant que le binaire n'est
+# pas installe -- d'ou une suite verte en CI (pwsh present sur le runner) et rouge sur
+# un poste de la flotte ou pwsh est absent. `pwsh` et `pwsh.exe` designent le meme
+# hote : ils tombent desormais dans le meme seau.
+$script:ConsoleHostFallback = @('powershell', 'pwsh', 'cmd')
 
 # Marqueurs de chemin par lane : ce qui est « le staging d'UNE AUTRE lane » vu de -Lane.
 # roo-extensions (defaut) exclut maint-scripts\ ; Maintenance exclut roo-extensions\.
@@ -105,6 +110,16 @@ function Test-ConsoleSubsystem {
     } finally { $fs.Dispose() }
 }
 
+function Get-ConsoleHostName {
+    # Nom de base du leaf, pour la comparaison a $script:ConsoleHostFallback :
+    # 'PWSh.EXE' et 'pwsh' rendent tous deux 'pwsh'. $null si le leaf est vide.
+    param([string]$Leaf)
+    if ([string]::IsNullOrWhiteSpace($Leaf)) { return $null }
+    $base = $Leaf.Trim()
+    if ($base -imatch '\.exe$') { $base = $base.Substring(0, $base.Length - 4) }
+    return $base.ToLowerInvariant()
+}
+
 function Test-ConsoleExecute {
     # Verdict d'eligibilite "cette action lance-t-elle une console ?" sur le champ
     # Execute seul. Hashtable : Console (bool), Resolved (bool), Method
@@ -123,11 +138,12 @@ function Test-ConsoleExecute {
             return $result
         }
     }
-    # Non resoluble (ou PE illisible) : repli sur la liste de noms, sur le leaf
-    # NORMALISE -- le verdict par liste reste possible, mais Resolved=$false pour
+    # Non resoluble (ou PE illisible) : repli sur la liste de noms, sur le NOM DE BASE
+    # du leaf NORMALISE -- le verdict par liste reste possible, mais Resolved=$false pour
     # que la tache soit RAPPORTEE non resolue plutot que silencieusement classee.
     $result.Method = 'name-list'
-    if ($leaf) { $result.Console = ($leaf -in $script:ConsoleHostFallback) }
+    $hostName = Get-ConsoleHostName -Leaf $leaf
+    if ($hostName) { $result.Console = ($hostName -in $script:ConsoleHostFallback) }
     return $result
 }
 
