@@ -59,8 +59,9 @@ and can only fail to prove life. That asymmetry is deliberate -- a repeat
 warning costs a line, a missed freeze costs a whole lane.
 
 Honest limits: the process table is read from this host only (a copied
-transcript scanned elsewhere classifies as `unknown`, never as dead), and a host
-where the enumeration fails degrades to `unknown` = today's behaviour. Both
+transcript scanned elsewhere classifies as `unknown`, never as dead -- a
+non-default --root forces it), and a host where the enumeration fails, or a
+process row cannot be dated, degrades to `unknown` = today's behaviour. Both
 defaults are the behaviour itself -- no flag to opt in.
 """
 
@@ -70,6 +71,7 @@ import http.client
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -196,6 +198,40 @@ _AUTO = object()  # "ask the host" -- distinct from None ("host cannot tell")
 STATE_VERSION = 1
 RETENTION_DAYS = 30
 DEFAULT_STATE_DIR = Path.home() / ".roo-state-manager" / "detect-approval-stalls"
+DEFAULT_PROJECTS_ROOT = Path.home() / ".claude" / "projects"
+
+
+def _norm_ps_fraction(value):
+    """PS `{0:o}` emits 7 fractional digits; fromisoformat on Python <= 3.10
+    accepts only 3 or 6, which silently dropped EVERY row (#4397 review pt 1).
+    Truncating to 6 makes the row readable on every Python."""
+    return re.sub(r"(\.\d{6})\d+", r"\1", value)
+
+
+def _windows_rows(stdout):
+    """Parse `pid|iso-started` rows from the PowerShell enumeration.
+
+    Returns the table, or None when a row could not be dated: an unreadable
+    row would read as "no live process" downstream and mass-classify waits
+    as dead (the module's own rule: enumeration failure is None, never []).
+    """
+    out = []
+    dropped = 0
+    for line in stdout.splitlines():
+        line = line.strip()
+        if "|" not in line:
+            continue
+        pid, started = line.split("|", 1)
+        ts = parse_ts(_norm_ps_fraction(started))
+        if ts is not None:
+            out.append({"pid": pid, "started": ts.timestamp()})
+        else:
+            dropped += 1
+    if dropped:
+        print(f"WARNING: {dropped} process row(s) with an unparseable start time "
+              f"-- liveness unknown, every wait keeps signalling", file=sys.stderr)
+        return None
+    return out
 
 
 def _windows_processes():
@@ -218,16 +254,7 @@ def _windows_processes():
     if proc.returncode != 0:
         raise OSError(f"process enumeration failed (rc={proc.returncode}): "
                       f"{proc.stderr.strip()[:200]}")
-    out = []
-    for line in proc.stdout.splitlines():
-        line = line.strip()
-        if "|" not in line:
-            continue
-        pid, started = line.split("|", 1)
-        ts = parse_ts(started)
-        if ts is not None:
-            out.append({"pid": pid, "started": ts.timestamp()})
-    return out
+    return _windows_rows(proc.stdout)
 
 
 def _posix_processes(now_ts):
@@ -237,6 +264,7 @@ def _posix_processes(now_ts):
     if proc.returncode != 0:
         raise OSError(f"ps failed (rc={proc.returncode})")
     out = []
+    dropped = 0
     for line in proc.stdout.splitlines():
         parts = line.split(None, 2)
         if len(parts) < 3:
@@ -247,7 +275,11 @@ def _posix_processes(now_ts):
         try:
             out.append({"pid": pid, "started": now_ts - float(etimes)})
         except ValueError:
-            continue
+            dropped += 1  # same rule as Windows: undatable row -> unknown, not []
+    if dropped:
+        print(f"WARNING: {dropped} process row(s) with an unparseable etime "
+              f"-- liveness unknown, every wait keeps signalling", file=sys.stderr)
+        return None
     return out
 
 
@@ -274,7 +306,14 @@ def live_claude_processes(now=None):
     """Live Claude processes on this host, or None when the host cannot tell."""
     override = os.environ.get("STALL_DETECTOR_LIVE_PROCESSES")
     if override is not None:
-        return _parse_process_override(override)
+        try:
+            return _parse_process_override(override)
+        except ValueError as exc:
+            # A malformed seam value used to crash every tick with exit 1
+            # (#4397 review, non-blocking): degrade like any unreadable table.
+            print(f"WARNING: bad STALL_DETECTOR_LIVE_PROCESSES ({exc}) -- "
+                  f"liveness unknown, every wait keeps signalling", file=sys.stderr)
+            return None
     now = now or now_utc()
     try:
         if os.name == "nt":
@@ -363,7 +402,20 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
     classifications (#4243 detector facet).
     """
     hook_index = _saw.load_hook_log([Path(hook_log)])[0] if hook_log else None
+    seam = os.environ.get("STALL_DETECTOR_LIVE_PROCESSES")
     processes = live_claude_processes() if live_procs is _AUTO else live_procs
+    if processes is not None and live_procs is _AUTO and seam is None and \
+            Path(root).resolve() != DEFAULT_PROJECTS_ROOT.resolve():
+        # #4397 review pt 2: this host's table proves death only for
+        # transcripts written on THIS host. A tree copied in (#4243
+        # forensics) carries foreign waits the local table knows nothing
+        # about -- unknown, never dead. An injected table (live_procs or the
+        # env seam) is the caller vouching for the pairing; None already
+        # means "cannot tell".
+        print("WARNING: scanning a non-default root with this host's process "
+              "table -- liveness unknown, every wait keeps signalling",
+              file=sys.stderr)
+        processes = None
     cutoff = now_utc().timestamp() - active_hours * 3600
     threshold_s = min_minutes * 60
 
@@ -815,6 +867,44 @@ def selftest():
             assert t_new["abandoned_process"] == 1, t_new     # t21 reported once
             assert [s["session"] for s in s_new] == ["dead-a"], s_new
 
+            # f) #4397 review pt 1: PS `{0:o}` emits 7 fractional digits and
+            #    fromisoformat on Python <= 3.10 reads only 3 or 6 -- unnormalised
+            #    rows were dropped SILENTLY, an empty table classified every wait
+            #    dead. A 7-digit row must survive (truncated to microseconds),
+            #    and a row that cannot be dated at all must degrade the table to
+            #    unknown, never [].
+            rows = _windows_rows(
+                "123|2026-10-28T04:41:59.1234567Z\n"
+                "456|2026-10-28T04:41:58.000000Z\n")
+            assert rows is not None and len(rows) == 2, rows
+            assert rows[0]["started"] == datetime(
+                2026, 10, 28, 4, 41, 59, 123456, tzinfo=timezone.utc).timestamp(), rows[0]
+            bad = _windows_rows("123|2026-10-28T04:41:59.1234567Z\n999|not-a-date\n")
+            assert bad is None, bad
+            assert liveness_of({"ts": iso(stalled_ts)}, bad) == "unknown"
+
+            # g) #4397 review pt 2: a root that is not this host's projects
+            #    tree is foreign (#4243 forensics copies) -- the host's own
+            #    table must not classify foreign waits dead. No seam here:
+            #    live_procs stays _AUTO so the REAL host table backs the
+            #    verdict, and whatever it says (alive, empty, or unreadable)
+            #    a foreign root forces unknown. Deterministic with the fix.
+            t_foreign, s_foreign = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                          state_dir=live_state)
+            assert t_foreign["waiting"] == 3, t_foreign  # t20a, t20b, t21 all live again
+            assert t_foreign["abandoned_process"] == 0, t_foreign
+            assert {s["state"] for s in s_foreign} == {"waiting-suspected"}, s_foreign
+
+            # h) #4397 review (non-blocking): a malformed seam value must not
+            #    crash the tick -- it degrades the table to unknown.
+            os.environ["STALL_DETECTOR_LIVE_PROCESSES"] = "12@notanumber"
+            try:
+                t_seam, _s_seam = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                         state_dir=live_state)
+                assert t_seam["waiting"] == 3 and t_seam["abandoned_process"] == 0, t_seam
+            finally:
+                del os.environ["STALL_DETECTOR_LIVE_PROCESSES"]
+
         # 10. Dashboard signal (#4243 attendu 3): waiting stalls reach the lane
         #     dashboard through the bots' JSON-RPC path -- initialize ->
         #     initialized -> tools/call, idempotent messageId, redacted content.
@@ -932,7 +1022,7 @@ def selftest():
 def main():
     parser = argparse.ArgumentParser(
         description="Detect sessions stalled on an approval wait (issue #4243, volet 3).")
-    parser.add_argument("--root", type=Path, default=Path.home() / ".claude" / "projects",
+    parser.add_argument("--root", type=Path, default=DEFAULT_PROJECTS_ROOT,
                         help="scan this directory recursively (default: ~/.claude/projects)")
     parser.add_argument("--min-minutes", type=float, default=10.0,
                         help="report stalls older than this many minutes (default: 10)")

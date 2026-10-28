@@ -146,6 +146,23 @@ class DetectApprovalStallsSelftest(unittest.TestCase):
                 self.assertFalse(os.path.exists(os.path.join(state, "classified.json")),
                                  "a live wait must never be classified as gone")
 
+    def test_cli_malformed_seam_degrades_to_unknown(self):
+        # #4397 review (non-blocking): a malformed STALL_DETECTOR_LIVE_PROCESSES
+        # used to crash every tick with exit 1. It must degrade the table to
+        # unknown instead: the wait keeps signalling (exit 2), never silent.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            _stalled_session(root)
+            proc = _run(root, state, "12@notanumber")
+            self.assertEqual(proc.returncode, 2,
+                             f"a malformed seam must degrade, not crash:\n"
+                             f"{proc.stdout}\n{proc.stderr}")
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["totals"]["waiting"], 1, payload)
+            self.assertEqual(payload["totals"]["abandoned_process"], 0, payload)
+            self.assertIn("STALL_DETECTOR_LIVE_PROCESSES", proc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
