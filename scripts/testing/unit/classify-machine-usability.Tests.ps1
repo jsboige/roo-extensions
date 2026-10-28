@@ -662,4 +662,203 @@ Describe 'classify-machine-usability (#4327)' {
             $res.Output | Should -Match 'does not contain a PSCredential'
         }
     }
+
+    Context 'RX122 review - etat local d incident, un post par incident, cross-post toujours' {
+        # Ces tests n observent pas la FORME du code : ils appellent la voie
+        # d alerte reelle avec un CLI RSM factice (le meme procede que
+        # embeddings-alert.Tests.ps1) et regardent ce qui PART.
+        BeforeAll {
+            $env:CLASSIFIER_LIB_ONLY = '1'
+            try { . $script:ClassifierPath } finally { Remove-Item Env:CLASSIFIER_LIB_ONLY -ErrorAction SilentlyContinue }
+
+            # --- CLI RSM factice ------------------------------------------------
+            # Get-RsmScriptsDir resout le repertoire du CLI par $env:RSM_SERVER_ROOT
+            # puis y cherche "scripts\rsm-dashboard-append.mjs". Sous pwsh/linux le
+            # backslash n est PAS un separateur : le fichier doit alors porter
+            # LUI-MEME un backslash dans son nom (exactement le chemin que voit la
+            # fonction). Les deux formes sont donc ecrites.
+            $script:IsWin = ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT)
+            $script:FakeRsmRoot = Join-Path $script:Tmp 'fake-rsm'
+            $script:FakeCliDir = Join-Path $script:FakeRsmRoot 'scripts'
+            New-Item -ItemType Directory -Path $script:FakeCliDir -Force | Out-Null
+            $script:CliLog = Join-Path $script:Tmp 'cli-argv.log'
+            $env:CLASSIFIER_TEST_CLI_LOG = $script:CliLog
+            $cliBody = @(
+                'import { appendFileSync, existsSync, writeFileSync } from "fs";',
+                'const argv = process.argv.slice(2);',
+                'appendFileSync(process.env.CLASSIFIER_TEST_CLI_LOG, JSON.stringify(argv) + "\n");',
+                'const once = process.env.CLASSIFIER_TEST_FAIL_ONCE_FILE;',
+                'if (once && argv.indexOf("workspace:Maintenance") >= 0 && !existsSync(once)) {',
+                '  writeFileSync(once, "failed-once");',
+                '  process.exit(1);',
+                '}',
+                'process.stdout.write(JSON.stringify({ ok: true, key: "machine-fake", messageId: "stub", pgSynced: false }));'
+            ) -join "`n"
+            [System.IO.File]::WriteAllText((Join-Path $script:FakeCliDir 'rsm-dashboard-append.mjs'), $cliBody, (New-Object System.Text.UTF8Encoding($false)))
+            if (-not $script:IsWin) {
+                [System.IO.File]::WriteAllText((Join-Path $script:FakeRsmRoot 'scripts\rsm-dashboard-append.mjs'), $cliBody, (New-Object System.Text.UTF8Encoding($false)))
+            }
+            $env:RSM_SERVER_ROOT = $script:FakeRsmRoot
+
+            # Repertoire partage factice : le repli fichier de l alerte ecrit
+            # dedans, jamais sur un vrai dashboard.
+            $script:FakeShared = Join-Path $script:Tmp 'fake-shared'
+            New-Item -ItemType Directory -Path (Join-Path $script:FakeShared 'dashboards') -Force | Out-Null
+
+            $script:RepoRoot = (Resolve-Path "$PSScriptRoot\..\..\..").Path
+            $script:PrevShared = $env:ROOSYNC_SHARED_PATH
+            $script:PrevRsmRoot = $env:RSM_SERVER_ROOT
+            $script:PrevStateDir = $env:CLASSIFIER_STATE_DIR
+            $env:ROOSYNC_SHARED_PATH = $script:FakeShared
+
+            # Trace des appels au CLI : le post primaire (--machine) et le
+            # cross-post (--dashboard workspace:Maintenance) sont distingues.
+            function Get-CliTrace {
+                $primary = @()
+                $cross = @()
+                if (Test-Path -LiteralPath $script:CliLog) {
+                    foreach ($line in @(Get-Content -LiteralPath $script:CliLog)) {
+                        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+                        $argv = @()
+                        # PS 5.1 ne dereference pas un tableau JSON de premier
+                        # niveau a l affectation : on enumere explicitement.
+                        foreach ($a in (ConvertFrom-Json $line)) { $argv += $a }
+                        if ($argv -contains '--machine') { $primary += ,$argv }
+                        elseif ($argv -contains '--dashboard') { $cross += ,$argv }
+                    }
+                }
+                return [PSCustomObject]@{ Primary = $primary; Cross = $cross }
+            }
+        }
+
+        AfterAll {
+            if ($null -eq $script:PrevShared) { Remove-Item Env:ROOSYNC_SHARED_PATH -ErrorAction SilentlyContinue } else { $env:ROOSYNC_SHARED_PATH = $script:PrevShared }
+            if ($null -eq $script:PrevRsmRoot) { Remove-Item Env:RSM_SERVER_ROOT -ErrorAction SilentlyContinue } else { $env:RSM_SERVER_ROOT = $script:PrevRsmRoot }
+            if ($null -eq $script:PrevStateDir) { Remove-Item Env:CLASSIFIER_STATE_DIR -ErrorAction SilentlyContinue } else { $env:CLASSIFIER_STATE_DIR = $script:PrevStateDir }
+            Remove-Item Env:CLASSIFIER_TEST_CLI_LOG -ErrorAction SilentlyContinue
+            Remove-Item Env:CLASSIFIER_TEST_FAIL_ONCE_FILE -ErrorAction SilentlyContinue
+        }
+
+        BeforeEach {
+            if (Test-Path -LiteralPath $script:CliLog) { Remove-Item -LiteralPath $script:CliLog -Force }
+            Remove-Item Env:CLASSIFIER_TEST_FAIL_ONCE_FILE -ErrorAction SilentlyContinue
+            $script:StateDir = Join-Path $script:Tmp ('state-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+            New-Item -ItemType Directory -Path $script:StateDir -Force | Out-Null
+            $env:CLASSIFIER_STATE_DIR = $script:StateDir
+        }
+
+        It 'ne poste qu UN primary sur deux tirs du meme incident, et cross-poste sur les DEUX' {
+            $id = 'classifier-4327-myia-po-2028-unusable-20261023T0745-20261023T0748'
+            $content = '[FLEET-ALERT] [CRITICAL] myia-po-2028 - reachable-but-unusable'
+            $null = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content $content -MessageId $id
+            $null = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content $content -MessageId $id
+
+            $trace = Get-CliTrace
+            $trace.Primary.Count | Should -Be 1 -Because 'un incident = un seul post sur le dashboard de la machine'
+            $trace.Cross.Count | Should -Be 2 -Because 'le cross-post part a CHAQUE tir, il est dedupe par le CLI sur --message-id'
+
+            $crossIds = @()
+            foreach ($argv in $trace.Cross) {
+                $i = [array]::IndexOf($argv, '--message-id')
+                $crossIds += $argv[$i + 1]
+            }
+            $crossIds[0] | Should -Be "$id-maint"
+            $crossIds[1] | Should -Be "$id-maint" -Because 'le meme id porte les deux tentatives : la ligne existe une fois sur le dashboard'
+
+            $statePath = Join-Path $script:StateDir 'classifier-incidents.json'
+            Test-Path -LiteralPath $statePath | Should -BeTrue -Because 'l incident annonce est memorise localement'
+            (Get-Content -LiteralPath $statePath -Raw) | Should -Match ([regex]::Escape($id))
+        }
+
+        It 'repose apres un verdict healthy, et repose sur un NOUVEAU burst (nouvel id)' {
+            $id1 = 'classifier-4327-myia-po-2028-unusable-20261023T0745-20261023T0748'
+            $id2 = 'classifier-4327-myia-po-2028-unusable-20261023T0745-20261023T0955'
+            $null = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c1' -MessageId $id1
+            (Get-CliTrace).Primary.Count | Should -Be 1
+
+            # Le verdict redevient healthy : l entree d incident est droppee
+            # (l etat dit "cet incident a ete annonce", pas "l historique de la flotte").
+            Update-ClassifierHealthyState -Results @([PSCustomObject]@{ machine = 'myia-po-2028'; verdict = 'healthy' })
+            $statePath = Join-Path $script:StateDir 'classifier-incidents.json'
+            (Get-Content -LiteralPath $statePath -Raw) | Should -Not -Match ([regex]::Escape($id1))
+
+            # MEME incident : il doit repartir, l etat ne dit plus rien.
+            $null = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c1b' -MessageId $id1
+            (Get-CliTrace).Primary.Count | Should -Be 2 -Because 'un wedge apres un retour a la sante est un incident a reannoncer'
+
+            # Nouvel incident (nouveau burst) : un post de plus.
+            $null = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c2' -MessageId $id2
+            (Get-CliTrace).Primary.Count | Should -Be 3 -Because 'un nouveau burst sur le meme boot est un nouvel incident'
+        }
+
+        It 'retente un cross-post qui a echoue (le meme id -maint repart au tir suivant)' {
+            $env:CLASSIFIER_TEST_FAIL_ONCE_FILE = Join-Path $script:Tmp 'cross-failed-once.marker'
+            $id = 'classifier-4327-myia-po-2028-unusable-20261023T0745-20261023T0748'
+            $first = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c' -MessageId $id
+            $second = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c' -MessageId $id
+
+            ($first -join "`n") | Should -Match 'Cross-post to workspace:Maintenance not written'
+            ($second -join "`n") | Should -Match 'Cross-posted to workspace:Maintenance'
+
+            $trace = Get-CliTrace
+            $trace.Cross.Count | Should -Be 2 -Because 'un cross-post rate est RETENTE au tir suivant : le skip l aurait perdu pour tout le wedge'
+            $trace.Primary.Count | Should -Be 1 -Because 'le cross-post ne touche pas au dedup du primary'
+        }
+
+        It 'poste malgre un etat d incident CORROMPU (jamais silencieux)' {
+            $statePath = Join-Path $script:StateDir 'classifier-incidents.json'
+            [System.IO.File]::WriteAllText($statePath, '{ ceci n est pas du json', (New-Object System.Text.UTF8Encoding($false)))
+            $out = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c' -MessageId 'classifier-4327-myia-po-2028-unusable-1'
+
+            ($out -join "`n") | Should -Match 'posting anyway' -Because 'un etat illisible est un fait sur l INSTRUMENT, pas sur la flotte'
+            (Get-CliTrace).Primary.Count | Should -Be 1 -Because 'le silence serait le pire des deux echecs'
+        }
+
+        It 'ne leve pas quand l ecriture de l etat echoue (le post reste, l etat est perdu)' {
+            # Le "repertoire" d etat est un FICHIEL : l ecriture atomique echoue.
+            $notADir = Join-Path $script:Tmp 'state-is-a-file'
+            [System.IO.File]::WriteAllText($notADir, 'x', (New-Object System.Text.UTF8Encoding($false)))
+            $env:CLASSIFIER_STATE_DIR = $notADir
+            $id = 'classifier-4327-myia-po-2028-unusable-20261023T0745'
+
+            $script:AlertOut = $null
+            { $script:AlertOut = Write-MachineDashboardAlert -TargetMachine 'myia-po-2028' -Content 'c' -MessageId $id } |
+                Should -Not -Throw
+            ($script:AlertOut -join "`n") | Should -Match 'state not saved' -Because 'l incident est perdu, pas le post'
+            (Get-CliTrace).Primary.Count | Should -Be 1 -Because 'le post part meme si l etat ne peut pas etre ecrit'
+        }
+
+        It 'refuse d installer quand le lanceur est resolu sous .claude\worktrees' {
+            # Le chemin du lanceur est derive de l emplacement DU SCRIPT : on copie
+            # l installeur dans une arborescence de worktree pour exercer le garde
+            # partout (le checkout principal n en est pas un).
+            $wtScripts = Join-Path $script:Tmp 'wtprobe\.claude\worktrees\wt-fake\scripts\scheduling'
+            New-Item -ItemType Directory -Path $wtScripts -Force | Out-Null
+            $installer = Join-Path $wtScripts 'install-usability-classifier-task.ps1'
+            Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'scripts\scheduling\install-usability-classifier-task.ps1') -Destination $installer -Force
+
+            $out = & $script:PsExe @script:PsBase -File $installer -DryRun 2>&1
+            $code = $LASTEXITCODE
+            $text = ($out -join "`n")
+
+            $code | Should -Be 1 -Because 'un VBS pointant dans un worktree effaceable est pire que pas de tache du tout'
+            $text | Should -Match 'REFUS'
+            $text | Should -Match 'worktree'
+            $text | Should -Match 'Relancer l''installation depuis le checkout principal' -Because 'un refus qui ne dit pas ou installer est un refus a moitié fait'
+        }
+
+        It 'refuse aussi depuis le checkout courant quand il EST lui-meme un worktree' {
+            if ($script:RepoRoot -notmatch '[\\/]\.claude[\\/]worktrees[\\/]') {
+                Set-ItResult -Skipped -Because 'le checkout courant n est pas un worktree : le garde est exerce par le cas copie'
+                return
+            }
+            $installer = Join-Path $script:RepoRoot 'scripts\scheduling\install-usability-classifier-task.ps1'
+            $out = & $script:PsExe @script:PsBase -File $installer -DryRun 2>&1
+            $code = $LASTEXITCODE
+            $text = ($out -join "`n")
+
+            $code | Should -Be 1
+            $text | Should -Match 'REFUS: le lanceur resolu vit dans un worktree git'
+        }
+    }
 }

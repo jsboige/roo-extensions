@@ -89,9 +89,15 @@ $vbsPath = Join-Path $LauncherDir ("{0}.vbs" -f $taskName)
 if ($launcherPath -match '[\\/]\.claude[\\/]worktrees[\\/]') {
     $mainCheckout = $null
     try {
-        # A linked worktree resolves to the main checkout's .git common dir.
+        # A linked worktree resolves to the main checkout's .git common dir;
+        # the main checkout is its DIRECT parent (one Split-Path too many
+        # named "D:\" instead of "D:\roo-extensions", measured 28/10).
         $commonDir = & git -C $scriptDir rev-parse --git-common-dir 2>$null
-        if ($commonDir) { $mainCheckout = Split-Path (Split-Path $commonDir -Parent) -Parent }
+        if ($commonDir) {
+            $commonDir = ([string]$commonDir).Trim()
+            if (-not [System.IO.Path]::IsPathRooted($commonDir)) { $commonDir = Join-Path $scriptDir $commonDir }
+            $mainCheckout = [System.IO.Path]::GetFullPath((Split-Path $commonDir -Parent))
+        }
     } catch { }
     if (-not $mainCheckout) { $mainCheckout = 'D:\roo-extensions' }
     Write-Host "REFUS: le lanceur resolu vit dans un worktree git : $launcherPath" -ForegroundColor Red

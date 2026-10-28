@@ -1008,7 +1008,7 @@ function Update-ClassifierHealthyState {
 }
 
 function Write-MachineDashboardAlert {
-    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content, [Parameter(Mandatory)][string]$MessageId, [string]$StateDir = ""]
+    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content, [Parameter(Mandatory)][string]$MessageId, [string]$StateDir = "")
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     if ([string]::IsNullOrEmpty($sharedPath)) {
         Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set - alert on stdout only (no dashboard write)."
@@ -1088,6 +1088,7 @@ function Write-MachineDashboardAlert {
             & $script:ClassifierRecordIncident $statePath $target $MessageId $state
         } catch {
             Write-Output "[FLEET-ALERT] Dashboard write failed (best-effort): $($_.Exception.Message)"
+        }
         }
     }
 
