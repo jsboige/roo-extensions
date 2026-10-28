@@ -263,10 +263,11 @@ Sonde à réponse connue pour la recherche sémantique : **indexe une session co
 - **Résolution de session** via `conversation_browser(list)` — fenêtre 24 h et 10 Ko-2 Mo (au-delà, l'indexation synchrone risque le timeout outil 300 s, trou g3) ; **jamais de lecture directe du JSONL** (#1785).
 - **`source: "claude-code"` obligatoire à l'indexation** : le défaut du service est `roo`, qui résout `<location>/tasks/<id>` — un **répertoire** de tâche. Une session Claude Code est un `.jsonl` plat, résolu par l'autre branche : sans ce champ l'indexation échoue à coup sûr (« Task directory for '…' not found in any storage location », mesuré 28/10 sur 3 candidats). La sonde le déduit de `source` au listing.
 - **Borne dure 300 s nommée, pas subie** : au-delà de la taille, `roosync_indexing` rend `-32603 « timed out after 300s »` — le transport MCP coupe **avant** toute réponse d'indexation. La sonde étiquette l'essai `[g3: indexation SYNCHRONE bornée à 300 s]` et propose `--task-id` sur une session plus petite, au lieu de rendre « instrument en panne ».
-- **Extraction de phrase** distinctive par balayage inversé (contenu tardif = plus spécifique), filtres anti-secrets (`API_KEY`, `sk-`, `ghp_`, `BEGIN … PRIVATE`…) et anti-bruit non sémantique (lignes d'outil, markdown lourd).
+- **Extraction de phrase** distinctive par balayage inversé (contenu tardif = plus spécifique) sur l'**arbre texte multi-lignes** du `view` (`detail_level: "summary"` — le vocabulaire de `view` est `skeleton|summary|full` SEULEMENT, garde #3187 ; « Compact » appartient à `summarize`), filtres anti-secrets (`API_KEY`, `sk-`, `ghp_`, `BEGIN … PRIVATE`…) et anti-bruit non sémantique (lignes d'outil, markdown lourd, **préfixes d'erreur serveur** `Erreur:`/`Error:` — un message d'erreur fait 60-240 caractères et passe toutes les autres bornes, il ne doit jamais devenir la phrase de sonde, review #4398).
+- **Erreurs serveur rendues en contenu** (`isError: true`, pas d'erreur JSON-RPC) : `call_tool` lève systématiquement — sans cette garde le texte d'erreur deviendrait une donnée de sonde (mesuré par Hermes, review #4398 : la sonde continuait vers VERIFY avec le message d'erreur comme requête sémantique).
 - **Transport autonome** : spawn d'un enfant RSM en stdio (JSON-RPC), entrée résolue via `build-current` — aucun état de session hôte n'est supposé, la sonde marche depuis un checkout quelconque avec `--rsm-dir`.
 - **Résultats d'outil parsés depuis le JSON pretty-printé embarqué** dans `content[0].text` (première `{` à dernière `}`), avec trailers `[NOTIF]`/timing tolérés — le piège qui a fait échouer la sonde §1.4 de #4131 deux fois avant correction.
-- **Fail-closed** : réponse non parsable, indexation en échec ou enfant muet = exit 2 (erreur d'instrument), jamais un FAIL silencieux ; le selftest hors ligne couvre phrase, parsing et rang top-5.
+- **Fail-closed** : réponse non parsable, indexation en échec ou enfant muet = exit 2 (erreur d'instrument), jamais un FAIL silencieux ; le selftest hors ligne couvre phrase, rejet erreur-comme-phrase, vocabulaire + arguments du `view`, parsing, rang top-5, timeout d'enfant muet et contenu `isError`.
 
 ```bash
 # Auto-contrôle local (index + verify sur le même siège)
@@ -281,7 +282,7 @@ python scripts/diagnostic/probe-semantic-known-answer.py --verify \
 python scripts/diagnostic/probe-semantic-known-answer.py --selftest   # fixtures hors ligne
 ```
 
-Exit codes : 0 PASS (top 5 atteint) / 1 FAIL (sonde saine, critère non tenu) / 2 erreur d'instrument.
+Exit codes : 0 PASS (top 5 atteint) **ou INDEXED** (phase `--index` seule réussie — un wrapper qui enchaine A puis B ne doit pas s'arrêter après A, review #4398) / 1 FAIL (sonde saine, critère non tenu — phase verify) / 2 erreur d'instrument.
 
 ## Compteurs mémoire
 

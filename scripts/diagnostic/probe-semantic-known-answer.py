@@ -40,7 +40,8 @@ Usage:
     python probe-semantic-known-answer.py --json              # sortie machine
     python probe-semantic-known-answer.py --selftest          # fixtures hors ligne
 
-Exit codes: 0 = PASS (top 5 atteint) · 1 = FAIL (sonde saine, critere non tenu)
+Exit codes: 0 = PASS (top 5 atteint) ou INDEXED (phase --index seule reussie)
+            1 = FAIL (sonde saine, critere non tenu — phase verify seule concernee)
             2 = erreur d'instrument (enfant MCP, parsing, indexation en echec).
 
 Limite mesuree (28/10, myia-web1) : le listing ne rend que les 50 sessions les
@@ -85,6 +86,14 @@ SECRET_MARKERS = re.compile(
 )
 INIT_TIMEOUT_S = 90
 CALL_TIMEOUT_S = {"fast": 90, "index": 320, "search": 120}
+
+# Vocabulaire de `view` : skeleton|summary|full SEULEMENT (conversation-browser.ts
+# refuse toute autre valeur, garde #3187). "Compact" appartient au vocabulaire de
+# `summarize` (detailLevel) — l'avoir envoye a `view` tuait la sonde au premier run
+# ou l'indexation reussissait (review #4398, bloquant 1). Le selftest verifie le
+# drift hors ligne.
+VIEW_DETAIL_LEVELS = ("skeleton", "summary", "full")
+VIEW_DETAIL_LEVEL = "summary"
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +177,17 @@ class McpChild:
 
     def call_tool(self, name: str, args: dict, timeout_s: float) -> str:
         result = self.rpc("tools/call", {"name": name, "arguments": args}, timeout_s)
-        return "".join(c.get("text", "") for c in result.get("content", []))
+        parts: list[str] = []
+        for c in result.get("content", []):
+            if c.get("isError"):
+                # Erreur serveur rendue en CONTENU, pas en erreur JSON-RPC (mesure
+                # Hermes, review #4398 : l'invalidite "detail_level" revient ainsi).
+                # Sans cette garde, le texte d'erreur devient une donnee de sonde —
+                # p.ex. la phrase de VERIFY, exactement la classe masked-error que
+                # #4352 traque.
+                raise RuntimeError(f"{name}: {(c.get('text') or '')[:200]}")
+            parts.append(c.get("text", ""))
+        return "".join(parts)
 
     def close(self) -> None:
         try:
@@ -257,7 +276,10 @@ def candidate_sessions(child: McpChild, task_id: str | None) -> list[tuple[str, 
         if not (SIZE_MIN_BYTES <= size <= SIZE_MAX_BYTES):
             continue
         created = meta.get("createdAt") or ""
-        ts = created and time.mktime(time.strptime(created[:19], "%Y-%m-%dT%H:%M:%S"))
+        try:
+            ts = created and time.mktime(time.strptime(created[:19], "%Y-%m-%dT%H:%M:%S"))
+        except ValueError:
+            ts = 0  # format inattendu : ecarte la ligne, n'arrete pas la sonde (review #4398)
         if ts and (now - ts) > RECENCY_HOURS * 3600:
             # plus de 24 h depuis la CREATION n'exclut pas une session active recemment,
             # mais le critere vise une session des dernieres 24 h : on filtre sur createdAt
@@ -287,7 +309,11 @@ def pick_phrase(text: str) -> str:
             continue
         if SECRET_MARKERS.search(ln):
             continue
-        if ln.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [")):
+        # Prefixes d'erreur serveur : un message d'erreur fait 60-240 caracteres et
+        # passe toutes les autres bornes — il ne doit JAMAIS devenir la phrase de
+        # sonde (durcissement Hermes, review #4398).
+        if ln.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
+                          "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
             continue
         if ln.count('"') > 6 or ln.count("{") + ln.count("}") > 2:
             continue
@@ -351,12 +377,15 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
 
         view_raw = child.call_tool(
             "conversation_browser",
-            {"action": "view", "task_id": cand_id, "detail_level": "Compact",
+            {"action": "view", "task_id": cand_id, "detail_level": VIEW_DETAIL_LEVEL,
              "smart_truncation": True, "max_output_length": 30000},
             CALL_TIMEOUT_S["fast"],
         )
-        view = parse_embedded_json(view_raw)
-        body = json.dumps(view, ensure_ascii=False) if view else view_raw
+        # `view` rend un ARBRE TEXTE multi-lignes (markdown), pas un JSON embarque :
+        # pick_phrase balaye les lignes du contenu reel. Un json.dumps ferait UNE
+        # ligne unique, rejetee par les bornes par ligne (note convergente ai-01 +
+        # Hermes, review #4398).
+        body = view_raw
         out["task_id"] = cand_id
         out["session"] = {
             "size": conv.get("metadata", {}).get("totalSize"),
@@ -425,6 +454,25 @@ def selftest() -> int:
     if got != want:
         failures.append(f"pick_phrase: {got!r}")
 
+    # pick_phrase : un TEXTE D'ERREUR serveur ne doit jamais devenir la phrase de
+    # sonde — il fait 60-240 caracteres et passe toutes les autres bornes. Releve
+    # Hermes (review #4398) : sans exclusion, la sonde continuait vers VERIFY avec
+    # le message d'erreur comme requete semantique. Doit echouer bruyamment.
+    err_view_raw = (
+        'Erreur: Valeur invalide pour "detail_level" : "Compact". '
+        "Valeurs acceptées : skeleton, summary, full."
+    )
+    try:
+        pick_phrase(err_view_raw)
+        failures.append("pick_phrase: un texte d'erreur a ete retenu comme phrase")
+    except RuntimeError:
+        pass
+
+    # vocabulaire `view` : drift hors ligne (bloquant 1, review #4398 — "Compact"
+    # appartient au vocabulaire de summarize, pas de view)
+    if VIEW_DETAIL_LEVEL not in VIEW_DETAIL_LEVELS:
+        failures.append(f"VIEW_DETAIL_LEVEL {VIEW_DETAIL_LEVEL!r} hors vocabulaire view {VIEW_DETAIL_LEVELS}")
+
     # parse_embedded_json : payload pretty-printe + trailers NOTIF/timing
     wrapped = (
         "bla\n{\n  \"success\": true,\n  \"results\": [\n    {\"taskId\": \"claude-x--u1\", \"best_score\": 0.7}\n  ]\n}\n"
@@ -453,6 +501,80 @@ def selftest() -> int:
     if phase_verify(FakeChild(), "claude-x--absent", "peu importe", out) or out["rank"] is not None:
         failures.append(f"verify miss: rank={out.get('rank')}")
 
+    # phase_index end-to-end sur un enfant simule : le view doit porter le bon
+    # detail_level (assertion sur les ARGUMENTS envoyes — bloquant 1, review #4398 :
+    # le selftest ne couvrait pas cette ligne) et la phrase vient de l'arbre texte
+    # multi-lignes du view, pas d'un dump mono-ligne.
+    class IndexFakeChild:
+        def __init__(self):
+            self.calls: list[tuple[str, dict]] = []
+
+        def call_tool(self, name, args, timeout_s):
+            self.calls.append((name, args))
+            if args.get("action") == "list":
+                now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+                return json.dumps({"conversations": [{
+                    "taskId": "claude-x--u1", "source": "claude",
+                    "metadata": {"totalSize": 50000, "createdAt": now,
+                                 "messageCount": 12, "machineId": socket.gethostname()},
+                }]}, indent=2)
+            if name == "roosync_indexing":
+                return json.dumps({"success": True, "points": 42}, indent=2)
+            if args.get("action") == "view":
+                return (
+                    "## Session\n\nTool call: Bash\n\n"
+                    "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.\n"
+                )
+            raise AssertionError(f"appel inattendu: {name} {args}")
+
+    fake = IndexFakeChild()
+    idx_out: dict = {}
+    phase_index(fake, None, idx_out)
+    view_args = [a for n, a in fake.calls if n == "conversation_browser" and a.get("action") == "view"]
+    if not view_args:
+        failures.append("phase_index: aucun view emis")
+    else:
+        va = view_args[0]
+        if va.get("detail_level") != VIEW_DETAIL_LEVEL or va.get("detail_level") not in VIEW_DETAIL_LEVELS:
+            failures.append(f"phase_index: view detail_level={va.get('detail_level')!r}")
+        if va.get("task_id") != "claude-x--u1":
+            failures.append(f"phase_index: view task_id={va.get('task_id')!r}")
+    if idx_out.get("phrase") != want:
+        failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
+    if (idx_out.get("index") or {}).get("success") is not True:
+        failures.append(f"phase_index: index={idx_out.get('index')!r}")
+
+    # call_tool : une erreur serveur rendue en CONTENU (isError:true, pas d'erreur
+    # JSON-RPC) doit lever — sinon le texte d'erreur devient une donnee de sonde
+    # (mesure Hermes, review #4398).
+    err_child = McpChild.__new__(McpChild)
+    err_child._next_id = 1
+
+    class _Stdin:
+        def write(self, _s):
+            pass
+
+        def flush(self):
+            pass
+
+    class _Proc:
+        stdin = _Stdin()
+
+    err_child.proc = _Proc()
+    err_child._read_message = lambda _t: {
+        "id": 1,
+        "result": {"content": [{
+            "type": "text",
+            "text": 'Erreur: Valeur invalide pour "detail_level" : "Compact". Valeurs acceptées : skeleton, summary, full.',
+            "isError": True,
+        }]},
+    }
+    try:
+        err_child.call_tool("conversation_browser", {}, 5)
+        failures.append("call_tool: contenu isError n'a pas leve RuntimeError")
+    except RuntimeError:
+        pass
+
     # McpChild : un enfant MUET doit rendre la main dans le delai (regression du
     # 27/10 — un readline bloquant figeait la sonde pour toujours, deadline jamais
     # atteinte puisque le read ne rend jamais la main sur un flux silencieux).
@@ -473,7 +595,8 @@ def selftest() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("[SELFTEST] PASS (phrase, parsing pretty-printe, rang top-5, timeout enfant muet)")
+    print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, vocabulaire view, "
+          "args du view, parsing pretty-printe, rang top-5, timeout enfant muet, isError)")
     return 0
 
 
@@ -523,8 +646,16 @@ def main() -> int:
             task_id = args.task_id or out["task_id"]
             out["pass"] = phase_verify(child, task_id, phrase, out)
 
-        verdict = out.get("pass")
-        out["verdict"] = "PASS" if verdict else "FAIL"
+        # Phase A seule : RIEN n'a ete verifie — l'indexation a reussi (sinon
+        # exception => exit 2), le verdict est INDEXED et le code de sortie 0, pour
+        # qu'un wrapper qui enchaine A puis B ne s'arrete pas apres A (bloquant 2,
+        # review #4398 : un FAIL/exit 1 ici cassait la chaine cross-siege).
+        if do_verify:
+            out["verdict"] = "PASS" if out.get("pass") else "FAIL"
+            exit_code = 0 if out.get("pass") else 1
+        else:
+            out["verdict"] = "INDEXED"
+            exit_code = 0
         if args.json:
             print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         else:
@@ -535,7 +666,7 @@ def main() -> int:
                 print(f"[rank] {out['rank']} (top {MAX_RESULTS}) — machines vues : "
                       f"{out.get('search', {}).get('machines_found')}")
             print(f"[VERDICT] {out['verdict']}")
-        return 0 if verdict else 1
+        return exit_code
     except (TimeoutError, RuntimeError, FileNotFoundError, OSError, json.JSONDecodeError) as exc:
         out["error"] = str(exc)
         out["verdict"] = "INSTRUMENT_ERROR"
