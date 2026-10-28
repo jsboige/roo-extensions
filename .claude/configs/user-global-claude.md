@@ -86,6 +86,7 @@ Le registre porte les questions **agent -> user**. Quand **le user** ouvre un ec
 - **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (faux skew cross-clock). UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
 - **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j).
 - **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
+- **Build lourd en VM WSL (`lake build`, `lean`) = scope borne, toujours** (mandat user 29/10 : « je ne veux plus jamais que des builds lean nous fassent perdre une machine pendant toute une journee ») : `wsl -d Ubuntu -u root -- systemd-run --scope -q -p MemoryMax=<borne> -p MemorySwapMax=<borne> --uid=<user> --gid=<user> -- env HOME=/home/<user> bash -lc '...'`, parallelisme bride. Sans borne, `lean` vide toute la VM, le noyau tue les jobs CI a sa place, et Docker Desktop perd son reseau : machine perdue (po-2024, 4 reboots le 28/10). `free` ne temoigne pas d'un OOM par swap, le journal noyau tranche. [Detail](../../docs/harness/global-rules-detail.md#build-lourd-en-vm-wsl--scope-borne)
 
 ## MCP Tools
 

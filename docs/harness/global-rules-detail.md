@@ -480,6 +480,38 @@ La règle du 08/10 supposait **deux instances** (deux fenêtres) d'une même lan
 
 ---
 
+## Build lourd en VM WSL — scope borne
+
+**Mandat user du 29/10 (~00:45, session po-2024:CoursIA, verbatim) :** « Bon ça sera à remonter bien haut dans les gardes de toute la flotte, je ne veux plus jamais que des builds lean nous fassent perdre une machine pendant toute une journée. »
+
+**Incident fondateur (po-2024, 28/10, diagnostic mesuré par myia-po-2024:Maintenance dans le journal noyau Ubuntu) :**
+- **Le build sans borne** : `lake build` du projet `conway_lean`, lancé par `wsl.exe -e bash -lc '… lake build'`. Au dump OOM de 18:34, 5 processus `lean` (dans `/init.scope`) occupaient 21 Go RSS + 31,3 Go de swap, c'est-à-dire la VM entière (24 Go RAM + 32 Go swap, `Free swap = 0kB`).
+- **Le noyau a tué les mauvais processus.** Les jobs GitHub Actions portent `oom_score_adj=500` : il a tué des `python`/`bash` CI de 0,1 à 70 Mo. `lean` (adj 0) a survécu, et la VM est restée en OOM permanent.
+- **Docker Desktop est tombé avec.** Il partage le noyau : ses allocations ont échoué (`page allocation failure`, pile 9p), le moteur a perdu son réseau, puis le hub et toutes les lanes de la machine sont morts.
+- **Seul un reboot libérait la mémoire** : 4 reboots en 24 h. Aucune relance Docker ne pouvait réussir, puisque `wsl-bootstrap` lui-même déclenchait l'OOM.
+
+**Recette testée** (po-2024:Maintenance, 28/10) :
+
+```bash
+wsl -d Ubuntu -u root -- systemd-run --scope -q -p MemoryMax=12G -p MemorySwapMax=4G \
+  --uid=<user> --gid=<user> -- env HOME=/home/<user> bash -lc 'cd <projet> && lake build'
+```
+
+- **Débordement :** il tue le build dans son scope, jamais la VM.
+- **Les bornes** s'adaptent au siège : 12G/4G est la valeur de po-2024.
+- **Le parallélisme** est bridé (nombre de jobs `lake`, `taskset`) et les reprises sont plafonnées. Un SIGTERM signifie une borne atteinte, pas une panne à relancer en boucle.
+- **Les sources sous ext4** plutôt que lues via 9p (fichiers côté Windows) : moins d'allocations noyau.
+
+**Filet côté Maintenance**, posé sur po-2024 et à répliquer sur les sièges WSL qui compilent du Lean :
+- `earlyoom` avec `--prefer ^lean$` ;
+- `lean-oom-bias.service`, qui met `oom_score_adj=1000` sur chaque `lean`.
+
+Ces deux gardes visent `lean` en premier, mais ne remplacent pas le scope borné. Rollback : `systemctl disable --now earlyoom lean-oom-bias`.
+
+**Mesurer, pas supposer :** `free` ne témoigne pas d'un OOM par swap. Le journal noyau tranche (`journalctl -k`, dumps `Out of memory`).
+
+---
+
 ## SDDD — protocole complet
 
 **(Déplacé depuis `rules/sddd-protocol.md`, supprimé coupe A-suite #445, 17/10/2026 — la section SDDD du `~/.claude/CLAUDE.md` global porte désormais la règle en 4 lignes.)**
