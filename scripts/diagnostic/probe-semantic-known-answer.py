@@ -14,7 +14,12 @@ Deux phases, deux sieges :
        (fenetre : dernieres 24 h, taille 10 Ko-2 Mo — au-dela, l'indexation
        synchrone peut mourir au timeout outil 300 s, trou #4352 g3) ;
     2. extrait une PHRASE distinctives du contenu reel via conversation_browser(view)
-       — jamais une lecture directe du JSONL (#1785) ;
+       — jamais une lecture directe du JSONL (#1785) ; la phrase refuse les
+       sorties d'outil GENERIQUES (le succes standard d'un append de dashboard,
+       les en-tetes gras) et doit etre RARE : une recherche texte ne la retrouve
+       que dans <= 1 session (la cible). Mesure ai-01 28/10 (file 20261028i) :
+       un verify sur « Message ajouté au dashboard '…' » FAIL sans rien mesurer
+       — cette ligne vit dans des centaines de sessions ;
     3. indexe la session via roosync_indexing(action:"index", task_id,
        source:"claude-code", queued:false) — le defaut 'roo' resout un repertoire de
        tache et echoue sur un .jsonl ; et depuis g3 le defaut d'indexation MET EN
@@ -95,6 +100,13 @@ MAX_RESULTS = 5                  # critere 4 : « ranks in the top 5 »
 INDEX_ATTEMPTS = 3               # candidats tentes avant de declarer l'instrument en echec
 PHRASE_MIN_CHARS = 60
 PHRASE_MAX_CHARS = 240
+# RARETE de la phrase (file 20261028i, ai-01 28/10) : le verify live a FAIL sur
+# « Message ajouté au dashboard 'workspace-roo-extensions' » — la ligne de succes
+# standard de CHAQUE append, presente dans des centaines de sessions. Un FAIL la-
+# dessus ne mesure pas l'index. Une phrase que la recherche texte retrouve au-dela
+# de MAX_PHRASE_SPREAD_SESSIONS n'est pas discriminante et est ecartee.
+MAX_PHRASE_SPREAD_SESSIONS = 1
+PHRASE_SPREAD_MAX_TRIES = 5          # candidates evaluees avant d'abandonner
 SECRET_MARKERS = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|bearer|sk-[a-zA-Z0-9]|ghp_[a-zA-Z0-9]"
     r"|BEGIN [A-Z ]+PRIVATE|AKIA[0-9A-Z]{16}|-----)",
@@ -418,15 +430,23 @@ _RENDERER_LINE_MARKERS = (
     "▶", "====",                 # en-tete de tache / separateurs
 )
 
+# Sorties d'OUTIL generiques : presentes dans presque toute session ayant appele
+# l'outil (ligne de succes d'un append de dashboard, en-tetes de boite). Choisir
+# une phrase la echoue le verify SANS mesurer l'index (mesure ai-01 28/10 : FAIL
+# sur « Message ajouté au dashboard 'workspace-roo-extensions' », file 20261028i).
+# La rarete mesuree (pick_rare_phrase) attrape le reste de la famille.
+_GENERIC_TOOL_OUTPUT_MARKERS = (
+    "Message ajouté au dashboard",                    # roosync_dashboard append
+    "Message envoyé", "Réponse envoyée",              # roosync_messages send/reply
+    "Message marqué comme lu",                        # roosync_messages mark_read
+    "Actions disponibles", "Boîte de Réception",      # en-tetes de rendu inbox
+)
 
-def pick_phrase(text: str) -> str:
-    """Phrase distinctive, balayee depuis la fin (contenu tardif = plus specifique).
 
-    Regles : longueur PHRASE_MIN..PHRASE_MAX, pas de marqueur de secret, pas de
-    ligne de commande/outil NI du renderer (bruit non semantique, absent de
-    l'index tel quel), pas de markdown lourd. Le prefixe de rendu `| ` est retire
-    AVANT les filtres : le `|` doit rejeter les tableaux markdown, pas la prose.
-    """
+def _phrase_candidates(text: str):
+    """Lignes candidates de la phrase, de la FIN vers le debut (contenu tardif =
+    plus specifique). Filtres de pick_phrase, en generateur pour que la rarete
+    mesuree (pick_rare_phrase) puisse passer a la candidate suivante."""
     for raw in reversed(text.splitlines()):
         ln = raw.strip()
         if ln.startswith(_RENDER_PREFIX):
@@ -443,10 +463,81 @@ def pick_phrase(text: str) -> str:
             continue
         if any(ln.startswith(m) for m in _RENDERER_LINE_MARKERS):
             continue
+        # Sorties d'outil generiques + en-tetes gras (`**Tâche:**`, `**Status**`,
+        # `**📋 Aperçu…`) : metadata de rendu, pas de la prose de session. Mesure
+        # ai-01 28/10 (file 20261028i) : sans cela, le verify FAIL sur la ligne de
+        # succes standard d'un append de dashboard — sans rien mesurer.
+        if any(ln.startswith(m) for m in _GENERIC_TOOL_OUTPUT_MARKERS):
+            continue
+        if ln.startswith("**"):
+            continue
         if ln.count('"') > 6 or ln.count("{") + ln.count("}") > 2:
             continue
+        yield ln
+
+
+def pick_phrase(text: str) -> str:
+    """Phrase distinctive, balayee depuis la fin (contenu tardif = plus specifique).
+
+    Regles : longueur PHRASE_MIN..PHRASE_MAX, pas de marqueur de secret, pas de
+    ligne de commande/outil, NI du renderer (bruit non semantique, absent de
+    l'index tel quel), NI de sortie d'outil generique / en-tete gras, pas de
+    markdown lourd. Le prefixe de rendu `| ` est retire AVANT les filtres : le
+    `|` doit rejeter les tableaux markdown, pas la prose.
+    """
+    for ln in _phrase_candidates(text):
         return ln
     raise RuntimeError("aucune phrase candidate extraite de la session (contenu trop pauvre)")
+
+
+def phrase_session_spread(child, phrase: str) -> int:
+    """Nombre de sessions ou la recherche TEXTE retrouve la phrase.
+
+    Instrument de rarete (file 20261028i). Mode texte VOLONTAIRE : on mesure une
+    presence litterale, pas une proximite semantique. Payload releve en vrai le
+    28/10 : les lignes retournees sont PLAFONNEES par max_results et le vrai
+    total vit dans `totalFound` (« Results capped from 954 to 3 ») — compter les
+    seules lignes rendues sous-estimerait la banalite d'une phrase.
+    """
+    raw = child.call_tool(
+        "roosync_search",
+        {"action": "text", "search_query": phrase, "max_results": 20},
+        CALL_TIMEOUT_S["search"],
+    )
+    payload = parse_embedded_json(raw)
+    if payload is None or not isinstance(payload.get("results"), list):
+        raise RuntimeError("reponse roosync_search(text) non parsable — spread non mesurable")
+    tasks = {r.get("taskId") for r in payload["results"] if isinstance(r, dict) and r.get("taskId")}
+    total = payload.get("totalFound")
+    try:
+        total = int(total) if total is not None else 0
+    except (TypeError, ValueError):
+        total = 0
+    # totalFound compte des MATCHES (des chunks d'une meme session comptent
+    # plusieurs fois) : borne superieure conservatrice du nombre de sessions.
+    return max(len(tasks), total)
+
+
+def pick_rare_phrase(text: str, spread_fn) -> str:
+    """Premiere candidate retrouvee dans <= MAX_PHRASE_SPREAD_SESSIONS session(s).
+
+    spread 0 (phrase introuvable — l'indexation a pu echouer silencieusement)
+    est ACCEPTE : c'est le verify qui tranchera, pour de vrai cette fois. La
+    rejeter ici masquerait un vrai echec d'indexation derriere un filtre.
+    """
+    tried = []
+    for ln in _phrase_candidates(text):
+        if len(tried) >= PHRASE_SPREAD_MAX_TRIES:
+            break
+        spread = spread_fn(ln)
+        tried.append((ln, spread))
+        if spread <= MAX_PHRASE_SPREAD_SESSIONS:
+            return ln
+    detail = "; ".join(f"{spread} session(s) : {ln[:60]}…" for ln, spread in tried)
+    raise RuntimeError(
+        f"aucune phrase discriminante ({len(tried)} candidate(s) a plus de "
+        f"{MAX_PHRASE_SPREAD_SESSIONS} session(s)) — {detail}"
+    )
 
 
 def index_source(conv: dict) -> str:
@@ -526,7 +617,12 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
             # embarque : pick_phrase balaye les lignes du contenu reel. Un
             # json.dumps ferait UNE ligne unique, rejetee par les bornes par ligne
             # (note convergente ai-01 + Hermes, review #4398).
-            phrase = pick_phrase(view_raw)
+            # RARETE mesuree (file 20261028i) : une ligne generique (le succes
+            # standard d'un append de dashboard) echoue le verify sans rien
+            # mesurer — la phrase doit vivre dans <= 1 session, la cible.
+            phrase = pick_rare_phrase(
+                view_raw, lambda p: phrase_session_spread(child, p)
+            )
         except RuntimeError as exc:
             # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le transport
             # MCP coupe a 300 s AVANT la fin du travail serveur. C'est un echec
@@ -691,6 +787,46 @@ def selftest() -> int:
     if pick_phrase("\n".join(rendered.splitlines()[2:6])) != want_rendered:
         failures.append("pick_phrase: prose prefixee seule non extraite")
 
+    # pick_phrase : sorties d'outil GENERIQUES refusees (file 20261028i). Le FAIL
+    # de production mesurait « Message ajouté au dashboard 'workspace-roo-extensions' »,
+    # la ligne de succes standard de CHAQUE append : elle ne prouve rien sur
+    # l'index. Les en-tetes gras (`**Tâche:**`) sont de la metadata de rendu.
+    generic = "\n".join([
+        "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+        "Message ajouté au dashboard 'workspace-roo-extensions' [split en 2 parts]",
+        "**Tâche:** claude-x--u1 -- entete de resultat pas plus longue que ca pour rester dans les bornes.",
+    ])
+    got_generic = pick_phrase(generic)
+    if got_generic != "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.":
+        failures.append(f"pick_phrase generique: {got_generic!r}")
+
+    # pick_rare_phrase : la rareté tranche là où les filtres statiques ne voient
+    # rien. La ligne tardive (derniere => premiere scannée) n'est PAS statiquement
+    # generique mais vit dans 3 sessions : ecartee. La prose plus ancienne, elle,
+    # n'est que dans la cible : retenue.
+    late_multi = "Total : 140 messages, 2 non lus, 138 lus — aucune action requise de ce cycle present."
+    def _fake_spread(p: str) -> int:
+        return 3 if p == late_multi else 1
+
+    rare_body = "\n".join([
+        "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
+        late_multi,
+    ])
+    got_rare = pick_rare_phrase(rare_body, _fake_spread)
+    if got_rare != "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.":
+        failures.append(f"pick_rare_phrase: {got_rare!r}")
+    # spread 0 = phrase introuvable : ACCEPTE (l'indexation a pu echouer — c'est
+    # le verify qui doit le voir, pas ce filtre).
+    if pick_rare_phrase(rare_body, lambda p: 0) != late_multi:
+        failures.append("pick_rare_phrase: spread 0 doit etre accepte — verify tranche")
+    # Tout generique => echec BRUYANT qui dit les compteurs.
+    try:
+        pick_rare_phrase(late_multi, lambda p: 7)
+        failures.append("pick_rare_phrase: une phrase a 7 sessions a ete retenue")
+    except RuntimeError as exc:
+        if "7 session(s)" not in str(exc):
+            failures.append(f"pick_rare_phrase: compte absent du message: {exc}")
+
     # vocabulaire `view` : drift hors ligne (bloquant 1, review #4398 — "Compact"
     # appartient au vocabulaire de summarize, pas de view)
     if VIEW_DETAIL_LEVEL not in VIEW_DETAIL_LEVELS:
@@ -820,6 +956,10 @@ def selftest() -> int:
                 # Forme REELLE du view summary : prose sous prefixe `    | `,
                 # lignes renderer et footer APRES elle (capture de forme,
                 # view-conversation-tree.ts:1245/1249 + engine.ts:234 — r3).
+                # Puis DEUX lignes tardives generiques (file 20261028i) : le
+                # succes standard d'un append de dashboard (refus STATIQUE) et
+                # un en-tete de boite (refus par RARETE mesuree) — dans cet
+                # ordre, le scan depuis la fin les rencontre AVANT la prose.
                 return "\n".join([
                     "==== session claude-x--u1 ====",
                     "▶️ Task: claude-x--u1 (3 messages)",
@@ -829,7 +969,23 @@ def selftest() -> int:
                     "      | Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
                     "  [\U0001F6E0️ mcp__roo-state-manager__roosync_dashboard] → success (09:44:11)",
                     "• Taille totale: 19845 chars, Limite: 30000, Surplus: 0 (3 task(s))",
+                    "      | Message ajouté au dashboard 'workspace-roo-extensions' [split en 2 parts]",
+                    "      | Total : 140 messages, 2 non lus, 138 lus — aucune action requise de ce cycle present.",
                 ])
+            if name == "roosync_search":
+                # Spread de rarete (file 20261028i). Le plafonnement releve en
+                # vrai est represente : la ligne generique rend 1 ligne mais
+                # totalFound=3 — compter les seules lignes la croirait rare.
+                q = str(args.get("search_query") or "")
+                if q.startswith("Total :"):
+                    return json.dumps({
+                        "results": [{"taskId": "claude-x--u1"}],
+                        "totalFound": 3,
+                    }, indent=2)
+                return json.dumps({
+                    "results": [{"taskId": "claude-x--u1"}],
+                    "totalFound": 1,
+                }, indent=2)
             raise AssertionError(f"appel inattendu: {name} {args}")
 
     fake = IndexFakeChild()
@@ -855,6 +1011,20 @@ def selftest() -> int:
         failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
     if (ph := idx_out.get("phrase")) and ("→" in ph or ph.startswith(("•", "["))):
         failures.append(f"phase_index: phrase = ligne du renderer: {ph!r}")
+    # Rareté e2e (file 20261028i) : exactement DEUX recherches texte de spread —
+    # la ligne « Total : … » (3 sessions => ecartee), puis la prose ciblee
+    # (1 session => retenue). La ligne « Message ajouté … » n'en a coûté AUCUNE :
+    # refus statique, pas de recherche.
+    spread_calls = [a for n, a in fake.calls if n == "roosync_search"]
+    if len(spread_calls) != 2:
+        failures.append(f"phase_index: {len(spread_calls)} appel(s) roosync_search (attendu 2)")
+    else:
+        if spread_calls[0].get("action") != "text" or spread_calls[1].get("action") != "text":
+            failures.append("phase_index: le spread doit passer par la recherche TEXTE")
+        if not str(spread_calls[0].get("search_query") or "").startswith("Total :"):
+            failures.append(f"phase_index: 1er spread = {spread_calls[0].get('search_query')!r} (attendu « Total : … »)")
+        if spread_calls[1].get("search_query") != want_rendered:
+            failures.append(f"phase_index: 2e spread = {spread_calls[1].get('search_query')!r}")
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
     # Un succes a 0 chunk n'est PAS un echec : il doit avoir ete accepte, et la phase
@@ -1001,7 +1171,9 @@ def selftest() -> int:
             print(f"  - {f}")
         return 1
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
-          "retire + lignes renderer exclues, vocabulaire view, args du view + list "
+          "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
+          "rarete mesuree (<= 1 session, totalFound pas les lignes rendues), "
+          "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
           "log ignoree, index queued=false, succes Markdown ET JSON embarque acceptes "
