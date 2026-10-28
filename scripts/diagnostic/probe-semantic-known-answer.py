@@ -22,7 +22,12 @@ Deux phases, deux sieges :
 
   Phase VERIFY (n'importe quel siege, typiquement B) :
     roosync_search(action:"semantic", search_query=<phrase>, max_results=5)
-    -> PASS si le task_id figure dans les 5 premiers resultats.
+    -> PASS si le task_id figure dans les 5 premiers resultats d'une recherche
+       qui a REELLEMENT tourne en semantique. Si le backend est tombe, le service
+       bascule en recherche TEXTUELLE et le dit (`semantic_degraded`,
+       `actual_search_mode: "text"`) : ces lignes portent aussi un taskId, donc un
+       PASS textuel certifierait le critere avec le mauvais backend — la sonde
+       refuse (verdict DEGRADED, exit 2, mode dans le label).
 
 Par defaut (aucun drapeau de phase) : INDEX puis VERIFY sur le meme siege
 (auto-controle local) ; le controle cross-siege reste deux commandes.
@@ -42,7 +47,8 @@ Usage:
 
 Exit codes: 0 = PASS (top 5 atteint) ou INDEXED (phase --index seule reussie)
             1 = FAIL (sonde saine, critere non tenu — phase verify seule concernee)
-            2 = erreur d'instrument (enfant MCP, parsing, indexation en echec).
+            2 = erreur d'instrument (enfant MCP, parsing, indexation en echec) OU
+                recherche servie par un mode non semantique (verdict DEGRADED).
 
 Limite mesuree (28/10, myia-web1) : le listing ne rend que les 50 sessions les
 plus recemment actives, et l'indexation synchrone est bornee a 300 s par le
@@ -55,6 +61,7 @@ la chaine — et dire que la fenetre 24 h reste bloquee par g3, pas la masquer.
 from __future__ import annotations
 
 import argparse
+import calendar
 import json
 import queue
 import re
@@ -96,6 +103,15 @@ VIEW_DETAIL_LEVELS = ("skeleton", "summary", "full")
 VIEW_DETAIL_LEVEL = "summary"
 
 
+class DegradedSearch(RuntimeError):
+    """Recherche servie par un backend NON semantique (repli textuel).
+
+    Ni PASS (le critere 4 porte sur la recherche SEMANTIQUE), ni FAIL (la sonde
+    n'a rien prouve sur le backend), ni panne d'instrument : c'est le mode qu'il
+    faut nommer (review #4398 r2, `roosync-search.tool.ts:289-316`).
+    """
+
+
 # ---------------------------------------------------------------------------
 # Enfant MCP stdio
 # ---------------------------------------------------------------------------
@@ -124,6 +140,7 @@ class McpChild:
         self._next_id = 1
         self._lines: queue.Queue = queue.Queue()
         self._stderr_tail: list[str] = []
+        self._noise_tail: list[str] = []
         self._reader = threading.Thread(target=self._pump, daemon=True)
         self._reader.start()
         self._errreader = threading.Thread(target=self._pump_stderr, daemon=True)
@@ -145,14 +162,30 @@ class McpChild:
             self._lines.put(None)  # sentinelle : flux ferme / enfant mort
 
     def _read_message(self, timeout_s: float) -> dict:
-        try:
-            line = self._lines.get(timeout=timeout_s)
-        except queue.Empty:
-            tail = " | ".join(self._stderr_tail[-3:]) if self._stderr_tail else "(stderr vide)"
-            raise TimeoutError(f"enfant muet depuis {timeout_s}s — stderr: {tail}")
-        if line is None:
-            raise RuntimeError(f"enfant termine (code {self.proc.poll()}) avant reponse")
-        return json.loads(line)
+        deadline = time.monotonic() + timeout_s
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                tail = " | ".join(self._stderr_tail[-3:]) if self._stderr_tail else "(stderr vide)"
+                raise TimeoutError(f"enfant muet depuis {timeout_s}s — stderr: {tail}")
+            try:
+                line = self._lines.get(timeout=remaining)
+            except queue.Empty:
+                tail = " | ".join(self._stderr_tail[-3:]) if self._stderr_tail else "(stderr vide)"
+                raise TimeoutError(f"enfant muet depuis {timeout_s}s — stderr: {tail}")
+            if line is None:
+                raise RuntimeError(f"enfant termine (code {self.proc.poll()}) avant reponse")
+            try:
+                return json.loads(line)
+            except json.JSONDecodeError:
+                # Le serveur ecrit AUSSI des lignes de log non-JSON sur stdout
+                # (`[RSM-HEALTH]`, `[WARN]`…). Les parser comme du JSON tuait la
+                # phase --verify des la premiere ligne de log — mesure 28/10, sur
+                # le chemin meme que le controle croise doit emprunter. On les
+                # ecarte en les gardant en queue pour le diagnostic.
+                self._noise_tail.append(line.rstrip())
+                del self._noise_tail[:-5]
+                continue
 
     def rpc(self, method: str, params: dict, timeout_s: float) -> dict:
         msg_id = self._next_id
@@ -177,17 +210,19 @@ class McpChild:
 
     def call_tool(self, name: str, args: dict, timeout_s: float) -> str:
         result = self.rpc("tools/call", {"name": name, "arguments": args}, timeout_s)
-        parts: list[str] = []
-        for c in result.get("content", []):
-            if c.get("isError"):
-                # Erreur serveur rendue en CONTENU, pas en erreur JSON-RPC (mesure
-                # Hermes, review #4398 : l'invalidite "detail_level" revient ainsi).
-                # Sans cette garde, le texte d'erreur devient une donnee de sonde —
-                # p.ex. la phrase de VERIFY, exactement la classe masked-error que
-                # #4352 traque.
-                raise RuntimeError(f"{name}: {(c.get('text') or '')[:200]}")
-            parts.append(c.get("text", ""))
-        return "".join(parts)
+        text = "".join(
+            c.get("text", "") for c in result.get("content", []) if isinstance(c, dict)
+        )
+        if result.get("isError"):
+            # Erreur serveur rendue en CONTENU, pas en erreur JSON-RPC (mesure
+            # Hermes, review #4398) — et le drapeau vit sur le RESULTAT,
+            # `{content: [...], isError: true}` (conversation-browser.ts:351/373/473,
+            # index.ts:755), pas sur chaque bloc. Une garde par item ne se declenchait
+            # jamais sur la forme reellement emise (review #4398 r2, releve ai-01) :
+            # le texte d'erreur devenait une donnee de sonde — p.ex. la phrase de
+            # VERIFY, exactement la classe masked-error que #4352 traque.
+            raise RuntimeError(f"{name}: {text[:200]}")
+        return text
 
     def close(self) -> None:
         try:
@@ -277,9 +312,15 @@ def candidate_sessions(child: McpChild, task_id: str | None) -> list[tuple[str, 
             continue
         created = meta.get("createdAt") or ""
         try:
-            ts = created and time.mktime(time.strptime(created[:19], "%Y-%m-%dT%H:%M:%S"))
+            # createdAt est un ISO **UTC** : timegm, jamais mktime, qui le lirait
+            # comme de l'heure locale et decalerait la fenetre 24 h du fuseau
+            # (review #4398 r2).
+            ts = calendar.timegm(time.strptime(created[:19], "%Y-%m-%dT%H:%M:%S"))
         except ValueError:
-            ts = 0  # format inattendu : ecarte la ligne, n'arrete pas la sonde (review #4398)
+            # Date absente ou illisible : la ligne est ECARTEE. Le critere porte sur
+            # une session des dernieres 24 h — sans date, pas de preuve ; et la garder
+            # la ferait passer le filtre de recence sans l'avoir franchi.
+            continue
         if ts and (now - ts) > RECENCY_HOURS * 3600:
             # plus de 24 h depuis la CREATION n'exclut pas une session active recemment,
             # mais le critere vise une session des dernieres 24 h : on filtre sur createdAt
@@ -342,57 +383,59 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
     """
     attempts: list[dict] = []
     for cand_id, conv in candidate_sessions(child, task_id)[:INDEX_ATTEMPTS]:
+        # TOUT le corps du candidat est sous le meme `try` : un echec de `view` ou
+        # d'extraction de phrase ne doit pas emporter les candidats SUIVANTS. Le
+        # docstring le promettait deja, le code ne le faisait pas (review #4398 r2).
         try:
             idx_raw = child.call_tool(
                 "roosync_indexing",
                 {"action": "index", "task_id": cand_id, "source": index_source(conv)},
                 CALL_TIMEOUT_S["index"],
             )
+            idx = parse_embedded_json(idx_raw)
+            if idx is None or idx.get("success") is not True:
+                # echec d'indexation : le service repond en MARKDOWN, pas en JSON
+                error = (idx_raw or "")[:200].replace("\n", " ").strip()
+                if "timed out after 300s" in (idx_raw or ""):
+                    # Borne dure du transport MCP, independante de notre deadline
+                    # client (320 s) : une session trop grosse meurt AVANT toute
+                    # reponse d'indexation. C'est le defaut g3 (#4352) — la sonde le
+                    # nomme au lieu de le rendre comme « instrument en panne ».
+                    error = (
+                        f"{error} [g3: indexation SYNCHRONE bornee a 300 s — "
+                        f"session trop grosse pour ce chemin, cf. #4352 g3]"
+                    )
+                raise RuntimeError(error)
+            view_raw = child.call_tool(
+                "conversation_browser",
+                {"action": "view", "task_id": cand_id, "detail_level": VIEW_DETAIL_LEVEL,
+                 "smart_truncation": True, "max_output_length": 30000},
+                CALL_TIMEOUT_S["fast"],
+            )
+            # `view` rend un ARBRE TEXTE multi-lignes (markdown), pas un JSON
+            # embarque : pick_phrase balaye les lignes du contenu reel. Un
+            # json.dumps ferait UNE ligne unique, rejetee par les bornes par ligne
+            # (note convergente ai-01 + Hermes, review #4398).
+            phrase = pick_phrase(view_raw)
         except RuntimeError as exc:
-            # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le
-            # transport MCP coupe a 300 s AVANT la fin du travail serveur. C'est
-            # un echec d'ESSAI (le candidat suivant reste tentable), pas une
-            # panne de la sonde — mesure 28/10 : 30 Ko, 53 Ko et 560 Ko meurent
-            # tous a la meme seconde, la taille n'est pas le discriminateur.
+            # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le transport
+            # MCP coupe a 300 s AVANT la fin du travail serveur. C'est un echec
+            # d'ESSAI (le candidat suivant reste tentable), pas une panne de la
+            # sonde — mesure 28/10 : 30 Ko, 53 Ko et 560 Ko meurent tous a la meme
+            # seconde, la taille n'est pas le discriminateur.
             err = str(exc)
-            if "timed out after 300s" in err:
+            if "timed out after 300s" in err and "[g3:" not in err:
                 err = f"{err} [g3: indexation SYNCHRONE bornee a 300 s — cf. #4352 g3]"
             attempts.append({"task_id": cand_id, "error": err})
             continue
-        idx = parse_embedded_json(idx_raw)
-        if idx is None or idx.get("success") is not True:
-            # echec d'indexation : le service repond en MARKDOWN, pas en JSON
-            error = (idx_raw or "")[:200].replace("\n", " ").strip()
-            if "timed out after 300s" in (idx_raw or ""):
-                # Borne dure du transport MCP, independante de notre deadline client
-                # (320 s) : une session trop grosse meurt AVANT toute reponse
-                # d'indexation. C'est le defaut g3 (#4352) — la sonde le nomme au
-                # lieu de le rendre comme « instrument en panne ».
-                error = (
-                    f"{error} [g3: indexation SYNCHRONE bornee a 300 s — "
-                    f"session trop grosse pour ce chemin, cf. #4352 g3]"
-                )
-            attempts.append({"task_id": cand_id, "error": error})
-            continue
 
-        view_raw = child.call_tool(
-            "conversation_browser",
-            {"action": "view", "task_id": cand_id, "detail_level": VIEW_DETAIL_LEVEL,
-             "smart_truncation": True, "max_output_length": 30000},
-            CALL_TIMEOUT_S["fast"],
-        )
-        # `view` rend un ARBRE TEXTE multi-lignes (markdown), pas un JSON embarque :
-        # pick_phrase balaye les lignes du contenu reel. Un json.dumps ferait UNE
-        # ligne unique, rejetee par les bornes par ligne (note convergente ai-01 +
-        # Hermes, review #4398).
-        body = view_raw
         out["task_id"] = cand_id
         out["session"] = {
             "size": conv.get("metadata", {}).get("totalSize"),
             "created": conv.get("metadata", {}).get("createdAt"),
             "messages": conv.get("metadata", {}).get("messageCount"),
         }
-        out["phrase"] = pick_phrase(body)
+        out["phrase"] = phrase
         out["index"] = idx
         out["index_attempts"] = attempts  # candidats ecartes avant celui-ci
         return
@@ -426,6 +469,28 @@ def phase_verify(child: McpChild, task_id: str, phrase: str, out: dict) -> bool:
             for i, r in enumerate(results)
         ],
     }
+    # #4287 : quand la recherche SEMANTIQUE echoue, roosync_search bascule en
+    # recherche TEXTUELLE et le DIT dans le payload — bloc d'avertissement en tete
+    # de contenu, puis `semantic_degraded: true`, `fallback_used: true`,
+    # `actual_search_mode: "text"` (roosync-search.tool.ts:289-316). Les lignes
+    # textuelles portent aussi `taskId` : une phrase verbatim peut donc ranker en
+    # top 5 et la sonde certifierait le critere 4 par le MAUVAIS backend — la classe
+    # de verdict masque que cette sonde existe pour attraper (review #4398 r2).
+    mode = payload.get("actual_search_mode") or "semantic"
+    degraded = (
+        bool(payload.get("semantic_degraded"))
+        or bool(payload.get("fallback_used"))
+        or mode != "semantic"
+    )
+    out["search"]["mode"] = mode
+    out["search"]["degraded"] = degraded
+    if degraded:
+        raise DegradedSearch(
+            f"recherche servie en mode NON semantique (actual_search_mode={mode!r}, "
+            f"semantic_degraded={payload.get('semantic_degraded')!r}, "
+            f"fallback_used={payload.get('fallback_used')!r}) — un PASS textuel ne "
+            "prouve pas le critere 4"
+        )
     for i, r in enumerate(results):
         if r.get("taskId") == task_id:
             out["rank"] = i + 1
@@ -501,6 +566,42 @@ def selftest() -> int:
     if phase_verify(FakeChild(), "claude-x--absent", "peu importe", out) or out["rank"] is not None:
         failures.append(f"verify miss: rank={out.get('rank')}")
 
+    # phase_verify : un repli TEXTUEL ne doit JAMAIS donner PASS. Le fallback pose
+    # `semantic_degraded`/`fallback_used`/`actual_search_mode:"text"` et ses lignes
+    # portent un taskId : la session cherchee peut ranker en top 5 avec le mauvais
+    # backend (roosync-search.tool.ts:289-316, review #4398 r2).
+    class DegradedChild:
+        def call_tool(self, name, args, timeout_s):
+            return json.dumps({
+                "semantic_degraded": True,
+                "fallback_used": True,
+                "original_search_mode": "semantic",
+                "actual_search_mode": "text",
+                "results": [{"taskId": "claude-x--u1", "best_score": 0.9}],
+            }, indent=2)
+
+    deg_out: dict = {}
+    try:
+        phase_verify(DegradedChild(), "claude-x--u1", "peu importe", deg_out)
+        failures.append("phase_verify: un payload degrade a rendu un verdict")
+    except DegradedSearch:
+        if (deg_out.get("search") or {}).get("mode") != "text":
+            failures.append(f"degraded: mode={(deg_out.get('search') or {}).get('mode')!r}")
+
+    # ... et le seul mode suffit : un payload sans drapeau mais textuel tombe pareil
+    class TextModeChild:
+        def call_tool(self, name, args, timeout_s):
+            return json.dumps({
+                "actual_search_mode": "text",
+                "results": [{"taskId": "claude-x--u1", "best_score": 0.9}],
+            }, indent=2)
+
+    try:
+        phase_verify(TextModeChild(), "claude-x--u1", "peu importe", {})
+        failures.append("phase_verify: actual_search_mode='text' seul n'a pas leve")
+    except DegradedSearch:
+        pass
+
     # phase_index end-to-end sur un enfant simule : le view doit porter le bon
     # detail_level (assertion sur les ARGUMENTS envoyes — bloquant 1, review #4398 :
     # le selftest ne couvrait pas cette ligne) et la phrase vient de l'arbre texte
@@ -544,9 +645,11 @@ def selftest() -> int:
     if (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
 
-    # call_tool : une erreur serveur rendue en CONTENU (isError:true, pas d'erreur
-    # JSON-RPC) doit lever — sinon le texte d'erreur devient une donnee de sonde
-    # (mesure Hermes, review #4398).
+    # call_tool : une erreur serveur rendue en CONTENU doit lever. La forme testee
+    # est celle que le serveur EMET reellement — `isError` sur le RESULTAT, pas sur
+    # le bloc de contenu (conversation-browser.ts:351/373/473, index.ts:755). La
+    # fixture precedente placait le drapeau dans l'item : elle validait une forme que
+    # le RSM n'envoie jamais (review #4398 r2).
     err_child = McpChild.__new__(McpChild)
     err_child._next_id = 1
 
@@ -563,11 +666,13 @@ def selftest() -> int:
     err_child.proc = _Proc()
     err_child._read_message = lambda _t: {
         "id": 1,
-        "result": {"content": [{
-            "type": "text",
-            "text": 'Erreur: Valeur invalide pour "detail_level" : "Compact". Valeurs acceptées : skeleton, summary, full.',
+        "result": {
+            "content": [{
+                "type": "text",
+                "text": 'Erreur: Valeur invalide pour "detail_level" : "Compact". Valeurs acceptées : skeleton, summary, full.',
+            }],
             "isError": True,
-        }]},
+        },
     }
     try:
         err_child.call_tool("conversation_browser", {}, 5)
@@ -590,13 +695,31 @@ def selftest() -> int:
     finally:
         silent.close()
 
+    # _read_message : une ligne de LOG non-JSON sur stdout ne doit pas tuer la
+    # lecture. Mesure 28/10 : la toute premiere phase --verify live est morte en
+    # `Expecting value: line 1 column 2` — le serveur ecrit `[RSM-HEALTH]`/`[WARN]`
+    # sur le meme flux que le JSON-RPC.
+    noisy = McpChild.__new__(McpChild)
+    noisy._lines = queue.Queue()
+    noisy._stderr_tail = []
+    noisy._noise_tail = []
+    noisy._lines.put("[RSM-HEALTH] hosts=2 maxPrivMB=139 verdict=OK\n")
+    noisy._lines.put(json.dumps({"id": 7, "result": {"ok": True}}) + "\n")
+    noisy_msg = noisy._read_message(5)
+    if (noisy_msg.get("result") or {}).get("ok") is not True:
+        failures.append(f"_read_message: ligne de log non ignoree -> {noisy_msg!r}")
+    if len(noisy._noise_tail) != 1:
+        failures.append(f"_read_message: noise_tail={noisy._noise_tail!r}")
+
     if failures:
         print("[SELFTEST] FAIL")
         for f in failures:
             print(f"  - {f}")
         return 1
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, vocabulaire view, "
-          "args du view, parsing pretty-printe, rang top-5, timeout enfant muet, isError)")
+          "args du view, parsing pretty-printe, rang top-5, repli textuel refuse "
+          "(drapeau + mode seul), timeout enfant muet, ligne de log ignoree, "
+          "isError au niveau resultat)")
     return 0
 
 
@@ -657,6 +780,9 @@ def main() -> int:
             out["verdict"] = "INDEXED"
             exit_code = 0
         if args.json:
+            if getattr(child, "_noise_tail", None):
+                # Visibilite : des lignes de log ont ete ecartees du flux JSON-RPC.
+                out["child_log_lines_skipped"] = len(child._noise_tail)
             print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         else:
             print(f"[task_id] {out.get('task_id')}")
@@ -667,6 +793,18 @@ def main() -> int:
                       f"{out.get('search', {}).get('machines_found')}")
             print(f"[VERDICT] {out['verdict']}")
         return exit_code
+    except DegradedSearch as exc:
+        # Verdict DEGRADE, PAS INSTRUMENT_ERROR : la sonde et son transport sont
+        # sains, c'est le BACKEND qui n'a pas repondu en semantique. Exit 2 — rien
+        # n'est prouve — et le mode est dans le label (review #4398 r2). Doit rester
+        # AVANT le `except RuntimeError` ci-dessous, dont DegradedSearch herite.
+        out["error"] = str(exc)
+        out["verdict"] = "DEGRADED"
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+        else:
+            print(f"[ERROR] {exc}")
+        return 2
     except (TimeoutError, RuntimeError, FileNotFoundError, OSError, json.JSONDecodeError) as exc:
         out["error"] = str(exc)
         out["verdict"] = "INSTRUMENT_ERROR"
