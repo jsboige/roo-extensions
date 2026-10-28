@@ -285,21 +285,28 @@ class PickerVerdicts(unittest.TestCase):
         self.assertEqual(data["pick"]["repo"], "jsboige/jsboige-mcp-servers")
         self.assertEqual(data["pick"]["number"], 608)
 
-    def test_delivered_pick_carries_repo_too(self):
+    def test_delivered_candidate_carries_repo_and_is_never_picked(self):
         # Miroir du cas grain pour l'urne delivered : les PRs submod vivent
-        # dans le depot fils - un pick delivered sans champ repo envoie
+        # dans le depot fils - un candidat delivered sans champ repo envoie
         # l'agent reviewer la PR au mauvais depot (suite #4047, snippet
         # promis en review par web2). #4103 : la PR arrive dans la MEME
         # reponse REST (cle `pull_request`), pas d'appel pr list.
+        # Contrat c.309 : la PR est tiree comme CANDIDAT puis ECARTEE (une PR
+        # n'est pas un grain) - un pool qui ne contient que des PRs rend donc
+        # ALL_CLAIMED, jamais PICK.
         seq = [rest_page([]), rest_page([rest_pr(77, "fix(server): condensation guard")])]
         with mock.patch("subprocess.run", side_effect=seq):
             code, out = run_main(picker, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
-        self.assertEqual(data["verdict"], "PICK")
-        self.assertEqual(data["urn"], "delivered")
-        self.assertEqual(data["pick"]["repo"], "jsboige/jsboige-mcp-servers")
-        self.assertEqual(data["pick"]["number"], 77)
+        self.assertEqual(data["verdict"], "ALL_CLAIMED")
+        self.assertIsNone(data["pick"])
+        cand = data["candidates"][0]
+        self.assertEqual(cand["urn"], "delivered")
+        self.assertEqual(cand["repo"], "jsboige/jsboige-mcp-servers")
+        self.assertEqual(cand["number"], 77)
+        self.assertTrue(cand["skipped"])
+        self.assertIn("open PR", cand["reason"])
 
     def test_subprocess_utf8_replacement_kwargs(self):
         # Fix bloquant 1 (po-2027) : sans encoding="utf-8" errors="replace",
@@ -633,19 +640,21 @@ class CandidateSkipRules(unittest.TestCase):
         self.assertTrue(all(c["skipped"] for c in data["candidates"]))
         self.assertTrue(all("claim" in (c["reason"] or "") for c in data["candidates"]))
 
-    def test_delivered_pr_is_never_skipped_by_machine_label(self):
-        # Urne delivered : pas de verrou ni d'etiquette de lane ecartee (ADR
-        # 016) - la review cross-lane EST le but de cette urne. Une PR portant
-        # l'etiquette d'une autre lane reste prenable.
+    def test_delivered_pr_is_skipped_as_a_pr_not_for_its_machine_label(self):
+        # Une PR portant l'etiquette d'une autre lane : le motif d'ecart est la
+        # nature PR (contrat c.309), PAS l'etiquette - la regle PR court-
+        # circuite avant toute logique de lane (aucun appel de claim, ADR 016).
         page = [rest_pr(91, "fix(#x): lane po-2026 work", labels=["myia-po-2026"])]
         with mock.patch("subprocess.run", side_effect=[rest_page([]), rest_page(page)]), \
                 mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2027"}):
             code, out = run_main(picker, ["--json", "--seed", "13"])
         self.assertEqual(code, 0)
         data = json.loads(out)
-        self.assertEqual(data["verdict"], "PICK")
-        self.assertEqual(data["urn"], "delivered")
-        self.assertFalse(data["candidates"][0]["skipped"])
+        self.assertEqual(data["verdict"], "ALL_CLAIMED")
+        self.assertEqual(data["candidates"][0]["urn"], "delivered")
+        self.assertTrue(data["candidates"][0]["skipped"])
+        self.assertIn("open PR", data["candidates"][0]["reason"])
+        self.assertNotIn("machine label", data["candidates"][0]["reason"])
 
     def test_same_machine_other_workspace_claim_skips(self):
         # AC #4114 : le claim de l'AUTRE workspace de SA machine ecarte le
@@ -987,20 +996,24 @@ class CitedByOpenPrSkipRules(unittest.TestCase):
         self.assertEqual(code, 0)
         data = json.loads(out)
         self.assertEqual(data["pick"]["number"], 4348)
-        # et la PR elle-meme reste servie par l'urne delivered, jamais ecartee
-        self.assertTrue(all(not c["skipped"] or c["urn"] != "delivered"
-                            for c in data["candidates"]))
+        # et si l'urne delivered sert un candidat, il est ecarte comme PR
+        # (contrat c.309) - jamais pour une citation, jamais libre.
+        self.assertTrue(all("open PR" in (c["reason"] or "")
+                            for c in data["candidates"] if c["urn"] == "delivered"))
 
-    def test_delivered_urn_is_never_skipped_even_if_it_cites_itself(self):
-        # Une PR qui cite sa propre issue ne s'auto-ecarte pas : l'urne
-        # delivered reste le but de la review cross-lane (ADR 016).
+    def test_delivered_urn_skips_a_pr_even_when_it_cites_its_own_issue(self):
+        # Une PR reste une PR : le motif d'ecart est sa nature, et la regle
+        # court-circuite la lecture des citations (contrat c.309). Avant, une
+        # PR qui citait sa propre issue restait « libre » - c'est la forme qui
+        # a fait poser un claim sur une PR prise pour un grain (ms#1538).
         prs = [rest_pr(4350, title="fix(monitoring,#4348): price 5-5 ids")]
         code, out = self._pick_with([], prs, top="1")
         self.assertEqual(code, 0)
         data = json.loads(out)
-        self.assertEqual(data["verdict"], "PICK")
-        self.assertEqual(data["urn"], "delivered")
-        self.assertFalse(data["pick"] is None)
+        self.assertEqual(data["verdict"], "ALL_CLAIMED")
+        self.assertIsNone(data["pick"])
+        self.assertTrue(data["candidates"][0]["skipped"])
+        self.assertIn("open PR", data["candidates"][0]["reason"])
 
 
 if __name__ == "__main__":

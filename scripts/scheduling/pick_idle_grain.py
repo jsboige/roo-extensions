@@ -10,8 +10,9 @@ toutes les lanes tiraient le meme grain a chaque cycle).
 Le picker tire dans 3 urnes ponderees :
   - grain      : issues actionnables (labels `approved` / `bug` / `investigation`)
   - umbrella   : issues parentes/epics (label `epic`) - signal de coordination
-  - delivered  : PRs ouvertes livrables (toutes ; une PR ouverte n'est pas
-                 encore un grain transforme - pas de lecture de verrou ici)
+  - delivered  : PRs ouvertes (collectees pour la seule exclusion « issue deja
+                 portee par une PR ouverte », JAMAIS servies comme candidat
+                 libre : une PR n'est pas un grain - mesure c.309, ms#1538)
 
 #4103 - tirage par lane et par creneau :
   - La graine par defaut derive de la machine (COMPUTERNAME, sinon hostname,
@@ -88,6 +89,11 @@ import check_issue_claim  # noqa: E402
 
 # Ponderations par defaut - modifiables via --weights "grain:7,umbrella:2,delivered:1"
 DEFAULT_WEIGHTS = {"grain": 7, "umbrella": 2, "delivered": 1}
+
+# Raison d'ecart d'une PR ouverte. ASCII pur : le texte est imprime sur la
+# console Windows (cp1252) par la sortie humaine, et une raison accentuee y
+# leverait UnicodeEncodeError (#3675 suite, mesure web2 04/10).
+PR_SKIP_REASON = "open PR - review it explicitly, never claim it"
 
 # Labels actionnables (grain) - EXCLURE needs-approval/deferred/blocked-on-gate/epic
 GRAIN_LABELS = {"approved", "bug", "investigation"}
@@ -416,9 +422,12 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
                     cited_by: dict = None) -> tuple:
     """(skip, raison) pour un candidat. Leve GhCommandError sur panne instrument.
 
-    - Urne delivered : jamais ecartee (ADR 016 : pas de lecture de verrou sur
-      une PR ouverte - elle n'est pas encore un grain transforme ; la review
-      cross-lane est le but de cette urne).
+    - PR ouverte (urne delivered) : ECARTEE, sans appel API. Une PR n'est pas
+      un grain : la servir « LIBRE » a fait poser un claim sur une PR prise
+      pour une issue (mesure po-2024 c.309 : ms#1538 servie candidate, puis
+      traitee comme un grain). La revue reste du travail legitime, mais elle
+      se choisit explicitement (`/pr-review`), pas par un tirage qui la
+      presente comme libre. Aucune lecture de verrou (ADR 016).
     - Issue deja portee par une PR ouverte (decision ai-01 du 25/10) : ecartee
       sur donnee LOCALE (aucun appel API), avant toute lecture de claim.
     - Etiquette de lane etrangere : ecarte sans appel API (donnee locale),
@@ -432,8 +441,10 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
     - Grain deja servi par MA lane : own_served_no_followup, relu sur les
       commentaires du MEME fetch_issue (friction OWN_CLAIM, dispatch ai01-c34).
     """
+    if item.get("is_pr"):
+        return True, PR_SKIP_REASON
     if urn == "delivered":
-        return False, ""
+        return True, PR_SKIP_REASON
     cited_pr = (cited_by or {}).get((item.get("repo", ""), item.get("number")))
     if cited_pr is not None:
         return True, f"cited by open PR #{cited_pr}"
