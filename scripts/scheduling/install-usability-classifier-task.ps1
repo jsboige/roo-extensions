@@ -80,7 +80,6 @@ $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $launcherPath = [System.IO.Path]::GetFullPath((Join-Path $scriptDir 'start-usability-classifier.ps1'))
 $classifierPath = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\diagnostic\classify-machine-usability.ps1'))
 $taskName = 'Claude-UsabilityClassifier'
-$vbsPath = Join-Path $LauncherDir ("{0}.vbs" -f $taskName)
 
 # REFUS: a launcher resolved INSIDE a git worktree dies when the worktree is
 # cleaned up (the VBS then points into the void), and a worktree path escapes
@@ -105,6 +104,11 @@ if ($launcherPath -match '[\\/]\.claude[\\/]worktrees[\\/]') {
     Write-Host "Relancer l'installation depuis le checkout principal : $mainCheckout" -ForegroundColor Red
     exit 1
 }
+
+# Computed AFTER the refusal: Join-Path on the default C:\ProgramData dir
+# throws where drive C: does not exist (the Linux CI runner), and that must
+# not pre-empt the refusal.
+$vbsPath = Join-Path $LauncherDir ("{0}.vbs" -f $taskName)
 
 # --- Pre-flight ----------------------------------------------------------------
 foreach ($p in @($launcherPath, $classifierPath)) {
