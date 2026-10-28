@@ -156,6 +156,7 @@ function Get-RetentionBucket {
     if ($Name -like 'coordinator-*')         { return 'Regular' }
     if ($Name -like 'dashboard-watcher-*')   { return 'Regular' }
     if ($Name -like 'listener-*')            { return 'Regular' }
+    if ($Name -like 'usability-classifier*') { return 'Regular' }
     if ($Name -like 'copilot-dispatcher*')   { return 'Regular' }
     if ($Name -like 'meta*')                 { return 'Meta' }
     if ($Name -like '*.env')                 { return 'Env' }

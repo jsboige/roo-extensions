@@ -117,6 +117,17 @@
     detector's identity; a failed authentication yields the `latency-unmeasurable` /
     `system-log-unavailable` findings, never a silent green.
 
+.PARAMETER CredentialFile
+    Path of a DPAPI-encrypted PSCredential (Export-Clixml) for the authenticated
+    WinRM reads - the scheduled 5-minute fire (RX122) carries a FILE, because a
+    scheduled task cannot carry a live credential object. Loaded only when
+    -Credential is NOT passed. A missing, unreadable, or non-PSCredential file is
+    a LOUD exit 3 BEFORE any probe: a classifier told to run with a credential it
+    cannot load must never silently fall back to the unauthenticated path - that
+    is exactly how the no-credential run of 28/10 measured
+    `system-log-unavailable` on every reachable seat and spent 81 s proving
+    nothing.
+
 .PARAMETER NoAlert
     Classify and print only, post nothing.
 
@@ -147,6 +158,22 @@
     counter-example are on Get-UsabilityVerdict. An append age that could not be
     measured yields `dashboard-append-unknown` and never corroborates.
 
+    SCHEDULED FIRE (RX122): the 5-minute task (install-usability-classifier-task.ps1)
+    runs this script with -CredentialFile. ONE ALERT PER INCIDENT: every post carries
+    the stable incident id `classifier-4327-<machine>-unusable-<boot yyyyMMddTHHmm>`
+    (UTC date when the boot is unknown) plus the MEASURED burst's minute when a
+    burst exists - identical across fires on the same incident, new when the
+    target reboots (or a second wedge bursts on the same boot). The dedup is a
+    LOCAL state file on this seat (outputs/diagnostic/state/classifier-
+    incidents.json, gitignored; pattern embeddings-alert.ps1 #4394), NOT the
+    dashboard file, which condenses and would scroll the id out: the primary
+    machine-dashboard post (whose id the escalation surface GENERATES by
+    contract) is skipped while the incident is recorded, the state is written
+    only after the post is accepted, absent/corrupt state posts (never
+    silent), and a healthy verdict drops the entry so a later wedge posts
+    again. The cross-post runs on every fire and is deduped by the RSM CLI on
+    the id + `-maint`.
+
     Related: #4327, #2576 (listener check), #4243 (approval stalls), #4258 (roster).
 #>
 
@@ -163,6 +190,7 @@ param(
     [int]$BurstWindowStartMinutes = 2,
     [int]$BurstWindowEndMinutes = 20,
     [System.Management.Automation.PSCredential]$Credential = $null,
+    [string]$CredentialFile = "",
     [switch]$NoAlert,
     [switch]$Json
 )
@@ -465,6 +493,33 @@ function Measure-ExternalLogonCount {
 # Alert content (criterion 5): names every input and its value, and names the
 # affected machine on the FIRST line (a reader must not have to hunt for it).
 # ---------------------------------------------------------------------------
+
+function Get-ClassifierIncidentId {
+    # The ONE-ALERT-PER-INCIDENT key (RX122): machine + verdict + the target's
+    # LAST BOOT, and - when a burst was MEASURED - the burst's own minute. Two
+    # fires inside the same wedge read the same boot AND the same burst and
+    # derive the SAME id, so a 5-minute cadence posts once per incident, not
+    # once per fire. The burst stamp is what separates a SECOND wedge on the
+    # same boot: boot+verdict alone would swallow it (same boot, later burst,
+    # same id). No burst (the latency+silence path) -> boot+verdict fallback.
+    # Boot unknown -> UTC date, so the id stays stable across the day even
+    # without the System log. The charset stays inside the RSM CLI's message-id
+    # grammar ([A-Za-z0-9._:-], <= 128).
+    param([string]$Machine, $LastBootUtc = $null, $Burst = $null, [string]$Verdict = 'unusable', $Now = $null)
+    $m = $Machine.ToLowerInvariant()
+    if ($null -ne $LastBootUtc) {
+        $stamp = $LastBootUtc.ToUniversalTime().ToString('yyyyMMddTHHmm')
+    } else {
+        if ($null -eq $Now) { $Now = (Get-Date).ToUniversalTime() }
+        $stamp = $Now.ToString('yyyyMMdd')
+    }
+    $id = "classifier-4327-$m-$Verdict-$stamp"
+    if ($null -ne $Burst -and $null -ne $Burst.utc) {
+        $id = "$id-" + $Burst.utc.ToUniversalTime().ToString('yyyyMMddTHHmm')
+    }
+    return $id
+}
+
 function New-AlertContent {
     param(
         [Parameter(Mandatory)] $Result,
@@ -472,7 +527,8 @@ function New-AlertContent {
         [int]$SlowThresholdMs = 3000,
         [int]$HeartbeatStaleSeconds = 1800,
         [int]$AbnormalMinCount = 2,
-        [int]$DeadlineMinutes = 10
+        [int]$DeadlineMinutes = 10,
+        [string]$IncidentId = ""
     )
 
     $hb = if (-not $Result.heartbeatInstrumentPresent -and $null -eq $Result.heartbeatAgeSeconds) {
@@ -503,6 +559,7 @@ function New-AlertContent {
         "Affected machine: **$($Result.machine)**. Measured by $Detector at $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')).",
         "",
         "- verdict: $($Result.verdict) (target: within $DeadlineMinutes min of the logon death, AC2)",
+        "- incident id: $IncidentId (one alert per incident; a new boot is a new incident)",
         "- last boot (System log, event 12): $boot",
         "- logon-death burst (7031/7034, suffix _<5 hex>, same second, >= 5): $burstText",
         "- authenticated WinRM latency (Invoke-Command {1}), $($AbnormalMinCount) of $(@($Result.latencySamplesMs).Count) over the threshold: $lat (threshold $SlowThresholdMs ms)",
@@ -858,8 +915,100 @@ function Invoke-RsmCliJson($scriptName, $cliArgs) {
     try { return (($out -join "`n") | ConvertFrom-Json) } catch { return $null }
 }
 
+# ---------------------------------------------------------------------------
+# Incident state - LOCAL to the detector seat (RX122 review, #4396). The
+# dashboard FILE is not a state store: the machine dashboards condense all the
+# time (po-2028 56 KB, po-2025 55 KB, 12 794 archive files) and the incident
+# id scrolls out of the live file, so a guard that read the file back would
+# repost. The state is a gitignored JSON under outputs/ (same pattern as
+# embeddings-alert.ps1, #4394): written ONLY after the primary post is
+# accepted, non-fatal when the write fails, and an absent or corrupt state
+# means POST - never stay silent.
+# ---------------------------------------------------------------------------
+
+function Get-ClassifierStatePath {
+    # CLASSIFIER_STATE_DIR moves the DIRECTORY (replay, tests) without
+    # touching production state.
+    param([string]$StateDir = "")
+    $dir = $StateDir
+    if ([string]::IsNullOrWhiteSpace($dir)) { $dir = $env:CLASSIFIER_STATE_DIR }
+    if ([string]::IsNullOrWhiteSpace($dir)) {
+        # scripts/diagnostic/<here> -> repo root
+        $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+        $dir = Join-Path $repoRoot 'outputs\diagnostic\state'
+    }
+    return (Join-Path $dir 'classifier-incidents.json')
+}
+
+function Read-ClassifierIncidentState {
+    # Status: 'none' (absent), 'ok', 'corrupt'. A corrupt state is a fact about
+    # the INSTRUMENT, not the fleet: the caller posts anyway and the next
+    # accepted post overwrites it.
+    param([Parameter(Mandatory)][string]$StatePath)
+    if (-not (Test-Path -LiteralPath $StatePath)) {
+        return [pscustomobject]@{ Status = 'none'; Data = @(); Error = $null }
+    }
+    try {
+        $raw = Get-Content -LiteralPath $StatePath -Raw -ErrorAction Stop
+        if ([string]::IsNullOrWhiteSpace($raw)) { throw 'fichier vide' }
+        $data = $raw | ConvertFrom-Json -ErrorAction Stop
+        $entries = @()
+        foreach ($p in @($data.PSObject.Properties)) {
+            $entries += [pscustomobject]@{ Machine = $p.Name; IncidentId = [string]$p.Value.incidentId }
+        }
+        return [pscustomobject]@{ Status = 'ok'; Data = $entries; Error = $null }
+    } catch {
+        return [pscustomobject]@{ Status = 'corrupt'; Data = @(); Error = $_.Exception.Message }
+    }
+}
+
+function Save-ClassifierIncidentState {
+    # Atomic write (.tmp then move in the same directory), UTF-8 no BOM.
+    param([Parameter(Mandatory)][string]$StatePath, [Parameter(Mandatory)]$Entries)
+    $dir = Split-Path -Path $StatePath -Parent
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+        New-Item -Path $dir -ItemType Directory -Force | Out-Null
+    }
+    $map = @{}
+    foreach ($e in @($Entries)) {
+        $map[$e.Machine] = [PSCustomObject]@{ incidentId = [string]$e.IncidentId; postedAtUtc = (Get-Date).ToUniversalTime().ToString('o') }
+    }
+    $json = $map | ConvertTo-Json -Depth 4
+    $tmp = "$StatePath.tmp"
+    [System.IO.File]::WriteAllText($tmp, $json, [System.Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $tmp -Destination $StatePath -Force
+}
+
+function Update-ClassifierHealthyState {
+    # Drop the recorded incident of every machine whose verdict is back to
+    # HEALTHY: the state entry means "this incident was already announced",
+    # not fleet history - without the drop, one wedge per boot per machine,
+    # ever, and a later wedge on the same boot would be swallowed.
+    param($Results, [string]$StateDir = "")
+    $path = Get-ClassifierStatePath -StateDir $StateDir
+    $state = Read-ClassifierIncidentState -StatePath $path
+    if ($state.Status -ne 'ok') { return }
+    $entries = @($state.Data)
+    $changed = $false
+    foreach ($r in @($Results)) {
+        if ($r.verdict -ne 'healthy') { continue }
+        $m = $r.machine.ToLowerInvariant()
+        if (@($entries | Where-Object { $_.Machine -eq $m }).Count -gt 0) {
+            $entries = @($entries | Where-Object { $_.Machine -ne $m })
+            $changed = $true
+        }
+    }
+    if (-not $changed) { return }
+    try {
+        Save-ClassifierIncidentState -StatePath $path -Entries $entries
+    } catch {
+        # The drop is lost, not the alert: the next accepted post rewrites.
+        Write-Output "[FLEET-ALERT] incident state not updated ($($_.Exception.Message))"
+    }
+}
+
 function Write-MachineDashboardAlert {
-    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content)
+    param([Parameter(Mandatory)][string]$TargetMachine, [Parameter(Mandatory)][string]$Content, [Parameter(Mandatory)][string]$MessageId, [string]$StateDir = "")
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     if ([string]::IsNullOrEmpty($sharedPath)) {
         Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set - alert on stdout only (no dashboard write)."
@@ -867,20 +1016,61 @@ function Write-MachineDashboardAlert {
     }
     $target = $TargetMachine.ToLowerInvariant()
 
+    # ONE ALERT PER INCIDENT (RX122) - dedup on the LOCAL state, never on the
+    # dashboard file (it condenses; see the state block above). The escalation
+    # surface also GENERATES its message id by contract - rsm-dashboard-append
+    # .mjs REFUSES --message-id without --dashboard (measured 28/10,
+    # dashboard-journal.mjs parseAppendArgs) - so no CLI-side dedup exists for
+    # the primary post. Absent state says so in one line; corrupt state posts
+    # anyway (never silent).
+    $statePath = Get-ClassifierStatePath -StateDir $StateDir
+    $state = Read-ClassifierIncidentState -StatePath $statePath
+    $recordedId = $null
+    foreach ($e in @($state.Data)) {
+        if ($e.Machine -eq $target) { $recordedId = $e.IncidentId; break }
+    }
+    if ($state.Status -eq 'none') {
+        Write-Output "[FLEET-ALERT] incident state absent ($statePath) - no local dedup, posting."
+    }
+    if ($state.Status -eq 'corrupt') {
+        Write-Output "[FLEET-ALERT] incident state unreadable ($statePath): $($state.Error) - posting anyway (never silent)."
+    }
+    $skipPrimary = ($null -ne $recordedId -and $recordedId -eq $MessageId)
+
+    # Record the incident in the LOCAL state - only after the primary post is
+    # ACCEPTED (a refused post must not be marked announced), and the failure
+    # of the write is non-fatal (the post already left; the next fire may
+    # repost, which is visible, unlike silence).
+    $script:ClassifierRecordIncident = {
+        param($sp, $machine, $incidentId, $currentState)
+        $entries = @($currentState.Data | Where-Object { $_.Machine -ne $machine })
+        $entries += [pscustomobject]@{ Machine = $machine; IncidentId = $incidentId }
+        try {
+            Save-ClassifierIncidentState -StatePath $sp -Entries $entries
+        } catch {
+            Write-Output "[FLEET-ALERT] incident posted but state not saved ($($_.Exception.Message)) - next fire may post again"
+        }
+    }
+
     # Primary: the affected machine's own dashboard. `--machine` is the dashboard KEY
     # in escalation mode, so this is the target's file, not the detector's.
-    $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $target, '--content', $Content)
-    if ($null -ne $cli -and $cli.ok -eq $true) {
-        Write-Output "[FLEET-ALERT] Posted to machine-$target dashboard via RSM CLI (key $($cli.key), messageId $($cli.messageId), pgSynced=$($cli.pgSynced))"
+    if ($skipPrimary) {
+        Write-Output "[FLEET-ALERT] Incident $MessageId already recorded in local state - primary post skipped (one alert per incident)."
     } else {
+        $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $target, '--content', $Content)
+        if ($null -ne $cli -and $cli.ok -eq $true) {
+            Write-Output "[FLEET-ALERT] Posted to machine-$target dashboard via RSM CLI (key $($cli.key), messageId $($cli.messageId), pgSynced=$($cli.pgSynced))"
+            & $script:ClassifierRecordIncident $statePath $target $MessageId $state
+        } else {
         # File fallback - same conventions as Write-MachineDashboardMessage (#4124):
         # CRLF, [msg:] marker, plural "(N messages)" from the seed on.
         try {
             $dashDir = Join-Path $sharedPath 'dashboards'
             $machineFile = Join-Path $dashDir "machine-$target.md"
             $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            $rand = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
-            $msgId = "$target" + ':classifier:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $rand
+            # The [msg:] marker carries the incident id for traceability in the
+            # file; the DEDUP itself is the local state above, not this marker.
+            $msgId = $MessageId
             $newMessage = "`r`n### [$timestamp] $target|classifier`r`n[msg: $msgId]`r`n`r`n$Content`r`n"
 
             if (-not (Test-Path $dashDir)) { New-Item -ItemType Directory -Path $dashDir -Force | Out-Null }
@@ -895,15 +1085,23 @@ function Write-MachineDashboardAlert {
             }
             [System.IO.File]::WriteAllText($machineFile, $fileContent, [System.Text.UTF8Encoding]::new($false))
             Write-Output "[FLEET-ALERT] Posted to $machineFile (file fallback)"
+            & $script:ClassifierRecordIncident $statePath $target $MessageId $state
         } catch {
             Write-Output "[FLEET-ALERT] Dashboard write failed (best-effort): $($_.Exception.Message)"
+        }
         }
     }
 
     # Cross-post: one line on workspace:Maintenance pointing back at the machine
-    # thread, idempotent so a retry does not duplicate it.
+    # thread. It runs on EVERY fire, including the ones whose primary post was
+    # skipped (RX122 review): it is already idempotent through --message-id, so a
+    # cross-post that failed on fire N is simply retried on fire N+1 - while a
+    # skip would have lost it for the whole wedge. The id is the INCIDENT key
+    # (not per UTC hour): the RSM CLI dedups on --message-id in --dashboard mode
+    # (#4090), so the whole wedge - every 5-minute fire on the same boot and
+    # burst - converges on ONE cross-post, and a new incident opens a new one.
     $crossBody = "[FLEET-ALERT] $target - reachable-but-unusable (#4327): details and the answer thread on the machine dashboard of $target. Hard lever decision belongs to this lane."
-    $crossId = "classifier-4327-$target-" + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHH')
+    $crossId = "$MessageId-maint"
     $cross = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--dashboard', 'workspace:Maintenance', '--message-id', $crossId, '--author-workspace', 'classifier', '--content', $crossBody)
     if ($null -ne $cross -and $cross.ok -eq $true) {
         Write-Output "[FLEET-ALERT] Cross-posted to workspace:Maintenance (messageId $($cross.messageId))"
@@ -991,6 +1189,30 @@ function Read-ReplaySamples {
 # blocking review item is a probe behaviour, not a verdict rule - proving it through
 # a whole fleet run would need a broken seat).
 if ($env:CLASSIFIER_LIB_ONLY -eq '1') { return }
+
+# -CredentialFile is the scheduled-fire form of -Credential (RX122): a task
+# carries a file, not a live object. The load is fail-LOUD and happens BEFORE
+# any probe: a classifier told to run with a credential it cannot load must
+# never silently fall back to the unauthenticated path - that is exactly how
+# the no-credential run of 28/10 produced `system-log-unavailable` on every
+# reachable seat and an exit 3 that proved nothing about the fleet.
+if (-not [string]::IsNullOrEmpty($CredentialFile) -and $null -eq $Credential) {
+    if (-not (Test-Path -LiteralPath $CredentialFile)) {
+        Write-Error "CredentialFile not found: $CredentialFile - refusing to run without credentials."
+        exit 3
+    }
+    try {
+        $importedCredential = Import-Clixml -LiteralPath $CredentialFile
+    } catch {
+        Write-Error "CredentialFile is not readable CLI XML: $CredentialFile ($($_.Exception.Message))"
+        exit 3
+    }
+    if ($null -eq $importedCredential -or $importedCredential -isnot [System.Management.Automation.PSCredential]) {
+        Write-Error "CredentialFile does not contain a PSCredential: $CredentialFile (expected Export-Clixml of a PSCredential, DPAPI-encrypted)."
+        exit 3
+    }
+    $Credential = $importedCredential
+}
 
 $results = @()
 $appendFacts = $null
@@ -1094,6 +1316,13 @@ $unreachable = @($results | Where-Object { $_.verdict -eq 'unreachable' })
 $instrumentMissing = @($results | Where-Object { @($_.findings) -contains 'no-instrument' }).Count -gt 0
 $logUnavailable = @($results | Where-Object { @($_.findings) -contains 'system-log-unavailable' }).Count -gt 0
 
+# A machine back to healthy drops its recorded incident so a LATER wedge posts
+# again (RX122 review). Live mode only: a replay must not touch the seat's real
+# state file with fixture machines.
+if ([string]::IsNullOrEmpty($ReplayFile)) {
+    Update-ClassifierHealthyState -Results $results
+}
+
 # ---------- Alerts (criterion 5) ----------
 # Built BEFORE the output block so -Json can carry them INSIDE the payload: a
 # consumer running `-Json | ConvertFrom-Json` must not choke on a markdown block
@@ -1101,10 +1330,17 @@ $logUnavailable = @($results | Where-Object { @($_.findings) -contains 'system-l
 # encountered after finished reading JSON content").
 $alerts = @()
 foreach ($r in $unusable) {
+    # ONE id per alert, computed ONCE: the content line and the post guard must
+    # read the same key, so both consume this value instead of re-deriving it.
+    # The burst stamp goes in too: a second wedge on the same boot is a new
+    # incident, not a repost.
+    $incidentId = Get-ClassifierIncidentId -Machine $r.machine -LastBootUtc $r.lastBootUtc -Burst $r.burst
     $alerts += [PSCustomObject]@{
-        machine = $r.machine
+        machine   = $r.machine
+        messageId = $incidentId
         content = (New-AlertContent -Result $r -Detector $env:COMPUTERNAME -SlowThresholdMs $WinrmSlowMs `
-            -HeartbeatStaleSeconds $HeartbeatStaleSeconds -AbnormalMinCount $LatencyAbnormalMinCount -DeadlineMinutes $VerdictDeadlineMinutes)
+            -HeartbeatStaleSeconds $HeartbeatStaleSeconds -AbnormalMinCount $LatencyAbnormalMinCount -DeadlineMinutes $VerdictDeadlineMinutes `
+            -IncidentId $incidentId)
     }
 }
 
@@ -1176,7 +1412,7 @@ foreach ($a in $alerts) {
         Write-Output $a.content
     }
     if (-not $NoAlert -and [string]::IsNullOrEmpty($ReplayFile)) {
-        Write-MachineDashboardAlert -TargetMachine $a.machine -Content $a.content
+        Write-MachineDashboardAlert -TargetMachine $a.machine -Content $a.content -MessageId $a.messageId
     }
 }
 
