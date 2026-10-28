@@ -61,11 +61,38 @@ $psExe = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source
 if (-not $psExe) { $psExe = 'powershell.exe' }
 
 Write-Log "=== usability-classifier fire (task Claude-UsabilityClassifier) ==="
-# Child process on purpose: the classifier ends with `exit N`, and an `exit`
-# in a script called with `&` would terminate THIS launcher's session before
-# the exit code could be logged.
-$out = & $psExe -NoProfile -ExecutionPolicy Bypass -File $classifier -CredentialFile $CredentialFile 2>&1
-$code = $LASTEXITCODE
-foreach ($l in @($out)) { Write-Log "  $l" }
+# Child process on purpose, for two reasons:
+#   (1) the classifier ends with `exit N`, and an `exit` in a script called
+#       with `&` would terminate THIS launcher's session before the exit code
+#       could be logged;
+#   (2) the run is BOUNDED below: with MultipleInstances=IgnoreNew, a hung
+#       Invoke-Command would pin the task forever and every later fire would
+#       be swallowed silently. 240 s > the measured 81 s full sweep.
+$MaxSeconds = 240
+$rawOut = Join-Path $logDir 'usability-classifier-raw.txt'
+$rawErr = Join-Path $logDir 'usability-classifier-raw-err.txt'
+Remove-Item $rawOut, $rawErr -Force -ErrorAction SilentlyContinue
+$proc = Start-Process -FilePath $psExe `
+    -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$classifier`" -CredentialFile `"$CredentialFile`"") `
+    -NoNewWindow -PassThru -RedirectStandardOutput $rawOut -RedirectStandardError $rawErr
+$elapsed = 0
+while (-not $proc.HasExited -and $elapsed -lt $MaxSeconds) {
+    Start-Sleep -Seconds 5
+    $elapsed += 5
+}
+if (-not $proc.HasExited) {
+    Write-Log "TIMEOUT: classifier still running after ${MaxSeconds}s - killing the process tree (taskkill /T /F)"
+    & taskkill /T /F /PID $proc.Id 2>&1 | ForEach-Object { Write-Log "  $_" }
+    try { $proc.WaitForExit(5000) | Out-Null } catch { }
+    $code = 124
+} else {
+    $code = $proc.ExitCode
+}
+foreach ($f in @($rawOut, $rawErr)) {
+    if (Test-Path $f) {
+        foreach ($l in @(Get-Content $f -ErrorAction SilentlyContinue)) { Write-Log "  $l" }
+        Remove-Item $f -Force -ErrorAction SilentlyContinue
+    }
+}
 Write-Log "=== exit $code ==="
 exit $code

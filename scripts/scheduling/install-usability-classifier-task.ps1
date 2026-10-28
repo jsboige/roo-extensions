@@ -77,10 +77,28 @@ if ($IntervalMinutes -lt 1) {
 }
 
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
-$launcherPath = Join-Path $scriptDir 'start-usability-classifier.ps1'
+$launcherPath = [System.IO.Path]::GetFullPath((Join-Path $scriptDir 'start-usability-classifier.ps1'))
 $classifierPath = [System.IO.Path]::GetFullPath((Join-Path $scriptDir '..\diagnostic\classify-machine-usability.ps1'))
 $taskName = 'Claude-UsabilityClassifier'
 $vbsPath = Join-Path $LauncherDir ("{0}.vbs" -f $taskName)
+
+# REFUS: a launcher resolved INSIDE a git worktree dies when the worktree is
+# cleaned up (the VBS then points into the void), and a worktree path escapes
+# the #4097 deletion predicate (which guards the MAIN checkout's
+# scripts/scheduling/). Refuse loudly and name the main checkout.
+if ($launcherPath -match '[\\/]\.claude[\\/]worktrees[\\/]') {
+    $mainCheckout = $null
+    try {
+        # A linked worktree resolves to the main checkout's .git common dir.
+        $commonDir = & git -C $scriptDir rev-parse --git-common-dir 2>$null
+        if ($commonDir) { $mainCheckout = Split-Path (Split-Path $commonDir -Parent) -Parent }
+    } catch { }
+    if (-not $mainCheckout) { $mainCheckout = 'D:\roo-extensions' }
+    Write-Host "REFUS: le lanceur resolu vit dans un worktree git : $launcherPath" -ForegroundColor Red
+    Write-Host "Un worktree est un lieu de travail ephemere : nettoye, le VBS pointe dans le vide, et le chemin echappe au predicat de suppression #4097." -ForegroundColor Red
+    Write-Host "Relancer l'installation depuis le checkout principal : $mainCheckout" -ForegroundColor Red
+    exit 1
+}
 
 # --- Pre-flight ----------------------------------------------------------------
 foreach ($p in @($launcherPath, $classifierPath)) {
@@ -116,7 +134,17 @@ if (-not $credOk) {
     } else {
         Write-Host "Prompt pour le compte WinRM utilise pour lire les journaux System des sieges"
         Write-Host "(DPAPI : le fichier ne sera lisible que par l'utilisateur courant)."
-        $cred = Get-Credential -Message "Compte WinRM du usability classifier (stocke dans $CredentialFile)"
+        try {
+            $cred = Get-Credential -Message "Compte WinRM du usability classifier (stocke dans $CredentialFile)"
+        } catch {
+            # Prompt annule : sortie CLAIRE - jamais exporter un credential $null.
+            Write-Host "Get-Credential annule - rien n'est ecrit, aucune tache n'est enregistree." -ForegroundColor Yellow
+            exit 1
+        }
+        if ($null -eq $cred) {
+            Write-Host "Aucun credential fourni - rien n'est ecrit, aucune tache n'est enregistree." -ForegroundColor Yellow
+            exit 1
+        }
         $credDir = Split-Path $CredentialFile -Parent
         if ($credDir -and -not (Test-Path $credDir)) { New-Item -ItemType Directory -Path $credDir -Force | Out-Null }
         $cred | Export-Clixml -Path $CredentialFile
@@ -151,6 +179,10 @@ if ($credOk) {
     $reachable = @($windowsSeats | Where-Object { $_.verdict -ne 'unreachable' })
     $logUnavail = @($reachable | Where-Object { @($_.findings) -contains 'system-log-unavailable' })
 
+    if ($windowsSeats.Count -eq 0) {
+        Write-Host "REFUS: aucun siege ne porte de drivingPort dans le JSON d'acceptance - impossible de distinguer les sieges Windows, le credential ne peut pas etre valide. Aucune tache n'est enregistree." -ForegroundColor Red
+        exit 1
+    }
     if ($reachable.Count -eq 0) {
         Write-Host "REFUS: aucun siege Windows joignable dans l'acceptance run - le credential ne peut etre valide. Aucune tache n'est enregistree." -ForegroundColor Red
         exit 1
@@ -192,8 +224,14 @@ WScript.Quit rc
 "@
 
 $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument ('//B //Nologo "{0}"' -f $vbsPath)
-# Repetition indefinie : trigger -Once + RepetitionDuration MaxValue.
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) -RepetitionDuration ([TimeSpan]::MaxValue)
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes)
+# Repetition indefinie : Duration nulle EXPLICITEMENT, pas -RepetitionDuration
+# ([TimeSpan]::MaxValue) - Server 2019 refuse cette valeur avec 0x80041318 et
+# l'erreur est NON terminante (install-gdrivefs-watchdog-schtask.ps1 ;
+# setup-scheduler.ps1 #967) : une tache qui affiche "Installed" alors que le
+# trigger n'a jamais atterri.
+$trigger.Repetition.Duration = $null
+$trigger.Repetition.StopAtDurationEnd = $false
 # Utilisateur courant, Interactive, Limited : ni le run ni l'enregistrement ne
 # demandent d'elevation (precedent mesure #3834), pas de mot de passe stocke.
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Limited -LogonType Interactive

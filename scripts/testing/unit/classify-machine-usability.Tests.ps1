@@ -614,8 +614,8 @@ Describe 'classify-machine-usability (#4327)' {
             $fireA.alerts.Count | Should -BeGreaterThan 0
             $idA1 = $fireA.alerts[0].messageId
             $idA2 = $fireB.alerts[0].messageId
-            $idA1 | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0745' -Because 'machine + verdict + last boot, minute precision'
-            $idA1 | Should -Be $idA2 -Because 'two fires on the same boot are the same incident'
+            $idA1 | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0745-20261023T0748' -Because 'machine + verdict + last boot + the measured burst minute'
+            $idA1 | Should -Be $idA2 -Because 'two fires on the same incident are the same incident'
             # The pattern goes through a VARIABLE: `[regex]::Escape($x)` in pipeline
             # argument position is mis-parsed by 5.1 (the call splits into the method
             # name as a string plus a stray positional argument - measured, Pester
@@ -641,8 +641,8 @@ Describe 'classify-machine-usability (#4327)' {
             $path = Write-ReplayFile -Name 'new-boot.json' -Payload $payload
             $fireC = (Invoke-Classifier -Arguments @('-ReplayFile', $path, '-Json', '-NoAlert')).Output | ConvertFrom-Json
             $idC = $fireC.alerts[0].messageId
-            $idC | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0830'
-            $idC | Should -Not -Be $idA1 -Because 'a new boot is a new incident: the next wedge gets a fresh alert'
+            $idC | Should -Be 'classifier-4327-myia-po-2028-unusable-20261023T0830-20261023T0834'
+            $idC | Should -Not -Be $idA1 -Because 'a new boot (and a new burst) is a new incident: the next wedge gets a fresh alert'
         }
 
         It 'exits 3 on a MISSING credential file, loudly, before any probe' {

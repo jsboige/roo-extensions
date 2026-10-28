@@ -81,7 +81,7 @@ try {
     New-Item -ItemType Directory -Path $SubDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $SubDir 'inner-worker-20200101-000000.log') -Value 'nested'
 
-    # --- Fixtures : 15 fichiers racine ---
+    # --- Fixtures : 16 fichiers racine ---
     # Eligibles attendus (WorkerIter/Regular/Meta seulement) : 7 fichiers.
     New-TestFile 'worker-iter-20260801-101010-1.log'  20   # WorkerIter, eligible (>=14)
     New-TestFile 'worker-iter-20260910-101010-1.log'  2    # WorkerIter, garde
@@ -91,6 +91,7 @@ try {
     New-TestFile 'coordinator-20260801-101010.log'    40   # Regular, eligible
     New-TestFile 'dashboard-watcher-20260801.log'     40   # Regular, eligible
     New-TestFile 'listener-20260801-101010.log'       40   # Regular, eligible
+    New-TestFile 'usability-classifier.log'           2    # Regular, garde (#4327 tir 5 min)
     New-TestFile 'meta-audit-20260904-101010.log'     8    # Meta, eligible (>=7)
     New-TestFile 'meta-audit-20260910-101010.log'     2    # Meta, garde
     New-TestFile 'env-snapshot.env'                   40   # Env, JAMAIS touche (#3834)
@@ -107,7 +108,7 @@ try {
     Assert-True  "sortie mentionne le refus de suppression nue" ($r1.Output -match '-Execute exige -ArchiveTo')
     Assert-True  "sortie affiche PSVersion (compat 5.1)" ($r1.Output -match 'PowerShell : 5\.')
     $rootCountAfterReport = @(Get-ChildItem -LiteralPath $Sandbox -File).Count
-    Assert-Equal "aucun fichier supprime en report-only (15 restants)" 15 $rootCountAfterReport
+    Assert-Equal "aucun fichier supprime en report-only (16 restants)" 16 $rootCountAfterReport
 
     Write-Host ""
     Write-Host "=== Test 2: -Execute sans -ArchiveTo => REFUS (decision 13/09) ===" -ForegroundColor Cyan
@@ -116,7 +117,7 @@ try {
     Assert-True  "sortie contient [REFUS]" ($r2.Output -match '\[REFUS\]')
     Assert-True  "sortie cite la decision 13/09" ($r2.Output -match '13/09')
     $rootCountAfterRefusal = @(Get-ChildItem -LiteralPath $Sandbox -File).Count
-    Assert-Equal "aucun fichier supprime malgre -Execute (15 restants)" 15 $rootCountAfterRefusal
+    Assert-Equal "aucun fichier supprime malgre -Execute (16 restants)" 16 $rootCountAfterRefusal
 
     Write-Host ""
     Write-Host "=== Test 3: -ArchiveTo sans -Execute => preview, rien d'ecrit ===" -ForegroundColor Cyan
@@ -124,14 +125,14 @@ try {
     Assert-Equal "code sortie preview = 0" 0 $r3.ExitCode
     Assert-True  "sortie contient [PREVIEW]" ($r3.Output -match '\[PREVIEW\]')
     Assert-True  "preview n'ecrit rien sous ArchiveTo" (-not (Test-Path -LiteralPath $ArchiveRoot))
-    Assert-Equal "15 fichiers toujours presents" 15 (@(Get-ChildItem -LiteralPath $Sandbox -File).Count)
+    Assert-Equal "16 fichiers toujours presents" 16 (@(Get-ChildItem -LiteralPath $Sandbox -File).Count)
 
     Write-Host ""
     Write-Host "=== Test 4: -SevenZip fourni mais introuvable => refus exit 2 ===" -ForegroundColor Cyan
     $r4 = Invoke-Rotator @('-ArchiveTo', $ArchiveRoot, '-SevenZip', 'C:\nowhere\7z.exe')
     Assert-Equal "code sortie = 2 (7z introuvable)" 2 $r4.ExitCode
     Assert-True  "sortie refuse explicitement" ($r4.Output -match '\[REFUS\].*7z introuvable')
-    Assert-Equal "15 fichiers toujours presents" 15 (@(Get-ChildItem -LiteralPath $Sandbox -File).Count)
+    Assert-Equal "16 fichiers toujours presents" 16 (@(Get-ChildItem -LiteralPath $Sandbox -File).Count)
 
     Write-Host ""
     Write-Host "=== Test 5: ARCHIVE-PUIS-RETRAIT nominal (4 etapes) ===" -ForegroundColor Cyan
@@ -144,11 +145,13 @@ try {
     Assert-True  "etape 4 : 7 supprimes, 0 sautes" ($r5.Output -match '\[ETAPE 4/4\] Retrait : 7 supprime\(s\).*, 0 saute\(s\), 0 echec\(s\)')
     $survivors = @(Get-ChildItem -LiteralPath $Sandbox -File | ForEach-Object { $_.Name }) | Sort-Object
     # Survivants attendus exactement : retenus par retention (worker-iter 2j, worker 2j,
-    # meta 2j, lock frais) + jamais touches (mystery, env, worker.lock, lastrun) = 8.
-    Assert-Equal "exactement 8 survivants racine" 8 $survivors.Count
+    # meta 2j, usability-classifier 2j, lock frais) + jamais touches (mystery, env,
+    # worker.lock, lastrun) = 9.
+    Assert-Equal "exactement 9 survivants racine" 9 $survivors.Count
     Assert-True  "worker-iter frais garde" ($survivors -contains 'worker-iter-20260910-101010-1.log')
     Assert-True  "worker frais garde" ($survivors -contains 'worker-20260910-101010.log')
     Assert-True  "meta frais garde" ($survivors -contains 'meta-audit-20260910-101010.log')
+    Assert-True  "usability-classifier frais garde (Regular, #4327)" ($survivors -contains 'usability-classifier.log')
     Assert-True  "lock frais garde" ($survivors -contains 'coordinator.lock')
     Assert-True  "Unknown JAMAIS supprime (300j)" ($survivors -contains 'mystery-trace.bin')
     Assert-True  "Env JAMAIS supprime (40j, #3834)" ($survivors -contains 'env-snapshot.env')
