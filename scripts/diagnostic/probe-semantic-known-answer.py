@@ -31,7 +31,10 @@ Deux phases, deux sieges :
        pas un echec** : 0 veut souvent dire « deja indexee pour cette tache »
        (dedup ms#1557). C'est la phase VERIFY qui tranche, pas le compteur.
        (Mesure ai-01 28/10 : la forme Markdown seule etait lue comme une panne,
-       exit 2 sans rien mesurer — verdict faux, mesure saine.)
+       exit 2 sans rien mesurer — verdict faux, mesure saine.) Quand les DEUX
+       formes coexistent, le JSON embarque portant `success` FAIT FOI : un
+       `success:false` prime sur l'en-tete Markdown (file 20261028i, suivi 1 —
+       cas injoignable aujourd'hui, rendu impossible).
     4. affiche TASK_ID + PHRASE verbatim (a copier vers le siege B).
 
   Phase VERIFY (n'importe quel siege, typiquement B) :
@@ -302,7 +305,15 @@ def parse_index_result(text: str):
     n'accepte jamais « pas d'erreur connue » comme un succes.
     """
     payload = parse_embedded_json(text)
-    if isinstance(payload, dict) and payload.get("success") is True:
+    if isinstance(payload, dict) and "success" in payload:
+        # PRECEDENCE (file 20261028i, suivi 1) : un JSON embarque portant
+        # `success` fait FOI sur l'en-tete Markdown qui l'entoure. Un
+        # `success:false` derriere « # Indexation sémantique terminée » serait
+        # sinon lu comme un succes par la branche Markdown ci-dessous. Cas
+        # aujourd'hui injoignable (le serveur n'embarque un JSON que sur
+        # succes) : on le rend IMPOSSIBLE plutot que d'attendre de le vivre.
+        if payload.get("success") is not True:
+            return None
         payload.setdefault("form", "json")
         # Clef normalisee, quelle que soit la forme : les consommateurs (et la
         # sortie `--json`) n'ont pas a connaitre deux orthographes.
@@ -1075,6 +1086,51 @@ def selftest() -> int:
     if parse_index_result(json.dumps({"success": False, "error": "boom"})) is not None:
         failures.append("parse_index_result: un JSON success=false a ete lu comme un succes")
 
+    # PRECEDENCE du JSON embarque (file 20261028i, suivi 1) : un success:false
+    # en JSON doit PRIMER sur l'en-tete Markdown « terminée » qui l'entoure.
+    # Cas aujourd'hui injoignable cote serveur — le rendant impossible ici, la
+    # sonde ne le decouvrira pas en production. Sans la sortie anticipee, la
+    # branche Markdown lit ce melange comme un succes.
+    mixed = "\n".join([
+        "# Indexation sémantique terminée",
+        "",
+        "**Tâche:** claude-x--u1",
+        "**Chunks indexés:** 7",
+        "",
+        "```json",
+        json.dumps({"success": False, "error": "embeddings en echec partiel"}),
+        "```",
+    ])
+    if parse_index_result(mixed) is not None:
+        failures.append("parse_index_result: un success:false JSON n'a pas prime sur l'en-tete Markdown")
+    # Et le melange INVERSE reste un succes : en-tete Markdown + JSON success:true.
+    mixed_ok = "\n".join([
+        "# Indexation sémantique terminée",
+        "**Chunks indexés:** 7",
+        "```json",
+        json.dumps({"success": True, "chunksIndexed": 7, "reason": "7 point(s) écrit(s)"}),
+        "```",
+    ])
+    ok_parsed = parse_index_result(mixed_ok)
+    if not ok_parsed or ok_parsed.get("form") != "json" or ok_parsed.get("chunks_indexed") != 7:
+        failures.append(f"parse_index_result: Markdown + JSON success=true non accepte -> {ok_parsed!r}")
+    # ...et un JSON embarque SANS clef `success` ne fait PAS foi : c'est du
+    # contenu cite (apercu de resultat d'outil), pas le verdict d'indexation.
+    # Sans cette borne, « le JSON prime » deviendrait « n'importe quel JSON
+    # prime » et un succes Markdown portant un apercu JSON serait lu en echec.
+    mixed_foreign = "\n".join([
+        "# Indexation sémantique terminée",
+        "**Chunks indexés:** 5",
+        "```json",
+        json.dumps({"action": "append", "written": True}),
+        "```",
+    ])
+    foreign_parsed = parse_index_result(mixed_foreign)
+    if not foreign_parsed or foreign_parsed.get("form") != "markdown" or foreign_parsed.get("chunks_indexed") != 5:
+        failures.append(
+            "parse_index_result: un JSON embarque sans clef success a fait foi sur l'en-tete Markdown "
+            f"-> {foreign_parsed!r}")
+
     json_only = parse_index_result(json.dumps({"success": True, "points": 42}))
     if not json_only or json_only.get("form") != "json":
         failures.append(f"parse_index_result: forme JSON historique non acceptee -> {json_only!r}")
@@ -1177,7 +1233,8 @@ def selftest() -> int:
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
           "log ignoree, index queued=false, succes Markdown ET JSON embarque acceptes "
-          "(0 chunk n'est pas un echec), erreur d'indexation refusee, isError au "
+          "(0 chunk n'est pas un echec), erreur d'indexation refusee, JSON embarque "
+          "fait foi (success:false prime sur l'en-tete Markdown), isError au "
           "niveau resultat)")
     return 0
 
