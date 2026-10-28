@@ -1,9 +1,16 @@
 # backup-lane-essentials.ps1 - Lane disaster-recovery backup to GDrive (mandate 2026-10-23)
 #
-# Backs up "what matters" for the myia-po-2027:roo-extensions lane (NOT volume tars):
-#   1. Lane memory dir  (~/.claude/projects/d--dev-roo-extensions/memory/) - lessons, registries
+# Backs up "what matters" for ONE lane (NOT volume tars):
+#   1. Lane memory dir  (~/.claude/projects/<workspace>/memory/) - lessons, registries
 #   2. RSM server .env  - seat-rebuild secrets (user-mandated on shared Drive, 2026-10-23)
 #   3. CLAUDE.local.md  - machine-local project notes, if present
+#
+# Every path default is DERIVED FROM THE SEAT at run time (repo root = this
+# checkout, machine id = ROOSYNC_MACHINE_ID or COMPUTERNAME, lane root =
+# $env:ROOSYNC_SHARED_PATH\lane-backups\<machine>-<lane>). The first version
+# hardcoded po-2027's paths (D:\dev, G:\Mon Drive) and failed with
+# "memory dir missing" on every other seat (measured on web2, 28/10).
+# Nothing is guessed: an unresolvable path fails loud and names the override.
 #
 # Output: timestamped zip + sha256 fingerprints, bounded rotation, fail-loud guards.
 # Never prints file contents (secrets) - only names, sizes and hashes.
@@ -11,8 +18,8 @@
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File scripts\claude\backup-lane-essentials.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\claude\backup-lane-essentials.ps1 -Keep 14 -WhatIf
-#   Other lanes: override -TargetRoot/-MemoryDir/-RsmEnvFile/-LocalNotes/-LaneLabel/-ExtraPath
-#     -LaneLabel 'CoursIA'        manifest trace label (default would mislabel a reusing lane)
+#   Overrides: -TargetRoot/-MachineId/-MemoryDir/-RsmEnvFile/-LocalNotes/-RepoRoot/-LaneLabel/-ExtraPath
+#     -LaneLabel 'CoursIA'        manifest trace label (default = this checkout's basename)
 #     -Exclude  @()               per-file name patterns skipped from the memory dir (default: *.bak-*
 #                                 superseded local backups, measured 72% of web1's payload)
 #     -ExtraPath @('D:\repo\.secrets\master.env')  extra files/dirs staged under extras\
@@ -20,19 +27,24 @@
 # Manifests: one per archive (manifest-<stamp>.txt, paired) + latest-manifest.txt convenience copy.
 # Rotation sorts by Name (UTC stamp in the name) - immune to Drive re-sync mtime drift.
 #
-# Exit codes: 0 = ok, 1 = source missing / empty archive guard / write failure.
+# Exit codes: 0 = ok, 1 = source missing / unresolvable default / empty archive guard / write failure.
 
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
-    # Lane root on the shared Drive (Hermes mandate 2026-10-23: <lane>-backups convention)
-    [string]$TargetRoot = 'G:\Mon Drive\Synchronisation\RooSync\po2027-roo-extensions-backups',
+    # Lane root on the shared Drive. Empty = resolved in the body from the seat.
+    # Hermes mandate 2026-10-23: <lane>-backups convention under the shared state root.
+    [string]$TargetRoot = '',
     [int]$Keep = 14,
-    # Sources (defaults = this seat's lane)
-    [string]$MemoryDir = "$env:USERPROFILE\.claude\projects\d--dev-roo-extensions\memory",
-    [string]$RsmEnvFile = 'D:\dev\roo-extensions\mcps\internal\servers\roo-state-manager\.env',
-    [string]$LocalNotes = 'D:\dev\roo-extensions\CLAUDE.local.md',
-    # Lane identity for the manifest (a reusing lane is NOT roo-extensions)
-    [string]$LaneLabel = 'roo-extensions',
+    # Machine id used in the default lane root (same precedence as RSM's getLocalMachineId)
+    [string]$MachineId = '',
+    # Sources (empty = derived from this checkout in the body)
+    [string]$MemoryDir = '',
+    [string]$RsmEnvFile = '',
+    [string]$LocalNotes = '',
+    # Checkout whose lane this is (empty = two levels above this script)
+    [string]$RepoRoot = '',
+    # Lane identity for the manifest (default = this checkout's basename)
+    [string]$LaneLabel = '',
     # Name patterns skipped from the memory dir collection (superseded .bak-cNNN backups)
     [string[]]$Exclude = @('*.bak-*'),
     # Extra files or directories staged under extras\ (lane-specific gaps, e.g. .secrets/master.env)
@@ -41,6 +53,57 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')
+
+function Resolve-LaneMemoryDir([string]$RepoRoot) {
+    # Claude Code names the per-workspace project dir after the workspace path
+    # (C:\dev\roo-extensions -> c--dev-roo-extensions), but that naming is an
+    # internal convention: DISCOVER the dir instead of re-deriving it, so a
+    # different drive letter or spelling on another seat cannot silently miss.
+    # Ambiguity is refused, never resolved by guess.
+    $projects = Join-Path $env:USERPROFILE '.claude\projects'
+    $leaf = Split-Path -Leaf $RepoRoot
+    if (-not (Test-Path $projects)) { Write-Output "[FAIL] no projects dir: $projects"; exit 1 }
+    $candidates = @(Get-ChildItem $projects -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "*$leaf" -and (Test-Path (Join-Path $_.FullName 'memory')) })
+    if ($candidates.Count -eq 1) { return (Join-Path $candidates[0].FullName 'memory') }
+    if ($candidates.Count -eq 0) {
+        Write-Output "[FAIL] no memory dir found under $projects for lane '$leaf' - pass -MemoryDir"
+        exit 1
+    }
+    # Several candidates: prefer the one matching this workspace path spelling.
+    $derived = $RepoRoot.ToLower() -replace '[^a-z0-9]', '-'
+    $exact = @($candidates | Where-Object { $_.Name -eq $derived })
+    if ($exact.Count -eq 1) { return (Join-Path $exact[0].FullName 'memory') }
+    Write-Output "[FAIL] ambiguous memory dir for lane '$leaf' - pass -MemoryDir. Candidates:"
+    $candidates | ForEach-Object { Write-Output "       $($_.FullName)" }
+    exit 1
+}
+
+# --- 0. Resolve defaults from THIS seat ---
+# NB: resolved in the body, never in a param default -- $PSScriptRoot is empty
+# during param binding under `powershell.exe -File` (PS 5.1, measured 28/10).
+if (-not $RepoRoot) { $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
+# A worktree is a place to work, not a lane (<main>\.claude\worktrees\wt-x).
+# Resolved back to <main>, otherwise the lane label becomes the worktree name
+# and the RSM .env path points into an unpopulated submodule.
+if ($RepoRoot -match '[\\/]\.claude[\\/]worktrees[\\/][^\\/]+$') {
+    $RepoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $RepoRoot))
+}
+if (-not $LaneLabel) { $LaneLabel = Split-Path -Leaf $RepoRoot }
+if (-not $MachineId) {
+    $MachineId = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLower() } else { $env:COMPUTERNAME.ToLower() }
+}
+if (-not $RsmEnvFile) { $RsmEnvFile = Join-Path $RepoRoot 'mcps\internal\servers\roo-state-manager\.env' }
+if (-not $LocalNotes) { $LocalNotes = Join-Path $RepoRoot 'CLAUDE.local.md' }
+if (-not $MemoryDir) { $MemoryDir = Resolve-LaneMemoryDir -RepoRoot $RepoRoot }
+if (-not $TargetRoot) {
+    if (-not $env:ROOSYNC_SHARED_PATH) {
+        Write-Output '[FAIL] TargetRoot not resolvable on this seat: pass -TargetRoot,'
+        Write-Output '       or set ROOSYNC_SHARED_PATH (the shared-state root). No drive letter is assumed.'
+        exit 1
+    }
+    $TargetRoot = Join-Path $env:ROOSYNC_SHARED_PATH "lane-backups\$MachineId-$LaneLabel"
+}
 
 # --- 1. Collect sources, fail loud on the empty-archive trap (155-byte archives measured 2026-10-23) ---
 if (-not (Test-Path $MemoryDir)) { Write-Error "memory dir missing: $MemoryDir" ; exit 1 }

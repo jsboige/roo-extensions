@@ -111,6 +111,11 @@ on:
       - 'scripts/claude/run-eval-harness.ps1'
       - 'scripts/claude/eval-harness-verdicts.ps1'
       - 'scripts/claude/eval-harness-verdicts.Tests.ps1'
+      # lane-backup-defaults: backup-lane-essentials.Tests.ps1 pins the
+      # seat-resolved defaults of a script whose first version hardcoded
+      # po-2027's paths in its param defaults and died on every other seat.
+      - 'scripts/claude/backup-lane-essentials.ps1'
+      - 'scripts/claude/backup-lane-essentials.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
