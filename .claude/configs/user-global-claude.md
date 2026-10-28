@@ -20,7 +20,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 
 - **Langue :** User = francais. Code/commits/docs = anglais OK. INTERCOM = francais.
 - **Scope workspace :** rester dans SON workspace. Ignorer les dispatchs d'autres workspaces.
-- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09) — `.env`, `docker-compose` ou conteneur d'infra partagee : modifiable uniquement depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Exception urgence** (flotte a l'arret) : agir, puis excuse + explication sur le dashboard proprietaire **dans le meme cycle**. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
+- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09) — `.env`, `docker-compose` ou conteneur d'infra partagee : modifiable uniquement depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Une panne n'est pas une modification** (mandat user 28/10) : du casse se repare **sans GO**, ni du user ni d'une lane, et le proprietaire est prevenu **dans le meme cycle**. Seul un geste a **consequences notables** (destructif, irreversible, coupe un service partage, engage un humain, depense) s'escalade, et cela par les dashboards (`global` + `machine` + `crossPost`), jamais en question bloquante. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
 - **Securite :** jamais de suppression sans preuve de preservation. Pas de secrets dans les commits. Preferer les actions reversibles.
 
 ## Git
