@@ -325,4 +325,25 @@ Describe 'executor-preflight.ps1 -- branchement de la ligne [RSM-HEALTH]' {
         $preflightCode | Should -Not -Match '--message-id'
         $preflightCode | Should -Match 'rsm-health-posted-'
     }
+
+    It 'un echec d ecriture de marqueur ou de body-file reste local, et seul un WARN livre consomme le marqueur (review r3)' {
+        # Deux trous de la review #4388 r3 : (1) une WriteAllText qui jette atteint
+        # le catch externe et le pre-vol sort en echec -- un WARN ne bloque JAMAIS ;
+        # (2) un instrument-error qui reussit son post consommait le marqueur du
+        # jour, et le vrai WARN suivant etait etouffe. Les deux ecritures vivent
+        # desormais dans un try/catch local avec leur propre ligne de warning, et
+        # la porte du marqueur exige le verdict WARN ET la livraison.
+        $preflight = Get-Content (Join-Path $projectRoot 'scripts/claude/executor-preflight.ps1') -Raw
+        $preflightCode = (@(($preflight -split "`n") | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
+        # (1) les echecs d ecriture ont leur propre filet, message inclus.
+        $preflightCode | Should -Match 'body-file write failed'
+        $preflightCode | Should -Match 'marker write failed'
+        # (2) la porte du marqueur combine livraison ET verdict WARN : un mutant qui
+        # retire l une ou l autre condition fait echouer l ancrage exact.
+        $preflightCode | Should -Match 'if \(\$delivered -and \$rsmHealthExit -eq 2\)'
+        # La double porte est bien CELLE du marqueur : le WriteAllText du marqueur
+        # suit la porte dans les lignes qui restent (commentaires retires).
+        $gate = [regex]::Match($preflightCode, "(?s)if \(\`$delivered -and \`$rsmHealthExit -eq 2\).*?WriteAllText\(\`$postedMarker")
+        $gate | Should -Not -BeNullOrEmpty
+    }
 }

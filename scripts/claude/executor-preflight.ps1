@@ -264,16 +264,18 @@ try {
     # with no agent in the loop -- a relay "through RSM" is a relay through the very
     # component that is suffering, and it depends on an agent reading its own log.
     # Post through the #4385 dashboard CLI (machine escalation surface, WARN-class),
-    # one stable message id per machine per UTC day so a re-fire cannot multiply
-    # posts. If THAT post fails, the failure is itself the signal: fall back to
+    # WITHOUT a message id: that surface generates its own and rejects the flag, and
+    # the daily one-post cadence rides on the machine-local marker documented below.
+    # If THAT post fails, the failure is itself the signal: fall back to
     # `gh issue comment 4289`, which depends on neither RSM nor GDrive. An OK seat
     # makes no noise.
     # Absent script = older checkout: skip silently, the pull above brings it.
     $rsmHealth = Join-Path $RepoRoot 'scripts/diagnostic/measure-rsm-health.ps1'
     if (Test-Path $rsmHealth) {
-        # Merge stderr at the cmd.exe layer (#3731 class): on a WARN verdict the
-        # instrument writes through Write-Warning, i.e. on stderr, and a PS-level 2>&1
-        # under EAP=Stop would mint a terminating NativeCommandError from a clean run.
+        # Merge stderr at the cmd.exe layer (#3731 class). Since #4388 r2 the health
+        # line itself goes to stdout whatever the verdict; the merge stays for the
+        # genuine instrument-error text, and a PS-level 2>&1 under EAP=Stop would
+        # mint a terminating NativeCommandError from a clean run.
         $rsmHealthOutput = @(& cmd /c "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$rsmHealth"" 2>&1" | ForEach-Object { "$_" })
         foreach ($line in $rsmHealthOutput) { Write-Host $line }
         $rsmHealthExit = $LASTEXITCODE
@@ -333,6 +335,11 @@ try {
                         } else {
                             Write-Warning '[executor-preflight][RSM-HEALTH] gh fallback failed too (exit code above) -- the WARN lives only in this log. The cycle continues.'
                         }
+                    } catch {
+                        # A failed body-file write or gh call must stay local (review
+                        # #4388 r3): reaching the outer catch would turn a WARN into a
+                        # blocked cycle. The failure is the signal, posted right here.
+                        Write-Warning ('[executor-preflight][RSM-HEALTH] body-file write failed ({0}) -- the WARN lives only in this log. The cycle continues.' -f $_.Exception.Message)
                     } finally {
                         Remove-Item -LiteralPath $bodyFile -ErrorAction SilentlyContinue
                     }
@@ -340,12 +347,23 @@ try {
                     Write-Warning '[executor-preflight][RSM-HEALTH] gh not found -- the WARN lives only in this log. The cycle continues.'
                 }
             }
-            # The daily marker is written only when a WARN actually left the seat, on
-            # either path: a failed post must not buy the seat a silent day.
-            if ($delivered) {
-                $markerDir = Split-Path -Parent $postedMarker
-                if (-not (Test-Path $markerDir)) { New-Item -ItemType Directory -Path $markerDir -Force | Out-Null }
-                [System.IO.File]::WriteAllText($postedMarker, $content, (New-Object System.Text.UTF8Encoding($false)))
+            # The daily marker is consumed only by a WARN that actually left the seat,
+            # on either path: a failed post must not buy the seat a silent day, and an
+            # instrument-error post must not either (review #4388 r3) -- an instrument
+            # error earlier in the UTC day would otherwise suppress the real WARN that
+            # follows it. Instrument-error posts simply repeat until the instrument is
+            # fixed: rare by nature, and visible beats deduplicated.
+            if ($delivered -and $rsmHealthExit -eq 2) {
+                try {
+                    $markerDir = Split-Path -Parent $postedMarker
+                    if (-not (Test-Path $markerDir)) { New-Item -ItemType Directory -Path $markerDir -Force | Out-Null }
+                    [System.IO.File]::WriteAllText($postedMarker, $content, (New-Object System.Text.UTF8Encoding($false)))
+                } catch {
+                    # Same locality rule as the body-file above (review #4388 r3): a
+                    # failed marker write warns and the cycle continues -- the next
+                    # cycle will simply post again, which is the correct failure mode.
+                    Write-Warning ('[executor-preflight][RSM-HEALTH] marker write failed ({0}) -- the WARN will be posted again next cycle. The cycle continues.' -f $_.Exception.Message)
+                }
             }
         }
     }
