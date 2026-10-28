@@ -39,6 +39,29 @@ Sidechain records live in the parent's JSONL (per-record isSidechain flag), so
 the join is same-file: parent activity after the tool_use ts -> abandoned. An
 abandoned tail is reported for visibility but does NOT trip exit 2 (like
 executing, it is not an approval wait someone could still answer).
+
+The `abandoned-process` state (#4243 detector facet, ai-01 27/10) retires the
+fourth shape, and it is the one that made this detector noisy: a session whose
+own process is GONE. Its dangling tail is textually identical to a frozen one --
+that is the whole point of a stall, nothing is written -- so the old version
+re-signalled the same dead session at every tick for as long as the file stayed
+inside the mtime window (the reported case was a 24/10 session still announced
+on 27/10). Liveness is read from the process table, not from the transcript:
+
+    a wait created at T can only be answered by a process that existed at T and
+    is still running.
+
+No live Claude process started at or before T -> the wait is DEAD, classified
+`abandoned-process`, and recorded once in a state file so later ticks never
+re-report it. At least one such process -> the wait is POSSIBLY alive and keeps
+signalling: the mapping is per-host, not per-session, so the rule proves death
+and can only fail to prove life. That asymmetry is deliberate -- a repeat
+warning costs a line, a missed freeze costs a whole lane.
+
+Honest limits: the process table is read from this host only (a copied
+transcript scanned elsewhere classifies as `unknown`, never as dead), and a host
+where the enumeration fails degrades to `unknown` = today's behaviour. Both
+defaults are the behaviour itself -- no flag to opt in.
 """
 
 import argparse
@@ -47,6 +70,7 @@ import http.client
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -159,14 +183,187 @@ def adjudicate_state(record, session_id, hook_index):
     return "waiting-suspected"
 
 
-def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False):
+# --- process liveness (#4243 detector facet) ---------------------------------
+#
+# The transcript cannot tell a frozen session from a dead one: a stalled session
+# writes nothing, which is exactly what makes the tail dangle. The process table
+# can, with the one asymmetry described in the module docstring: no live process
+# older than the wait proves DEATH; any live process older than it only leaves
+# the wait possible. Enumeration failures return None (unknown), never [].
+
+_AUTO = object()  # "ask the host" -- distinct from None ("host cannot tell")
+
+STATE_VERSION = 1
+RETENTION_DAYS = 30
+DEFAULT_STATE_DIR = Path.home() / ".roo-state-manager" / "detect-approval-stalls"
+
+
+def _windows_processes():
+    """[(pid, start_epoch)] for live Claude Code processes (Windows).
+
+    claude.exe is the current native build; older npm installs run the CLI
+    through node.exe, kept only when the command line names it -- a bare
+    node.exe (an MCP host, a build) must not count as a live session.
+    """
+    script = (
+        "Get-CimInstance Win32_Process | "
+        "Where-Object { ($_.Name -eq 'claude.exe') -or "
+        "($_.Name -eq 'node.exe' -and $_.CommandLine -like '*claude*') } | "
+        "ForEach-Object { if ($_.CreationDate) { "
+        "'{0}|{1:o}' -f $_.ProcessId, $_.CreationDate.ToUniversalTime() } }"
+    )
+    proc = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise OSError(f"process enumeration failed (rc={proc.returncode}): "
+                      f"{proc.stderr.strip()[:200]}")
+    out = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if "|" not in line:
+            continue
+        pid, started = line.split("|", 1)
+        ts = parse_ts(started)
+        if ts is not None:
+            out.append({"pid": pid, "started": ts.timestamp()})
+    return out
+
+
+def _posix_processes(now_ts):
+    """[(pid, start_epoch)] from `ps -eo pid=,etimes=,args=` (Linux/macOS)."""
+    proc = subprocess.run(["ps", "-eo", "pid=,etimes=,args="],
+                          capture_output=True, text=True, timeout=60)
+    if proc.returncode != 0:
+        raise OSError(f"ps failed (rc={proc.returncode})")
+    out = []
+    for line in proc.stdout.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 3:
+            continue
+        pid, etimes, args = parts
+        if "claude" not in args.lower():
+            continue
+        try:
+            out.append({"pid": pid, "started": now_ts - float(etimes)})
+        except ValueError:
+            continue
+    return out
+
+
+def _parse_process_override(value):
+    """Test seam: STALL_DETECTOR_LIVE_PROCESSES = 'none' | 'pid@epoch,pid@epoch'.
+
+    Not a CLI flag on purpose -- the new classification IS the default; this
+    only makes the host's process table replaceable so a test can pin both
+    verdicts deterministically on any machine.
+    """
+    if value.strip().lower() == "none":
+        return []
+    out = []
+    for chunk in value.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        pid, _, epoch = chunk.partition("@")
+        out.append({"pid": pid or "?", "started": float(epoch)})
+    return out
+
+
+def live_claude_processes(now=None):
+    """Live Claude processes on this host, or None when the host cannot tell."""
+    override = os.environ.get("STALL_DETECTOR_LIVE_PROCESSES")
+    if override is not None:
+        return _parse_process_override(override)
+    now = now or now_utc()
+    try:
+        if os.name == "nt":
+            return _windows_processes()
+        return _posix_processes(now.timestamp())
+    except (OSError, ValueError, subprocess.SubprocessError) as exc:
+        print(f"WARNING: cannot read the process table ({exc}) -- liveness "
+              f"unknown, every wait keeps signalling", file=sys.stderr)
+        return None
+
+
+def liveness_of(record, processes):
+    """'alive' | 'dead' | 'unknown' for one dangling tool_use."""
+    if processes is None:
+        return "unknown"
+    started = parse_ts(record["ts"])
+    if started is None:
+        return "unknown"
+    ts = started.timestamp()
+    return "alive" if any(p["started"] <= ts for p in processes) else "dead"
+
+
+def state_dir_path():
+    override = os.environ.get("STALL_DETECTOR_STATE_DIR")
+    return Path(override) if override else DEFAULT_STATE_DIR
+
+
+def stall_key(stall):
+    """Identity of one wait: a resumed session that stalls again is a new wait."""
+    return f"{_host()}|{stall['session']}|{stall['since']}|{stall['tool']}"
+
+
+def load_classified(state_dir):
+    """Classifications already reported on a previous tick (empty on any error)."""
+    path = Path(state_dir) / "classified.json"
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        entries = payload.get("entries")
+        return entries if isinstance(entries, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_classified(state_dir, entries, now=None):
+    """Persist atomically; a failure only costs one repeat line next tick."""
+    now = now or now_utc()
+    cutoff = now.timestamp() - RETENTION_DAYS * 86400
+    pruned = {k: v for k, v in entries.items()
+              if isinstance(v, dict) and v.get("first_seen_epoch", 0) >= cutoff}
+    path = Path(state_dir) / "classified.json"
+    payload = {"version": STATE_VERSION, "host": _host(),
+               "updated": now.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
+               "entries": pruned}
+    tmp = None
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=str(path.parent),
+                                         prefix=".classified-", suffix=".tmp",
+                                         delete=False) as fh:
+            tmp = fh.name
+            json.dump(payload, fh, ensure_ascii=False, indent=1)
+        os.replace(tmp, path)
+        return True
+    except OSError as exc:
+        print(f"WARNING: cannot persist stall classifications ({exc}) -- a dead "
+              f"session may be re-reported next tick", file=sys.stderr)
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+        return False
+
+
+def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
+           live_procs=_AUTO, state_dir=None):
     """Scan every session JSONL under root whose mtime falls in the active window.
 
     The active window is what makes this live rather than forensic: a stalled
     session writes nothing (that IS the symptom), so its mtime pins the moment
     the wait began -- a 16 h freeze is still inside a 7-day default window.
+
+    live_procs: _AUTO reads this host's process table; a list (possibly empty)
+    overrides it; None means "host cannot tell". state_dir holds the once-only
+    classifications (#4243 detector facet).
     """
     hook_index = _saw.load_hook_log([Path(hook_log)])[0] if hook_log else None
+    processes = live_claude_processes() if live_procs is _AUTO else live_procs
     cutoff = now_utc().timestamp() - active_hours * 3600
     threshold_s = min_minutes * 60
 
@@ -202,6 +399,10 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
                 state = "abandoned"
             else:
                 state = adjudicate_state(record, session_id, hook_index)
+                if state == "waiting-suspected" and liveness_of(record, processes) == "dead":
+                    # No live process existed when this wait began: its session
+                    # is gone, nobody will ever answer (#4243 detector facet).
+                    state = "abandoned-process"
             stalls.append({
                 "session": session_id,
                 "project": project,
@@ -214,17 +415,45 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False)
             })
     stalls.sort(key=lambda s: -s["age_min"])
 
+    # #4243 detector facet: a dead session is classified ONCE. The first tick
+    # that proves it dead reports it (visibility); every later tick drops it, so
+    # the same gone session cannot ride the mtime window for a week.
+    state_dir = Path(state_dir) if state_dir else state_dir_path()
+    classified = load_classified(state_dir)
+    reported = []
+    suppressed = 0
+    touched = False
+    now = now_utc()
+    for s in stalls:
+        if s["state"] == "abandoned-process":
+            key = stall_key(s)
+            if key in classified:
+                suppressed += 1
+                continue
+            classified[key] = {"state": s["state"], "session": s["session"],
+                               "project": s["project"], "since": s["since"],
+                               "first_seen_epoch": now.timestamp()}
+            touched = True
+        reported.append(s)
+    if touched:
+        save_classified(state_dir, classified, now=now)
+    stalls = reported
+
     totals = {"files": files, "active": active, "stalls": len(stalls),
               "waiting": sum(1 for s in stalls if s["state"] == "waiting-suspected"),
               "executing": sum(1 for s in stalls if s["state"] == "executing"),
-              "abandoned": sum(1 for s in stalls if s["state"] == "abandoned")}
+              "abandoned": sum(1 for s in stalls if s["state"] == "abandoned"),
+              "abandoned_process": sum(1 for s in stalls if s["state"] == "abandoned-process"),
+              "already_classified": suppressed}
     if as_json:
         print(json.dumps({"root": str(root), "min_minutes": min_minutes,
                           "active_hours": active_hours, "totals": totals,
                           "stalls": stalls}, ensure_ascii=False, indent=2))
     else:
         print(f"\n{totals['active']} active session file(s) of {totals['files']} "
-              f"(window {active_hours:g} h) -- {totals['stalls']} stall(s) >= {min_minutes:g} min")
+              f"(window {active_hours:g} h) -- {totals['stalls']} stall(s) >= {min_minutes:g} min"
+              + (f" (+{totals['already_classified']} dead session(s) already classified)"
+                 if totals["already_classified"] else ""))
         for s in stalls:
             chain = " [sidechain]" if s["sidechain"] else ""
             print(f"  {s['age_min']:>8.1f} min  {s['state']:<18} {s['project']}/{s['session'][:8]}"
@@ -412,6 +641,12 @@ def selftest():
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        state = Path(tmp) / "state"
+        # One live Claude process, born 2 h before the fixture base: every stall
+        # below (25-50 min old) is younger than it, i.e. possibly answerable.
+        # Injected -- the real process table would make the verdicts machine-
+        # dependent, and CI runs with no Claude process at all.
+        LIVE_TWO_HOURS_AGO = [{"pid": "4242", "started": (base - timedelta(hours=2)).timestamp()}]
 
         def write(name, records):
             path = root / name
@@ -477,7 +712,9 @@ def selftest():
                  iso(base - timedelta(hours=2)), "a10"),
         ])
 
-        totals, stalls = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0)
+        totals, stalls = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                live_procs=LIVE_TWO_HOURS_AGO,
+                                state_dir=Path(tmp) / "state")
 
         assert totals["stalls"] == 5, f"expected 5 stalls, got {totals['stalls']}: {stalls}"
         assert totals["abandoned"] == 1, totals
@@ -506,12 +743,77 @@ def selftest():
         marker = {"ts": iso(base - timedelta(minutes=29, seconds=30)), "session_id": "stalled",
                   "tool": "Bash", "command": "cd ../other && rm -f file; git status --short"}
         hook_path.write_text(json.dumps(marker) + "\n", encoding="utf-8")
-        _totals2, stalls2 = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0, hook_log=hook_path)
+        _totals2, stalls2 = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0, hook_log=hook_path,
+                                   live_procs=LIVE_TWO_HOURS_AGO, state_dir=state)
         stuck2 = [s for s in stalls2 if s["session"] == "stalled"][0]
         assert stuck2["state"] == "executing", stuck2
         # Totals carry the adjudication split alongside the exit-code driver.
         assert _totals2["executing"] == 1 and _totals2["waiting"] == 3, _totals2
         assert _totals2["abandoned"] == 1, _totals2  # retired sidechain is not re-adjudicated
+
+        # 11. Liveness (#4243 detector facet): the SAME dangling tail, two
+        #     process tables. A live process older than the wait keeps the
+        #     signal; a table where every process was born AFTER the wait
+        #     proves the session is gone -- classified once, then never again.
+        #     (The reported case: a 24/10 session re-announced on 27/10.)
+        with tempfile.TemporaryDirectory() as live_tmp:
+            live_root = Path(live_tmp)
+            live_state = Path(live_tmp) / "state"
+            (live_root / "proj-f").mkdir(parents=True)
+            (live_root / "proj-g").mkdir(parents=True)
+            stalled_ts = base - timedelta(hours=12)
+            tail = [
+                _rec("user", [{"type": "text", "text": "go"}], iso(stalled_ts - timedelta(minutes=1)), "u20"),
+                _rec("assistant", [_tool_use("t20", "Bash", "git status --short")], iso(stalled_ts), "a20"),
+            ]
+            for proj, session in (("proj-f", "dead-a"), ("proj-g", "dead-b")):
+                (live_root / proj / f"{session}.jsonl").write_text(
+                    "\n".join(tail) + "\n", encoding="utf-8")
+
+            alive_table = [{"pid": "11", "started": (stalled_ts - timedelta(hours=2)).timestamp()}]
+            dead_table = [{"pid": "12", "started": (stalled_ts + timedelta(hours=4)).timestamp()}]
+
+            # a) process alive and older than the wait -> still a signal.
+            t_alive, s_alive = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                      live_procs=alive_table, state_dir=live_state)
+            assert t_alive["waiting"] == 2, t_alive
+            assert t_alive["abandoned_process"] == 0, t_alive
+            assert {s["state"] for s in s_alive} == {"waiting-suspected"}, s_alive
+
+            # b) only processes born AFTER the wait -> both are dead waits: not
+            #    waiting (exit 2 stays clean), classified, and reported once.
+            t_dead, s_dead = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                    live_procs=dead_table, state_dir=live_state)
+            assert t_dead["waiting"] == 0, t_dead
+            assert t_dead["abandoned_process"] == 2 and t_dead["stalls"] == 2, t_dead
+            assert {s["state"] for s in s_dead} == {"abandoned-process"}, s_dead
+            assert t_dead["already_classified"] == 0, t_dead
+            saved = json.loads((live_state / "classified.json").read_text(encoding="utf-8"))
+            assert saved["version"] == STATE_VERSION and len(saved["entries"]) == 2, saved
+
+            # c) the next tick: same dead session, silent -- the whole point.
+            t_again, s_again = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                      live_procs=dead_table, state_dir=live_state)
+            assert t_again["stalls"] == 0 and s_again == [], (t_again, s_again)
+            assert t_again["already_classified"] == 2, t_again
+
+            # d) host cannot tell (enumeration failed) -> unknown, never dead:
+            #    the conservative default keeps signalling.
+            t_unknown, _s_unknown = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                           live_procs=None, state_dir=live_state)
+            assert t_unknown["waiting"] == 2 and t_unknown["abandoned_process"] == 0, t_unknown
+
+            # e) a NEW wait in the same session is a new key, so dedup does not
+            #    swallow it: the retired wait stays silent, the next one reports.
+            later_ts = base - timedelta(hours=10)
+            (live_root / "proj-f" / "dead-a.jsonl").write_text(
+                "\n".join(tail + [_rec("assistant", [_tool_use("t21", "Bash", "git log -1")],
+                                       iso(later_ts), "a21")]) + "\n", encoding="utf-8")
+            t_new, s_new = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                  live_procs=dead_table, state_dir=live_state)
+            assert t_new["already_classified"] == 2, t_new    # both first waits retired
+            assert t_new["abandoned_process"] == 1, t_new     # t21 reported once
+            assert [s["session"] for s in s_new] == ["dead-a"], s_new
 
         # 10. Dashboard signal (#4243 attendu 3): waiting stalls reach the lane
         #     dashboard through the bots' JSON-RPC path -- initialize ->
@@ -618,9 +920,12 @@ def selftest():
     print("             tool_use stay silent; prose-ending session ignored; sidechain")
     print("             marked; secret values redacted in previews; resume copies")
     print("             deduped; orphaned sidechain retired as abandoned; hook-log")
-    print("             marker adjudicates waiting vs executing; dashboard signal")
-    print("             gated to waiting stalls, best-effort, and failed by a")
-    print("             server-side isError (SSE framing tolerated).")
+    print("             marker adjudicates waiting vs executing; a wait older than")
+    print("             every live process is classified dead ONCE and never")
+    print("             re-signalled, while a live older process keeps the signal")
+    print("             and an unreadable process table stays conservative;")
+    print("             dashboard signal gated to waiting stalls, best-effort, and")
+    print("             failed by a server-side isError (SSE framing tolerated).")
     return EXIT_CLEAN
 
 
