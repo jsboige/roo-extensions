@@ -214,11 +214,18 @@ def _windows_rows(stdout):
     Returns the table, or None when a row could not be dated: an unreadable
     row would read as "no live process" downstream and mass-classify waits
     as dead (the module's own rule: enumeration failure is None, never []).
+    A stdout that printed something but no row is the same failure -- rc=0
+    with an unusable payload used to skip every line silently and hand back
+    [] (#4397 follow-up W1).
     """
     out = []
     dropped = 0
+    printed = False
     for line in stdout.splitlines():
         line = line.strip()
+        if not line:
+            continue
+        printed = True
         if "|" not in line:
             continue
         pid, started = line.split("|", 1)
@@ -230,6 +237,14 @@ def _windows_rows(stdout):
     if dropped:
         print(f"WARNING: {dropped} process row(s) with an unparseable start time "
               f"-- liveness unknown, every wait keeps signalling", file=sys.stderr)
+        return None
+    if printed and not out:
+        # Nothing printed at all stays a legitimate empty table (a scheduled
+        # tick on a seat with no live session); output without a single row is
+        # an enumeration that cannot be trusted.
+        print("WARNING: process enumeration printed output but not one "
+              "'pid|started' row -- liveness unknown, every wait keeps signalling",
+              file=sys.stderr)
         return None
     return out
 
@@ -883,6 +898,18 @@ def selftest():
             assert bad is None, bad
             assert liveness_of({"ts": iso(stalled_ts)}, bad) == "unknown"
 
+            #    W1 (#4397 follow-up, same fail-to-silence class): rc=0 with an
+            #    unusable stdout. A line that is not a row was skipped silently,
+            #    so a garbage table read as [] -- "no live process" -- and every
+            #    wait went dead. Nothing printed at all stays a legitimate empty
+            #    table (a scheduled tick on a seat with no live session); a table
+            #    that printed something but no row never is.
+            assert _windows_rows("") == [], _windows_rows("")
+            assert _windows_rows("\n \n") == [], _windows_rows("\n \n")
+            unusable = _windows_rows("no pid here\nsecond noise line\n")
+            assert unusable is None, unusable
+            assert liveness_of({"ts": iso(stalled_ts)}, unusable) == "unknown"
+
             # g) #4397 review pt 2: a root that is not this host's projects
             #    tree is foreign (#4243 forensics copies) -- the host's own
             #    table must not classify foreign waits dead. No seam here:
@@ -894,6 +921,28 @@ def selftest():
             assert t_foreign["waiting"] == 3, t_foreign  # t20a, t20b, t21 all live again
             assert t_foreign["abandoned_process"] == 0, t_foreign
             assert {s["state"] for s in s_foreign} == {"waiting-suspected"}, s_foreign
+
+            #    W2 (#4397 follow-up): that half has no machine-independent
+            #    witness -- where a claude.exe older than the fixtures always
+            #    exists (ai-01), the REAL table alone says "possibly alive", so the
+            #    guard could be neutralised and the selftest would stay green.
+            #    Patch the enumeration to an EMPTY, entirely plausible table:
+            #    without the guard those three foreign waits are dead by
+            #    construction, with it they stay unknown.
+            import contextlib
+            import io
+            real_live = globals()["live_claude_processes"]
+            globals()["live_claude_processes"] = lambda *a, **k: []
+            foreign_err = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(foreign_err):
+                    t_wit, s_wit = detect(live_root, 10.0, list(DEFAULT_TOOLS), 168.0,
+                                          state_dir=live_state)
+            finally:
+                globals()["live_claude_processes"] = real_live
+            assert t_wit["waiting"] == 3 and t_wit["abandoned_process"] == 0, t_wit
+            assert {s["state"] for s in s_wit} == {"waiting-suspected"}, s_wit
+            assert "liveness unknown" in foreign_err.getvalue(), foreign_err.getvalue()
 
             # h) #4397 review (non-blocking): a malformed seam value must not
             #    crash the tick -- it degrades the table to unknown.
