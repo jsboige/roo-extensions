@@ -312,7 +312,13 @@ Un hôte MCP (process VS Code / session Claude Code longue durée) charge `build
 
 1. Un `.env`, un `docker-compose` ou un conteneur d'**infra partagée** ne se modifie que depuis le **workspace qui le porte**.
 2. Une autre lane **demande** sur le dashboard du propriétaire. Elle ne fait pas le geste elle-même, même quand il paraît évident.
-3. **Exception urgence** (flotte à l'arrêt, tours perdus) : on agit, puis on poste **un message d'excuse et d'explication sur le dashboard du workspace propriétaire, dans le même cycle**.
+3. **Une panne n'est pas une modification** : on la répare, puis on prévient **le dashboard du workspace propriétaire, dans le même cycle**.
+
+**Mandat user (28/10/2026), verbatim** (relayé par Maintenance sur le dashboard `global`, 28/10 20:54Z) : « vous n'avez pas à me demander mon Go pour réparer quelque chose de cassé, pas plus que pour empêcher une machine de mourir d'étouffement comme vous en avez déjà eu le mandat. On ne regarde pas le Titanic foncer dans l'iceberg, on est proactif. L'exception, c'est un geste qui a des conséquences notables que je dois connaître, et qui doit dans ce cas demander une escalade auprès des autres dashboards pour que le message me parvienne. »
+
+- **Cassé, ou récidive connue → réparation immédiate**, avec des logs, sans attendre ni le user ni la lane propriétaire. Ce mandat remplace l'« exception urgence » du 23/09, plus étroite (elle exigeait une flotte à l'arrêt).
+- **Seule exception : un geste à conséquences notables** (destructif, irréversible, coupe un service partagé, engage un humain, dépense). Celui-là garde son escalade, par les dashboards (`global` + `machine` + `crossPost`) pour que le message parvienne au user. Ce n'est jamais une question bloquante : on répare ce qui peut l'être, et l'arbitrage arrive avec le rapport.
+- **La règle 1-2 reste vraie pour une modification** (changer une forme voulue, un réglage, une cascade) ; elle ne couvre pas une panne.
 
 ### Pourquoi
 
