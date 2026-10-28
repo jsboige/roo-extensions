@@ -303,4 +303,26 @@ Describe 'executor-preflight.ps1 -- branchement de la ligne [RSM-HEALTH]' {
         $branchCode | Should -Not -Match '\bthrow\b'
         $branchCode | Should -Not -Match '(?m)^\s*exit\s+(?!0)'
     }
+
+    It 'emet la ligne sur stdout quel que soit le verdict (review #4388 r2, CRITICAL 1)' {
+        # Write-Warning pose un prefixe localise ("AVERTISSEMENT : ") et replie les
+        # lignes longues : le grep ancre du pre-vol ne capte alors jamais un WARN, et
+        # le post part en "instrument error" en perdant les mesures. Le verdict passe
+        # par le code de sortie, la ligne par stdout.
+        $instrument = Get-Content (Join-Path $projectRoot 'scripts/diagnostic/measure-rsm-health.ps1') -Raw
+        $instrumentCode = (@(($instrument -split "`n") | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
+        $instrumentCode | Should -Match 'Write-Output \$line'
+        $instrumentCode | Should -Not -Match 'Write-Warning\s+\$line'
+    }
+
+    It 'ne passe jamais un id de message a la surface machine (le CLI le refuse)' {
+        # Mesure 28/10 par l'acceptance WARN forcee : sur la surface machine, le CLI
+        # sort en usage error et le post primaire degradait silencieusement en
+        # commentaire GitHub a chaque run. Le mode par defaut genere son propre id ;
+        # la cadence quotidienne est portee par un marqueur machine-local.
+        $preflight = Get-Content (Join-Path $projectRoot 'scripts/claude/executor-preflight.ps1') -Raw
+        $preflightCode = (@(($preflight -split "`n") | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
+        $preflightCode | Should -Not -Match '--message-id'
+        $preflightCode | Should -Match 'rsm-health-posted-'
+    }
 }

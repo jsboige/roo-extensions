@@ -35,6 +35,13 @@
     Only lines that begin with `[` are counted, so one event costs one.
 
 .NOTES
+    The [RSM-HEALTH] line is written to stdout whatever the verdict; the exit status
+    (0 OK, 2 WARN, 1 instrument error) carries the judgement.
+
+    RSM_HEALTH_FREE_RAM_FLOOR_MB overrides -FreeRamWarnFloorMB for callers that pass no
+    arguments -- the pre-flight among them. It exists so a forced WARN can be run end to
+    end on a healthy seat (#4388 review r2); unset, the default applies.
+
     PS 5.1 compatible. ASCII only on purpose: a non-ASCII .ps1 without a UTF-8 BOM is
     decoded as cp1252 by 5.1 (ps51-parse-class.Tests.ps1).
 
@@ -66,6 +73,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Acceptance seam (#4388 review r2: "run a forced WARN end to end, e.g. a threshold
+# override"). The pre-flight invokes this script with no arguments, so a forced WARN
+# needs an override that survives that call: the environment is inherited by the
+# child process. Unset, nothing changes; an explicit -FreeRamWarnFloorMB always wins.
+if (-not $PSBoundParameters.ContainsKey('FreeRamWarnFloorMB') -and $env:RSM_HEALTH_FREE_RAM_FLOOR_MB) {
+    $FreeRamWarnFloorMB = [double]$env:RSM_HEALTH_FREE_RAM_FLOOR_MB
+}
 
 # --- pure helpers -----------------------------------------------------------
 
@@ -348,11 +363,13 @@ if ($MyInvocation.InvocationName -ne '.') {
             $report | ConvertTo-Json -Depth 4
         } else {
             $line = Format-RsmHealthLine -Report $report
-            if ($report.Verdict -eq 'WARN') {
-                Write-Warning $line
-            } else {
-                Write-Host $line
-            }
+            # The line goes to STDOUT whatever the verdict (#4388 review r2, CRITICAL 1).
+            # A WARN written with Write-Warning lands on the warning stream with a
+            # localized host prefix ("AVERTISSEMENT : ") and wraps, so the pre-flight's
+            # anchored '^\[RSM-HEALTH\]' capture never matches it and posts a false
+            # "instrument error" instead of the measurements -- the one case this grain
+            # exists for. The exit status carries the verdict; the line carries the data.
+            Write-Output $line
         }
 
         if ($report.Verdict -eq 'WARN') { exit 2 }
