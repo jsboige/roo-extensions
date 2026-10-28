@@ -289,7 +289,10 @@ def candidate_sessions(child: McpChild, task_id: str | None) -> list[tuple[str, 
     """
     raw = child.call_tool(
         "conversation_browser",
-        {"action": "list", "limit": 50, "sortBy": "lastActivity", "sortOrder": "desc"},
+        # `source: "all"` explicite : le defaut du service est 'roo', qui ne liste
+        # PAS les sessions Claude Code — precisement nos candidates (review #4398 r3).
+        {"action": "list", "limit": 50, "sortBy": "lastActivity", "sortOrder": "desc",
+         "source": "all"},
         CALL_TIMEOUT_S["fast"],
     )
     payload = parse_embedded_json(raw)
@@ -312,7 +315,13 @@ def candidate_sessions(child: McpChild, task_id: str | None) -> list[tuple[str, 
         size = meta.get("totalSize") or 0
         if not (SIZE_MIN_BYTES <= size <= SIZE_MAX_BYTES):
             continue
-        created = meta.get("createdAt") or ""
+        created = meta.get("createdAt")
+        if not isinstance(created, str):
+            # Date absente OU non-texte (entier JSON, null) : la ligne est ECARTEE.
+            # Un createdAt non-texte levait un TypeError non rattrape (le except ne
+            # couvrait que ValueError) et la sonde rendait FAIL/exit 1 au lieu de
+            # l'ecarter proprement (review #4398 r3).
+            continue
         try:
             # createdAt est un ISO **UTC** : timegm, jamais mktime, qui le lirait
             # comme de l'heure locale et decalerait la fenetre 24 h du fuseau
@@ -340,14 +349,39 @@ def candidate_sessions(child: McpChild, task_id: str | None) -> list[tuple[str, 
     return picked
 
 
+# Prefixe de rendu du `view` : chaque ligne de message est emise `<indent>    | <l>`
+# (view-conversation-tree.ts:1245). Retire UNE fois pour retrouver le corps — sinon
+# le filtre markdown "|" (juste par ailleurs) rejette TOUTE la prose reelle
+# (review #4398 r3 : 3 candidats sur 3 chez ai-01 n'offraient que du renderer).
+_RENDER_PREFIX = "| "
+
+# Lignes produites par le RENDERER, pas par la session. Elles ne sont pas
+# indexees telles quelles : un tool est stocke sous "Tool call: <name> with args …"
+# (ChunkExtractor.ts:1031), le footer est un diagnostic (smart-truncation/engine.ts:234).
+# En retenir une donne un FAIL garanti ou un PASS accidentel — la classe de verdict
+# masque que la sonde existe pour attraper (review #4398 r3). Marqueurs donnes sans
+# selecteur de variation (U+FE0F) : le prefixe matche les deux formes.
+_RENDERER_LINE_MARKERS = (
+    "[\U0001F6E0",  # [🛠️ <tool>] → success (hh:mm:ss)   (view-conversation-tree.ts:1249)
+    "[⚙",      # [⚙️ <tool>] → …
+    "[NOTIF]", "[⏱", "[... ",        # omission par troncature
+    "• ",                             # diagnostics smart-truncation
+    "▶", "====",                 # en-tete de tache / separateurs
+)
+
+
 def pick_phrase(text: str) -> str:
     """Phrase distinctive, balayee depuis la fin (contenu tardif = plus specifique).
 
     Regles : longueur PHRASE_MIN..PHRASE_MAX, pas de marqueur de secret, pas de
-    ligne de commande/outil (bruit non semantique), pas de markdown lourd.
+    ligne de commande/outil NI du renderer (bruit non semantique, absent de
+    l'index tel quel), pas de markdown lourd. Le prefixe de rendu `| ` est retire
+    AVANT les filtres : le `|` doit rejeter les tableaux markdown, pas la prose.
     """
-    lines = [ln.strip() for ln in text.splitlines()]
-    for ln in reversed(lines):
+    for raw in reversed(text.splitlines()):
+        ln = raw.strip()
+        if ln.startswith(_RENDER_PREFIX):
+            ln = ln[len(_RENDER_PREFIX):]
         if not (PHRASE_MIN_CHARS <= len(ln) <= PHRASE_MAX_CHARS):
             continue
         if SECRET_MARKERS.search(ln):
@@ -357,6 +391,8 @@ def pick_phrase(text: str) -> str:
         # sonde (durcissement Hermes, review #4398).
         if ln.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
                           "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
+            continue
+        if any(ln.startswith(m) for m in _RENDERER_LINE_MARKERS):
             continue
         if ln.count('"') > 6 or ln.count("{") + ln.count("}") > 2:
             continue
@@ -543,6 +579,41 @@ def selftest() -> int:
     except RuntimeError:
         pass
 
+    # pick_phrase sur la forme REELLE du `view` summary : la prose arrive sous le
+    # prefixe de rendu `    | ` (view-conversation-tree.ts:1245) et les lignes du
+    # renderer arrivent APRES elle — le scan depuis la fin les voit EN PREMIER.
+    # Sans retrait du prefixe, le filtre markdown "|" rejette toute la prose ;
+    # sans exclusion renderer, le footer ou la ligne [🛠️ …] → success gagne
+    # (bloquant r3 : ces lignes n'existent pas dans l'index tel quel).
+    rendered = "\n".join([
+        "==== session claude-x--u1 ====",
+        "▶️ Task: claude-x--u1 (3 messages)",
+        "  [user]:",
+        "      | Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+        "  [assistant]:",
+        "      | Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
+        "  [\U0001F6E0️ mcp__roo-state-manager__roosync_dashboard] → success (09:44:11)",
+        "        {\"action\": \"append\"}",
+        "• Taille totale: 19845 chars, Limite: 30000, Surplus: 0 (3 task(s))",
+        "[NOTIF] 1 message(s) non lu(s)",
+        "[⏱ conversation_browser 1.2s]",
+    ])
+    want_rendered = (
+        "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h."
+    )
+    got = pick_phrase(rendered)
+    if got != want_rendered:
+        failures.append(f"pick_phrase renderer: {got!r}")
+    # Anti-drift : quoi qu'il arrive, la phrase ne doit JAMAIS etre une ligne du
+    # renderer (assertion directe demandee par la review r3).
+    if "→" in got or got.startswith(("•", "[")):
+        failures.append(f"pick_phrase renderer: ligne du renderer retenue: {got!r}")
+
+    # Meme texte, SANS le renderer : la prose prefixee seule doit passer (le
+    # retrait du prefixe ne depend pas de la presence des lignes exclues).
+    if pick_phrase("\n".join(rendered.splitlines()[2:6])) != want_rendered:
+        failures.append("pick_phrase: prose prefixee seule non extraite")
+
     # vocabulaire `view` : drift hors ligne (bloquant 1, review #4398 — "Compact"
     # appartient au vocabulaire de summarize, pas de view)
     if VIEW_DETAIL_LEVEL not in VIEW_DETAIL_LEVELS:
@@ -624,23 +695,41 @@ def selftest() -> int:
             self.calls.append((name, args))
             if args.get("action") == "list":
                 now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
-                return json.dumps({"conversations": [{
-                    "taskId": "claude-x--u1", "source": "claude",
-                    "metadata": {"totalSize": 50000, "createdAt": now,
-                                 "messageCount": 12, "machineId": socket.gethostname()},
-                }]}, indent=2)
+                # u2 porte un createdAt NON-TEXTE (entier JSON) : premier du listing,
+                # il doit etre ecarte par la garde sans lever (TypeError non rattrape
+                # = FAIL/exit 1 en production, review #4398 r3). u1 est le candidat.
+                return json.dumps({"conversations": [
+                    {"taskId": "claude-x--u2", "source": "claude",
+                     "metadata": {"totalSize": 50000, "createdAt": 1761000000,
+                                  "messageCount": 9, "machineId": socket.gethostname()}},
+                    {"taskId": "claude-x--u1", "source": "claude",
+                     "metadata": {"totalSize": 50000, "createdAt": now,
+                                  "messageCount": 12, "machineId": socket.gethostname()}},
+                ]}, indent=2)
             if name == "roosync_indexing":
                 return json.dumps({"success": True, "points": 42}, indent=2)
             if args.get("action") == "view":
-                return (
-                    "## Session\n\nTool call: Bash\n\n"
-                    "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.\n"
-                )
+                # Forme REELLE du view summary : prose sous prefixe `    | `,
+                # lignes renderer et footer APRES elle (capture de forme,
+                # view-conversation-tree.ts:1245/1249 + engine.ts:234 — r3).
+                return "\n".join([
+                    "==== session claude-x--u1 ====",
+                    "▶️ Task: claude-x--u1 (3 messages)",
+                    "  [user]:",
+                    "      | Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+                    "  [assistant]:",
+                    "      | Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
+                    "  [\U0001F6E0️ mcp__roo-state-manager__roosync_dashboard] → success (09:44:11)",
+                    "• Taille totale: 19845 chars, Limite: 30000, Surplus: 0 (3 task(s))",
+                ])
             raise AssertionError(f"appel inattendu: {name} {args}")
 
     fake = IndexFakeChild()
     idx_out: dict = {}
     phase_index(fake, None, idx_out)
+    list_args = [a for n, a in fake.calls if n == "conversation_browser" and a.get("action") == "list"]
+    if not list_args or list_args[0].get("source") != "all":
+        failures.append(f"phase_index: list source={list_args[0].get('source') if list_args else None!r} (attendu 'all')")
     view_args = [a for n, a in fake.calls if n == "conversation_browser" and a.get("action") == "view"]
     if not view_args:
         failures.append("phase_index: aucun view emis")
@@ -650,8 +739,14 @@ def selftest() -> int:
             failures.append(f"phase_index: view detail_level={va.get('detail_level')!r}")
         if va.get("task_id") != "claude-x--u1":
             failures.append(f"phase_index: view task_id={va.get('task_id')!r}")
-    if idx_out.get("phrase") != want:
+    # u2 (createdAt non-texte) doit avoir ete ecarte SANS crash : le candidat retenu
+    # est u1, preuve que la garde fonctionne.
+    if idx_out.get("task_id") != "claude-x--u1":
+        failures.append(f"phase_index: task_id={idx_out.get('task_id')!r} (createdAt non-texte non ecarte)")
+    if idx_out.get("phrase") != want_rendered:
         failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
+    if (ph := idx_out.get("phrase")) and ("→" in ph or ph.startswith(("•", "["))):
+        failures.append(f"phase_index: phrase = ligne du renderer: {ph!r}")
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
     index_args = [a for n, a in fake.calls if n == "roosync_indexing"]
@@ -731,10 +826,11 @@ def selftest() -> int:
         for f in failures:
             print(f"  - {f}")
         return 1
-    print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, vocabulaire view, "
-          "args du view, parsing pretty-printe, rang top-5, repli textuel refuse "
-          "(drapeau + mode seul), timeout enfant muet, ligne de log ignoree, "
-          "index queued=false, isError au niveau resultat)")
+    print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
+          "retire + lignes renderer exclues, vocabulaire view, args du view + list "
+          "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
+          "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
+          "log ignoree, index queued=false, isError au niveau resultat)")
     return 0
 
 
