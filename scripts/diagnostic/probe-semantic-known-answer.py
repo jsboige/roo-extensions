@@ -16,8 +16,10 @@ Deux phases, deux sieges :
     2. extrait une PHRASE distinctives du contenu reel via conversation_browser(view)
        — jamais une lecture directe du JSONL (#1785) ;
     3. indexe la session via roosync_indexing(action:"index", task_id,
-       source:"claude-code") — le defaut 'roo' resout un repertoire de tache et
-       echoue sur un .jsonl ;
+       source:"claude-code", queued:false) — le defaut 'roo' resout un repertoire de
+       tache et echoue sur un .jsonl ; et depuis g3 le defaut d'indexation MET EN
+       FILE (rendre aussitot) : la sonde demande explicitement l'indexation EN
+       LIGNE, parce qu'elle a besoin d'un index TERMINE avant d'extraire une phrase ;
     4. affiche TASK_ID + PHRASE verbatim (a copier vers le siege B).
 
   Phase VERIFY (n'importe quel siege, typiquement B) :
@@ -389,7 +391,15 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
         try:
             idx_raw = child.call_tool(
                 "roosync_indexing",
-                {"action": "index", "task_id": cand_id, "source": index_source(conv)},
+                # `queued: false` EXPLICITE (#4352 g3). Depuis ms#1543 le defaut est
+                # de METTRE EN FILE et de rendre aussitot — « en file » n'est pas
+                # « indexe », or la sonde doit extraire une phrase et verifier sur un
+                # index TERMINE. Mesure 28/10 : dans un enfant spawne le defaut echoue
+                # meme franchement (`isError: true`, « queued (defaut) exige le state
+                # du processus hote (indexingState) — indisponible dans ce contexte.
+                # Utilisez l'indexation en ligne (queued=false) »).
+                {"action": "index", "task_id": cand_id, "source": index_source(conv),
+                 "queued": False},
                 CALL_TIMEOUT_S["index"],
             )
             idx = parse_embedded_json(idx_raw)
@@ -642,8 +652,13 @@ def selftest() -> int:
             failures.append(f"phase_index: view task_id={va.get('task_id')!r}")
     if idx_out.get("phrase") != want:
         failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
-    if (idx_out.get("index") or {}).get("success") is not True:
+    if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
+    index_args = [a for n, a in fake.calls if n == "roosync_indexing"]
+    if not index_args:
+        failures.append("phase_index: aucun appel roosync_indexing")
+    elif index_args[0].get("queued") is not False:
+        failures.append(f"phase_index: index queued={index_args[0].get('queued')!r} (attendu False — #4352 g3)")
 
     # call_tool : une erreur serveur rendue en CONTENU doit lever. La forme testee
     # est celle que le serveur EMET reellement — `isError` sur le RESULTAT, pas sur
@@ -719,7 +734,7 @@ def selftest() -> int:
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, vocabulaire view, "
           "args du view, parsing pretty-printe, rang top-5, repli textuel refuse "
           "(drapeau + mode seul), timeout enfant muet, ligne de log ignoree, "
-          "isError au niveau resultat)")
+          "index queued=false, isError au niveau resultat)")
     return 0
 
 
