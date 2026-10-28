@@ -111,6 +111,13 @@ on:
       - 'scripts/claude/run-eval-harness.ps1'
       - 'scripts/claude/eval-harness-verdicts.ps1'
       - 'scripts/claude/eval-harness-verdicts.Tests.ps1'
+      # #4149 F2 (web2): sk-agent-daemon.Tests.ps1 guards the three seat scripts
+      # that replace the per-session stdio server with one shared daemon. Same
+      # gap as every entry above — a main push touching a guarded script must
+      # re-run the suite that pins its dry-run purity and config-integrity gate.
+      - 'scripts/deployment/start-sk-agent-daemon.ps1'
+      - 'scripts/deployment/configure-sk-agent-http-client.ps1'
+      - 'scripts/deployment/install-sk-agent-daemon-schtask.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
