@@ -36,9 +36,10 @@ Exit codes
 
 Scope
 -----
-A full scan reads ~1.8 M split points (~11 min at the measured 371 ms / 1 000).
-That is why `--all` must be asked for explicitly: `--task` and `--since` are the
-normal scopes, and a scope-less run is refused rather than started.
+A full scan reads ~2.47 M split points (measured 2026-10-28 on po-2027:
+1 093 s, i.e. ~18 min). That is why `--all` must be asked for explicitly:
+`--task` and `--since` are the normal scopes, and a scope-less run is refused
+rather than started.
 
 Usage
 -----
@@ -337,7 +338,7 @@ def main(argv: list[str]) -> int:
     if not (args.task or args.since or args.all):
         die(
             "refusing to scan the whole collection by accident: pass --task, --since, or --all "
-            "(a full scan reads ~1.8 M split points, ~11 min)"
+            "(a full scan reads ~2.47 M split points, ~18 min)"
         )
     return cmd_detect(Qdrant(load_env(args.env)), scope, args.as_json, args.out)
 
