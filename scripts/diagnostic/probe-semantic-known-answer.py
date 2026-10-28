@@ -20,6 +20,13 @@ Deux phases, deux sieges :
        tache et echoue sur un .jsonl ; et depuis g3 le defaut d'indexation MET EN
        FILE (rendre aussitot) : la sonde demande explicitement l'indexation EN
        LIGNE, parce qu'elle a besoin d'un index TERMINE avant d'extraire une phrase ;
+       le SUCCES est accepte sous ses DEUX formes — bloc JSON embarque (serveur
+       ms>=1560) et Markdown seul (`# Indexation sémantique terminée` +
+       `**Chunks indexés:** N`, forme anterieure) — et un succes a **0 chunk n'est
+       pas un echec** : 0 veut souvent dire « deja indexee pour cette tache »
+       (dedup ms#1557). C'est la phase VERIFY qui tranche, pas le compteur.
+       (Mesure ai-01 28/10 : la forme Markdown seule etait lue comme une panne,
+       exit 2 sans rien mesurer — verdict faux, mesure saine.)
     4. affiche TASK_ID + PHRASE verbatim (a copier vers le siege B).
 
   Phase VERIFY (n'importe quel siege, typiquement B) :
@@ -263,6 +270,48 @@ def parse_embedded_json(text: str):
         return None
 
 
+# Formes de SUCCES d'indexation (mesure ai-01, 28/10 ~13:50Z) :
+#  - >= ms 1560 : Markdown + bloc JSON embarque (compteurs + raison) ;
+#  - avant      : Markdown SEUL (`# Indexation sémantique terminée` + `**Chunks indexés:** N`,
+#                 index-task.tool.ts:108). Un succes inline n'a JAMAIS porte de JSON,
+#                 et la sonde le lisait donc comme un ECHEC -> exit 2 « instrument en
+#                 panne » alors que l'indexation avait abouti. C'est la 3e variante de
+#                 la classe « verdict masque » : le verdict etait faux, pas la mesure.
+INDEX_MARKDOWN_HEADER = "# Indexation sémantique terminée"
+INDEX_CHUNKS_RE = re.compile(r"\*\*Chunks indexés:\*\*\s*(\d+)")
+INDEX_REASON_RE = re.compile(r"\*\*Raison:\*\*\s*(.+)")
+
+
+def parse_index_result(text: str):
+    """Normalise les deux formes de succes ; rend None si ce n'en est pas un.
+
+    L'ECHEC a sa propre forme (`# Erreur d'indexation`, leve par `call_tool` via
+    `isError`), donc l'absence des deux marqueurs de succes reste un echec : on
+    n'accepte jamais « pas d'erreur connue » comme un succes.
+    """
+    payload = parse_embedded_json(text)
+    if isinstance(payload, dict) and payload.get("success") is True:
+        payload.setdefault("form", "json")
+        # Clef normalisee, quelle que soit la forme : les consommateurs (et la
+        # sortie `--json`) n'ont pas a connaitre deux orthographes.
+        if "chunks_indexed" not in payload and "chunksIndexed" in payload:
+            payload["chunks_indexed"] = payload["chunksIndexed"]
+        return payload
+    raw = text or ""
+    match = INDEX_CHUNKS_RE.search(raw)
+    if match and INDEX_MARKDOWN_HEADER in raw:
+        parsed = {
+            "success": True,
+            "form": "markdown",
+            "chunks_indexed": int(match.group(1)),
+        }
+        reason = INDEX_REASON_RE.search(raw)
+        if reason:
+            parsed["reason"] = reason.group(1).strip()
+        return parsed
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Phase INDEX
 # ---------------------------------------------------------------------------
@@ -412,6 +461,18 @@ def index_source(conv: dict) -> str:
     return "roo" if str(conv.get("source") or "") == "roo" else "claude-code"
 
 
+def _short_index_error(err: str) -> str:
+    """La ligne `**Erreur:**` d'une reponse d'echec, pas son en-tete.
+
+    Le texte d'erreur du serveur commence par `# Erreur d'indexation` puis un
+    task_id de 60+ caracteres : tronquer le texte BRUT coupait avant la seule
+    partie informative (mesure 28/10). On extrait donc la raison, et on retombe
+    sur le texte brut quand la forme ne la porte pas (erreur JSON-RPC, timeout).
+    """
+    match = re.search(r"\*\*Erreur:\*\*\s*(.+)", err or "")
+    return (match.group(1) if match else (err or "")).replace("\n", " ").strip()
+
+
 def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
     """Indexe le premier candidat indexable, puis extrait la phrase de son contenu.
 
@@ -438,9 +499,12 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
                  "queued": False},
                 CALL_TIMEOUT_S["index"],
             )
-            idx = parse_embedded_json(idx_raw)
-            if idx is None or idx.get("success") is not True:
-                # echec d'indexation : le service repond en MARKDOWN, pas en JSON
+            idx = parse_index_result(idx_raw)
+            if idx is None:
+                # Pas un succes : le service repond en MARKDOWN (`# Erreur d'indexation`)
+                # ou en erreur JSON-RPC. La forme de SUCCES, elle, est normalisee par
+                # parse_index_result (JSON embarque, ou Markdown seul sur un serveur
+                # anterieur) — un succes n'est plus jamais lu comme une panne.
                 error = (idx_raw or "")[:200].replace("\n", " ").strip()
                 if "timed out after 300s" in (idx_raw or ""):
                     # Borne dure du transport MCP, independante de notre deadline
@@ -488,6 +552,19 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
     raise RuntimeError(
         f"indexation en echec sur {len(attempts)} candidat(s) — dernier: "
         f"{attempts[-1]['error'] if attempts else 'aucun candidat'}"
+        # Detail de CHAQUE essai : sans lui le rapport ne montrait que le dernier,
+        # et « 3 candidats en echec » ne disait pas POURQUOI les deux premiers
+        # l'etaient (mesure web1 28/10 : les 3 sont des sessions d'une AUTRE
+        # machine, non indexables depuis ce siege — invisible dans l'ancien texte).
+        + (
+            " | essais: "
+            + "; ".join(
+                f"{a['task_id'].rsplit('--', 1)[-1][:8]}={_short_index_error(str(a['error']))[:90]}"
+                for a in attempts
+            )
+            if attempts
+            else ""
+        )
     )
 
 
@@ -707,7 +784,38 @@ def selftest() -> int:
                                   "messageCount": 12, "machineId": socket.gethostname()}},
                 ]}, indent=2)
             if name == "roosync_indexing":
-                return json.dumps({"success": True, "points": 42}, indent=2)
+                # Forme REELLE rendue par le serveur apres ms#1560 : Markdown pour
+                # l'humain + bloc JSON embarque pour les sondes. 0 chunk indexe avec
+                # une RAISON — exactement la reponse qui a fait echouer la sonde en
+                # production chez ai-01 (28/10). Elle doit etre un SUCCES ici, et la
+                # phase doit continuer vers verify.
+                return "\n".join([
+                    "# Indexation sémantique terminée",
+                    "",
+                    "**Tâche:** claude-x--u1",
+                    "**Source:** claude-code",
+                    "**Chemin:** /tmp/projects/claude-x--u1.jsonl",
+                    "**Chunks indexés:** 0",
+                    "**Raison:** tout était déjà indexé pour cette tâche (dédup) : 30/30 sous-chunk(s) écarté(s) avant embedding",
+                    "**Chunks extraits:** 12",
+                    "**Sous-chunks construits:** 30",
+                    "**Sous-chunks dédupliqués:** 30",
+                    "",
+                    "```json",
+                    json.dumps({
+                        "success": True,
+                        "task_id": "claude-x--u1",
+                        "source": "claude-code",
+                        "chunksExtracted": 12,
+                        "subChunksBuilt": 30,
+                        "dedupSkipped": 30,
+                        "chunksIndexed": 0,
+                        "missingVectors": 0,
+                        "reason": "tout était déjà indexé pour cette tâche (dédup) : 30/30",
+                    }, ensure_ascii=False, indent=2),
+                    "```",
+                    "[⏱ roosync_indexing 471ms]",
+                ])
             if args.get("action") == "view":
                 # Forme REELLE du view summary : prose sous prefixe `    | `,
                 # lignes renderer et footer APRES elle (capture de forme,
@@ -749,11 +857,77 @@ def selftest() -> int:
         failures.append(f"phase_index: phrase = ligne du renderer: {ph!r}")
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
+    # Un succes a 0 chunk n'est PAS un echec : il doit avoir ete accepte, et la phase
+    # doit avoir CONTINUE jusqu'a extraire la phrase (assertion ci-dessus). Le champ
+    # normalise `chunks_indexed` et la raison sont ce que la sonde rapporte.
+    ix = idx_out.get("index") or {}
+    if ix.get("form") != "json":
+        failures.append(f"phase_index: forme d'index={ix.get('form')!r} (attendu 'json')")
+    if ix.get("chunks_indexed") != 0:
+        failures.append(f"phase_index: chunks_indexed={ix.get('chunks_indexed')!r} (attendu 0)")
+    if not ix.get("reason"):
+        failures.append("phase_index: raison d'indexation absente du JSON embarque")
     index_args = [a for n, a in fake.calls if n == "roosync_indexing"]
     if not index_args:
         failures.append("phase_index: aucun appel roosync_indexing")
     elif index_args[0].get("queued") is not False:
         failures.append(f"phase_index: index queued={index_args[0].get('queued')!r} (attendu False — #4352 g3)")
+
+    # parse_index_result : les DEUX formes de succes, et le refus de l'echec.
+    # Le Markdown SEUL est ce qu'un serveur anterieur a ms#1560 rendait — la forme
+    # qui a fait echouer la sonde en production chez ai-01 le 28/10.
+    legacy_markdown = "\n".join([
+        "# Indexation sémantique terminée",
+        "",
+        "**Tâche:** claude-D--roo-extensions--claude-worktrees-wt-4394-abc",
+        "**Source:** claude-code",
+        "**Chunks indexés:** 0",
+        "",
+        "**Variables d'env:**",
+        "- EMBEDDING_API_KEY: SET",
+        "- QDRANT_URL: http://qdrant:6333",
+        "[⏱ roosync_indexing 471ms]",
+    ])
+    legacy = parse_index_result(legacy_markdown)
+    if not legacy or legacy.get("form") != "markdown" or legacy.get("success") is not True:
+        failures.append(f"parse_index_result: Markdown seul non accepte -> {legacy!r}")
+    elif legacy.get("chunks_indexed") != 0:
+        failures.append(f"parse_index_result: chunks_indexed={legacy.get('chunks_indexed')!r}")
+
+    if parse_index_result("# Erreur d'indexation\n\n**Tâche:** x\n**Erreur:** boom") is not None:
+        failures.append("parse_index_result: une ERREUR a ete lue comme un succes")
+
+    if parse_index_result("") is not None:
+        failures.append("parse_index_result: une reponse vide a ete lue comme un succes")
+
+    # Un JSON qui se declare en ECHEC ne doit pas passer : sans ce cas, retirer la
+    # garde `is True` du chemin JSON laisserait le selftest vert (mutant survivant).
+    if parse_index_result(json.dumps({"success": False, "error": "boom"})) is not None:
+        failures.append("parse_index_result: un JSON success=false a ete lu comme un succes")
+
+    json_only = parse_index_result(json.dumps({"success": True, "points": 42}))
+    if not json_only or json_only.get("form") != "json":
+        failures.append(f"parse_index_result: forme JSON historique non acceptee -> {json_only!r}")
+
+    # Echec TOTAL de la phase : le rapport doit detailler CHAQUE essai, pas
+    # seulement le dernier. « 3 candidats en echec » sans le detail ne dit pas si
+    # c'est une panne d'instrument ou trois sessions non indexables depuis ce siege.
+    class FailFakeChild(IndexFakeChild):
+        def call_tool(self, name, args, timeout_s):
+            if name == "roosync_indexing":
+                self.calls.append((name, args))
+                return "# Erreur d'indexation\n\n**Tâche:** claude-x--u1\n**Erreur:** boom index"
+            return super().call_tool(name, args, timeout_s)
+
+    try:
+        phase_index(FailFakeChild(), None, {})
+        failures.append("phase_index: un echec d'indexation n'a pas leve")
+    except RuntimeError as exc:
+        if "essais:" not in str(exc):
+            failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
+        # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
+        if "boom index" not in str(exc):
+            failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
 
     # call_tool : une erreur serveur rendue en CONTENU doit lever. La forme testee
     # est celle que le serveur EMET reellement — `isError` sur le RESULTAT, pas sur
@@ -830,7 +1004,9 @@ def selftest() -> int:
           "retire + lignes renderer exclues, vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
-          "log ignoree, index queued=false, isError au niveau resultat)")
+          "log ignoree, index queued=false, succes Markdown ET JSON embarque acceptes "
+          "(0 chunk n'est pas un echec), erreur d'indexation refusee, isError au "
+          "niveau resultat)")
     return 0
 
 
@@ -897,6 +1073,17 @@ def main() -> int:
             print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         else:
             print(f"[task_id] {out.get('task_id')}")
+            if out.get("index"):
+                idx = out["index"]
+                detail = f"[index] chunks_indexed={idx.get('chunks_indexed')} form={idx.get('form')}"
+                if idx.get("reason"):
+                    detail += f" — {idx['reason']}"
+                print(detail)
+                if idx.get("chunks_indexed") == 0:
+                    # 0 n'est PAS un echec (mesure ai-01 28/10) : soit la tache etait
+                    # deja indexee (dedup ms#1557), soit l'extraction n'a rien rendu.
+                    # La phase verify tranche — c'est la recherche qui prouve.
+                    print("[index] 0 chunk — la phase verify tranche (recherche, pas compteur)")
             if out.get("phrase"):
                 print(f"[phrase] {out['phrase']}")
             if "rank" in out:
