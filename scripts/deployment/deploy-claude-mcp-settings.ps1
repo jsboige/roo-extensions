@@ -1,4 +1,4 @@
-# Deploy-ClaudeMcpSettings.ps1
+﻿# Deploy-ClaudeMcpSettings.ps1
 # Deploys MCP servers to Claude Code ~/.claude.json (user scope)
 #
 # IMPORTANT: Claude Code MCP servers go in ~/.claude.json (user scope),
@@ -12,6 +12,9 @@
 #   .\deploy-claude-mcp-settings.ps1 [-MachineId <hostname>] [-WhatIf]
 #
 # Issue: #569, #597 - Claude Code MCP scopes
+#        #4149 F1 — playwright + searxng installed once per seat under
+#        ~/.claude/mcp-runtimes and launched `node <entry>` directly (no npx
+#        chain: 4 processes/session -> 1). Logic in lib\mcp-runtime.ps1.
 
 param(
     [string]$MachineId = $env:COMPUTERNAME.ToLower(),
@@ -38,25 +41,9 @@ if (-not (Test-Path $RooStatePath)) {
     exit 1
 }
 
-# --- Build MCP servers config (no credentials — MCPs load their own .env) ---
-
-$McpServers = @{
-    "win-cli" = @{
-        command = "node"
-        args = @($WinCliPath)
-    }
-    "roo-state-manager" = @{
-        command = "node"
-        args = @($RooStatePath)
-        cwd = $RooStateCwd
-    }
-    "playwright" = @{
-        command = "npx"
-        args = @("-y", "@playwright/mcp")
-    }
-}
-
-# --- Update ~/.claude.json (user scope - MCP servers only) ---
+# --- Read ~/.claude.json BEFORE building the config (#4149 F1): the searxng
+# takeover must copy the live entry's per-seat fields (env with auth,
+# alwaysAllow, disabled), and the merge below needs the existing map anyway.
 
 Write-Host "`n=== Claude Code MCP Deployment ===" -ForegroundColor Cyan
 Write-Host "Machine: $MachineId" -ForegroundColor Cyan
@@ -70,11 +57,65 @@ if (Test-Path $ClaudeJsonPath) {
     exit 1
 }
 
+# --- MCP runtimes: install once per seat, launch with node directly (#4149 F1) ---
+# Versions pinned exactly as measured in the fleet npx cache (po-2027, 28/10):
+# @playwright/mcp 0.0.83 (bin cli.js), mcp-searxng 2.9.0 (bin dist/cli.js).
+# Bump = edit the table; the bin is re-read from each package manifest.
+
+. (Join-Path $PSScriptRoot "mcp-runtime.lib.ps1")
+
+$RuntimesRoot = "$env:USERPROFILE\.claude\mcp-runtimes"
+
+$RuntimeSpecs = @(
+    @{ Name = 'playwright'; Package = '@playwright/mcp'; Version = '0.0.83'; BinHint = 'cli.js' },
+    @{ Name = 'searxng';    Package = 'mcp-searxng';    Version = '2.9.0';  BinHint = 'dist/cli.js' }
+)
+
+$Entries = @{}
+foreach ($Spec in $RuntimeSpecs) {
+    try {
+        $Entries[$Spec.Name] = Resolve-McpRuntimeEntry -Root $RuntimesRoot -Spec $Spec -WhatIf:$WhatIf
+    } catch {
+        Write-Error $_.Exception.Message
+        exit 1
+    }
+}
+
+# --- Build MCP servers config (no credentials — MCPs load their own .env) ---
+
+$ExistingSearxng = $null
+if ($ClaudeJson.mcpServers -and $ClaudeJson.mcpServers.PSObject.Properties['searxng']) {
+    $ExistingSearxng = $ClaudeJson.mcpServers.searxng
+    Write-Host "[TAKEOVER] searxng joins the managed set; per-seat env/alwaysAllow preserved from the live entry (#4149 F1)" -ForegroundColor DarkGray
+}
+$SearxngConfig = New-SearxngTakeoverConfig -EntryPath $Entries['searxng'] -ExistingEntry $ExistingSearxng
+
+$McpServers = @{
+    "win-cli" = @{
+        command = "node"
+        args = @($WinCliPath)
+    }
+    "roo-state-manager" = @{
+        command = "node"
+        args = @($RooStatePath)
+        cwd = $RooStateCwd
+    }
+    "playwright" = @{
+        command = "node"
+        args = @($Entries['playwright'])
+    }
+    "searxng" = $SearxngConfig
+}
+
+# --- Update ~/.claude.json (user scope - MCP servers only) ---
+
 # Upsert the managed servers INTO the existing map. A blind assignment here
 # replaced the whole object: on a seat carrying five registrations, deploying
 # these three deleted the other two (#3411 keeps the global sk-agent entry
 # load-bearing — measure 24/10 po-2028: sk-agent, searxng and jupyter-papermill
-# would have vanished on the next run).
+# would have vanished on the next run). Managed set is now FOUR (#4149 F1 adds
+# searxng with its per-seat fields taken over, see above); the unmanaged
+# survivors this merge protects remain sk-agent and jupyter-papermill.
 $MergedServers = @{}
 if ($ClaudeJson.mcpServers) {
     foreach ($prop in $ClaudeJson.mcpServers.PSObject.Properties) {
