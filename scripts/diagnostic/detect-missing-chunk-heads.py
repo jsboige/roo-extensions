@@ -108,13 +108,27 @@ class Qdrant:
             die(f"Qdrant {path} unreachable: {exc}")
         raise AssertionError("unreachable")
 
+    def count_points(self, scope_filter: dict[str, Any]) -> int:
+        """Exact point count under the SAME filter the scroll folds — completeness backstop.
+
+        Taken BEFORE the scan: a scan that reads fewer points than this count has
+        lost pages (pagination bug) — an instrument failure, never a "clean" verdict.
+        Reading MORE than the count is fine: the collection is live and grows.
+        """
+        result = self.post("/points/count", {"exact": True, "filter": scope_filter}).get("result") or {}
+        count = result.get("count")
+        if not isinstance(count, int):
+            die(f"/points/count returned no integer count: {result!r}")
+        return count
+
     def scroll_split_points(
         self, scope_filter: dict[str, Any], groups: dict[str, dict[str, Any]], progress: bool
     ) -> int:
         """Fold every SPLIT point (one carrying original_chunk_id) into `groups`, page by page.
 
         Folding per page instead of accumulating a list matters at full scale: the
-        collection holds ~1.8 M split points, which is ~1.3 GB of dicts if buffered.
+        collection holds ~2.47 M split points (measured 2026-10-28), which is
+        ~1.8 GB of dicts if buffered.
         """
         seen = 0
         offset = None
@@ -182,11 +196,6 @@ def fold_points(points: list[dict[str, Any]], groups: dict[str, dict[str, Any]])
     return groups
 
 
-def group_points(points: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Reduce a bounded page of points to one record per original_chunk_id."""
-    return fold_points(points, {})
-
-
 def classify(groups: dict[str, dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     missing_head: list[dict[str, Any]] = []
     truncated_tail: list[dict[str, Any]] = []
@@ -220,6 +229,7 @@ def print_report(summary: dict[str, Any]) -> None:
     print("=== #4352 g7 — split messages whose head pages are missing ===")
     print(f"scope: {json.dumps(scope, ensure_ascii=False)}")
     print(f"split points scanned               : {summary.get('points_scanned', '?')}")
+    print(f"split points counted (exact)       : {summary.get('points_expected', '?')}")
     print(f"split groups scanned              : {summary['groups_scanned']}")
     print(f"groups with NO chunk_index 1       : {summary['groups_missing_head']}")
     print(f"groups whose tail exceeds present  : {summary['groups_truncated_tail']}")
@@ -240,8 +250,19 @@ def print_report(summary: dict[str, Any]) -> None:
 
 def cmd_detect(qdrant: Qdrant, scope: dict[str, Any], as_json: bool, out_path: str | None) -> int:
     started = time.time()
+    scope_filter = split_filter(scope)
+    expected = qdrant.count_points(scope_filter)
     groups: dict[str, dict[str, Any]] = {}
-    scanned = qdrant.scroll_split_points(split_filter(scope), groups, progress=not as_json)
+    scanned = qdrant.scroll_split_points(scope_filter, groups, progress=not as_json)
+    if scanned < expected:
+        # Completeness is checked, not assumed: the scroll must return every point
+        # /points/count sees under the same filter. A short read is an instrument
+        # failure — a "clean" verdict on a truncated scan would be a false negative
+        # (measured once, out-of-script: 2 467 087 scrolled vs 2 467 091 counted).
+        die(
+            f"scroll incomplete: {scanned} points read but /points/count says {expected} "
+            "under the same filter — pagination lost pages, re-run"
+        )
     if not groups:
         # An empty scan is never "clean" — it is "nothing measured". A filter on a
         # field Qdrant does not index as a datetime (e.g. `timestamp`) returns zero
@@ -252,6 +273,7 @@ def cmd_detect(qdrant: Qdrant, scope: dict[str, Any], as_json: bool, out_path: s
         )
     summary = summarise(scope, groups, classify(groups))
     summary["points_scanned"] = scanned
+    summary["points_expected"] = expected  # exact /points/count under the same filter, taken before the scan
     summary["elapsed_s"] = round(time.time() - started, 1)
     if as_json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -273,19 +295,44 @@ def cmd_verify(qdrant: Qdrant, groups_path: str, as_json: bool) -> int:
         print("verify: nothing to verify (the detect report listed no missing head)")
         return 0
 
-    # One filtered scroll over just the suspect ids: exact and bounded.
+    # One filtered scroll over just the suspect ids: paginated to the end and
+    # count-checked per batch. A 200-group batch of headless groups can hold
+    # THOUSANDS of points (measured up to ~2 000 parts/group) — far past the
+    # 1 000-point page — so stopping at the first page would read a head that
+    # reappeared beyond it as "still missing", non-deterministically.
     still_missing: list[dict[str, Any]] = []
     recovered: list[dict[str, Any]] = []
     for start in range(0, len(targets), 200):
         chunk = targets[start : start + 200]
-        body = {
-            "limit": PAGE,
-            "with_payload": ["original_chunk_id", "chunk_index", "total_chunks", "task_id"],
-            "with_vector": False,
-            "filter": {"must": [{"key": "original_chunk_id", "match": {"any": chunk}}]},
-        }
-        points = qdrant.post("/points/scroll", body).get("result", {}).get("points") or []
-        found = group_points(points)
+        batch_filter: dict[str, Any] = {"must": [{"key": "original_chunk_id", "match": {"any": chunk}}]}
+        expected = qdrant.count_points(batch_filter)
+        found: dict[str, dict[str, Any]] = {}
+        seen = 0
+        offset = None
+        while True:
+            body: dict[str, Any] = {
+                "limit": PAGE,
+                "with_payload": ["original_chunk_id", "chunk_index", "total_chunks", "task_id"],
+                "with_vector": False,
+                "filter": batch_filter,
+            }
+            if offset is not None:
+                body["offset"] = offset
+            page = qdrant.post("/points/scroll", body).get("result") or {}
+            points = page.get("points") or []
+            if not points:
+                break
+            fold_points(points, found)
+            seen += len(points)
+            offset = page.get("next_page_offset")
+            if offset is None:
+                break
+        if seen < expected:
+            die(
+                f"verify scroll incomplete for batch {start // 200}: {seen} points read but "
+                f"/points/count says {expected} — a head past the first page would read "
+                "as 'still missing'"
+            )
         for ocid in chunk:
             record = found.get(ocid)
             if record and record["min_index"] == 1:
@@ -317,7 +364,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--detect", action="store_true", help="read-only scan")
     parser.add_argument("--verify", action="store_true", help="re-read the groups of a previous --detect report")
     parser.add_argument("--groups", help="--detect JSON report to verify")
-    parser.add_argument("--all", action="store_true", help="scan the whole collection (slow: ~1.8 M points)")
+    parser.add_argument("--all", action="store_true", help="scan the whole collection (slow: ~2.47 M points)")
     parser.add_argument("--task", help="restrict to one task_id")
     parser.add_argument("--since", help="restrict to timestamp >= this ISO instant")
     parser.add_argument("--env", default=DEFAULT_ENV, help=f".env holding QDRANT_* (default: {DEFAULT_ENV})")
