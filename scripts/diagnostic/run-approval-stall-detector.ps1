@@ -10,9 +10,12 @@
     only, and runs the detector. The token is never printed or logged.
 
     The window defaults suit a periodic tick, not an incident scan: with -ActiveHours 6 a
-    frozen tail ages out after about three 2-hour ticks, so a closed window or a dead
-    session is not re-announced for a week (the detector default, 168 h, would post one
-    WARN note per tick for each of them). For forensics, run the detector directly.
+    frozen tail ages out after about three 2-hour ticks, so a closed window is not
+    re-announced for a week (the detector default, 168 h, would post one WARN note per
+    tick for it). A DEAD session no longer needs the window at all: since the #4243
+    detector facet it is classified once and never re-announced (state file under
+    ~/.roo-state-manager/detect-approval-stalls). For forensics, run the detector
+    directly.
 
     One line per run is appended to <repo>\outputs\stall-detector\stall-detector.log,
     followed by the detector output (its command excerpts are already redacted).
