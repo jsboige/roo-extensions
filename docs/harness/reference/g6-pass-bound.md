@@ -54,6 +54,29 @@ compris les cycles vides ou bloqués — c'est ce qui en fait l'instrument. Une 
 doit donc montrer ~N de ces lignes ; plus de `--max-missing` (défaut 2) intervalles muets est une
 violation, pas un arrondi.
 
+## D'où vient le taux (CHANGES ai-01, 29/10)
+
+Le plafond appartient au **RSM mesuré**, pas au shell de l'opérateur. Précédence :
+
+| rang | source | note |
+| --- | --- | --- |
+| 1 | `--ops-per-minute N` | explicite, gagne sur tout |
+| 2 | `--env-file <rsm>/.env` | le `.env` que le RSM mesuré charge réellement ; illisible ou sans la clé → `INSTRUMENT` (exit 2) — après qu'on a nommé la config mesurée, l'outil ne **devine plus** |
+| 3 | env `EMBEDDING_OPS_PER_MINUTE` | environnement de l'**opérateur** — la provenance l'écrit : ce n'est pas forcément la config du process mesuré |
+| 4 | défaut 10/min | `background-services.ts` — même mise en garde |
+
+La provenance est **toujours rendue** (`rate: N/min (source: …)`, champ `rate_provenance` en JSON).
+Une valeur **non numérique** dans l'env ou l'env-file est un `INSTRUMENT` (exit 2) — la conversion se
+faisait à la construction du parser et s'échappait en traceback, donc en **exit 1**, que tout
+appelant lit comme `VIOLATION` ; le flag CLI peut maintenant la surcharger.
+
+`EMBEDDING_OPS_PER_MINUTE=0` **désactive** le paceur dans le RSM (`VectorIndexer.ts:217`) : la borne
+est **vacante** — aucune allocation ne peut se dériver d'une fenêtre non pacée. Le verdict est
+`INSTRUMENT` (« pacing disabled »), jamais le `PASS` à allocation infinie des versions précédentes.
+
+`rate_limited=` (ms#1572) sert de **témoin** : un delta positif dans une fenêtre jugée dit que le
+paceur a **effectivement attendu** — il ne dit jamais quelle est la clé configurée.
+
 ## Pourquoi ne pas relever le paceur
 
 L'embedder est **partagé par la flotte** ; po-2023 a déjà subi un plafond de connexions et un double
@@ -68,6 +91,11 @@ borne dépendante d'un réglage local non mesuré ailleurs. Le paceur reste donc
   les requêtes du callback suivant sortent du même plafond. `Δrequests` est alors le plafond du temps
   mural — exactement la grandeur que la borne décrit. La question posée est « le worker a-t-il été
   retenu **seulement** par son propre débit », jamais « cette tâche était-elle lente ».
+- La borne **n'établit pas** que le paceur est la cause **exclusive** du temps écoulé : les
+  consommateurs non pacés partagent le même embedder (les chemins search/query ne passent pas par
+  `acquireEmbeddingSlot`), et leur latence peut apparaître dans le temps mural sans jamais
+  apparaître dans `Δrequests`. « Dans la borne » veut dire « pas plus lent que ce que le paceur
+  permet », pas « le paceur explique chaque milliseconde ».
 - Un **reset de compteur** dans la fenêtre (redémarrage de process) rend le delta ininterprétable :
   verdict `INSTRUMENT`, jamais `PASS`. Fail-closed, comme le reste du corpus.
 - Une ligne **sans horodatage** n'est pas devinée : si elle est nécessaire pour fermer une fenêtre,
@@ -80,7 +108,8 @@ borne dépendante d'un réglage local non mesuré ailleurs. Le paceur reste donc
 ```bash
 python scripts/diagnostic/g6-pass-bound.py --log <log RSM contenant [EMB-METRICS] et "pass done">
 python scripts/diagnostic/g6-pass-bound.py --log <f> --json
-python scripts/diagnostic/g6-pass-bound.py --selftest      # 7 fixtures hors ligne
+python scripts/diagnostic/g6-pass-bound.py --log <f> --env-file <rsm>/.env
+python scripts/diagnostic/g6-pass-bound.py --selftest      # 8 fixtures hors ligne
 ```
 
 Les deux lignes lues viennent de `background-services.ts` : `[EMB-METRICS] … called=… requests=…
@@ -90,11 +119,15 @@ rate_limited=… cache_size=…` (émis chaque tick) et `⏱️ [Qdrant-Worker] 
 
 Le selftest est **branché en CI** (`scripts/testing/python/test_g6_pass_bound.py`, job statique) : la
 fixture qui reproduit le défaut du 29/10 (655 s, 400 sub-chunks, 5 requêtes → `VIOLATION`, là où la
-borne sur `called` disait `PASS`) ne peut plus pourrir sans rendre la CI rouge.
+borne sur `called` disait `PASS`) et celle du paceur désactivé (taux 0 → `INSTRUMENT`, jamais le
+`PASS` à allocation infinie) ne peuvent plus pourrir sans rendre la CI rouge. Le wrapper couvre en
+plus, en sous-processus : env non numérique → exit 2, surcharge CLI de l'environnement cassé,
+précédence `--env-file` + provenance rendue, env-file sans la clé → exit 2.
 
 Exit codes : `0` toutes les passes dans la borne et cadence préservée · `1` au moins une violation
 (dépassement **ou** tick affamé) · `2` erreur d'instrument (log illisible, fenêtre non fermée,
-reset de compteur, métriques sans `requests=`, entrée malformée) — jamais un « propre » par silence :
+reset de compteur, métriques sans `requests=`, entrée malformée, **source de taux non numérique,
+env-file illisible/sans clé, paceur désactivé**) — jamais un « propre » par silence :
 un log sans `pass done` est un exit 2.
 
 ## Le critère, en une ligne

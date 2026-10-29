@@ -43,7 +43,7 @@ class G6PassBoundSelftest(unittest.TestCase):
         proc = _run("--help")
         self.assertEqual(proc.returncode, 0)
         for flag in ("--log", "--json", "--selftest", "--ops-per-minute",
-                     "--margin", "--interval-seconds", "--max-missing"):
+                     "--env-file", "--margin", "--interval-seconds", "--max-missing"):
             self.assertIn(flag, proc.stdout)
 
 
@@ -78,6 +78,80 @@ class G6PassBoundExitCodes(unittest.TestCase):
         proc = _run("--log", path)
         self.assertEqual(proc.returncode, 2)
         self.assertIn("no 'pass done'", proc.stderr)
+
+
+class G6PassBoundRateResolution(unittest.TestCase):
+    """ai-01 CHANGES 29/10: the ceiling belongs to the MEASURED RSM.
+
+    The default used to be float(env) evaluated while building the parser, so a
+    nonnumeric EMBEDDING_OPS_PER_MINUTE escaped as a traceback (exit 1 = VIOLATION
+    to any caller) and no CLI flag could override it. Resolution is now lazy,
+    fail-closed, and always states its provenance.
+    """
+
+    def _log(self, body: str) -> str:
+        fd, path = tempfile.mkstemp(prefix="g6-rate-", suffix=".log")
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def _env_file(self, body: str) -> str:
+        fd, path = tempfile.mkstemp(prefix="g6-env-", suffix=".env")
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_nonnumeric_env_is_instrument_not_violation(self):
+        proc = _run("--log", os.path.join(tempfile.gettempdir(), "g6-none.log"),
+                    env={**os.environ, "EMBEDDING_OPS_PER_MINUTE": "abc"})
+        self.assertEqual(proc.returncode, 2, proc.stderr or proc.stdout)
+        self.assertIn("EMBEDDING_OPS_PER_MINUTE", proc.stderr)
+        self.assertIn("INSTRUMENT", proc.stderr)
+
+    def test_cli_rate_overrides_broken_env(self):
+        # with the rate given on the CLI the env value is never consulted: the run
+        # proceeds and fails on the (missing) log instead — proving precedence.
+        proc = _run("--log", os.path.join(tempfile.gettempdir(), "g6-none.log"),
+                    "--ops-per-minute", "10",
+                    env={**os.environ, "EMBEDDING_OPS_PER_MINUTE": "abc"})
+        self.assertEqual(proc.returncode, 2)
+        self.assertNotIn("EMBEDDING_OPS_PER_MINUTE", proc.stderr)
+
+    def test_env_file_wins_over_operator_env_and_states_provenance(self):
+        # one pass line, no metrics -> INSTRUMENT "window not closed", but the report
+        # still runs and must state where the rate came from.
+        path = self._log(
+            "2026-10-29T00:10:00.000Z [Qdrant-Worker] pass done: 2 task(s) in 600000ms\n")
+        env_file = self._env_file("# seat .env\nEMBEDDING_OPS_PER_MINUTE=2\n")
+        proc = _run("--log", path, "--env-file", env_file,
+                    env={**os.environ, "EMBEDDING_OPS_PER_MINUTE": "30"})
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("env-file", proc.stdout)
+        self.assertIn("2/min", proc.stdout)
+        self.assertIn("(source:", proc.stdout)
+
+    def test_env_file_without_key_refuses_to_guess(self):
+        path = self._log(
+            "2026-10-29T00:10:00.000Z [Qdrant-Worker] pass done: 2 task(s) in 600000ms\n")
+        env_file = self._env_file("OTHER_KEY=1\n")
+        proc = _run("--log", path, "--env-file", env_file)
+        self.assertEqual(proc.returncode, 2, proc.stderr or proc.stdout)
+        self.assertIn("carries no EMBEDDING_OPS_PER_MINUTE", proc.stderr)
+
+    def test_zero_rate_is_instrument_vacuous_bound(self):
+        # EMBEDDING_OPS_PER_MINUTE=0 disables the pacer in the RSM: an unpaced
+        # window can produce no allowance. This shape used to PASS at infinity.
+        path = self._log(
+            "2026-10-29T00:00:00.000Z [EMB-METRICS] called=0 requests=0 rate_limited=0\n"
+            "2026-10-29T00:05:00.000Z [EMB-METRICS] called=16 requests=1 rate_limited=0\n"
+            "2026-10-29T00:10:00.000Z [EMB-METRICS] called=1744 requests=109 rate_limited=3\n"
+            "2026-10-29T00:10:01.000Z [Qdrant-Worker] pass done: 5 task(s) in 600000ms\n")
+        proc = _run("--log", path, "--ops-per-minute", "0")
+        self.assertEqual(proc.returncode, 2, proc.stdout)
+        self.assertIn("pacing disabled", proc.stdout)
+        self.assertIn("vacuous", proc.stdout)
 
 
 if __name__ == "__main__":

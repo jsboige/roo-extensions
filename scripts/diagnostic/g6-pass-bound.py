@@ -34,6 +34,30 @@ Liveness is judged separately, because a bounded pass could still starve the tic
 that lasts N intervals must still show ~N of those lines. More than `--max-missing`
 absent intervals is a violation, not a rounding error.
 
+Where the rate comes from (ai-01 CHANGES 29/10)
+------------------------------------------------
+The ceiling belongs to the MEASURED RSM, not to the operator's shell. Precedence:
+
+  1. `--ops-per-minute N`           (CLI — explicit, wins over everything)
+  2. `--env-file <rsm>/.env`        (the .env the measured RSM actually loads; if the
+                                     file is unreadable or lacks the key: INSTRUMENT,
+                                     exit 2 — after asking for the measured config the
+                                     tool does not fall back to a guess)
+  3. `EMBEDDING_OPS_PER_MINUTE`     (operator environment — printed with an explicit
+                                     caution: this is the OPERATOR's value, not
+                                     necessarily the measured process's)
+  4. default 10/min                 (background-services.ts — same caution)
+
+The provenance is always printed (`rate: N/min (source: …)`), and a nonnumeric value in
+the environment or env-file is INSTRUMENT (exit 2), never a traceback: an exit 1 would
+read as a VIOLATION downstream. `rate_limited=` (boot-cumulative, ms#1572) is used as a
+witness only — a positive delta in a judged window says pacing WAS active; it never
+identifies the configured ceiling.
+
+`EMBEDDING_OPS_PER_MINUTE=0` disables the pacer in the RSM (VectorIndexer.ts:217): the
+bound is then vacuous — no allowance can be derived from an unpaced window, so the
+verdict is INSTRUMENT (exit 2), not a silent PASS at infinite allowance.
+
 What this does NOT claim
 ------------------------
 - It does not judge *content*: a pass that indexes the wrong chunks can be within bound.
@@ -42,6 +66,11 @@ What this does NOT claim
   same ceiling. `Δrequests` is then the ceiling for the wall clock as a whole — which is
   exactly the quantity the bound is about. This tool judges "was the worker held back
   only by its own throttle", never "was this single task slow".
+- The bound does not establish that pacing ALONE caused the elapsed time: unpaced
+  consumers share the same embedder (search/query paths do not go through
+  `acquireEmbeddingSlot`), and their latency can appear in the wall clock without ever
+  appearing in `Δrequests`. Within-bound means "not slower than the pacer allows", not
+  "the pacer explains every millisecond".
 - A counter reset (process restart) inside the window is an INSTRUMENT failure, never a
   pass: the delta would be meaningless. Fail-closed, like the rest of the corpus.
 
@@ -59,13 +88,15 @@ Usage
 -----
   python scripts/diagnostic/g6-pass-bound.py --log <fichier.log>
   python scripts/diagnostic/g6-pass-bound.py --log <f> --json
+  python scripts/diagnostic/g6-pass-bound.py --log <f> --env-file <rsm>/.env
   python scripts/diagnostic/g6-pass-bound.py --selftest
 
 Exit codes
 ----------
   0  every pass within the pacer bound and cadence preserved
   1  at least one violation (over bound, or tick starved)
-  2  instrument failure (unreadable log, unclosed window, counter reset)
+  2  instrument failure (unreadable log, unclosed window, counter reset,
+     nonnumeric rate source, env-file unreadable/missing key, pacing disabled)
 """
 
 from __future__ import annotations
@@ -91,6 +122,7 @@ TS_TIME_ONLY = re.compile(r"\[?(\d{2}:\d{2}:\d{2})(?:[.,](\d{1,6}))?\]?")
 METRICS = re.compile(r"\[EMB-METRICS\](.*)$")
 CALLED = re.compile(r"\bcalled=(\d+)")
 REQUESTS = re.compile(r"\brequests=(\d+)")
+RATE_LIMITED = re.compile(r"\brate_limited=(\d+)")
 PASS_DONE = re.compile(r"pass done:\s*(\d+)\s*task\(s\)\s*in\s*(\d+)\s*ms")
 
 
@@ -102,6 +134,9 @@ class Metrics:
     # the bound is then not computable and the pass is INSTRUMENT, never PASS.
     requests: int | None
     raw: str
+    # Pacing witness (ms#1572): boot-cumulative count of requests that had to WAIT
+    # for a slot. Corroborates that pacing was active; never identifies the ceiling.
+    rate_limited: int | None = None
 
 
 @dataclass
@@ -169,9 +204,11 @@ def scan(path: str) -> tuple[list[Metrics], list[Pass], int]:
                         untimed += 1
                     else:
                         req = REQUESTS.search(body.group(1))
+                        rl = RATE_LIMITED.search(body.group(1))
                         metrics.append(Metrics(stamp, int(called.group(1)),
                                                int(req.group(1)) if req else None,
-                                               line.strip()))
+                                               line.strip(),
+                                               int(rl.group(1)) if rl else None))
                     continue
             done = PASS_DONE.search(line)
             if done:
@@ -187,6 +224,18 @@ def judge(passes: list[Pass], metrics: list[Metrics], ops_per_minute: float, mar
     verdicts: list[Verdict] = []
     for idx, p in enumerate(passes):
         v = Verdict(index=idx, tasks=p.tasks, duration_ms=p.duration_ms, status="PASS")
+
+        if ops_per_minute <= 0:
+            # EMBEDDING_OPS_PER_MINUTE=0 disables the pacer in the RSM
+            # (VectorIndexer.ts:217): no allowance can be derived from an unpaced
+            # window. ai-01 CHANGES 29/10 — this used to PASS at infinite allowance.
+            v.status = "INSTRUMENT"
+            v.reasons.append(
+                "pacing disabled (EMBEDDING_OPS_PER_MINUTE=0): the bound is vacuous, "
+                "no verdict is possible on an unpaced window")
+            verdicts.append(v)
+            continue
+
         start = p.time - p.duration_ms / 1000.0
 
         prev = None
@@ -238,18 +287,25 @@ def judge(passes: list[Pass], metrics: list[Metrics], ops_per_minute: float, mar
 
         ops = nxt.requests - prev.requests
         v.requests = ops
-        v.allowed_ms = ops * (60_000.0 / ops_per_minute) * margin if ops_per_minute > 0 else float("inf")
+        v.allowed_ms = ops * (60_000.0 / ops_per_minute) * margin
         if p.duration_ms > v.allowed_ms:
             v.status = "VIOLATION"
             v.reasons.append(
                 f"over pacer bound: {p.duration_ms} ms > {v.allowed_ms:.0f} ms "
                 f"({ops} requests × {60_000.0 / ops_per_minute:.0f} ms × {margin})")
+        if prev.rate_limited is not None and nxt.rate_limited is not None:
+            waited = nxt.rate_limited - prev.rate_limited
+            if waited > 0:
+                # Witness, not evidence of the ceiling (ms#1572): pacing was active.
+                v.reasons.append(
+                    f"witness: pacer waited on {waited} request(s) in this window "
+                    f"(rate_limited Δ={waited})")
         verdicts.append(v)
     return verdicts
 
 
 def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interval_s: float,
-           untimed: int, as_json: bool) -> int:
+           untimed: int, as_json: bool, rate_provenance: str = "") -> int:
     for v in verdicts:
         print(f"pass #{v.index + 1}: {v.tasks} task(s) in {v.duration_ms} ms -> {v.status}"
               f"  (requests={v.requests} allowed={('%.0f' % v.allowed_ms) if v.allowed_ms is not None else 'n/a'} ms, "
@@ -266,6 +322,7 @@ def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interv
             "passes": len(verdicts),
             "untimed_lines": untimed,
             "ops_per_minute": ops_per_minute,
+            "rate_provenance": rate_provenance,
             "margin": margin,
             "interval_seconds": interval_s,
             "results": [v.__dict__ for v in verdicts],
@@ -273,6 +330,8 @@ def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interv
     else:
         print(f"verdict={overall} passes={len(verdicts)} untimed_lines={untimed} "
               f"ops_per_minute={ops_per_minute:g} margin={margin:g} interval={interval_s:g}s")
+        if rate_provenance:
+            print(f"rate: {ops_per_minute:g}/min (source: {rate_provenance})")
     if overall == "INSTRUMENT":
         return 2
     return 1 if overall == "VIOLATION" else 0
@@ -283,7 +342,8 @@ def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interv
 def _log(passes: list[tuple[float, int, int]], metrics: list[tuple],
          timed: bool = True) -> str:
     """Compose a synthetic log; tuples are (t, called, requests) — requests optional
-    (omit it to model a build that predates embeddings_requests_total)."""
+    (omit it to model a build that predates embeddings_requests_total), rate_limited
+    optional 4th element (default 0: pacing never waited)."""
     import tempfile
 
     def stamp(t: float) -> str:
@@ -293,8 +353,9 @@ def _log(passes: list[tuple[float, int, int]], metrics: list[tuple],
     for row in metrics:
         t, called = row[0], row[1]
         requests = row[2] if len(row) > 2 else None
+        rl = row[3] if len(row) > 3 else 0
         tail = f" requests={requests}" if requests is not None else ""
-        rows.append((t, "M", f"[EMB-METRICS] called={called}{tail} rate_limited=0 cache_size=0"))
+        rows.append((t, "M", f"[EMB-METRICS] called={called}{tail} rate_limited={rl} cache_size=0"))
     for t, tasks, dur in passes:
         rows.append((t, "P", f"⏱️ [Qdrant-Worker] pass done: {tasks} task(s) in {dur}ms"))
     rows.sort(key=lambda r: r[0])
@@ -309,10 +370,11 @@ def selftest() -> int:
     t0 = 1_764_720_000.0  # 2026-10-29T00:00:00Z
     failures: list[str] = []
 
-    def run(name: str, path: str, expect: str) -> None:
+    def run(name: str, path: str, expect: str,
+            rate: float = DEFAULT_OPS_PER_MINUTE) -> None:
         try:
             metrics, passes, untimed = scan(path)
-            verdicts = judge(passes, metrics, DEFAULT_OPS_PER_MINUTE, DEFAULT_MARGIN,
+            verdicts = judge(passes, metrics, rate, DEFAULT_MARGIN,
                              DEFAULT_INTERVAL_S, DEFAULT_MAX_MISSING)
         except (OSError, ValueError) as exc:
             print(f"[selftest] {name}: raised {type(exc).__name__} ({exc}) FAIL")
@@ -332,10 +394,11 @@ def selftest() -> int:
     # the very distinction this tool now depends on.
 
     # (a) the real shape measured on po-2028: 655 s pass, 109 requests over the window,
-    #     ticks on time (~1 744 sub-chunks embedded by the 16x batch).
+    #     ticks on time (~1 744 sub-chunks embedded by the 16x batch). rate_limited
+    #     climbs 0 -> 3: the pacing witness fires on a healthy pass without changing it.
     run("pacer bound respected", _log(
         [(t0 + 655, 5, 655_000)],
-        [(t0 + 0, 0, 0), (t0 + 300, 800, 50), (t0 + 600, 1_600, 100), (t0 + 900, 1_744, 109)]),
+        [(t0 + 0, 0, 0), (t0 + 300, 800, 50, 1), (t0 + 600, 1_600, 100, 2), (t0 + 900, 1_744, 109, 3)]),
         "PASS")
 
     # (b) the #4422 defect itself: 655 s, only 5 requests, but 400 sub-chunks in `called`.
@@ -374,19 +437,78 @@ def selftest() -> int:
         [(t0 + 655, 5, 655_000)],
         [(t0 + 0, 0), (t0 + 300, 800), (t0 + 900, 1_744)]), "INSTRUMENT")
 
+    # (h) EMBEDDING_OPS_PER_MINUTE=0 disables the pacer in the RSM: the bound is
+    #     vacuous on an unpaced window. ai-01 CHANGES 29/10 — this shape used to
+    #     PASS at infinite allowance; the honest verdict is INSTRUMENT.
+    run("pacing disabled (rate 0): vacuous bound", _log(
+        [(t0 + 655, 5, 655_000)],
+        [(t0 + 0, 0, 0), (t0 + 300, 800, 50), (t0 + 600, 1_600, 100), (t0 + 900, 1_744, 109)]),
+        "INSTRUMENT", rate=0.0)
+
     print(f"[selftest] {'PASS' if not failures else 'FAIL'} "
-          f"({7 - len(failures)}/7{' — ' + ', '.join(failures) if failures else ''})")
+          f"({8 - len(failures)}/8{' — ' + ', '.join(failures) if failures else ''})")
     return 0 if not failures else 1
+
+
+def resolve_rate(cli_value: float | None, env_file: str | None
+                 ) -> tuple[float | None, str, str | None]:
+    """Pick the pacer ceiling with its provenance.
+
+    Precedence: CLI > --env-file > operator env > default. The value belongs to the
+    MEASURED RSM (ai-01 CHANGES 29/10); a source that is not the measured process's
+    own config is returned with a caution appended to the provenance. Returns
+    (rate, provenance, error): rate is None and error set when a source that was
+    explicitly requested (env-file) or present (operator env) cannot be read as a
+    number — fail-closed, the caller turns that into exit 2.
+    """
+    if cli_value is not None:
+        return cli_value, f"CLI --ops-per-minute={cli_value:g}", None
+    if env_file:
+        try:
+            with open(env_file, "r", encoding="utf-8-sig") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, _, raw = line.partition("=")
+                    if key.strip() == "EMBEDDING_OPS_PER_MINUTE":
+                        raw = raw.split("#", 1)[0].strip().strip("'\"")
+                        try:
+                            return float(raw), f"env-file {env_file} ({raw}/min)", None
+                        except ValueError:
+                            return None, env_file, (
+                                f"EMBEDDING_OPS_PER_MINUTE={raw!r} in {env_file} "
+                                "is not a number")
+        except OSError as exc:
+            return None, env_file, f"cannot read --env-file {env_file}: {exc}"
+        return None, env_file, (
+            f"--env-file {env_file} carries no EMBEDDING_OPS_PER_MINUTE — refusing to "
+            "guess after the measured config was named (pass --ops-per-minute)")
+    raw = os.environ.get("EMBEDDING_OPS_PER_MINUTE")
+    if raw is not None:
+        try:
+            return float(raw), (f"operator env EMBEDDING_OPS_PER_MINUTE={raw} "
+                                "(NOT the measured RSM's config)"), None
+        except ValueError:
+            return None, raw, (f"EMBEDDING_OPS_PER_MINUTE={raw!r} in the environment "
+                               "is not a number — pass --ops-per-minute with the "
+                               "measured RSM's effective value")
+    return DEFAULT_OPS_PER_MINUTE, (f"default {DEFAULT_OPS_PER_MINUTE:g}/min "
+                                    "(background-services.ts — NOT the measured "
+                                    "RSM's config)"), None
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="#4352 g6 — judge indexing passes against the embedding pacer bound")
     parser.add_argument("--log", help="log file holding [EMB-METRICS] and 'pass done' lines")
-    parser.add_argument("--ops-per-minute", type=float,
-                        default=float(os.environ.get("EMBEDDING_OPS_PER_MINUTE",
-                                                     DEFAULT_OPS_PER_MINUTE)),
-                        help=f"pacer ceiling (default: env or {DEFAULT_OPS_PER_MINUTE:g})")
+    parser.add_argument("--ops-per-minute", type=float, default=None,
+                        help="pacer ceiling (default: --env-file, then env "
+                             f"EMBEDDING_OPS_PER_MINUTE, then {DEFAULT_OPS_PER_MINUTE:g})")
+    parser.add_argument("--env-file",
+                        help="the .env the MEASURED RSM loads; read "
+                             "EMBEDDING_OPS_PER_MINUTE from it (wins over the "
+                             "operator env, loses to --ops-per-minute)")
     parser.add_argument("--margin", type=float, default=DEFAULT_MARGIN,
                         help=f"allowance over the pacer floor (default {DEFAULT_MARGIN})")
     parser.add_argument("--interval-seconds", type=float, default=DEFAULT_INTERVAL_S,
@@ -402,13 +524,21 @@ def main() -> int:
     if not args.log:
         parser.error("--log is required (or --selftest)")
 
+    # ai-01 CHANGES 29/10: the default used to be float(os.environ.get(...)) evaluated
+    # while BUILDING the parser — a nonnumeric env value raised a traceback, i.e.
+    # exit 1, which any caller reads as a VIOLATION. Resolved here instead, fail-closed.
+    rate, rate_provenance, rate_error = resolve_rate(args.ops_per_minute, args.env_file)
+    if rate_error is not None:
+        print(f"[INSTRUMENT] {rate_error}", file=sys.stderr)
+        return 2
+
     try:
         metrics, passes, untimed = scan(args.log)
         if not passes:
             print(f"[INSTRUMENT] no 'pass done' line in {args.log} — nothing judged",
                   file=sys.stderr)
             return 2
-        verdicts = judge(passes, metrics, args.ops_per_minute, args.margin,
+        verdicts = judge(passes, metrics, rate, args.margin,
                          args.interval_seconds, args.max_missing)
     except OSError as exc:
         print(f"[INSTRUMENT] cannot read {args.log}: {exc}", file=sys.stderr)
@@ -419,8 +549,8 @@ def main() -> int:
         print(f"[INSTRUMENT] malformed input in {args.log}: {exc}", file=sys.stderr)
         return 2
 
-    return report(verdicts, args.ops_per_minute, args.margin, args.interval_seconds,
-                  untimed, args.json)
+    return report(verdicts, rate, args.margin, args.interval_seconds,
+                  untimed, args.json, rate_provenance)
 
 
 if __name__ == "__main__":
