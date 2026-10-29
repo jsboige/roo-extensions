@@ -38,8 +38,8 @@ The coordinator and meta-analyst use a subset of roo-state-manager tools for fle
     machinesOnline: number,                      // Dashboard append < 8h (#2546)
     machinesUnknown: number,                     // No dashboard append seen in 8h (#2546)
     machinesStale: number,                       // #4344: concluded absent > 7d (STALE_MACHINE_MS) — always === staleMachines.length
-    staleMachines: string[],                     // #4344: the ids behind machinesStale, registry spelling; a -win32-x64 activity ghost appears here (observability) but NOT in machinesTotal
-    machinesTotal: number,                       // #1569: registry-based — online + unknown + stale machines the REGISTRY knows (parity with get-status `machines.total`)
+    staleMachines: string[],                     // #4344: the ids behind machinesStale — registry members in registry spelling; an activity-only ghost (e.g. -win32-x64) is listed under its ACTIVITY id (observability), and is NOT counted in machinesTotal
+    machinesTotal: number,                       // #1569: health-view's own basis = machinesOnline + machinesUnknown + registry-known STALE machines (an activity-only id is excluded); a DIFFERENT basis from roosync_inventory(type="status") `machines.total` (max(registry count, dashboard machine count)) — the two agree in the common case, not by construction
     flags: string[],                             // e.g. "SYNC_STALE:myia-po-2024", "STALE:<machine>" (#4344, one per staleMachines member)
     lastSeenByMachine: Record<string, string | null>  // #3160: last append seen by THIS observer (null = never on this mirror)
   },
