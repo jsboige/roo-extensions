@@ -16,8 +16,8 @@ Deux phases, deux sieges :
     2. extrait une PHRASE distinctives du contenu reel via conversation_browser(view)
        — jamais une lecture directe du JSONL (#1785) ; la phrase refuse les
        sorties d'outil GENERIQUES (le succes standard d'un append de dashboard,
-       les en-tetes gras) et doit etre RARE : une recherche texte ne la retrouve
-       que dans <= 1 session (la cible). Mesure ai-01 28/10 (file 20261028i) :
+       les en-tetes gras) et doit etre RARE : un SCAN VERBATIM des transcripts
+       locaux ne la retrouve que dans 1 session (la cible). Mesure ai-01 28/10 (file 20261028i) :
        un verify sur « Message ajouté au dashboard '…' » FAIL sans rien mesurer
        — cette ligne vit dans des centaines de sessions ;
     3. indexe la session via roosync_indexing(action:"index", task_id,
@@ -79,15 +79,18 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import itertools
 import json
 import queue
 import re
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Sequence
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -106,10 +109,32 @@ PHRASE_MAX_CHARS = 240
 # RARETE de la phrase (file 20261028i, ai-01 28/10) : le verify live a FAIL sur
 # « Message ajouté au dashboard 'workspace-roo-extensions' » — la ligne de succes
 # standard de CHAQUE append, presente dans des centaines de sessions. Un FAIL la-
-# dessus ne mesure pas l'index. Une phrase que la recherche texte retrouve au-dela
-# de MAX_PHRASE_SPREAD_SESSIONS n'est pas discriminante et est ecartee.
+# dessus ne mesure pas l'index. Une phrase retrouvee au-dela de
+# MAX_PHRASE_SPREAD_SESSIONS n'est pas discriminante et est ecartee.
+#
+# La mesure est un SCAN VERBATIM LOCAL (ai-01 CHANGES #4412), pas une recherche
+# texte distante : `roosync_search(action:"text")` decoupe la requete en jetons et
+# matche sur N'IMPORTE LEQUEL (`search-fallback.tool.ts:76-79`), en rendant
+# `totalFound = cleanResults.length` (`:247`) — un compte PLAFONNE de taches qui
+# partagent au moins un mot commun. Une phrase presente dans sa seule session y
+# « apparait » dans toutes celles qui contiennent « session » ou « dashboard » :
+# le filtre s'effondrait a chaque fois, et le verify ne tournait jamais.
 MAX_PHRASE_SPREAD_SESSIONS = 1
+# MINIMUM 1, pas 0 : la phrase est EXTRAITE de la cible, donc un scan des
+# transcripts du siege doit la retrouver au moins chez elle. 0 = corpus
+# incomplet/illisible ou phrase manguee par le rendu — la regle precedente
+# (« un spread de 0 reste accepte : l'indexation a pu echouer ») parlait de la
+# recherche INDEXEE, ou l'absence pouvait signifier un index en panne. Un scan de
+# FICHIERS n'a pas cette excuse : l'absence n'y prouve rien, donc on refuse
+# (fail-closed) au lieu d'accepter en silence.
+MIN_PHRASE_SPREAD_SESSIONS = 1
 PHRASE_SPREAD_MAX_TRIES = 5          # candidates evaluees avant d'abandonner
+# Corpus de reference du scan verbatim : les transcripts Claude Code du siege.
+# `candidate_sessions` ne retient que `source in ("claude","claude-code")`, et
+# l'indexeur lit ces memes fichiers — c'est donc exactement le corpus dans lequel
+# la phrase doit etre rare. Un corpus absent ou vide est une ERREUR (fail-closed),
+# jamais un spread de 0.
+LOCAL_CORPUS_DEFAULT = Path.home() / ".claude" / "projects"
 SECRET_MARKERS = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|bearer|sk-[a-zA-Z0-9]|ghp_[a-zA-Z0-9]"
     r"|BEGIN [A-Z ]+PRIVATE|AKIA[0-9A-Z]{16}|-----)",
@@ -537,49 +562,115 @@ def pick_phrase(text: str) -> str:
     raise RuntimeError("aucune phrase candidate extraite de la session (contenu trop pauvre)")
 
 
-def phrase_session_spread(child, phrase: str) -> int:
-    """Nombre de sessions ou la recherche TEXTE retrouve la phrase.
+def corpus_files(root: Path) -> list[Path]:
+    """Les transcripts `.jsonl` du corpus local — une liste VIDE est une ERREUR.
 
-    Instrument de rarete (file 20261028i). Mode texte VOLONTAIRE : on mesure une
-    presence litterale, pas une proximite semantique. Payload releve en vrai le
-    28/10 : les lignes retournees sont PLAFONNEES par max_results et le vrai
-    total vit dans `totalFound` (« Results capped from 954 to 3 ») — compter les
-    seules lignes rendues sous-estimerait la banalite d'une phrase.
+    Fail-closed (ai-01 CHANGES #4412, point 2) : un corpus absent ou vide ne rend
+    pas « 0 session », il rend une erreur. Sans cette garde, un `--corpus-dir`
+    mal pointe (ou un corpus deplace) ferait trouver TOUTES les phrases rares et
+    ramenerait exactement le defaut mesure — une sonde qui accepte une phrase
+    banale parce qu'elle n'a rien pu mesurer.
     """
-    raw = child.call_tool(
-        "roosync_search",
-        {"action": "text", "search_query": phrase, "max_results": 20},
-        CALL_TIMEOUT_S["search"],
-    )
-    payload = parse_embedded_json(raw)
-    if payload is None or not isinstance(payload.get("results"), list):
-        raise RuntimeError("reponse roosync_search(text) non parsable — spread non mesurable")
-    tasks = {r.get("taskId") for r in payload["results"] if isinstance(r, dict) and r.get("taskId")}
-    total = payload.get("totalFound")
-    try:
-        total = int(total) if total is not None else 0
-    except (TypeError, ValueError):
-        total = 0
-    # totalFound compte des MATCHES (des chunks d'une meme session comptent
-    # plusieurs fois) : borne superieure conservatrice du nombre de sessions.
-    return max(len(tasks), total)
+    if not root.is_dir():
+        raise RuntimeError(
+            f"corpus local introuvable : {root} — la rarete VERBATIM n'est pas "
+            "mesurable sans lui (fail-closed : « corpus absent » n'est pas "
+            "« 0 session »)"
+        )
+    files = [p for p in root.rglob("*.jsonl") if p.is_file()]
+    if not files:
+        raise RuntimeError(
+            f"corpus local VIDE sous {root} (aucun .jsonl) — spread non mesurable "
+            "(fail-closed)"
+        )
+    return sorted(files)
 
 
-def pick_rare_phrase(text: str, spread_fn) -> str:
-    """Premiere candidate retrouvee dans <= MAX_PHRASE_SPREAD_SESSIONS session(s).
+def _phrase_needles(phrase: str) -> tuple[str, ...]:
+    """Formes sous lesquelles la phrase peut apparaitre dans un transcript.
 
-    spread 0 (phrase introuvable — l'indexation a pu echouer silencieusement)
-    est ACCEPTE : c'est le verify qui tranchera, pour de vrai cette fois. La
-    rejeter ici masquerait un vrai echec d'indexation derriere un filtre.
+    Un `.jsonl` stocke le texte dans des chaines JSON : un guillemet ou un
+    antislash y est echappe, et certaines sessions ecrivent l'ASCII etendu en
+    `\\uXXXX`. Tester la seule forme brute SOUS-COMPTERAIT des sessions qui
+    contiennent pourtant la phrase — or le sous-comptage est le sens DANGEREUX
+    (une phrase banale passerait pour rare).
+    """
+    needles = [phrase]
+    for ensure_ascii in (False, True):
+        escaped = json.dumps(phrase, ensure_ascii=ensure_ascii)[1:-1]
+        if escaped not in needles:
+            needles.append(escaped)
+    return tuple(needles)
+
+
+def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str, int]:
+    """Nombre de SESSIONS dont le texte contient la phrase LITTERALEMENT.
+
+    Instrument de rarete (ai-01 CHANGES #4412, point 1). Remplace la recherche
+    texte distante, qui ne mesurait pas ce qu'elle annoncait : le handler
+    tokenise en OR (« match ANY token », `search-fallback.tool.ts:76-79`) et rend
+    `totalFound = cleanResults.length` (`:247`), un compte PLAFONNE de taches
+    partageant au moins un mot. Deux consequences mesurees par ai-01 : une phrase
+    presente dans sa seule session « apparait » partout ou « session » figure, et
+    les 5 candidates s'epuisaient avant que le verify ne tourne.
+
+    Un seul passage sur le corpus pour toutes les candidates (<= 5). Chaque
+    phrase est plafonnee a MAX + 1 des qu'elle depasse le seuil : au-dela, le
+    detail ne sert plus a decider, seulement a nommer l'echec.
+    """
+    counts = {p: 0 for p in phrases}
+    needles = {p: _phrase_needles(p) for p in phrases}
+    saturated: set[str] = set()
+    for path in files:
+        if len(saturated) == len(phrases):
+            break
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            # Une session illisible = un trou dans le corpus : l'absence de la
+            # phrase n'y est plus prouvable, donc on refuse de conclure.
+            raise RuntimeError(
+                f"corpus local illisible ({path.name}) : {exc} — spread non mesurable "
+                "(fail-closed)"
+            ) from exc
+        for phrase in phrases:
+            if phrase in saturated:
+                continue
+            if any(n in text for n in needles[phrase]):
+                counts[phrase] += 1
+                if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
+                    saturated.add(phrase)
+    return counts
+
+
+def pick_rare_phrase(text: str, spread_fn) -> tuple[str, int]:
+    """Premiere candidate retrouvee dans [MIN, MAX] session(s) VERBATIM.
+
+    `spread_fn` rend le nombre de sessions contenant la phrase litteralement, ou
+    `None` quand elle n'a pas ete mesuree. `None` LEVE (fail-closed, ai-01
+    CHANGES #4412 point 2) : « pas de compte » n'est pas « aucun matching », et
+    l'ancien `totalFound` absent lu comme 0 faisait accepter n'importe quoi.
+
+    spread 0 est REFUSE aussi : la phrase vient de la cible, donc un scan de ses
+    transcripts doit la retrouver au moins chez elle. 0 signifie corpus
+    incomplet/illisible ou phrase manguee par le rendu — rien qui autorise a
+    conclure « rare ».
     """
     tried = []
     for ln in _phrase_candidates(text):
         if len(tried) >= PHRASE_SPREAD_MAX_TRIES:
             break
         spread = spread_fn(ln)
+        if spread is None:
+            # Aucune mesure pour cette candidate : on ne peut ni l'accepter ni la
+            # compter comme « non rare ». Lever est le seul verdict honnete.
+            raise RuntimeError(
+                f"spread VERBATIM non mesure pour une candidate ({ln[:60]}…) — "
+                "fail-closed : un compte absent n'est pas un compte nul"
+            )
         tried.append((ln, spread))
-        if spread <= MAX_PHRASE_SPREAD_SESSIONS:
-            return ln
+        if MIN_PHRASE_SPREAD_SESSIONS <= spread <= MAX_PHRASE_SPREAD_SESSIONS:
+            return ln, spread
     if not tried:
         # Distinction exige par les deux reviews (ai-01 CHANGES :547, Hermes 🟡) :
         # « aucune candidate apres refus statique » n'est PAS un echec de rarete —
@@ -589,10 +680,18 @@ def pick_rare_phrase(text: str, spread_fn) -> str:
             "du view sont du bruit de rendu ou de sortie d'outil (refus statique, "
             "pas un echec de rarete)"
         )
+    # Les deux familles de refus sont nommees SEPAREMENT : « trop banale » et
+    # « absente du corpus local » demandent des gestes opposes (prendre une autre
+    # phrase / verifier le corpus), et les confondre redonne exactement le message
+    # trompeur que la review :547 avait fait retirer.
+    absent = [ln for ln, spread in tried if spread < MIN_PHRASE_SPREAD_SESSIONS]
+    common = [(ln, spread) for ln, spread in tried if spread > MAX_PHRASE_SPREAD_SESSIONS]
     detail = "; ".join(f"{spread} session(s) : {ln[:60]}…" for ln, spread in tried)
     raise RuntimeError(
-        f"aucune phrase discriminante ({len(tried)} candidate(s) a plus de "
-        f"{MAX_PHRASE_SPREAD_SESSIONS} session(s)) — {detail}"
+        f"aucune phrase discriminante sur {len(tried)} candidate(s) — attendu "
+        f"{MIN_PHRASE_SPREAD_SESSIONS}-{MAX_PHRASE_SPREAD_SESSIONS} session(s) "
+        f"VERBATIM ; {len(common)} trop banale(s), {len(absent)} absente(s) du "
+        f"corpus local — {detail}"
     )
 
 
@@ -620,7 +719,12 @@ def _short_index_error(err: str) -> str:
     return (match.group(1) if match else (err or "")).replace("\n", " ").strip()
 
 
-def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
+def phase_index(
+    child: McpChild,
+    task_id: str | None,
+    out: dict,
+    corpus_dir: Path = LOCAL_CORPUS_DEFAULT,
+) -> None:
     """Indexe le premier candidat indexable, puis extrait la phrase de son contenu.
 
     L'ordre compte : indexer AVANT d'extraire la phrase evite de payer un `view`
@@ -628,6 +732,11 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
     le listing, fichier disparu) laisse simplement la place au suivant.
     """
     attempts: list[dict] = []
+    # Chargé AVANT la boucle : un corpus absent ou vide n'est pas l'échec d'UN
+    # candidat, c'est la sonde entière qui ne peut pas mesurer (fail-closed,
+    # ai-01 CHANGES #4412 point 2). Le laisser dans le `try` par candidat ferait
+    # rendre « indexation en échec sur 3 candidat(s) » — un faux diagnostic.
+    corpus = corpus_files(corpus_dir)
     for cand_id, conv in candidate_sessions(child, task_id)[:INDEX_ATTEMPTS]:
         # TOUT le corps du candidat est sous le meme `try` : un echec de `view` ou
         # d'extraction de phrase ne doit pas emporter les candidats SUIVANTS. Le
@@ -676,9 +785,16 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
             # RARETE mesuree (file 20261028i) : une ligne generique (le succes
             # standard d'un append de dashboard) echoue le verify sans rien
             # mesurer — la phrase doit vivre dans <= 1 session, la cible.
-            phrase = pick_rare_phrase(
-                view_raw, lambda p: phrase_session_spread(child, p)
+            # RARETE VERBATIM (ai-01 CHANGES #4412) : une SEULE passe sur le corpus
+            # local pour les <=5 candidates, puis la premiere qui vit dans une
+            # seule session. Aucun appel `roosync_search` ici : le mode texte
+            # tokenise en OR et rend un compte plafonne, donc il ne mesurait pas
+            # la phrase (mesure ai-01 sur `search-fallback.tool.ts:76-79`/`:247`).
+            candidates = list(
+                itertools.islice(_phrase_candidates(view_raw), PHRASE_SPREAD_MAX_TRIES)
             )
+            spreads = verbatim_spreads(corpus, candidates)
+            phrase, spread = pick_rare_phrase(view_raw, spreads.get)
         except RuntimeError as exc:
             # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le transport
             # MCP coupe a 300 s AVANT la fin du travail serveur. C'est un echec
@@ -699,6 +815,10 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
         }
         out["phrase"] = phrase
         out["index"] = idx
+        # Preuve de la mesure de rareté : sur QUEL corpus et avec quel spread la
+        # phrase a été retenue. Sans ces deux nombres, un verdict live ne dit pas
+        # si le filtre a travaillé ou s'il a laissé passer.
+        out["rarity"] = {"corpus_files": len(corpus), "spread": spread}
         out["index_attempts"] = attempts  # candidats ecartes avant celui-ci
         return
     raise RuntimeError(
@@ -891,27 +1011,89 @@ def selftest() -> int:
     # generique mais vit dans 3 sessions : ecartee. La prose plus ancienne, elle,
     # n'est que dans la cible : retenue.
     late_multi = "Total : 140 messages, 2 non lus, 138 lus — aucune action requise de ce cycle present."
-    def _fake_spread(p: str) -> int:
+    def _fake_spread(p: str):
         return 3 if p == late_multi else 1
 
     rare_body = "\n".join([
         "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
         late_multi,
     ])
-    got_rare = pick_rare_phrase(rare_body, _fake_spread)
-    if got_rare != "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.":
-        failures.append(f"pick_rare_phrase: {got_rare!r}")
-    # spread 0 = phrase introuvable : ACCEPTE (l'indexation a pu echouer — c'est
-    # le verify qui doit le voir, pas ce filtre).
-    if pick_rare_phrase(rare_body, lambda p: 0) != late_multi:
-        failures.append("pick_rare_phrase: spread 0 doit etre accepte — verify tranche")
-    # Tout generique => echec BRUYANT qui dit les compteurs.
+    got_rare, got_spread = pick_rare_phrase(rare_body, _fake_spread)
+    if got_rare != "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h." or got_spread != 1:
+        failures.append(f"pick_rare_phrase: {(got_rare, got_spread)!r}")
+    # spread 0 est REFUSE (ai-01 CHANGES #4412 point 2). La phrase vient de la
+    # CIBLE : un scan de ses transcripts doit la retrouver au moins chez elle.
+    # 0 = corpus incomplet/illisible ou phrase manguee par le rendu. L'ancienne
+    # regle « 0 accepte » venait de la recherche INDEXEE (0 pouvait y dire « index
+    # en panne ») ; un scan de FICHIERS n'a pas cette excuse.
+    try:
+        pick_rare_phrase(rare_body, lambda p: 0)
+        failures.append("pick_rare_phrase: spread 0 a ete accepte (fail-open)")
+    except RuntimeError as exc:
+        if "absente(s) du corpus local" not in str(exc):
+            failures.append(f"pick_rare_phrase: refus a 0 mal nomme: {exc}")
+    # Aucune mesure rendue (None) => LEVER. C'est le fail-open reproche : l'ancien
+    # `totalFound` absent etait converti en 0, et 0 passait pour « rare ».
+    try:
+        pick_rare_phrase(rare_body, lambda p: None)
+        failures.append("pick_rare_phrase: spread None a ete accepte (fail-open)")
+    except RuntimeError as exc:
+        if "non mesure" not in str(exc):
+            failures.append(f"pick_rare_phrase: None mal nomme: {exc}")
+    # Tout banale => echec BRUYANT qui dit les compteurs.
     try:
         pick_rare_phrase(late_multi, lambda p: 7)
         failures.append("pick_rare_phrase: une phrase a 7 sessions a ete retenue")
     except RuntimeError as exc:
         if "7 session(s)" not in str(exc):
             failures.append(f"pick_rare_phrase: compte absent du message: {exc}")
+
+    # RARETE VERBATIM vs TOKENISATION OR (ai-01 CHANGES #4412 point 1). Le serveur
+    # decoupe la requete et matche sur N'IMPORTE quel jeton
+    # (`search-fallback.tool.ts:76-79`), en rendant un compte PLAFONNE
+    # (`:247`) : une phrase presente dans SA SEULE session « apparait » dans
+    # toutes celles qui partagent un mot. Le scan local doit dire 1, jamais 4.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        target_phrase = (
+            "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre."
+        )
+        (root / "a-target.jsonl").write_text(
+            json.dumps({"text": target_phrase}), encoding="utf-8")
+        # Trois sessions qui partagent des MOTS de la phrase (relais, dashboards,
+        # chaque siege, jalon...) mais aucune ne la contient : un compteur
+        # tokenise les retiendrait toutes les trois.
+        for i, jeton in enumerate((
+            "relais dashboards deconnexion observee sur la fenetre nocturne du service",
+            "chaque siege doit poser sa cle avant tout redemarrage du service audio",
+            "le jalon du 27 octobre reste la cible de la migration flotte complete",
+        )):
+            (root / f"b-{i}.jsonl").write_text(json.dumps({"text": jeton}), encoding="utf-8")
+        sp = verbatim_spreads(corpus_files(root), [target_phrase])
+        if sp.get(target_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp.get(target_phrase)!r} session(s) pour une phrase "
+                "presente UNE fois — la tokenisation OR en donnerait 4"
+            )
+        # Guillemet : le transcript le stocke ECHAPPE. Tester la seule forme brute
+        # sous-compterait — le sens dangereux (une phrase banale paraitrait rare).
+        quoted = 'Le message "Message ajouté au dashboard" reste refuse statiquement par la sonde.'
+        (root / "c-quote.jsonl").write_text(json.dumps({"text": quoted}), encoding="utf-8")
+        sp_q = verbatim_spreads(corpus_files(root), [quoted])
+        if sp_q.get(quoted) != 1:
+            failures.append(f"verbatim_spreads: guillemet echappe non reconnu ({sp_q.get(quoted)!r})")
+        # Fail-closed : corpus ABSENT et corpus VIDE levent, jamais un spread de 0.
+        try:
+            corpus_files(root / "absent")
+            failures.append("corpus_files: un corpus ABSENT a ete accepte (fail-open)")
+        except RuntimeError:
+            pass
+        with tempfile.TemporaryDirectory() as td_empty:
+            try:
+                corpus_files(Path(td_empty))
+                failures.append("corpus_files: un corpus VIDE a ete accepte (fail-open)")
+            except RuntimeError:
+                pass
     # Toutes les lignes refusees STATIQUEMENT : le message doit nommer le refus
     # statique, pas un echec de rarete — 0 recherche consommee (ai-01 CHANGES
     # :547 : « 0 candidats a plus de 1 session(s) » etait trompeur).
@@ -1088,7 +1270,16 @@ def selftest() -> int:
 
     fake = IndexFakeChild()
     idx_out: dict = {}
-    phase_index(fake, None, idx_out)
+    # Corpus local du test (le scan lit des FICHIERS, il n'y a plus de recherche) :
+    # la prose ciblee dans UNE session, la ligne « Total : … » dans TROIS autres.
+    with tempfile.TemporaryDirectory() as td_corpus:
+        corpus_root = Path(td_corpus)
+        (corpus_root / "target.jsonl").write_text(
+            json.dumps({"text": want_rendered}), encoding="utf-8")
+        for i in range(3):
+            (corpus_root / f"multi-{i}.jsonl").write_text(
+                json.dumps({"text": late_multi}), encoding="utf-8")
+        phase_index(fake, None, idx_out, corpus_root)
     list_args = [a for n, a in fake.calls if n == "conversation_browser" and a.get("action") == "list"]
     if not list_args or list_args[0].get("source") != "all":
         failures.append(f"phase_index: list source={list_args[0].get('source') if list_args else None!r} (attendu 'all')")
@@ -1109,20 +1300,22 @@ def selftest() -> int:
         failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
     if (ph := idx_out.get("phrase")) and ("→" in ph or ph.startswith(("•", "["))):
         failures.append(f"phase_index: phrase = ligne du renderer: {ph!r}")
-    # Rareté e2e (file 20261028i) : exactement DEUX recherches texte de spread —
-    # la ligne « Total : … » (3 sessions => ecartee), puis la prose ciblee
-    # (1 session => retenue). La ligne « Message ajouté … » n'en a coûté AUCUNE :
-    # refus statique, pas de recherche.
+    # Rareté e2e (ai-01 CHANGES #4412) : le spread est mesuré par le SCAN LOCAL,
+    # donc AUCUN `roosync_search` ne doit partir pour le compte — le mode texte
+    # tokenise en OR et rend un compte plafonné, c'est le défaut mesuré. La ligne
+    # « Total : … » (3 sessions du corpus de test) est écartée, la prose ciblee
+    # (1 session) retenue, et la mesure est rapportée dans `rarity`.
     spread_calls = [a for n, a in fake.calls if n == "roosync_search"]
-    if len(spread_calls) != 2:
-        failures.append(f"phase_index: {len(spread_calls)} appel(s) roosync_search (attendu 2)")
-    else:
-        if spread_calls[0].get("action") != "text" or spread_calls[1].get("action") != "text":
-            failures.append("phase_index: le spread doit passer par la recherche TEXTE")
-        if not str(spread_calls[0].get("search_query") or "").startswith("Total :"):
-            failures.append(f"phase_index: 1er spread = {spread_calls[0].get('search_query')!r} (attendu « Total : … »)")
-        if spread_calls[1].get("search_query") != want_rendered:
-            failures.append(f"phase_index: 2e spread = {spread_calls[1].get('search_query')!r}")
+    if spread_calls:
+        failures.append(
+            f"phase_index: {len(spread_calls)} appel(s) roosync_search pour le spread "
+            "— la rareté doit être un scan VERBATIM local"
+        )
+    rarity = idx_out.get("rarity") or {}
+    if rarity.get("spread") != 1:
+        failures.append(f"phase_index: rarity={rarity!r} (spread attendu 1)")
+    if rarity.get("corpus_files") != 4:
+        failures.append(f"phase_index: rarity={rarity!r} (4 transcripts attendus dans le corpus de test)")
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
     # Un succes a 0 chunk n'est PAS un echec : il doit avoir ete accepte, et la phase
@@ -1315,7 +1508,7 @@ def selftest() -> int:
         return 1
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
           "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
-          "rarete mesuree (<= 1 session, totalFound pas les lignes rendues), "
+          "rarete VERBATIM mesuree (scan local, 1 session ; OR tokenise et corpus vide refuses), "
           "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
@@ -1338,6 +1531,9 @@ def main() -> int:
     ap.add_argument("--task-id", help="task_id RSM impose (defaut : auto parmi les sessions des 24 h)")
     ap.add_argument("--phrase", help="phrase de sonde (phase verify ; defaut : celle extraite en phase index)")
     ap.add_argument("--rsm-dir", type=Path, default=DEFAULT_RSM_DIR, help="racine du serveur RSM")
+    ap.add_argument("--corpus-dir", type=Path, default=LOCAL_CORPUS_DEFAULT,
+                    help="corpus local des transcripts ou la rarete de la phrase est mesuree VERBATIM "
+                         "(defaut : ~/.claude/projects)")
     ap.add_argument("--json", action="store_true", help="sortie machine-readable")
     ap.add_argument("--selftest", action="store_true", help="fixtures hors ligne, aucun reseau")
     args = ap.parse_args()
@@ -1364,7 +1560,7 @@ def main() -> int:
 
         phrase = args.phrase
         if do_index:
-            phase_index(child, args.task_id, out)
+            phase_index(child, args.task_id, out, args.corpus_dir)
             phrase = phrase or out.get("phrase")
         if do_verify:
             if not phrase or not (args.task_id or out.get("task_id")):
@@ -1402,6 +1598,9 @@ def main() -> int:
                     print("[index] 0 chunk — la phase verify tranche (recherche, pas compteur)")
             if out.get("phrase"):
                 print(f"[phrase] {out['phrase']}")
+            if out.get("rarity"):
+                r = out["rarity"]
+                print(f"[rarity] spread={r['spread']} sur {r['corpus_files']} transcript(s) locaux")
             if "rank" in out:
                 print(f"[rank] {out['rank']} (top {MAX_RESULTS}) — machines vues : "
                       f"{out.get('search', {}).get('machines_found')}")
