@@ -133,16 +133,33 @@ PHRASE_SPREAD_MAX_TRIES = 5          # candidates evaluees avant d'abandonner
 # Le corpus d'un siege monte facilement a plusieurs centaines de Mo (535 Mo sur
 # ai-01) : le lire en `read_text()` charge un fichier entier en memoire, et une
 # seule session geante suffit a faire tomber le processus. La lecture est donc
-# LINEAIRE (une ligne a la fois, memoire bornee par la plus grosse ligne), avec
-# un plafond par FICHIER et un plafond par LIGNE.
+# LINEAIRE (une ligne a la fois : la memoire est bornee par le plafond de LIGNE,
+# jamais par la taille du fichier), avec un plafond par FICHIER et un plafond par
+# LIGNE.
 #
 # Ce qu'un depassement NE fait PAS : il ne saute pas le fichier pour rendre PASS.
 # Un fichier non lu est un trou dans la mesure, donc la sonde rend exit 2
 # (INSTRUMENT) en nommant le compte et le volume des exclusions. La rectification
 # ai-01 sur #4412 est explicite : « un fichier trop gros ne peut pas etre
 # simplement saute puis produire PASS ».
-MAX_CORPUS_FILE_BYTES = 256 * 1024 * 1024   # 256 Mo par transcript
-MAX_CORPUS_LINE_BYTES = 32 * 1024 * 1024    # 32 Mo par ligne (sortie d'outil geante)
+# MESURE (web1, 29/10, tracemalloc) : sur un transcript synthetique de 315 Mo, la
+# lecture lineaire plafonnee tient en ~0,04 Mo de pic, la lecture d'un bloc
+# (`read_text`, l'ancien code) en 945 Mo — ~3x la taille du fichier, et un ratio
+# de 21 000 entre les deux. Controle du cas pathologique : une UNIQUE ligne de
+# 100 Mo picote a 67 Mo (bornee par le plafond de ligne) et leve
+# `InstrumentLimit` — elle n'est jamais chargee entiere.
+#
+# Consequence sur le plafond fichier : le garder bas (100-256 Mo) alors que la
+# memoire ne depend plus de lui rendrait la sonde inutilisable sur le siege qui a
+# motive la review — ai-01 porte un transcript de 737 Mo, et un plafond a 256 Mo
+# y rendrait un exit 2 a chaque run, sans rien mesurer. Il ne reste donc qu'un
+# garde anti-derive (temps de balayage), place tres au-dessus de tout transcript
+# reel (le plus gros observe : 737 Mo).
+MAX_CORPUS_FILE_BYTES = 4 * 1024 * 1024 * 1024   # 4 Go par transcript (garde anti-derive)
+MAX_CORPUS_LINE_BYTES = 32 * 1024 * 1024         # 32 Mo par ligne (sortie d'outil geante)
+# NB : la borne de ligne est comparee a `len(chunk)`, c'est-a-dire en CARACTERES
+# deja lus et non en octets du fichier. C'est la grandeur qui compte ici : c'est
+# la memoire allouee qu'on borne (~1 a 4 octets par caractere selon le contenu).
 # Corpus de reference du scan verbatim : les transcripts Claude Code du siege.
 # `candidate_sessions` ne retient que `source in ("claude","claude-code")`, et
 # l'indexeur lit ces memes fichiers — c'est donc exactement le corpus dans lequel
@@ -689,11 +706,18 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
         if size > MAX_CORPUS_FILE_BYTES:
             excluded.append((path.name, size / 1e6, "plafond fichier"))
             continue
-        # Lecture LINEAIRE : la memoire est bornee par la plus grosse ligne, pas par
-        # la taille du transcript (review ai-01 #4412, point 2).
+        # Lecture LINEAIRE plafonnee. `for line in fh` ne suffit PAS : l'iterateur
+        # alloue la ligne ENTIERE avant qu'on puisse mesurer sa taille, donc un
+        # unique enregistrement de plusieurs Go coûterait plusieurs Go malgre la
+        # « lecture ligne a ligne ». `readline(plafond + 1)` rend au plus
+        # plafond+1 caracteres : au-dela, la ligne est DETECTEE sans etre chargee
+        # (review ai-01 #4412, point 2).
         try:
             with path.open("r", encoding="utf-8", errors="replace") as fh:
-                for line in fh:
+                while True:
+                    line = fh.readline(MAX_CORPUS_LINE_BYTES + 1)
+                    if not line:
+                        break
                     if len(line) > MAX_CORPUS_LINE_BYTES:
                         # Une ligne geante (sortie d'outil) ne peut pas etre
                         # comparee sans repayer le pic memoire qu'on vient
@@ -772,7 +796,14 @@ def pick_rare_phrase(text: str, spread_fn) -> tuple[str, int]:
     # trompeur que la review :547 avait fait retirer.
     absent = [ln for ln, spread in tried if spread < MIN_PHRASE_SPREAD_SESSIONS]
     common = [(ln, spread) for ln, spread in tried if spread > MAX_PHRASE_SPREAD_SESSIONS]
-    detail = "; ".join(f"{spread} session(s) : {ln[:60]}…" for ln, spread in tried)
+    # Un compte saturé vaut « au moins N », pas N (review ai-01 #4412, info) : le
+    # scan s'arrete à MAX+1, donc l'afficher comme un compte exact ferait lire une
+    # borne basse comme une mesure — c'est ce chiffre que l'opérateur utilise pour
+    # décider de prendre une autre phrase.
+    detail = "; ".join(
+        f"{'≥ ' if spread > MAX_PHRASE_SPREAD_SESSIONS else ''}{spread} session(s) : {ln[:60]}…"
+        for ln, spread in tried
+    )
     raise RuntimeError(
         f"aucune phrase discriminante sur {len(tried)} candidate(s) — attendu "
         f"{MIN_PHRASE_SPREAD_SESSIONS}-{MAX_PHRASE_SPREAD_SESSIONS} session(s) "
@@ -1137,6 +1168,11 @@ def selftest() -> int:
     except RuntimeError as exc:
         if "7 session(s)" not in str(exc):
             failures.append(f"pick_rare_phrase: compte absent du message: {exc}")
+        # Un compte SATURE est imprime « ≥ N » (review ai-01 #4412, info) : le scan
+        # s'arrete a MAX+1, donc N n'est qu'une borne basse. Sans le « ≥ », le
+        # message presente une borne comme une mesure.
+        if "≥ 7 session(s)" not in str(exc):
+            failures.append(f"pick_rare_phrase: compte saturé non marqué « ≥ »: {exc}")
 
     # RARETE VERBATIM vs TOKENISATION OR (ai-01 CHANGES #4412 point 1). Le serveur
     # decoupe la requete et matche sur N'IMPORTE quel jeton
@@ -1659,7 +1695,8 @@ def selftest() -> int:
           "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
           "rarete VERBATIM mesuree (scan local, 1 session ; OR tokenise et corpus vide refuses), "
           "sous-agent compte dans SA session (1, pas 2), plafonds de lecture fichier/ligne => "
-          "INSTRUMENT (jamais un faux PASS), "
+          "INSTRUMENT (jamais un faux PASS), compte sature marque « ≥ » et non presente "
+          "comme une mesure, "
           "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
