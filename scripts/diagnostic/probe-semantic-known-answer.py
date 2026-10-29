@@ -442,6 +442,30 @@ _GENERIC_TOOL_OUTPUT_MARKERS = (
     "Actions disponibles", "Boîte de Réception",      # en-tetes de rendu inbox
 )
 
+# Decorations de presentation posees DEVANT une ligne de resultat : emoji de
+# statut (le serveur prefixe ses succes d'un `✅`), tag crochet `[OK]`/`[DONE]`,
+# gras `**`, `Succès :`. Un `startswith` nu les laisse toutes passer (review
+# #4412 : Hermes 🟠 + ai-01 CHANGES — `✅ Message ajouté au dashboard …` etait
+# retenue comme phrase). Les tests de marqueurs s'appliquent a la ligne NUE.
+# Le tag crochet est limite aux MAJUSCULES : `[tool_result]` (lowercase) doit
+# rester refuse par le tuple de prefixes, pas redevenir eligible apres retrait.
+_DECOR_EMOJI = re.compile(r"^[℀-⯿️‍\U0001F000-\U0001FBFF]+")
+_DECOR_TAG = re.compile(r"^\[[A-Z]{1,10}\]\s*")
+_DECOR_SUCCES = re.compile(r"^Succès\s*:\s*")
+
+
+def _strip_line_decorations(ln: str) -> str:
+    """Ligne nue apres retrait des decorations (`✅`, `[OK]`, `**`, `Succès :`)
+    — le support sur lequel les marqueurs generiques et d'erreur se testent."""
+    prev = None
+    while prev != ln:
+        prev = ln
+        ln = _DECOR_EMOJI.sub("", ln)
+        ln = _DECOR_TAG.sub("", ln)
+        ln = _DECOR_SUCCES.sub("", ln)
+        ln = ln.lstrip("* ")
+    return ln
+
 
 def _phrase_candidates(text: str):
     """Lignes candidates de la phrase, de la FIN vers le debut (contenu tardif =
@@ -455,21 +479,33 @@ def _phrase_candidates(text: str):
             continue
         if SECRET_MARKERS.search(ln):
             continue
+        bare = _strip_line_decorations(ln)
         # Prefixes d'erreur serveur : un message d'erreur fait 60-240 caracteres et
         # passe toutes les autres bornes — il ne doit JAMAIS devenir la phrase de
-        # sonde (durcissement Hermes, review #4398).
-        if ln.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
-                          "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
+        # sonde (durcissement Hermes, review #4398). Test sur la ligne NUE : la
+        # forme decoree `✅ Erreur lors de…` passe le test brut (review #4412).
+        if bare.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
+                            "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
             continue
         if any(ln.startswith(m) for m in _RENDERER_LINE_MARKERS):
             continue
         # Sorties d'outil generiques + en-tetes gras (`**Tâche:**`, `**Status**`,
         # `**📋 Aperçu…`) : metadata de rendu, pas de la prose de session. Mesure
         # ai-01 28/10 (file 20261028i) : sans cela, le verify FAIL sur la ligne de
-        # succes standard d'un append de dashboard — sans rien mesurer.
-        if any(ln.startswith(m) for m in _GENERIC_TOOL_OUTPUT_MARKERS):
+        # succes standard d'un append de dashboard — sans rien mesurer. Test sur
+        # la ligne NUE : le serveur prefixe ses succes d'un `✅` et les deux
+        # reviews ont mesure `✅ Message ajouté…` / `[OK] Message envoyé…` /
+        # `Succès : Message ajouté…` retenues comme phrases (review #4412).
+        if any(bare.startswith(m) for m in _GENERIC_TOOL_OUTPUT_MARKERS):
             continue
         if ln.startswith("**"):
+            continue
+        # Signature de LIGNE DE TABLEAU markdown : apres retrait du prefixe de
+        # rendu `| `, le premier `|` d'une ligne prefixee a ete consomme et
+        # `col1 | col2 |` echappe au filtre `|` ci-dessus (review #4412, Hermes
+        # 🟡 : le commentaire promettait le rejet des tableaux, la forme
+        # prefixee passait). Deux separateurs suffisent a signer la ligne.
+        if ln.count("|") >= 2 and " | " in ln:
             continue
         if ln.count('"') > 6 or ln.count("{") + ln.count("}") > 2:
             continue
@@ -533,6 +569,15 @@ def pick_rare_phrase(text: str, spread_fn) -> str:
         tried.append((ln, spread))
         if spread <= MAX_PHRASE_SPREAD_SESSIONS:
             return ln
+    if not tried:
+        # Distinction exige par les deux reviews (ai-01 CHANGES :547, Hermes 🟡) :
+        # « aucune candidate apres refus statique » n'est PAS un echec de rarete —
+        # 0 recherche consommee, et le message doit le dire.
+        raise RuntimeError(
+            "aucune phrase candidate apres filtrage statique — toutes les lignes "
+            "du view sont du bruit de rendu ou de sortie d'outil (refus statique, "
+            "pas un echec de rarete)"
+        )
     detail = "; ".join(f"{spread} session(s) : {ln[:60]}…" for ln, spread in tried)
     raise RuntimeError(
         f"aucune phrase discriminante ({len(tried)} candidate(s) a plus de "
@@ -800,6 +845,36 @@ def selftest() -> int:
     if got_generic != "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.":
         failures.append(f"pick_phrase generique: {got_generic!r}")
 
+    # Decorations : le serveur prefixe ses lignes de succes d'un emoji, les
+    # appelants de `[OK]`/`Succès :` — le refus statique doit voir DESSOUS
+    # (review #4412 : Hermes 🟠 + ai-01 CHANGES ; les trois formes mesurees en
+    # review doivent echouer, pas seulement la forme nue).
+    decorated_generic = "\n".join([
+        "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+        "✅ Message ajouté au dashboard 'workspace-roo-extensions' (id: msg-20261028T203330-vokt0i-0001)",
+        "[OK] Message envoyé à myia-po-2025:roo-extensions (msg-20261028T214940-27is1d) priorite HIGH",
+        "Succès : Message ajouté au dashboard 'workspace-hermes-agent' avec 3 tags et 1 mention",
+        "**Message ajouté au dashboard 'workspace-roo-extensions'** en gras, meme combat de bord",
+        "✅ Erreur lors de l'envoi du message: destinataire inconnu sur le canal roosync_messages",
+    ])
+    got_decorated = pick_phrase(decorated_generic)
+    if got_decorated != "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.":
+        failures.append(f"pick_phrase decore: {got_decorated!r}")
+    # Vraie prose decoree : la normalisation ne doit pas la rendre ineligible —
+    # sinon le filtre refuserait la moitie d'une session reelle d'execution.
+    decorated_prose = "✅ Build vert sur po-2023 ce matin : 15907 tests passes, zero echec apres le bump submodule."
+    if pick_phrase(decorated_prose) != decorated_prose:
+        failures.append("pick_phrase decore: une vraie prose decoree a ete refusee")
+
+    # Ligne de tableau dont le premier `|` a ete consomme comme prefixe de rendu :
+    # deux separateurs ` | ` signent le tableau (review #4412, Hermes 🟡 — le
+    # filtre `|` ne couvrait que la forme non prefixee).
+    try:
+        pick_phrase("Machine | Verdict | Mesure | Gain projeté pour le prochain tour de coordination flotte")
+        failures.append("pick_phrase: une ligne de tableau depourvue de son premier | a ete retenue")
+    except RuntimeError:
+        pass
+
     # pick_rare_phrase : la rareté tranche là où les filtres statiques ne voient
     # rien. La ligne tardive (derniere => premiere scannée) n'est PAS statiquement
     # generique mais vit dans 3 sessions : ecartee. La prose plus ancienne, elle,
@@ -826,6 +901,18 @@ def selftest() -> int:
     except RuntimeError as exc:
         if "7 session(s)" not in str(exc):
             failures.append(f"pick_rare_phrase: compte absent du message: {exc}")
+    # Toutes les lignes refusees STATIQUEMENT : le message doit nommer le refus
+    # statique, pas un echec de rarete — 0 recherche consommee (ai-01 CHANGES
+    # :547 : « 0 candidats a plus de 1 session(s) » etait trompeur).
+    try:
+        pick_rare_phrase(
+            "Message ajouté au dashboard 'workspace-roo-extensions' (id: msg-x-0001) avec 2 tags INFO",
+            lambda p: 0,
+        )
+        failures.append("pick_rare_phrase: une sortie generique unique a ete retenue")
+    except RuntimeError as exc:
+        if "filtrage statique" not in str(exc):
+            failures.append(f"pick_rare_phrase: zero-candidat mal nomme: {exc}")
 
     # vocabulaire `view` : drift hors ligne (bloquant 1, review #4398 — "Compact"
     # appartient au vocabulaire de summarize, pas de view)
