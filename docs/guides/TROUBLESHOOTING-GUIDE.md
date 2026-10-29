@@ -1,8 +1,8 @@
 # 📋 Guide Complet - Dépannage et Résolution de Problèmes
 
 **Date de création** : 2025-10-22
-**Dernière mise à jour** : 2025-10-28
-**Version** : 1.1.0
+**Dernière mise à jour** : 2026-10-29 (sweep #2639 WS3 : `quickfiles-server`/`github-projects-mcp` retirés des scripts — serveurs supprimés du code 2026-09, #3423 ; chemins de build alignés sur `build-out/` et `dist/`, review #4420)
+**Version** : 1.3.0
 **Auteur** : Roo Architect Complex
 **Statut** : 🟢 **ACTIF**
 **Catégorie** : GUIDE
@@ -491,27 +491,31 @@ function Invoke-McpDiagnostic {
     
     # 1. Vérification des placeholders
     Write-Host "`n1. Vérification des placeholders..." -ForegroundColor Cyan
-    $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+    # Sortie de build reelle par serveur (verifie au gitlink) : il n'y a plus de chemin unique.
+    #   roo-state-manager  : tsconfig outDir ./build-out (npm run build publie ensuite un vintage build-<id>/)
+    #   jinavigator-server : tsconfig outDir ./dist
+    # NB: jupyter-mcp-server N'EST PAS ici. Au gitlink, servers/jupyter-mcp-server/ ne
+    # contient que README.md, __tests__/, jest.config.js et package*.json : pas de src/,
+    # pas de tsconfig.json, pas de dist/ et aucun script build. Son `main` pointe sur un
+    # dist/index.js qui n'existe pas — l'inclure ferait crier "MANQUANT" sur un siege sain.
+    # Les notebooks passent par le MCP jupyter-papermill (cf. harnais-tightening §2).
+    $mcpEntry = @{
+        "roo-state-manager"   = "build-out/index.js"
+        "jinavigator-server"  = "dist/index.js"
+    }
     
-    foreach ($mcp in $mcps) {
-        $buildPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/build/index.js"
-        $distPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/dist/index.js"
+    foreach ($mcp in @($mcpEntry.Keys | Sort-Object)) {
+        $entryPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/$($mcpEntry[$mcp])"
         
-        if (Test-Path $buildPath) {
-            $content = Get-Content $buildPath | Select-Object -First 3
-            if ($content -match "placeholder") {
-                $issues += "Placeholder détecté dans $mcp"
-                Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
-            }
-        } elseif (Test-Path $distPath) {
-            $content = Get-Content $distPath | Select-Object -First 3
+        if (Test-Path $entryPath) {
+            $content = Get-Content $entryPath | Select-Object -First 3
             if ($content -match "placeholder") {
                 $issues += "Placeholder détecté dans $mcp"
                 Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
             }
         } else {
-            $issues += "Fichier compilé manquant pour $mcp"
-            Write-Host "❌ $mcp : MANQUANT" -ForegroundColor Red
+            $issues += "Fichier compilé manquant pour $mcp (attendu : $($mcpEntry[$mcp]))"
+            Write-Host "❌ $mcp : MANQUANT ($($mcpEntry[$mcp]))" -ForegroundColor Red
         }
     }
     
@@ -581,7 +585,9 @@ exit $(if ($success) { 0 } else { 1 })
 #>
 
 param(
-    [string[]]$MCPs = @("roo-state-manager", "quickfiles", "jinavigator", "searxng"),
+    # Noms de serveurs pour le controle port/processus (pas des chemins).
+    # searxng vit sous mcps/external/searxng, pas sous mcps/internal/servers.
+    [string[]]$MCPs = @("roo-state-manager", "jinavigator-server", "searxng"),
     [switch]$Force
 )
 
@@ -634,7 +640,10 @@ function Invoke-McpRepair {
     
     if ($FixPlaceholders) {
         Write-Host "`n1. Compilation des MCPs..." -ForegroundColor Cyan
-        $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+        # Serveurs qui ont REELLEMENT un script build (verifie au gitlink).
+        # jupyter-mcp-server en est exclu : paquet sans src/, sans tsconfig.json et
+        # sans script build — `npm run build` y echouerait, et il n'a rien a compiler.
+        $mcps = @("jinavigator-server", "roo-state-manager")
         
         foreach ($mcp in $mcps) {
             Write-Host "Compilation de $mcp..." -ForegroundColor Yellow

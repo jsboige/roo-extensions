@@ -550,20 +550,9 @@ Les Model Context Protocol (MCP) servers permettent d'effectuer des opérations 
 
 ### MCPs recommandés
 
-#### quickfiles
-Pour les manipulations de fichiers multiples ou volumineux :
-```xml
-<use_mcp_tool>
-<server_name>quickfiles</server_name>
-<tool_name>read_multiple_files</tool_name>
-<arguments>
-{
-  "paths": ["chemin/fichier1.js", "chemin/fichier2.js"],
-  "show_line_numbers": true
-}
-</arguments>
-</use_mcp_tool>
-```
+> ℹ️ **[Sweep #2639 WS3, 29/10/2026]** Une section « quickfiles » se trouvait ici : le MCP
+> QuickFiles a été supprimé de la flotte (2026-09, #3423). Les manipulations multi-fichiers
+> passent par les outils standard Read/Write/Edit.
 
 #### jinavigator
 Pour l'extraction d'informations de pages web :
