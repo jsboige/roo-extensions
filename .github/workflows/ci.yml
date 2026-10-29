@@ -135,6 +135,11 @@ on:
       # scripts/testing/python/ runs its selftest — a change to the probe
       # landing on main must re-run both (same gap as every entry above).
       - 'scripts/diagnostic/check-deny-fallback.py'
+      # #4352 g6 (ai-01 review 29/10): test_g6_pass_bound.py (static python job) runs the
+      # probe's selftest and pins its exit-2 INSTRUMENT contract. Without this path a
+      # change to the probe landing on main re-ran nothing — the same gap as the entries
+      # above, closed in the PR that wires it.
+      - 'scripts/diagnostic/g6-pass-bound.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
