@@ -145,6 +145,13 @@ on:
       # scripts/testing/python/ runs its selftest — a change to the probe
       # landing on main must re-run both (same gap as every entry above).
       - 'scripts/diagnostic/check-deny-fallback.py'
+      # #4352 (mandat ai-01 29/10): test_probe_semantic_known_answer.py in
+      # scripts/testing/python/ runs the probe's --selftest OFFLINE plus a
+      # NEGATIVE CONTROL (a copy with the InstrumentLimit global-abort clause
+      # removed must make the selftest fail red) — the probe's own path must
+      # re-trigger the job that runs it (same rule as deny-fallback above;
+      # scripts/testing/python/** below already covers the wrapper itself).
+      - 'scripts/diagnostic/probe-semantic-known-answer.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'

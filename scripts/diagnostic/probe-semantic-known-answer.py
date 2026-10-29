@@ -625,7 +625,10 @@ def corpus_files(root: Path) -> list[Path]:
 
     UNE ENTREE = UNE SESSION (review ai-01 #4412, point 3). Les transcripts de
     sous-agents vivent sous `<session>/subagents/*.jsonl` : ce sont des morceaux
-    de la MEME session, pas des sessions. Les compter separement gonflerait le
+    de la MEME session, pas des sessions. Ils sont ECARTES et jamais LUS — leur
+    contenu n'est ni balaye ni replie sur la session parente (le transcript de
+    tete represente seul la session) ; seul leur NOMBRE est rapporte dans
+    l'erreur de corpus vide. Les compter comme des sessions gonflerait le
     spread d'une phrase ecrite par le sous-agent de la cible, et l'arme
     « spread <= 1 » se declencherait sur une phrase qui n'existe que chez elle.
 
@@ -707,9 +710,12 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
     presente dans sa seule session « apparait » partout ou « session » figure, et
     les 5 candidates s'epuisaient avant que le verify ne tourne.
 
-    Un seul passage sur le corpus pour toutes les candidates (<= 5). Chaque
-    phrase est plafonnee a MAX + 1 des qu'elle depasse le seuil : au-dela, le
-    detail ne sert plus a decider, seulement a nommer l'echec.
+    Une passe par ensemble de candidates (<= 5) de CHAQUE essai : la boucle
+    d'indexation appelle cette fonction une fois par candidat tente (<=
+    INDEX_ATTEMPTS), et chaque appel re-balaye le corpus. A l'INTERIEUR d'un
+    essai, un seul passage couvre toutes les candidates — aucune passe par
+    phrase. Chaque phrase est plafonnee a MAX + 1 des qu'elle depasse le seuil :
+    au-dela, le detail ne sert plus a decider, seulement a nommer l'echec.
 
     Lecture LINEAIRE et bornee (review ai-01 #4412, point 2) : le transcript est
     parcouru ligne a ligne, donc la memoire est bornee par la plus grosse LIGNE et
@@ -957,16 +963,26 @@ def phase_index(
             # RARETE mesuree (file 20261028i) : une ligne generique (le succes
             # standard d'un append de dashboard) echoue le verify sans rien
             # mesurer — la phrase doit vivre dans <= 1 session, la cible.
-            # RARETE VERBATIM (ai-01 CHANGES #4412) : une SEULE passe sur le corpus
-            # local pour les <=5 candidates, puis la premiere qui vit dans une
-            # seule session. Aucun appel `roosync_search` ici : le mode texte
-            # tokenise en OR et rend un compte plafonne, donc il ne mesurait pas
-            # la phrase (mesure ai-01 sur `search-fallback.tool.ts:76-79`/`:247`).
+            # RARETE VERBATIM (ai-01 CHANGES #4412) : une passe sur le corpus
+            # local pour l'ensemble des <=5 candidates DE CET ESSAI (la boucle
+            # appelle le scan une fois par candidat tente, <= INDEX_ATTEMPTS),
+            # puis la premiere qui vit dans une seule session. Aucun appel
+            # `roosync_search` ici : le mode texte tokenise en OR et rend un
+            # compte plafonne, donc il ne mesurait pas la phrase (mesure ai-01
+            # sur `search-fallback.tool.ts:76-79`/`:247`).
             candidates = list(
                 itertools.islice(_phrase_candidates(view_raw), PHRASE_SPREAD_MAX_TRIES)
             )
             spreads = verbatim_spreads(corpus, candidates)
             phrase, spread = pick_rare_phrase(view_raw, spreads.get)
+        except InstrumentLimit:
+            # Une borne de lecture (fichier/ligne hors plafond) est un etat du
+            # CORPUS, pas l'echec d'UN candidat : le candidat suivant re-balayerait
+            # le meme corpus et re-payerait un appel d'index pour le meme verdict
+            # (mandat ai-01 29/10 : abort immediat, UN seul scan, AUCUN appel
+            # d'index suivant). Propagee vers le handler principal ->
+            # INSTRUMENT_ERROR / exit 2.
+            raise
         except RuntimeError as exc:
             # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le transport
             # MCP coupe a 300 s AVANT la fin du travail serveur. C'est un echec
@@ -991,8 +1007,9 @@ def phase_index(
         # phrase a été retenue. Sans ces deux nombres, un verdict live ne dit pas
         # si le filtre a travaillé ou s'il a laissé passer.
         # `corpus_sessions` : unites de compte REELLES (review ai-01 #4412 point 3).
-        # Le nom `corpus_files` mentait depuis que le sous-agent est replie sur sa
-        # session, et la cle est nouvelle (pas renommee) pour qu'un lecteur d'ancien
+        # Le nom `corpus_files` mentait depuis que le sous-agent est ecarte, pas
+        # lu (une session = son transcript de tete seul), et la cle est nouvelle
+        # (pas renommee) pour qu'un lecteur d'ancien
         # JSON ne prenne pas un compte de sessions pour un compte de fichiers.
         out["rarity"] = {"corpus_sessions": len(corpus), "spread": spread}
         out["index_attempts"] = attempts  # candidats ecartes avant celui-ci
@@ -1641,7 +1658,7 @@ def selftest() -> int:
     if rarity.get("corpus_sessions") != 4:
         failures.append(
             f"phase_index: rarity={rarity!r} (4 SESSIONS attendues dans le corpus de test — "
-            "unite de compte depuis le repli des sous-agents)"
+            "unite de compte depuis l'exclusion des sous-agents, non lus)"
         )
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
@@ -1752,15 +1769,86 @@ def selftest() -> int:
                 return "# Erreur d'indexation\n\n**Tâche:** claude-x--u1\n**Erreur:** boom index"
             return super().call_tool(name, args, timeout_s)
 
+    # Corpus explicite : sur un runner CI (ou tout siege vierge), le defaut
+    # LOCAL_CORPUS_DEFAULT (~/.claude/projects) n'existe pas et corpus_files
+    # leverait AVANT la boucle — l'echec d'essai teste ici ne serait jamais
+    # atteint. Le selftest restait vert sur les sieges pourvus d'un corpus et
+    # rouge ailleurs : dependance au siege revelee par le branchage CI du 29/10.
+    with tempfile.TemporaryDirectory() as td_fail:
+        fail_root = Path(td_fail)
+        (fail_root / "session.jsonl").write_text("{}", encoding="utf-8")
+        try:
+            phase_index(FailFakeChild(), None, {}, fail_root)
+            failures.append("phase_index: un echec d'indexation n'a pas leve")
+        except RuntimeError as exc:
+            if "essais:" not in str(exc):
+                failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
+            # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
+            if "boom index" not in str(exc):
+                failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
+
+    # InstrumentLimit = ABORT GLOBAL, pas un echec d'essai (mandat ai-01 29/10,
+    # #4352). Une borne de lecture (fichier/ligne hors plafond) decrit le CORPUS,
+    # pas le candidat : le bug etait que InstrumentLimit herite de RuntimeError,
+    # donc le `except RuntimeError` par candidat l'avalait -> le candidat suivant
+    # re-payait UN APPEL D'INDEX et UN SCAN COMPLET du corpus pour le meme
+    # verdict. Assert : InstrumentLimit PROPAGEE hors de phase_index, UN seul
+    # scan, AUCUN appel d'index suivant.
+    class TwoCandidatesChild(IndexFakeChild):
+        """Deux candidats indexables : sans l'abort, le 2e serait tente."""
+
+        def call_tool(self, name, args, timeout_s):
+            if args.get("action") == "list":
+                now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+                def conv(tid):
+                    return {"taskId": tid, "source": "claude",
+                            "metadata": {"totalSize": 50000, "createdAt": now,
+                                         "messageCount": 12,
+                                         "machineId": socket.gethostname()}}
+
+                return json.dumps({"conversations": [
+                    conv("claude-x--u1"), conv("claude-x--u3")]}, indent=2)
+            return super().call_tool(name, args, timeout_s)
+
+    limit_child = TwoCandidatesChild()
+    real_spreads = verbatim_spreads
+    scan_calls: list[list[str]] = []
+
+    def counting_spreads(files, phrases):
+        scan_calls.append(list(phrases))
+        return real_spreads(files, phrases)
+
+    globals()["verbatim_spreads"] = counting_spreads
+    saved_cap_abort = globals()["MAX_CORPUS_FILE_BYTES"]
     try:
-        phase_index(FailFakeChild(), None, {})
-        failures.append("phase_index: un echec d'indexation n'a pas leve")
-    except RuntimeError as exc:
-        if "essais:" not in str(exc):
-            failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
-        # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
-        if "boom index" not in str(exc):
-            failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
+        with tempfile.TemporaryDirectory() as td_lim:
+            lim_root = Path(td_lim)
+            (lim_root / "big.jsonl").write_text(json.dumps({"text": "x" * 50}),
+                                                encoding="utf-8")
+            globals()["MAX_CORPUS_FILE_BYTES"] = 8
+            try:
+                phase_index(limit_child, None, {}, lim_root)
+                failures.append(
+                    "phase_index: InstrumentLimit avalee (aucune levee) — abort global attendu")
+            except InstrumentLimit:
+                pass  # comportement attendu : propagee, pas comptee comme un essai
+            except RuntimeError as exc:
+                failures.append(
+                    "phase_index: InstrumentLimit traitee comme echec d'essai "
+                    f"(RuntimeError: {str(exc)[:100]!r}) — abort global attendu")
+            index_after = [a for n, a in limit_child.calls if n == "roosync_indexing"]
+            if len(index_after) != 1:
+                failures.append(
+                    f"phase_index: {len(index_after)} appel(s) roosync_indexing autour de "
+                    "l'InstrumentLimit (attendu 1 : AUCUN appel d'index apres l'abort)")
+            if len(scan_calls) != 1:
+                failures.append(
+                    f"phase_index: {len(scan_calls)} scan(s) du corpus (attendu 1 : "
+                    "la borne decrit le corpus, pas le candidat)")
+    finally:
+        globals()["verbatim_spreads"] = real_spreads
+        globals()["MAX_CORPUS_FILE_BYTES"] = saved_cap_abort
 
     # call_tool : une erreur serveur rendue en CONTENU doit lever. La forme testee
     # est celle que le serveur EMET reellement — `isError` sur le RESULTAT, pas sur
@@ -1841,8 +1929,9 @@ def selftest() -> int:
           "candidates repetees sans effet + arret precoce apres saturation, "
           "fichier hors layout de session ecarte du corpus, "
           "plafonds de lecture fichier/ligne => "
-          "INSTRUMENT (jamais un faux PASS), compte sature marque « ≥ » et non presente "
-          "comme une mesure, "
+          "INSTRUMENT (jamais un faux PASS) ET abort global en phase d'index "
+          "(propagee, 1 seul scan, aucun appel d'index suivant), compte sature marque "
+          "« ≥ » et non presente comme une mesure, "
           "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
