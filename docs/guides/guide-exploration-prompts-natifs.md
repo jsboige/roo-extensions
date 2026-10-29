@@ -146,6 +146,10 @@ Le MCP Jinavigator est particulièrement utile pour explorer le code source de R
 </use_mcp_tool>
 ```
 
+> ℹ️ **[Sweep #2639 WS3, 29/10/2026]** Une section « Quickfiles MCP » se trouvait ici : le MCP
+> QuickFiles a été supprimé de la flotte (2026-09, #3423). L'exemple `read_multiple_files` qu'elle
+> portait est remplacé par les outils standard Read/Write/Edit ; l'historique reste dans git.
+
 ### VS Code avec extensions
 
 VS Code avec les extensions suivantes facilite l'exploration du code source :
