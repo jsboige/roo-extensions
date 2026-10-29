@@ -493,11 +493,15 @@ function Invoke-McpDiagnostic {
     Write-Host "`n1. Vérification des placeholders..." -ForegroundColor Cyan
     # Sortie de build reelle par serveur (verifie au gitlink) : il n'y a plus de chemin unique.
     #   roo-state-manager  : tsconfig outDir ./build-out (npm run build publie ensuite un vintage build-<id>/)
-    #   jinavigator-server / jupyter-mcp-server : tsconfig outDir ./dist
+    #   jinavigator-server : tsconfig outDir ./dist
+    # NB: jupyter-mcp-server N'EST PAS ici. Au gitlink, servers/jupyter-mcp-server/ ne
+    # contient que README.md, __tests__/, jest.config.js et package*.json : pas de src/,
+    # pas de tsconfig.json, pas de dist/ et aucun script build. Son `main` pointe sur un
+    # dist/index.js qui n'existe pas — l'inclure ferait crier "MANQUANT" sur un siege sain.
+    # Les notebooks passent par le MCP jupyter-papermill (cf. harnais-tightening §2).
     $mcpEntry = @{
         "roo-state-manager"   = "build-out/index.js"
         "jinavigator-server"  = "dist/index.js"
-        "jupyter-mcp-server"  = "dist/index.js"
     }
     
     foreach ($mcp in @($mcpEntry.Keys | Sort-Object)) {
@@ -636,7 +640,10 @@ function Invoke-McpRepair {
     
     if ($FixPlaceholders) {
         Write-Host "`n1. Compilation des MCPs..." -ForegroundColor Cyan
-        $mcps = @("jinavigator-server", "jupyter-mcp-server", "roo-state-manager")
+        # Serveurs qui ont REELLEMENT un script build (verifie au gitlink).
+        # jupyter-mcp-server en est exclu : paquet sans src/, sans tsconfig.json et
+        # sans script build — `npm run build` y echouerait, et il n'a rien a compiler.
+        $mcps = @("jinavigator-server", "roo-state-manager")
         
         foreach ($mcp in $mcps) {
             Write-Host "Compilation de $mcp..." -ForegroundColor Yellow
