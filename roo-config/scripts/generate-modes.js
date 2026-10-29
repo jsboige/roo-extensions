@@ -28,6 +28,9 @@
  *                        (default: auto -- Zoo as soon as Zoo is installed, Roo otherwise;
  *                        explicit 'roo'/'zoo' overrides the probe)
  *   --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.
+ *   --dry-run            Report what WOULD be written and write NOTHING at all:
+ *                        no output file, no .roomodes copy, no global copy, and
+ *                        no directory creation (#4334).
  */
 const fs = require('fs');
 const path = require('path');
@@ -161,7 +164,8 @@ function parseArgs() {
     deployGlobal: false,
     globalPath: null,
     targetExtension: 'auto',
-    format: 'json'
+    format: 'json',
+    dryRun: false
   };
 
   for (var i = 2; i < process.argv.length; i++) {
@@ -187,6 +191,8 @@ function parseArgs() {
         console.error('ERROR: --format must be "json" or "yaml"');
         process.exit(1);
       }
+    } else if (process.argv[i] === '--dry-run') {
+      args.dryRun = true;
     }
   }
 
@@ -486,7 +492,7 @@ function main() {
 
   // Ensure output directory
   var outputDir = path.dirname(args.output);
-  if (!fs.existsSync(outputDir)) {
+  if (!args.dryRun && !fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
@@ -497,7 +503,13 @@ function main() {
     outputContent = JSON.stringify(output, null, 2);
   }
 
-  fs.writeFileSync(args.output, outputContent, 'utf8');
+  // #4334: --dry-run must write NOTHING -- not the output file, not the
+  // .roomodes copy, not the global custom_modes.yaml, and not even a parent
+  // directory. It used to be silently ignored (unparsed), so a documented
+  // "dry run first" step deployed for real, with no backup to fall back on.
+  if (!args.dryRun) {
+    fs.writeFileSync(args.output, outputContent, 'utf8');
+  }
 
   var totalKB = (Buffer.byteLength(outputContent, 'utf8') / 1024).toFixed(1);
   console.log('\nGenerated ' + modes.length + ' modes (' + familyNames.length + ' families x ' + levels.length + ' levels)');
@@ -506,30 +518,38 @@ function main() {
     console.log('With profile: ' + args.profile);
   }
   console.log('Total size: ' + totalKB + ' KB');
-  console.log('Output: ' + args.output);
+  console.log((args.dryRun ? 'Output (dry run, NOT written): ' : 'Output: ') + args.output);
 
   // Deploy to .roomodes if requested
   if (args.deploy) {
     var roomodesPath = path.join(ROOT, '.roomodes');
-    fs.copyFileSync(args.output, roomodesPath);
-    console.log('Deployed to: ' + roomodesPath);
+    if (!args.dryRun) {
+      fs.copyFileSync(args.output, roomodesPath);
+    }
+    console.log((args.dryRun ? 'Would deploy to (dry run): ' : 'Deployed to: ') + roomodesPath);
   }
 
   // Deploy to the Roo/Zoo global custom_modes.yaml if requested (#595, #595 phase 3)
   if (args.deployGlobal) {
     var globalModesPath = resolveGlobalModesPath(args.globalPath, args.targetExtension);
     var globalModesDir = path.dirname(globalModesPath);
-    if (!fs.existsSync(globalModesDir)) {
+    if (!args.dryRun && !fs.existsSync(globalModesDir)) {
       fs.mkdirSync(globalModesDir, { recursive: true });
     }
-    fs.copyFileSync(args.output, globalModesPath);
+    if (!args.dryRun) {
+      fs.copyFileSync(args.output, globalModesPath);
+    }
     // #595 phase 3: name the resolution in the log -- a wrong pick (Zoo installed,
     // Roo globalStorage left over) used to be invisible: the deploy succeeded and
     // the modes simply never appeared.
     console.log('Target: ' + (args.globalPath
       ? 'explicit --global-path'
       : '--target-extension ' + args.targetExtension));
-    console.log('Deployed to global: ' + globalModesPath);
+    console.log((args.dryRun ? 'Would deploy to global (dry run): ' : 'Deployed to global: ') + globalModesPath);
+  }
+
+  if (args.dryRun) {
+    console.log('\nDRY RUN -- nothing was written (no file, no directory).');
   }
 }
 
