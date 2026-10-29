@@ -4,6 +4,11 @@
 **Machine:** myia-ai-01
 **Status:** ✅ Phase 1-4 Complete - Implementation Verified
 
+> ⚠️ **[PÉRIMÉ partiellement — sweep #2639 WS3, 29/10/2026]** ZwZ-8B a été décommissionné
+> (~2026-03, PR #2659) : les références « Vision Spécialisée (ZwZ-8B, vLLM mini) » et l'agent
+> `vision-analyst` sur ce modèle décrivent l'état de février 2026. Le modèle vision actif de la
+> flotte est glm-4.6v (cloud). Rapport conservé comme trace (règle no-deletion-without-proof).
+
 ---
 
 ## Executive Summary

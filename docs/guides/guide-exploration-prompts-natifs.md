@@ -146,23 +146,6 @@ Le MCP Jinavigator est particulièrement utile pour explorer le code source de R
 </use_mcp_tool>
 ```
 
-### Quickfiles MCP
-
-Le MCP Quickfiles est utile pour explorer et manipuler les fichiers locaux :
-
-```xml
-<use_mcp_tool>
-<server_name>quickfiles</server_name>
-<tool_name>read_multiple_files</tool_name>
-<arguments>
-{
-  "paths": ["roo-modes/n5/configs/n5-modes-roo-compatible.json", "roo-config/settings/modes.json"],
-  "show_line_numbers": true
-}
-</arguments>
-</use_mcp_tool>
-```
-
 ### VS Code avec extensions
 
 VS Code avec les extensions suivantes facilite l'exploration du code source :

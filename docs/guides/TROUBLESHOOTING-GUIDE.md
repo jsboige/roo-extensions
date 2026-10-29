@@ -1,8 +1,8 @@
 # 📋 Guide Complet - Dépannage et Résolution de Problèmes
 
 **Date de création** : 2025-10-22
-**Dernière mise à jour** : 2025-10-28
-**Version** : 1.1.0
+**Dernière mise à jour** : 2026-10-29 (sweep #2639 WS3 : `quickfiles-server`/`github-projects-mcp` retirés des scripts — serveurs supprimés du code 2026-09, #3423)
+**Version** : 1.2.0
 **Auteur** : Roo Architect Complex
 **Statut** : 🟢 **ACTIF**
 **Catégorie** : GUIDE
@@ -491,7 +491,7 @@ function Invoke-McpDiagnostic {
     
     # 1. Vérification des placeholders
     Write-Host "`n1. Vérification des placeholders..." -ForegroundColor Cyan
-    $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+    $mcps = @("jinavigator-server", "jupyter-mcp-server", "roo-state-manager")
     
     foreach ($mcp in $mcps) {
         $buildPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/build/index.js"
@@ -581,7 +581,7 @@ exit $(if ($success) { 0 } else { 1 })
 #>
 
 param(
-    [string[]]$MCPs = @("roo-state-manager", "quickfiles", "jinavigator", "searxng"),
+    [string[]]$MCPs = @("roo-state-manager", "jinavigator", "searxng"),
     [switch]$Force
 )
 
@@ -634,7 +634,7 @@ function Invoke-McpRepair {
     
     if ($FixPlaceholders) {
         Write-Host "`n1. Compilation des MCPs..." -ForegroundColor Cyan
-        $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+        $mcps = @("jinavigator-server", "jupyter-mcp-server", "roo-state-manager")
         
         foreach ($mcp in $mcps) {
             Write-Host "Compilation de $mcp..." -ForegroundColor Yellow

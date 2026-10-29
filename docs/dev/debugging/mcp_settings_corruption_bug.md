@@ -1,5 +1,10 @@
 # 🐛 Bug Critique : Corruption JSON de mcp_settings.json
 
+> ⚠️ **[RAPPORT HISTORIQUE — sweep #2639 WS3, 29/10/2026]** La cause racine identifiée ci-dessous
+> vivait dans `quickfiles-server`, supprimé du code en 2026-09 (#3423) : le bug n'est plus
+> reproductible avec les serveurs actuels. Rapport conservé comme trace d'investigation
+> (règle no-deletion-without-proof).
+
 ## 📋 Résumé Exécutif
 
 **Sévérité :** 🔴 CRITIQUE  

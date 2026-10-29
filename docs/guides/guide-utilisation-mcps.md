@@ -1,5 +1,11 @@
 # Guide d'utilisation optimale des MCPs dans les modes personnalisés
 
+> ⚠️ **[PÉRIMÉ partiellement — sweep #2639 WS3, 29/10/2026]** QuickFiles a été retiré de la flotte
+> (code supprimé 2026-09, #3423) : les exemples « Avec QuickFiles (recommandé) » de ce guide ne
+> s'appliquent plus. Les outils standard de lecture/écriture multi-fichiers (Read/Write/Edit) sont le
+> chemin courant. Les sections sur les autres serveurs restent de référence. Historique conservé
+> volontairement (règle no-deletion-without-proof).
+
 ## Introduction
 
 Ce guide fournit des exemples concrets et des bonnes pratiques pour l'utilisation optimale des serveurs MCP (Model Context Protocol) dans les différents modes personnalisés de Roo. L'utilisation des MCPs permet d'améliorer significativement les performances et l'efficacité des opérations, en particulier pour les tâches impliquant de nombreux fichiers ou des opérations web.

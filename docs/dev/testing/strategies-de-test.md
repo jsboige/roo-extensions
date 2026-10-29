@@ -1,5 +1,10 @@
 # Stratégie de Test Alternative pour les MCP Servers en Node.js
 
+> ⚠️ **[Exemple périmé — sweep #2639 WS3, 29/10/2026]** La stratégie (script Node.js isolé pour
+> tester un serveur MCP ESM) reste valable, mais son cas d'usage démonstrateur `quickfiles-server`
+> a été supprimé du code (2026-09, #3423). Appliquer la démarche aux serveurs existants
+> (`mcps/internal/servers/` : roo-state-manager, sk-agent, jinavigator-server, …).
+
 ## 🎯 Contexte et Problématique
 
 Lors du développement de MCP Servers en Node.js, notamment ceux utilisant des modules ES (ESM), la mise en place de frameworks de test traditionnels comme Jest peut s'avérer complexe. Les problèmes de configuration liés à la transpilation (Babel), à la résolution des modules (`"type": "module"` dans `package.json`) et aux imports dynamiques peuvent ralentir considérablement le cycle de développement.

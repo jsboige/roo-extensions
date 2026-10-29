@@ -1,7 +1,7 @@
 # Guide Unifie de Depannage MCP
 
 **Date:** 2026-02-09
-**Version:** 2.0.0 (Consolide depuis 3 guides: MCPS-COMMON-ISSUES, GUIDE-URGENCE-MCP, mcp-troubleshooting)
+**Version:** 2.1.0 (sweep #2639 WS3 29/10/2026 : `quickfiles-server` retiré des scripts — le serveur a été supprimé du code, 2026-09, #3423)
 **Statut:** ACTIF
 
 ---
@@ -101,7 +101,7 @@ Write-Host "JSON valide" -ForegroundColor Green
 ```powershell
 # Verifier et recompiler chaque MCP
 $mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
-$mcps = @("quickfiles-server", "roo-state-manager")
+$mcps = @("jinavigator-server", "roo-state-manager")
 
 foreach ($mcp in $mcps) {
     $buildFile = "$mcpDir/$mcp/build/index.js"
@@ -158,7 +158,7 @@ $config = Get-Content $configPath -Raw
 # Reinstaller les dependances pour chaque MCP
 $mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
 
-foreach ($mcp in @("quickfiles-server", "roo-state-manager")) {
+foreach ($mcp in @("jinavigator-server", "roo-state-manager")) {
     Write-Host "Installation dependances: $mcp" -ForegroundColor Yellow
     Set-Location "$mcpDir/$mcp"
     npm install
@@ -287,7 +287,7 @@ function Test-AllMcps {
     Write-Host "`n1. Verification des builds..." -ForegroundColor Yellow
     $mcpChecks = @(
         @{Name="roo-state-manager"; Build="build/index.js"},
-        @{Name="quickfiles-server"; Build="build/index.js"}
+        @{Name="jinavigator-server"; Build="build/index.js"}
     )
 
     foreach ($mcp in $mcpChecks) {
