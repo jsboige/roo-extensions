@@ -171,6 +171,12 @@ LOCAL_CORPUS_DEFAULT = Path.home() / ".claude" / "projects"
 # spread d'une phrase presente chez la cible elle-meme — une phrase ecrite par le
 # sous-agent du siege ferait echouer le critere « <= 1 session ».
 SUBAGENT_DIR = "subagents"
+# Dossiers dont les `.jsonl` ne sont PAS des sessions indexables (review ai-01
+# r4, observation corpus) : `memory/user-words-journal.jsonl` et consorts sont
+# des journaux, pas des transcripts de session. Les compter gonflerait le spread
+# d'une phrase banale. Aucun fichier n'est supprime - ils sont seulement
+# ECARTES de l'eligibilite.
+NON_SESSION_DIRS = {"memory", SUBAGENT_DIR}
 SECRET_MARKERS = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|bearer|sk-[a-zA-Z0-9]|ghp_[a-zA-Z0-9]"
     r"|BEGIN [A-Z ]+PRIVATE|AKIA[0-9A-Z]{16}|-----)",
@@ -622,6 +628,17 @@ def corpus_files(root: Path) -> list[Path]:
     de la MEME session, pas des sessions. Les compter separement gonflerait le
     spread d'une phrase ecrite par le sous-agent de la cible, et l'arme
     « spread <= 1 » se declencherait sur une phrase qui n'existe que chez elle.
+
+    ELIGIBILITE = LE LAYOUT REEL d'une session indexable (review ai-01 r4,
+    observation corpus). Un transcript de session est un `.jsonl` pose
+    DIRECTEMENT dans un repertoire de projet : `<projets>/<hash>/<uuid>.jsonl`
+    (racine = le conteneur de projets, `LOCAL_CORPUS_DEFAULT`) ou
+    `<hash>/<uuid>.jsonl` (racine = le repertoire projet lui-meme). Tout le reste
+    est ECARTE et COMPTE : `memory/user-words-journal.jsonl` (un journal, pas une
+    session), les sous-dossiers plus profonds, et les `.jsonl` hors layout. Le
+    defaut nomme un fichier `memory/…` comme une session, ce qui gonfle le spread
+    d'une phrase banale - exactement l'arme « spread <= 1 » qu'on veut ecarter.
+    Aucun fichier n'est SUPPRIME : l'eligibilite est filtree, la donnee reste.
     """
     if not root.is_dir():
         raise RuntimeError(
@@ -631,11 +648,22 @@ def corpus_files(root: Path) -> list[Path]:
         )
     sessions: dict[str, Path] = {}
     subagent_files = 0
+    non_session_files = 0
     for p in root.rglob("*.jsonl"):
         if not p.is_file():
             continue
         if SUBAGENT_DIR in {seg.lower() for seg in p.parts[:-1]}:
             subagent_files += 1
+            continue
+        try:
+            rel_parts = p.relative_to(root).parts
+        except ValueError:
+            non_session_files += 1
+            continue
+        # Un dossier connu non-session ('memory', 'subagents') sur le chemin, ou
+        # une profondeur hors layout : ce `.jsonl` n'est pas une session.
+        if any(seg.lower() in NON_SESSION_DIRS for seg in rel_parts[:-1]) or len(rel_parts) not in (1, 2):
+            non_session_files += 1
             continue
         # Cle de session : le basename du transcript de tete (`<uuid>.jsonl`).
         # `setdefault` : deux chemins qui resolvent la meme session ne comptent
@@ -644,8 +672,9 @@ def corpus_files(root: Path) -> list[Path]:
     if not sessions:
         raise RuntimeError(
             f"corpus local VIDE sous {root} (aucun transcript de session, "
-            f"{subagent_files} fichier(s) de sous-agent ecarte(s)) — spread non "
-            "mesurable (fail-closed)"
+            f"{subagent_files} fichier(s) de sous-agent ecarte(s), "
+            f"{non_session_files} fichier(s) hors layout de session ecarte(s)) — "
+            "spread non mesurable (fail-closed)"
         )
     return sorted(sessions.values())
 
@@ -688,7 +717,21 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
     fait pas « sauter et continuer » : il est compte comme EXCLUSION et la mesure
     entiere leve `InstrumentLimit` (exit 2). Une exclusion silencieuse rendrait un
     PASS sur un corpus qu'on n'a pas lu — le faux succes que la review nomme.
+
+    UNE SESSION = UN COMPTE (review ai-01 r4, blocage 1) : une phrase y compte
+    AU PLUS UNE FOIS, meme si elle y apparait sur plusieurs lignes. Compter par
+    LIGNE saturationait a tort le spread d'une phrase qui n'existe que chez elle
+    — le cas reel d'une session qui cite sa propre reponse ou un echo d'outil
+    (reproduction d'ai-01 : deux lignes, une session, `{phrase: 2}` au lieu de
+    `{phrase: 1}`). Le contrat — `rarity.corpus_sessions`, le README et le nom de
+    la mesure — parle de SESSIONS ; le code comptait des lignes.
+
+    CANDIDATES REPETEES : dedupliquees en entree, pour que lister la meme phrase
+    deux fois ne change pas la mesure (review ai-01 r4).
     """
+    # Une candidate listee plusieurs fois reste UNE candidate : le compte est un
+    # nombre de sessions, jamais un nombre d'occurrences dans la liste.
+    phrases = list(dict.fromkeys(phrases))
     counts = {p: 0 for p in phrases}
     needles = {p: _phrase_needles(p) for p in phrases}
     saturated: set[str] = set()
@@ -713,6 +756,10 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
         # plafond+1 caracteres : au-dela, la ligne est DETECTEE sans etre chargee
         # (review ai-01 #4412, point 2).
         try:
+            # Phrases vues dans CE fichier : une session = un compte, quel que
+            # soit le nombre de lignes qui portent la phrase.
+            seen: set[str] = set()
+            file_excluded = False
             with path.open("r", encoding="utf-8", errors="replace") as fh:
                 while True:
                     line = fh.readline(MAX_CORPUS_LINE_BYTES + 1)
@@ -723,14 +770,22 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
                         # comparee sans repayer le pic memoire qu'on vient
                         # d'eliminer : le fichier est une EXCLUSION, pas un 0.
                         excluded.append((path.name, len(line) / 1e6, "plafond ligne"))
+                        file_excluded = True
                         break
                     for phrase in phrases:
                         if phrase in saturated:
                             continue
                         if any(n in line for n in needles[phrase]):
-                            counts[phrase] += 1
-                            if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
-                                saturated.add(phrase)
+                            seen.add(phrase)
+            if file_excluded:
+                # Fichier exclu : aucune phrase n'y est comptee (l'exclusion
+                # releve plus bas de toute facon — un PASS sur un corpus
+                # partiellement lu serait un faux succes).
+                continue
+            for phrase in seen:
+                counts[phrase] += 1
+                if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
+                    saturated.add(phrase)
         except OSError as exc:
             # Une session illisible = un trou dans le corpus : l'absence de la
             # phrase n'y est plus prouvable, donc on refuse de conclure.
@@ -1247,6 +1302,93 @@ def selftest() -> int:
                 "sous-agent compte dans la session parente (attendu 1)"
             )
 
+        # REPETITION DANS UNE MEME SESSION (review ai-01 r4, blocage 1) : une
+        # session qui se cite elle-meme (reponse + echo d'outil) porte la meme
+        # phrase sur PLUSIEURS lignes. Le compte est par SESSION : 1, pas le
+        # nombre de lignes. Le mutant « increment par ligne » fait ECHOUER ce
+        # test (il rendrait 3).
+        rep_phrase = (
+            'Le transcript se cite "lui-meme" et repete la phrase mesuree dans la '
+            "meme session."
+        )
+        (root / "f-repeat.jsonl").write_text(
+            "\n".join([
+                json.dumps({"text": rep_phrase}),
+                json.dumps({"text": "une ligne sans rapport pour la mesure"}),
+                json.dumps({"text": rep_phrase}),
+                json.dumps({"text": rep_phrase}),
+            ]) + "\n",
+            encoding="utf-8",
+        )
+        sp_rep = verbatim_spreads(corpus_files(root), [rep_phrase])
+        if sp_rep.get(rep_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_rep.get(rep_phrase)!r} session(s) pour une phrase "
+                "repetee dans UNE SEULE session (attendu 1) — le compte est par session, "
+                "pas par ligne"
+            )
+        # La meme phrase dans DEUX sessions distinctes reste SATUREE (>= 2) : le
+        # correctif ne doit pas sous-compter au point d'accepter une phrase banale.
+        two_phrase = "La meme phrase dans deux sessions distinctes doit rester refusee."
+        (root / "g-two-1.jsonl").write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        (root / "g-two-2.jsonl").write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        sp_two = verbatim_spreads(corpus_files(root), [two_phrase])
+        if (sp_two.get(two_phrase) or 0) < 2:
+            failures.append(
+                f"verbatim_spreads: {sp_two.get(two_phrase)!r} session(s) pour une phrase "
+                "presente dans DEUX sessions distinctes (attendu >= 2)"
+            )
+        # Des CANDIDATES REPETEES ne changent pas la mesure.
+        sp_dup = verbatim_spreads(corpus_files(root), [rep_phrase, rep_phrase, rep_phrase])
+        if sp_dup.get(rep_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_dup.get(rep_phrase)!r} session(s) avec des candidates "
+                "REPETEES (attendu 1, identique a la liste sans doublon)"
+            )
+        # ... et la deduplication RESTAURE l'arret precoce : une liste de
+        # candidates dupliquee reste UNE candidate, donc la saturation
+        # s'atteint et le scan s'arrete la. Sans deduplication, la condition
+        # d'arret ne peut jamais etre vraie (une seule phrase ne peut pas
+        # saturer trois entrees) et le scan parcourt le corpus en entier —
+        # ici jusqu'au fichier hors bornes, qui declenche alors INSTRUMENT.
+        early1 = root / "h-early-1.jsonl"
+        early2 = root / "h-early-2.jsonl"
+        early1.write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        early2.write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        big_early = root / "i-big-early.jsonl"
+        big_early.write_text(json.dumps({"text": two_phrase * 200}), encoding="utf-8")
+        saved_cap_early = globals()["MAX_CORPUS_FILE_BYTES"]
+        try:
+            globals()["MAX_CORPUS_FILE_BYTES"] = 1000
+            sp_early = verbatim_spreads(
+                [early1, early2, big_early], [two_phrase, two_phrase, two_phrase])
+            if (sp_early.get(two_phrase) or 0) != 2:
+                failures.append(
+                    f"verbatim_spreads: {sp_early.get(two_phrase)!r} session(s) pour une phrase "
+                    "saturee en 2 sessions (attendu 2)"
+                )
+        except InstrumentLimit as exc:
+            failures.append(
+                "verbatim_spreads: le scan ne s'est pas arrete apres saturation (fichier hors "
+                f"bornes lu) — la deduplication des candidates ne fonctionne pas : {exc}"
+            )
+        finally:
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_cap_early
+        # ELIGIBILITE DU CORPUS (review ai-01 r4, observation) : un `.jsonl` hors
+        # layout de session (`memory/…`) n'est pas une session. Aucun fichier
+        # n'est supprime — il est seulement ecarte.
+        mem_dir = root / "memory"
+        mem_dir.mkdir(parents=True, exist_ok=True)
+        mem_phrase = "Un journal utilisateur n'est pas une session et ne compte pas."
+        (mem_dir / "user-words-journal.jsonl").write_text(
+            json.dumps({"text": mem_phrase}), encoding="utf-8")
+        sp_mem = verbatim_spreads(corpus_files(root), [mem_phrase])
+        if (sp_mem.get(mem_phrase) or 0) != 0:
+            failures.append(
+                "corpus_files: un fichier hors layout de session est servi comme session "
+                f"({sp_mem.get(mem_phrase)!r} session(s), attendu 0)"
+            )
+
         # PLAFONDS DE LECTURE (review ai-01 #4412, point 2) : un fichier hors
         # bornes n'est ni saute ni rendu 0 — il leve InstrumentLimit, donc aucun
         # PASS ne peut sortir d'un corpus partiellement lu.
@@ -1694,7 +1836,11 @@ def selftest() -> int:
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
           "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
           "rarete VERBATIM mesuree (scan local, 1 session ; OR tokenise et corpus vide refuses), "
-          "sous-agent compte dans SA session (1, pas 2), plafonds de lecture fichier/ligne => "
+          "sous-agent compte dans SA session (1, pas 2), repetition dans UNE session "
+          "comptee UNE fois (pas par ligne), deux sessions distinctes = sature, "
+          "candidates repetees sans effet + arret precoce apres saturation, "
+          "fichier hors layout de session ecarte du corpus, "
+          "plafonds de lecture fichier/ligne => "
           "INSTRUMENT (jamais un faux PASS), compte sature marque « ≥ » et non presente "
           "comme une mesure, "
           "vocabulaire view, args du view + list "
