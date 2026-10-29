@@ -6,10 +6,17 @@
 # starter (-WhatIf writes nothing, not even the key file) and of the schtask
 # installer.
 #
-# Run: Invoke-Pester scripts/testing/unit/sk-agent-daemon.Tests.ps1
+# Run: Invoke-Pester scripts/deployment/sk-agent-daemon.Tests.ps1
+#
+# Lives NEXT TO its three guarded scripts and runs in the marshall-scripts-pester
+# job (windows-latest), not in unit-pester (ubuntu): every behavioral test spawns
+# powershell.exe 5.1 children on purpose, and the two regressions this suite pins
+# (UTF-8-no-BOM read as ANSI, backup picked by name instead of mtime) only exist
+# under the 5.1 engine — under pwsh/linux the ANSI codepage does not exist, so an
+# engine-adapted run would stay green while guarding nothing (#4414 CI red).
 
 BeforeAll {
-    $script:DeployDir = Join-Path $PSScriptRoot '..\..\deployment' | Resolve-Path
+    $script:DeployDir = $PSScriptRoot
     $script:StartScript = Join-Path $DeployDir 'start-sk-agent-daemon.ps1'
     $script:ConfigureScript = Join-Path $DeployDir 'configure-sk-agent-http-client.ps1'
     $script:InstallScript = Join-Path $DeployDir 'install-sk-agent-daemon-schtask.ps1'

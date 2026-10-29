@@ -112,12 +112,15 @@ on:
       - 'scripts/claude/eval-harness-verdicts.ps1'
       - 'scripts/claude/eval-harness-verdicts.Tests.ps1'
       # #4149 F2 (web2): sk-agent-daemon.Tests.ps1 guards the three seat scripts
-      # that replace the per-session stdio server with one shared daemon. Same
-      # gap as every entry above — a main push touching a guarded script must
-      # re-run the suite that pins its dry-run purity and config-integrity gate.
+      # that replace the per-session stdio server with one shared daemon. It
+      # runs in marshall-scripts-pester (windows-latest — its children are
+      # powershell.exe 5.1). Same gap as every entry above: a main push touching
+      # a guarded script OR its suite must re-run the job that pins its dry-run
+      # purity and config-integrity gate.
       - 'scripts/deployment/start-sk-agent-daemon.ps1'
       - 'scripts/deployment/configure-sk-agent-http-client.ps1'
       - 'scripts/deployment/install-sk-agent-daemon-schtask.ps1'
+      - 'scripts/deployment/sk-agent-daemon.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
@@ -697,6 +700,16 @@ jobs:
       - name: Run harden-hidden-tasks suite (vllm incident 26/10)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/harden-hidden-tasks.Tests.ps1 -CI
+      # #4149 F2 (web2): the sk-agent daemon seat suite spawns the REAL scripts
+      # as powershell.exe 5.1 children — its two pinned regressions (UTF-8-no-BOM
+      # read as ANSI, backup picked by name instead of mtime) only reproduce
+      # under that engine, so pwsh/linux would stay green while guarding
+      # nothing. Same acceptance criterion as the suites above (the fleet runs
+      # 5.1), hence this windows-latest job; it first lived in scripts/testing/
+      # unit and went red on ubuntu (#4414 CI, powershell.exe absent).
+      - name: Run sk-agent daemon seat suite (#4149 F2)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/deployment/sk-agent-daemon.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
