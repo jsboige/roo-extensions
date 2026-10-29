@@ -229,6 +229,84 @@ Describe 'configure-sk-agent-http-client.ps1 -Restore picks by TIME, not by name
     }
 }
 
+Describe 'start-sk-agent-daemon.ps1 proves the daemon before reporting success (#4414 review)' {
+    BeforeAll {
+        $script:PfxDir = Join-Path $Tmp 'proof-sk-agent'
+        New-Item -ItemType Directory -Force $PfxDir | Out-Null
+        '# stub' | Set-Content (Join-Path $PfxDir 'sk_agent.py') -Encoding ascii
+        $script:PfxKey = Join-Path $Tmp 'proof-daemon.key'
+        'pester-fixture-key-not-secret-cccc' | Set-Content $PfxKey -Encoding ascii
+    }
+
+    It 'fails closed when a raw listener owns the port (no [OK], non-zero exit)' -Skip:($env:OS -ne 'Windows_NT') {
+        # A listener that completes the TCP handshake but never speaks HTTP is
+        # exactly the "port already listening" state that used to print [OK] and
+        # exit 0 while every client got a 401 (or nothing at all). Port 0 = let
+        # the OS pick a free one, so the test never collides with a real daemon.
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        try {
+            $freePort = $listener.LocalEndpoint.Port
+            $r = Invoke-SeatScript $StartScript @('-Port', "$freePort", '-SkAgentDir', $PfxDir, '-KeyFile', $PfxKey, '-LogDir', (Join-Path $Tmp 'proof-logs'))
+            $r.ExitCode | Should -Be 1 -Because $r.Output
+            $r.Output | Should -Match 'refusing to report success'
+            $r.Output | Should -Not -Match '\[OK\]'
+        } finally {
+            $listener.Stop()
+        }
+    }
+
+    It 'fails closed when the port is held and the key file is missing' -Skip:($env:OS -ne 'Windows_NT') {
+        # No key = no way to ask the listener to identify itself -> never assume.
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $listener.Start()
+        try {
+            $freePort = $listener.LocalEndpoint.Port
+            $absentKey = Join-Path $Tmp 'absent-daemon.key'
+            $r = Invoke-SeatScript $StartScript @('-Port', "$freePort", '-SkAgentDir', $PfxDir, '-KeyFile', $absentKey, '-LogDir', (Join-Path $Tmp 'proof-logs2'))
+            $r.ExitCode | Should -Be 1 -Because $r.Output
+            $r.Output | Should -Match 'key file not found'
+            Test-Path $absentKey | Should -BeFalse
+        } finally {
+            $listener.Stop()
+        }
+    }
+}
+
+Describe 'configure-sk-agent-http-client.ps1 creates a missing container/entry (#4414 review)' {
+    BeforeAll {
+        $script:NxDir = Join-Path $Tmp 'noentry'
+        New-Item -ItemType Directory -Force $NxDir | Out-Null
+        $script:NxKey = Join-Path $NxDir 'k.key'
+        'pester-fixture-key-not-secret-dddd' | Set-Content $NxKey -Encoding ascii
+    }
+
+    It 'flips into a seat whose mcpServers block is empty' {
+        # `$obj.mcpServers.sk-agent = …` throws SetValueInvocationException on a
+        # PSCustomObject without the property — the review's blocking point 2.
+        $cfg = Join-Path $NxDir 'empty-container.json'
+        '{"numStartups":3,"mcpServers":{}}' | Set-Content $cfg -Encoding ascii
+        $r = Invoke-SeatScript $ConfigureScript @('-ConfigPath', $cfg, '-KeyFile', $NxKey)
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        $r.Output | Should -Match '\[stdio\] -> http'
+        $json = Get-Content $cfg -Raw | ConvertFrom-Json
+        $json.numStartups | Should -Be 3
+        $json.mcpServers.'sk-agent'.type | Should -Be 'http'
+        $json.mcpServers.'sk-agent'.url | Should -Be 'http://127.0.0.1:8100/mcp'
+        $json.mcpServers.'sk-agent'.headers.Authorization | Should -Be 'Bearer pester-fixture-key-not-secret-dddd'
+    }
+
+    It 'flips into a seat with no mcpServers block at all' {
+        $cfg = Join-Path $NxDir 'no-container.json'
+        '{"numStartups":5}' | Set-Content $cfg -Encoding ascii
+        $r = Invoke-SeatScript $ConfigureScript @('-ConfigPath', $cfg, '-KeyFile', $NxKey)
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        $json = Get-Content $cfg -Raw | ConvertFrom-Json
+        $json.numStartups | Should -Be 5
+        $json.mcpServers.'sk-agent'.type | Should -Be 'http'
+    }
+}
+
 AfterAll {
     if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp -ErrorAction SilentlyContinue }
 }

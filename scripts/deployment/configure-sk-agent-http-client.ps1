@@ -114,6 +114,15 @@ $targetUrl = "http://${BindHost}:${Port}/mcp"
 $before = Read-Config $ConfigPath
 $pristine = Read-Config $ConfigPath   # untouched copy: the write gate below needs it
 $beforeKeys = @($before.PSObject.Properties.Name)
+# #4149 review: a seat with no mcpServers block (or no sk-agent entry yet) must be
+# configurable. `$obj.mcpServers.<Name> = …` throws SetValueInvocationException on a
+# PSCustomObject that lacks the property — create the container and Add-Member -Force.
+if (-not $before.mcpServers) {
+    Add-Member -InputObject $before -NotePropertyName 'mcpServers' -NotePropertyValue ([PSCustomObject]@{}) -Force
+}
+if (-not $pristine.mcpServers) {
+    Add-Member -InputObject $pristine -NotePropertyName 'mcpServers' -NotePropertyValue ([PSCustomObject]@{}) -Force
+}
 $entry = $before.mcpServers.$ServerName
 
 # --- Idempotence: same url AND same bearer -> nothing to do ---
@@ -129,11 +138,11 @@ Copy-Item $ConfigPath $bakPath -Force
 $beforeShape = '[stdio]'
 if ($entry -and $entry.type) { $beforeShape = $entry.type }
 
-$before.mcpServers.$ServerName = [PSCustomObject]@{
+Add-Member -InputObject $before.mcpServers -NotePropertyName $ServerName -Force -NotePropertyValue ([PSCustomObject]@{
     type = 'http'
     url = $targetUrl
     headers = [PSCustomObject]@{ Authorization = "Bearer $apiKey" }
-}
+})
 Write-ConfigNoBom $ConfigPath $before
 
 # --- Round-trip verification: entry shape, key population, and CONTENT INTEGRITY ---
@@ -153,8 +162,8 @@ if ($missing.Count -gt 0) {
     Write-Output "[FAIL] top-level keys lost in round-trip ($($missing -join ', ')) - backup restored"
     exit 1
 }
-$pristine.mcpServers.$ServerName = '<intentionally flipped>'
-$after.mcpServers.$ServerName = '<intentionally flipped>'
+Add-Member -InputObject $pristine.mcpServers -NotePropertyName $ServerName -Force -NotePropertyValue '<intentionally flipped>'
+Add-Member -InputObject $after.mcpServers -NotePropertyName $ServerName -Force -NotePropertyValue '<intentionally flipped>'
 $diffs = New-Object System.Collections.ArrayList
 Compare-Json $pristine $after 'root' $diffs
 if ($diffs.Count -gt 0) {
