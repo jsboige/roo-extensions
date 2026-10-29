@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updated": "2026-10-26",
+  "updated": "2026-10-29",
   "source_issue": "https://github.com/jsboige/roo-extensions/issues/2416",
   "scope": "Claude Code seat only (~/.claude.json). Roo/Zoo-side MCP config lives in %APPDATA% mcp_settings.json and is out of scope.",
   "semantics": {
     "required": "must be installed user-scope AND not disabled for the verified workspace (location 3 primes, #3137)",
-    "allowed": "optional; presence legitimate. Includes router/hub-injected remote MCPs (4_5v_mcp, web_reader) and activate-on-need servers (jupyter-papermill, harnais-tightening rule 2)",
+    "allowed": "optional; presence legitimate. Includes router/hub-injected remote MCPs (4_5v_mcp, web_reader), activate-on-need servers (jupyter-papermill, harnais-tightening rule 2), and win-cli (the local fork serving the Roo/Zoo scheduler — legitimate on seats that host it, absent elsewhere; #4336)",
     "retired": "must not exist anywhere (#3423); names remain in the RSM RETIRED_MCP_NAMES guard",
     "machine_override": "a list present at machine level REPLACES the fleet_common list (explicit over merged)"
   },
@@ -18,15 +18,16 @@
       "sk-agent",
       "jupyter-papermill",
       "web_reader",
-      "4_5v_mcp"
+      "4_5v_mcp",
+      "win-cli"
     ],
     "retired": ["desktop-commander", "github-projects-mcp", "quickfiles"]
   },
   "machines": {
     "myia-ai-01": {
       "roles": ["coordinator"],
-      "verified": "2026-10-26",
-      "notes": "verified firsthand (user-scope: jupyter-papermill, playwright, roo-state-manager, searxng, sk-agent). Verifier selftest 11/11 and live run exit 0: 0 errors, 1 warn 2026-10-26 — the two warns observed before the run were one genuine residue ('qc-mcp' under projects[d:/CoursIA]) and one false positive ('claude.ai Livres Agites Streamable', a claude.ai CONNECTOR: present in claudeAiMcpEverConnected, never in mcpServers), fixed in the verifier the same day. qc-mcp residue documented, NOT removed: d:/CoursIA is another lane's workspace. Workspace-scoped installs under d:/vllm (roo-state-manager, sk-agent) are location-2 state, not drift. No retired server, no ghost disable path."
+      "verified": "2026-10-29",
+      "notes": "verified firsthand (user-scope: jupyter-papermill, playwright, roo-state-manager, searxng, sk-agent). Re-measured 2026-10-29: selftest 11/11, live exit 0, 0 errors, 1 warn — the residual 'qc-mcp' disable under projects[d:/CoursIA], documented and NOT removed (another lane's workspace; inert since qc-mcp is installed nowhere). A second warn seen 2026-10-26 was a false positive on a claude.ai CONNECTOR (present in claudeAiMcpEverConnected, never in mcpServers) — fixed in the verifier that day, the control case kept. Workspace-scoped installs under d:/vllm (roo-state-manager, sk-agent) are location-2 state, not drift. No retired server, no ghost disable path."
     },
     "myia-po-2023": {
       "roles": ["executor"],
@@ -36,7 +37,7 @@
     "myia-po-2024": {
       "roles": ["executor"],
       "verified": "2026-10-24",
-      "notes": "verified firsthand (user-scope: google-workspace, playwright, roo-state-manager, searxng, sk-agent). Known #4195 residue: ghost disables under pre-migration c:/dev/* paths"
+      "notes": "verified firsthand 2026-10-24 (user-scope: google-workspace, playwright, roo-state-manager, searxng, sk-agent); verifier exit 0, 0 errors, 2 warns. Residues 'qc-mcp' and 'jupyter-papermill' DOCUMENTED, not cleaned (issue #4336 scope item 4): both disables belong to CoursIA workspaces on this same machine, under LIVE paths (no GHOST_DISABLE_PATH), so removing them would be applying a config gesture on another workspace's state — rule of 23/09: ask, don't apply. ~/.claude.json is a MACHINE file, not a per-seat one, so --strict stays at 2 by construction while a sibling workspace disables a server installed nowhere. No retired server, no ghost disable path. Also measured: jupyter-papermill is installed nowhere on this seat, so the harnais-tightening rule-2 notebook path was already inapplicable there before the rollout."
     },
     "myia-po-2025": {
       "roles": ["executor"],
@@ -60,8 +61,8 @@
     },
     "myia-web1": {
       "roles": ["web"],
-      "verified": null,
-      "notes": "expected from tool-availability.md; not yet verified firsthand"
+      "verified": "2026-10-26",
+      "notes": "verified firsthand by lane myia-web1:roo-extensions on 2026-10-26 (result posted on issue #4336, folded into the manifest by ai-01 so no concurrent manifest PR is opened). User-scope (location 1): playwright, roo-state-manager, searxng, sk-agent, win-cli. Verifier taken from PR #4372 head 79b09c23, workspace c:/dev/roo-extensions: exit 0, 0 errors, 1 warn UNEXPECTED_SERVER 'win-cli' — already present before that PR, so not a regression. Resolved fleet-wide on 2026-10-29 by adding win-cli to fleet_common.allowed (local fork serving the Roo/Zoo scheduler); nothing was removed from the seat. No retired server, no ghost disable path, no DISABLE_OF_UNINSTALLED."
     },
     "myia-web2": {
       "roles": ["web"],
