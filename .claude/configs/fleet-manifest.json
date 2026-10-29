@@ -31,8 +31,8 @@
     },
     "myia-po-2023": {
       "roles": ["executor"],
-      "verified": null,
-      "notes": "expected from tool-availability.md; not yet verified firsthand"
+      "verified": "2026-10-29",
+      "notes": "verified firsthand by myia-po-2023:roo-extensions, evidence #4336 issuecomment-6496365875; folded by ai-01. Live ~/.claude.json, workspace d:/dev/roo-extensions: verifier exit 0, 0 errors, 0 warns, findings []. No config mutation. This measures configuration only: the same seat's build preflight was disk-blocked, so it does not certify runtime availability or served build."
     },
     "myia-po-2024": {
       "roles": ["executor"],
@@ -41,8 +41,8 @@
     },
     "myia-po-2025": {
       "roles": ["executor"],
-      "verified": null,
-      "notes": "expected from tool-availability.md; not yet verified firsthand"
+      "verified": "2026-10-29",
+      "notes": "verified firsthand by myia-po-2025:roo-extensions, evidence #4336 issuecomment-6496152760; folded by ai-01. Parent eee8352b, live workspace d:/dev/roo-extensions: verifier exit 0, 0 errors, 2 known DISABLE_OF_UNINSTALLED warns (qc-mcp-lite, quantconnect). win-cli no longer produces drift. Residual disables documented, not removed. Configuration state only, not proof of loaded tools or served build."
     },
     "myia-po-2026": {
       "roles": ["executor"],
@@ -51,8 +51,8 @@
     },
     "myia-po-2027": {
       "roles": ["executor", "claude-only"],
-      "verified": null,
-      "notes": "Claude-only seat, portable; pwsh absent (#2368)"
+      "verified": "2026-10-29",
+      "notes": "Claude-only seat, portable; pwsh absent (#2368). Verified firsthand on parent eee8352b, evidence #4336 issuecomment-6497545369 and issuecomment-6497774917; folded by ai-01. Live workspace d:/dev/roo-extensions: verifier exit 0, 0 errors, 0 warns, findings []. Dormant win-cli entry removed by the seat before measurement. jupyter-papermill remains absent: notebook capability BLOCKED under deny-fallback, not certified by this clean manifest result. No runtime-liveness claim."
     },
     "myia-po-2028": {
       "roles": ["executor"],
