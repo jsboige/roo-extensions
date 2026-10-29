@@ -13,7 +13,7 @@ INTERDITE — ne pas continuer en mode dégradé.
 
 | Agent | MCP | Outils | Verification |
 |-------|-----|--------|-------------|
-| **Claude Code** | roo-state-manager | 17 | `conversation_browser(action: "current")` |
+| **Claude Code** | roo-state-manager | 18 | `conversation_browser(action: "current")` |
 | **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 | `execute_command(shell="powershell")` |
 
 Config séparée : Claude = `~/.claude.json`, Roo = `%APPDATA%\...\mcp_settings.json`. win-cli :
