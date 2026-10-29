@@ -129,12 +129,31 @@ MAX_PHRASE_SPREAD_SESSIONS = 1
 # (fail-closed) au lieu d'accepter en silence.
 MIN_PHRASE_SPREAD_SESSIONS = 1
 PHRASE_SPREAD_MAX_TRIES = 5          # candidates evaluees avant d'abandonner
+# Bornes de LECTURE du scan verbatim (review ai-01 #4412, points 2 et 3).
+# Le corpus d'un siege monte facilement a plusieurs centaines de Mo (535 Mo sur
+# ai-01) : le lire en `read_text()` charge un fichier entier en memoire, et une
+# seule session geante suffit a faire tomber le processus. La lecture est donc
+# LINEAIRE (une ligne a la fois, memoire bornee par la plus grosse ligne), avec
+# un plafond par FICHIER et un plafond par LIGNE.
+#
+# Ce qu'un depassement NE fait PAS : il ne saute pas le fichier pour rendre PASS.
+# Un fichier non lu est un trou dans la mesure, donc la sonde rend exit 2
+# (INSTRUMENT) en nommant le compte et le volume des exclusions. La rectification
+# ai-01 sur #4412 est explicite : « un fichier trop gros ne peut pas etre
+# simplement saute puis produire PASS ».
+MAX_CORPUS_FILE_BYTES = 256 * 1024 * 1024   # 256 Mo par transcript
+MAX_CORPUS_LINE_BYTES = 32 * 1024 * 1024    # 32 Mo par ligne (sortie d'outil geante)
 # Corpus de reference du scan verbatim : les transcripts Claude Code du siege.
 # `candidate_sessions` ne retient que `source in ("claude","claude-code")`, et
 # l'indexeur lit ces memes fichiers — c'est donc exactement le corpus dans lequel
 # la phrase doit etre rare. Un corpus absent ou vide est une ERREUR (fail-closed),
 # jamais un spread de 0.
 LOCAL_CORPUS_DEFAULT = Path.home() / ".claude" / "projects"
+# Repertoire des transcripts de SOUS-AGENTS : ils appartiennent a la session
+# parente (review ai-01 #4412, point 3). Les compter comme des sessions gonfle le
+# spread d'une phrase presente chez la cible elle-meme — une phrase ecrite par le
+# sous-agent du siege ferait echouer le critere « <= 1 session ».
+SUBAGENT_DIR = "subagents"
 SECRET_MARKERS = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|bearer|sk-[a-zA-Z0-9]|ghp_[a-zA-Z0-9]"
     r"|BEGIN [A-Z ]+PRIVATE|AKIA[0-9A-Z]{16}|-----)",
@@ -562,6 +581,16 @@ def pick_phrase(text: str) -> str:
     raise RuntimeError("aucune phrase candidate extraite de la session (contenu trop pauvre)")
 
 
+class InstrumentLimit(RuntimeError):
+    """Une borne de lecture empeche de mesurer le corpus ENTIER.
+
+    Distincte d'une erreur generique de propos : ce n'est ni un PASS ni un FAIL de
+    fond, c'est l'INSTRUMENT qui ne peut pas conclure (exit 2). Sauter le fichier
+    hors bornes et rendre PASS serait un faux succes — exactement le defaut que la
+    review ai-01 (#4412) a nomme.
+    """
+
+
 def corpus_files(root: Path) -> list[Path]:
     """Les transcripts `.jsonl` du corpus local — une liste VIDE est une ERREUR.
 
@@ -570,6 +599,12 @@ def corpus_files(root: Path) -> list[Path]:
     mal pointe (ou un corpus deplace) ferait trouver TOUTES les phrases rares et
     ramenerait exactement le defaut mesure — une sonde qui accepte une phrase
     banale parce qu'elle n'a rien pu mesurer.
+
+    UNE ENTREE = UNE SESSION (review ai-01 #4412, point 3). Les transcripts de
+    sous-agents vivent sous `<session>/subagents/*.jsonl` : ce sont des morceaux
+    de la MEME session, pas des sessions. Les compter separement gonflerait le
+    spread d'une phrase ecrite par le sous-agent de la cible, et l'arme
+    « spread <= 1 » se declencherait sur une phrase qui n'existe que chez elle.
     """
     if not root.is_dir():
         raise RuntimeError(
@@ -577,13 +612,25 @@ def corpus_files(root: Path) -> list[Path]:
             "mesurable sans lui (fail-closed : « corpus absent » n'est pas "
             "« 0 session »)"
         )
-    files = [p for p in root.rglob("*.jsonl") if p.is_file()]
-    if not files:
+    sessions: dict[str, Path] = {}
+    subagent_files = 0
+    for p in root.rglob("*.jsonl"):
+        if not p.is_file():
+            continue
+        if SUBAGENT_DIR in {seg.lower() for seg in p.parts[:-1]}:
+            subagent_files += 1
+            continue
+        # Cle de session : le basename du transcript de tete (`<uuid>.jsonl`).
+        # `setdefault` : deux chemins qui resolvent la meme session ne comptent
+        # qu'une fois, quel que soit l'ordre de parcours.
+        sessions.setdefault(p.stem, p)
+    if not sessions:
         raise RuntimeError(
-            f"corpus local VIDE sous {root} (aucun .jsonl) — spread non mesurable "
-            "(fail-closed)"
+            f"corpus local VIDE sous {root} (aucun transcript de session, "
+            f"{subagent_files} fichier(s) de sous-agent ecarte(s)) — spread non "
+            "mesurable (fail-closed)"
         )
-    return sorted(files)
+    return sorted(sessions.values())
 
 
 def _phrase_needles(phrase: str) -> tuple[str, ...]:
@@ -617,15 +664,49 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
     Un seul passage sur le corpus pour toutes les candidates (<= 5). Chaque
     phrase est plafonnee a MAX + 1 des qu'elle depasse le seuil : au-dela, le
     detail ne sert plus a decider, seulement a nommer l'echec.
+
+    Lecture LINEAIRE et bornee (review ai-01 #4412, point 2) : le transcript est
+    parcouru ligne a ligne, donc la memoire est bornee par la plus grosse LIGNE et
+    non par la taille du FICHIER. Un fichier ou une ligne au-dela des plafonds ne
+    fait pas « sauter et continuer » : il est compte comme EXCLUSION et la mesure
+    entiere leve `InstrumentLimit` (exit 2). Une exclusion silencieuse rendrait un
+    PASS sur un corpus qu'on n'a pas lu — le faux succes que la review nomme.
     """
     counts = {p: 0 for p in phrases}
     needles = {p: _phrase_needles(p) for p in phrases}
     saturated: set[str] = set()
+    excluded: list[tuple[str, float, str]] = []
     for path in files:
         if len(saturated) == len(phrases):
             break
         try:
-            text = path.read_text(encoding="utf-8", errors="replace")
+            size = path.stat().st_size
+        except OSError as exc:
+            raise RuntimeError(
+                f"corpus local illisible ({path.name}) : {exc} — spread non mesurable "
+                "(fail-closed)"
+            ) from exc
+        if size > MAX_CORPUS_FILE_BYTES:
+            excluded.append((path.name, size / 1e6, "plafond fichier"))
+            continue
+        # Lecture LINEAIRE : la memoire est bornee par la plus grosse ligne, pas par
+        # la taille du transcript (review ai-01 #4412, point 2).
+        try:
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    if len(line) > MAX_CORPUS_LINE_BYTES:
+                        # Une ligne geante (sortie d'outil) ne peut pas etre
+                        # comparee sans repayer le pic memoire qu'on vient
+                        # d'eliminer : le fichier est une EXCLUSION, pas un 0.
+                        excluded.append((path.name, len(line) / 1e6, "plafond ligne"))
+                        break
+                    for phrase in phrases:
+                        if phrase in saturated:
+                            continue
+                        if any(n in line for n in needles[phrase]):
+                            counts[phrase] += 1
+                            if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
+                                saturated.add(phrase)
         except OSError as exc:
             # Une session illisible = un trou dans le corpus : l'absence de la
             # phrase n'y est plus prouvable, donc on refuse de conclure.
@@ -633,13 +714,18 @@ def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str,
                 f"corpus local illisible ({path.name}) : {exc} — spread non mesurable "
                 "(fail-closed)"
             ) from exc
-        for phrase in phrases:
-            if phrase in saturated:
-                continue
-            if any(n in text for n in needles[phrase]):
-                counts[phrase] += 1
-                if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
-                    saturated.add(phrase)
+    if excluded:
+        total_mb = sum(mb for _, mb, _ in excluded)
+        detail = ", ".join(f"{name} ({mb:.0f} Mo, {why})" for name, mb, why in excluded[:3])
+        raise InstrumentLimit(
+            f"{len(excluded)} transcript(s) hors bornes de lecture ({total_mb:.0f} Mo; "
+            f"plafond {MAX_CORPUS_FILE_BYTES / 1e6:.0f} Mo/fichier, "
+            f"{MAX_CORPUS_LINE_BYTES / 1e6:.0f} Mo/ligne) : {detail}"
+            f"{' …' if len(excluded) > 3 else ''} — la rarete n'a PAS ete mesuree sur le "
+            "corpus entier : un transcript ecarte ne peut pas produire un PASS "
+            "(rectification ai-01 : « un fichier trop gros ne peut pas etre simplement "
+            "saute puis produire PASS »)"
+        )
     return counts
 
 
@@ -818,7 +904,11 @@ def phase_index(
         # Preuve de la mesure de rareté : sur QUEL corpus et avec quel spread la
         # phrase a été retenue. Sans ces deux nombres, un verdict live ne dit pas
         # si le filtre a travaillé ou s'il a laissé passer.
-        out["rarity"] = {"corpus_files": len(corpus), "spread": spread}
+        # `corpus_sessions` : unites de compte REELLES (review ai-01 #4412 point 3).
+        # Le nom `corpus_files` mentait depuis que le sous-agent est replie sur sa
+        # session, et la cle est nouvelle (pas renommee) pour qu'un lecteur d'ancien
+        # JSON ne prenne pas un compte de sessions pour un compte de fichiers.
+        out["rarity"] = {"corpus_sessions": len(corpus), "spread": spread}
         out["index_attempts"] = attempts  # candidats ecartes avant celui-ci
         return
     raise RuntimeError(
@@ -1094,6 +1184,62 @@ def selftest() -> int:
                 failures.append("corpus_files: un corpus VIDE a ete accepte (fail-open)")
             except RuntimeError:
                 pass
+
+        # UNE ENTREE = UNE SESSION (review ai-01 #4412, point 3) : le transcript
+        # de sous-agent vit sous `<session>/subagents/` et appartient a la session
+        # parente. Compte comme une session, il ferait 2 pour la cible elle-meme
+        # et l'arme « spread <= 1 » refuserait une phrase qui n'existe qu'ici.
+        session_dir = root / "d-session"
+        (session_dir / "subagents").mkdir(parents=True, exist_ok=True)
+        sub_phrase = (
+            "Le transcript d'un sous-agent rattache sa mesure a la session parente, "
+            "jamais a un fichier separe."
+        )
+        (root / "d-session.jsonl").write_text(
+            json.dumps({"text": sub_phrase}), encoding="utf-8")
+        (session_dir / "subagents" / "agent-1.jsonl").write_text(
+            json.dumps({"text": sub_phrase}), encoding="utf-8")
+        files_after = corpus_files(root)
+        if any(SUBAGENT_DIR in {seg.lower() for seg in p.parts[:-1]} for p in files_after):
+            failures.append("corpus_files: un transcript de sous-agent est servi comme session")
+        sp_sub = verbatim_spreads(files_after, [sub_phrase])
+        # La phrase vit dans 2 FICHIERS (tete + sous-agent) mais UNE seule session :
+        # le compte doit rester 1.
+        if sp_sub.get(sub_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_sub.get(sub_phrase)!r} session(s) alors que le "
+                "sous-agent compte dans la session parente (attendu 1)"
+            )
+
+        # PLAFONDS DE LECTURE (review ai-01 #4412, point 2) : un fichier hors
+        # bornes n'est ni saute ni rendu 0 — il leve InstrumentLimit, donc aucun
+        # PASS ne peut sortir d'un corpus partiellement lu.
+        big = root / "e-big.jsonl"
+        big.write_text(json.dumps({"text": target_phrase}), encoding="utf-8")
+        saved_file_cap = globals()["MAX_CORPUS_FILE_BYTES"]
+        saved_line_cap = globals()["MAX_CORPUS_LINE_BYTES"]
+        try:
+            globals()["MAX_CORPUS_FILE_BYTES"] = 8
+            try:
+                verbatim_spreads([big], [target_phrase])
+                failures.append("verbatim_spreads: un fichier hors plafond a ete ignore (faux PASS)")
+            except InstrumentLimit as exc:
+                if "plafond fichier" not in str(exc):
+                    failures.append(f"verbatim_spreads: plafond fichier mal nomme: {exc}")
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_file_cap
+            globals()["MAX_CORPUS_LINE_BYTES"] = 8
+            try:
+                verbatim_spreads([big], [target_phrase])
+                failures.append("verbatim_spreads: une LIGNE hors plafond a ete ignoree (faux PASS)")
+            except InstrumentLimit as exc:
+                if "plafond ligne" not in str(exc):
+                    failures.append(f"verbatim_spreads: plafond ligne mal nomme: {exc}")
+        finally:
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_file_cap
+            globals()["MAX_CORPUS_LINE_BYTES"] = saved_line_cap
+        # ... et le meme corpus redevient mesurable une fois les bornes retablies.
+        if verbatim_spreads([big], [target_phrase]).get(target_phrase) != 1:
+            failures.append("verbatim_spreads: lecture cassee apres restauration des plafonds")
     # Toutes les lignes refusees STATIQUEMENT : le message doit nommer le refus
     # statique, pas un echec de rarete — 0 recherche consommee (ai-01 CHANGES
     # :547 : « 0 candidats a plus de 1 session(s) » etait trompeur).
@@ -1314,8 +1460,11 @@ def selftest() -> int:
     rarity = idx_out.get("rarity") or {}
     if rarity.get("spread") != 1:
         failures.append(f"phase_index: rarity={rarity!r} (spread attendu 1)")
-    if rarity.get("corpus_files") != 4:
-        failures.append(f"phase_index: rarity={rarity!r} (4 transcripts attendus dans le corpus de test)")
+    if rarity.get("corpus_sessions") != 4:
+        failures.append(
+            f"phase_index: rarity={rarity!r} (4 SESSIONS attendues dans le corpus de test — "
+            "unite de compte depuis le repli des sous-agents)"
+        )
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
     # Un succes a 0 chunk n'est PAS un echec : il doit avoir ete accepte, et la phase
@@ -1509,6 +1658,8 @@ def selftest() -> int:
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
           "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
           "rarete VERBATIM mesuree (scan local, 1 session ; OR tokenise et corpus vide refuses), "
+          "sous-agent compte dans SA session (1, pas 2), plafonds de lecture fichier/ligne => "
+          "INSTRUMENT (jamais un faux PASS), "
           "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
@@ -1600,7 +1751,7 @@ def main() -> int:
                 print(f"[phrase] {out['phrase']}")
             if out.get("rarity"):
                 r = out["rarity"]
-                print(f"[rarity] spread={r['spread']} sur {r['corpus_files']} transcript(s) locaux")
+                print(f"[rarity] spread={r['spread']} sur {r.get('corpus_sessions', r.get('corpus_files'))} session(s) locales")
             if "rank" in out:
                 print(f"[rank] {out['rank']} (top {MAX_RESULTS}) — machines vues : "
                       f"{out.get('search', {}).get('machines_found')}")
@@ -1617,6 +1768,22 @@ def main() -> int:
             print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         else:
             print(f"[ERROR] {exc}")
+        return 2
+    except MemoryError as exc:
+        # INSTRUMENT, jamais FAIL (review ai-01 #4412, point 2). `MemoryError`
+        # n'herite pas de RuntimeError : il traversait le handler, Python sortait
+        # avec le code 1, et un wrapper lisait « 1 » comme un FAIL de fond — un
+        # corpus trop gros devenait « la recherche a echoue ». La mesure n'a pas
+        # eu lieu : c'est exit 2.
+        out["error"] = (
+            f"memoire insuffisante pendant la mesure ({exc or 'MemoryError'}) — "
+            "corpus trop volumineux pour ce siege : la sonde n'a pas conclu"
+        )
+        out["verdict"] = "INSTRUMENT_ERROR"
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+        else:
+            print(f"[ERROR] {out['error']}")
         return 2
     except (TimeoutError, RuntimeError, FileNotFoundError, OSError, json.JSONDecodeError) as exc:
         out["error"] = str(exc)
