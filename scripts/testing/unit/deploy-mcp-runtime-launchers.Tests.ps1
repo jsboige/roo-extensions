@@ -261,6 +261,112 @@ Describe 'mcp-process-census.ps1 — the BEFORE/AFTER instrument (#4149 F1)' {
     }
 }
 
+Describe 'Resolve-DeployRepoRoot (#4149 — never deploy from a worktree path)' {
+
+    BeforeAll {
+        # Two real directories: the main checkout and a linked worktree.
+        $script:mainDir = Join-Path $tmpRoot 'main-checkout'
+        $script:linkedDir = Join-Path $tmpRoot 'linked-worktree'
+        $script:missingDir = Join-Path $tmpRoot 'announced-but-absent'
+        foreach ($d in $mainDir, $linkedDir) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+
+        # `git worktree list --porcelain` semantics: the MAIN worktree comes
+        # first, then the linked ones, with `HEAD`/`branch` lines between.
+        $script:stubWorktree = Join-Path $tmpRoot 'stub-git-worktree.ps1'
+        Set-Content -LiteralPath $stubWorktree -Value @"
+Write-Output 'worktree $(($mainDir -replace '\\','/'))'
+Write-Output 'HEAD eee8352b0000000000000000000000000000abcd'
+Write-Output 'branch refs/heads/main'
+Write-Output ''
+Write-Output 'worktree $(($linkedDir -replace '\\','/'))'
+Write-Output 'HEAD afd428250000000000000000000000000000abcd'
+Write-Output 'branch refs/heads/wt/4149-deploy-reporoot'
+Write-Output ''
+exit 0
+"@
+
+        # Same shape, but the "main" it announces does not exist on disk.
+        $script:stubAbsent = Join-Path $tmpRoot 'stub-git-absent.ps1'
+        Set-Content -LiteralPath $stubAbsent -Value @"
+Write-Output 'worktree $(($missingDir -replace '\\','/'))'
+exit 0
+"@
+
+        # Not a git repo: a real 'fatal: not a git repository' on stderr, exit 128.
+        $script:stubFail = Join-Path $tmpRoot 'stub-git-fail.ps1'
+        Set-Content -LiteralPath $stubFail -Value @'
+[Console]::Error.WriteLine('fatal: not a git repository (or any of the parent directories): .git')
+exit 128
+'@
+
+        # Git answers something we cannot parse — the guard must not guess.
+        $script:stubGarbage = Join-Path $tmpRoot 'stub-git-garbage.ps1'
+        Set-Content -LiteralPath $stubGarbage -Value @'
+Write-Output 'nothing that looks like a worktree line'
+exit 0
+'@
+    }
+
+    AfterEach { $script:McpRuntimeGitCommand = $null }
+
+    It 'redirects a deploy launched from a linked worktree to the main checkout' {
+        $script:McpRuntimeGitCommand = $stubWorktree
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $mainDir
+    }
+
+    It 'leaves the root alone when the deploy already runs in the main checkout' {
+        $script:McpRuntimeGitCommand = $stubWorktree
+        (Resolve-DeployRepoRoot -RepoRoot $mainDir) | Should -Be $mainDir
+    }
+
+    It 'returns the input unchanged when git answers with a non-zero exit' {
+        # stderr from a failing git must not terminate the deploy either (same
+        # EAP discipline as the npm call, W1) — and must not produce a root.
+        $script:McpRuntimeGitCommand = $stubFail
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Stop'
+        try {
+            (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
+        } finally {
+            $ErrorActionPreference = $prev
+        }
+    }
+
+    It 'returns the input unchanged on unparsable git output' {
+        $script:McpRuntimeGitCommand = $stubGarbage
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
+    }
+
+    It 'refuses to redirect to a main path that does not exist' {
+        $script:McpRuntimeGitCommand = $stubAbsent
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
+    }
+}
+
+Describe 'deploy-claude-mcp-settings.ps1 — root resolution is WIRED (#4149)' {
+
+    BeforeAll {
+        $script:deploy = Get-Content -Raw (Join-Path $repoRoot "scripts/deployment/deploy-claude-mcp-settings.ps1")
+    }
+
+    It 'calls Resolve-DeployRepoRoot on the script-location root' {
+        # Anchored on the real assignment, not on a comment about it.
+        $deploy | Should -Match '\$RepoRoot\s*=\s*Resolve-DeployRepoRoot\s+-RepoRoot\s+\(Get-Item\s+"\$PSScriptRoot'
+    }
+
+    It 'dot-sources the lib BEFORE the root resolution (the function must exist when called)' {
+        $sourcePos = $deploy.IndexOf('mcp-runtime.lib.ps1")')
+        $callPos = $deploy.IndexOf('Resolve-DeployRepoRoot -RepoRoot')
+        $sourcePos | Should -BeGreaterThan -1
+        $callPos | Should -BeGreaterThan -1
+        $sourcePos | Should -BeLessThan $callPos
+    }
+
+    It 'dot-sources the lib exactly once' {
+        ([regex]::Matches($deploy, '\.\s*\(Join-Path \$PSScriptRoot\s+"mcp-runtime\.lib\.ps1"\)')).Count | Should -Be 1
+    }
+}
+
 AfterAll {
     if (Test-Path $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
 }

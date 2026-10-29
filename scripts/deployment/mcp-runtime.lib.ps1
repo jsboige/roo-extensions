@@ -125,3 +125,45 @@ function New-SearxngTakeoverConfig {
     }
     return $Config
 }
+
+# --- Resolve-DeployRepoRoot ---------------------------------------------------
+#
+# A linked worktree is a place of work, not a deployment target. The deploy
+# script derives $RepoRoot from its OWN location, so launching it from
+# `.claude/worktrees/wt-*` writes THAT path into ~/.claude.json. Nothing breaks
+# at that moment — the failure lands later, when the worktree is removed: the
+# roo-state-manager launcher then points at a directory that no longer exists
+# and the seat has no RSM at its next session start, having done nothing worse
+# than cleaning up a worktree (measured po-2027, 2026-10-29: the F1 worktree was
+# purged minutes after a deploy made from it).
+#
+# `git worktree list` always prints the MAIN worktree first, so its path is the
+# deployment root whatever checkout launched us. Every uncertainty (not a git
+# repo, git missing, unparsable output, path that does not exist) returns the
+# input unchanged: this guard may fail to redirect, it must never invent a root.
+
+function Resolve-DeployRepoRoot {
+    param([string]$RepoRoot)
+    if (-not $script:McpRuntimeGitCommand) { $script:McpRuntimeGitCommand = 'git' }
+    # Same EAP discipline as the npm call above (W1): stderr from a native
+    # command is not an error condition, and $LASTEXITCODE is the only judge.
+    $PrevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $First = (& $script:McpRuntimeGitCommand -C $RepoRoot worktree list --porcelain 2>&1 | Select-Object -First 1)
+    } finally {
+        $ErrorActionPreference = $PrevEAP
+    }
+    if ($LASTEXITCODE -ne 0 -or -not $First) { return $RepoRoot }
+    if (([string]$First) -notmatch '^worktree\s+(.+?)\s*$') { return $RepoRoot }
+    $Main = $Matches[1].Trim()
+    if (-not $Main) { return $RepoRoot }
+    # GetFullPath normalises separators and relative segments on every platform
+    # (Windows accepts the forward slashes git prints); no manual '/' -> '\'.
+    $Main = ([System.IO.Path]::GetFullPath($Main)).TrimEnd('\')
+    $Current = ([System.IO.Path]::GetFullPath($RepoRoot)).TrimEnd('\')
+    if ($Main -eq $Current) { return $RepoRoot }
+    if (-not (Test-Path -LiteralPath $Main)) { return $RepoRoot }
+    Write-Host "[MAIN-CHECKOUT] launched from a linked worktree ('$Current') -> deploying from '$Main'" -ForegroundColor Yellow
+    return $Main
+}
