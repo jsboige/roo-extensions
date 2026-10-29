@@ -20,7 +20,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 
 - **Langue :** User = francais. Code/commits/docs = anglais OK. INTERCOM = francais.
 - **Scope workspace :** rester dans SON workspace. Ignorer les dispatchs d'autres workspaces.
-- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09) — `.env`, `docker-compose` ou conteneur d'infra partagee : modifiable uniquement depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Exception urgence** (flotte a l'arret) : agir, puis excuse + explication sur le dashboard proprietaire **dans le meme cycle**. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
+- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09) — `.env`, `docker-compose` ou conteneur d'infra partagee : modifiable uniquement depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Une panne n'est pas une modification** (mandat user 28/10) : du casse se repare **sans GO**, ni du user ni d'une lane, et le proprietaire est prevenu **dans le meme cycle**. Seul un geste a **consequences notables** (destructif, irreversible, coupe un service partage, engage un humain, depense) s'escalade, et cela par les dashboards (`global` + `machine` + `crossPost`), jamais en question bloquante. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
 - **Securite :** jamais de suppression sans preuve de preservation. Pas de secrets dans les commits. Preferer les actions reversibles.
 
 ## Git
@@ -86,6 +86,7 @@ Le registre porte les questions **agent -> user**. Quand **le user** ouvre un ec
 - **`Get-Date -Format u`** : heure LOCALE + suffixe « Z » — PAS une conversion UTC (faux skew cross-clock). UTC : `[DateTimeOffset]::UtcNow` ou `(Get-Date).ToUniversalTime()`.
 - **`[Environment]::TickCount64`** : absente sous PS 5.1 → `$null` silencieux (0 en arithmétique ; a figé une garde Docker, Maintenance#72). Durée : `[Diagnostics.Stopwatch]::StartNew()` ; boot : `(Get-CimInstance Win32_OperatingSystem).LastBootUpTime`. PAS `[Environment]::TickCount` (Int32, négatif après ~24,9 j).
 - **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
+- **Build lourd en VM WSL (`lake build`, `lean`) = scope borne, toujours** (mandat user 29/10 : « je ne veux plus jamais que des builds lean nous fassent perdre une machine pendant toute une journee ») : `wsl -d Ubuntu -u root -- systemd-run --scope -q -p MemoryMax=<borne> -p MemorySwapMax=<borne> --uid=<user> --gid=<user> -- env HOME=/home/<user> bash -lc '...'`, parallelisme bride. Sans borne, `lean` vide toute la VM, le noyau tue les jobs CI a sa place, et Docker Desktop perd son reseau : machine perdue (po-2024, 4 reboots le 28/10). `free` ne temoigne pas d'un OOM par swap, le journal noyau tranche. [Detail](../../docs/harness/global-rules-detail.md#build-lourd-en-vm-wsl--scope-borne)
 
 ## MCP Tools
 

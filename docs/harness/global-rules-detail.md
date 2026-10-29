@@ -312,7 +312,13 @@ Un hôte MCP (process VS Code / session Claude Code longue durée) charge `build
 
 1. Un `.env`, un `docker-compose` ou un conteneur d'**infra partagée** ne se modifie que depuis le **workspace qui le porte**.
 2. Une autre lane **demande** sur le dashboard du propriétaire. Elle ne fait pas le geste elle-même, même quand il paraît évident.
-3. **Exception urgence** (flotte à l'arrêt, tours perdus) : on agit, puis on poste **un message d'excuse et d'explication sur le dashboard du workspace propriétaire, dans le même cycle**.
+3. **Une panne n'est pas une modification** : on la répare, puis on prévient **le dashboard du workspace propriétaire, dans le même cycle**.
+
+**Mandat user (28/10/2026), verbatim** (relayé par Maintenance sur le dashboard `global`, 28/10 20:54Z) : « vous n'avez pas à me demander mon Go pour réparer quelque chose de cassé, pas plus que pour empêcher une machine de mourir d'étouffement comme vous en avez déjà eu le mandat. On ne regarde pas le Titanic foncer dans l'iceberg, on est proactif. L'exception, c'est un geste qui a des conséquences notables que je dois connaître, et qui doit dans ce cas demander une escalade auprès des autres dashboards pour que le message me parvienne. »
+
+- **Cassé, ou récidive connue → réparation immédiate**, avec des logs, sans attendre ni le user ni la lane propriétaire. Ce mandat remplace l'« exception urgence » du 23/09, plus étroite (elle exigeait une flotte à l'arrêt).
+- **Seule exception : un geste à conséquences notables** (destructif, irréversible, coupe un service partagé, engage un humain, dépense). Celui-là garde son escalade, par les dashboards (`global` + `machine` + `crossPost`) pour que le message parvienne au user. Ce n'est jamais une question bloquante : on répare ce qui peut l'être, et l'arbitrage arrive avec le rapport.
+- **La règle 1-2 reste vraie pour une modification** (changer une forme voulue, un réglage, une cascade) ; elle ne couvre pas une panne.
 
 ### Pourquoi
 
@@ -471,6 +477,38 @@ La règle du 08/10 supposait **deux instances** (deux fenêtres) d'une même lan
 **(Déplacé depuis `rules/uac-dryrun-discipline.md`, coupe A-suite #445, 17/10/2026 — les règles 1-3 + 2a restent dans le fichier de règle.)**
 
 **Cas fondateur 2026-10-07 (myia-po-2025, #1171).** `Register-ScheduledTask` pour `Docker-Auto-Start` : la cible `install-docker-autostart.ps1` avait été dry-runnée par assemblage `New-ScheduledTask*` (objet complet, sans écrire) et était saine — mais le **lanceur** écrit pour l'occasion portait `-Encoding utf8NoBOM`, PS7 seulement. Le run élevé a produit 4 erreurs `ValidateSet` sur `Out-File`, zéro installation, fenêtre user consommée. Réécrit en 5.1-safe, puis **rejoué entier en non-élevé** : il est allé jusqu'à `Accès refusé` sur `Register-ScheduledTask` seul — c'est ce run qui manquait. Relancé élevé -> `State=Ready`. La vérification suivante a rendu « tâche absente », refusé après contrôle : `Test-Path` et `schtasks /query` rendent `Accès refusé` (règle 3), la tâche existe bien.
+
+---
+
+## Build lourd en VM WSL — scope borne
+
+**Mandat user du 29/10 (~00:45, session po-2024:CoursIA, verbatim) :** « Bon ça sera à remonter bien haut dans les gardes de toute la flotte, je ne veux plus jamais que des builds lean nous fassent perdre une machine pendant toute une journée. »
+
+**Incident fondateur (po-2024, 28/10, diagnostic mesuré par myia-po-2024:Maintenance dans le journal noyau Ubuntu) :**
+- **Le build sans borne** : `lake build` du projet `conway_lean`, lancé par `wsl.exe -e bash -lc '… lake build'`. Au dump OOM de 18:34, 5 processus `lean` (dans `/init.scope`) occupaient 21 Go RSS + 31,3 Go de swap, c'est-à-dire la VM entière (24 Go RAM + 32 Go swap, `Free swap = 0kB`).
+- **Le noyau a tué les mauvais processus.** Les jobs GitHub Actions portent `oom_score_adj=500` : il a tué des `python`/`bash` CI de 0,1 à 70 Mo. `lean` (adj 0) a survécu, et la VM est restée en OOM permanent.
+- **Docker Desktop est tombé avec.** Il partage le noyau : ses allocations ont échoué (`page allocation failure`, pile 9p), le moteur a perdu son réseau, puis le hub et toutes les lanes de la machine sont morts.
+- **Seul un reboot libérait la mémoire** : 4 reboots en 24 h. Aucune relance Docker ne pouvait réussir, puisque `wsl-bootstrap` lui-même déclenchait l'OOM.
+
+**Recette testée** (po-2024:Maintenance, 28/10) :
+
+```bash
+wsl -d Ubuntu -u root -- systemd-run --scope -q -p MemoryMax=12G -p MemorySwapMax=4G \
+  --uid=<user> --gid=<user> -- env HOME=/home/<user> bash -lc 'cd <projet> && lake build'
+```
+
+- **Débordement :** il tue le build dans son scope, jamais la VM.
+- **Les bornes** s'adaptent au siège : 12G/4G est la valeur de po-2024.
+- **Le parallélisme** est bridé (nombre de jobs `lake`, `taskset`) et les reprises sont plafonnées. Un SIGTERM signifie une borne atteinte, pas une panne à relancer en boucle.
+- **Les sources sous ext4** plutôt que lues via 9p (fichiers côté Windows) : moins d'allocations noyau.
+
+**Filet côté Maintenance**, posé sur po-2024 et à répliquer sur les sièges WSL qui compilent du Lean :
+- `earlyoom` avec `--prefer ^lean$` ;
+- `lean-oom-bias.service`, qui met `oom_score_adj=1000` sur chaque `lean`.
+
+Ces deux gardes visent `lean` en premier, mais ne remplacent pas le scope borné. Rollback : `systemctl disable --now earlyoom lean-oom-bias`.
+
+**Mesurer, pas supposer :** `free` ne témoigne pas d'un OOM par swap. Le journal noyau tranche (`journalctl -k`, dumps `Out of memory`).
 
 ---
 
