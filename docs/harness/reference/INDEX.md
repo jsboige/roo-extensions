@@ -57,6 +57,7 @@
 |----------|-----------|--------|
 | **Test Success Rates** | 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. Tronquer output scheduler. | `test-success-rates.md` |
 | **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet (v2.0 — v1.0 archivée) | `worktree-cleanup.md` |
+| **g6 — borne de passe d'indexation (#4352)** | La borne est **dérivée du paceur** (`Δcalled × 60 000 / EMBEDDING_OPS_PER_MINUTE × 1,5`), pas une horloge plate : la « passe de 10 min » mesurait 109 requêtes × 6 s, c.-à-d. le débit décidé. Vivacité du tick jugée séparément (EMB-METRICS tombe pendant la passe). Instrument `scripts/diagnostic/g6-pass-bound.py` (fail-closed : fenêtre non fermée / reset de compteur = exit 2) | `g6-pass-bound.md` |
 | **MCP stdio zombie cleanup** | Kill node/cmd zombies spawnés via `npx` qui ont survécu à leur hôte VS Code (#2675 — fenêtres fantômes + worktrees lockés). Dry-run default, protect live host ancestors (Code.exe + claude.exe). `scripts/maintenance/cleanup-mcp-stdio-zombies.ps1` + `install-mcp-zombie-cleanup-schtask.ps1` (daily 03:15). ⚠️ Install schtask **deferred on GO user** — ancestry walk is a no-op on broken-chain spawn patterns (residual risk, see #2676 c.N+14 thread); structural follow-up (config-derived whitelist F1+F2 / Job Object wrapper) gated post-slowdown. | — |
 
 ## Coordination & Scheduler
