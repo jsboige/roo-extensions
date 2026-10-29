@@ -77,6 +77,38 @@ Describe 'backup-lane-essentials.ps1 seat-resolved defaults' {
         $r.Output | Should -Match 'from 2 files'
     }
 
+    It 'prefers the exact path-derived dir over a same-suffix foreign one' {
+        # Two dirs end in the lane leaf: the exact derived spelling (this
+        # workspace's own) and a foreign same-leaf one. The exact one must win
+        # even though both suffix-match (ai-01 review of #4415, note 2) —
+        # observed through the staged file count, which differs by fixture.
+        $seat = New-FakeSeat 'seatB2' @('x--elsewhere-roo-extensions')
+        $exact = Join-Path $seat.Projects ($RepoRoot.ToLower() -replace '[^a-z0-9]', '-')
+        New-Item -ItemType Directory -Force (Join-Path $exact 'memory') | Out-Null
+        'only-file' | Set-Content (Join-Path $exact 'memory\MEMORY.md') -Encoding ascii
+        'extra' | Set-Content (Join-Path $seat.Projects 'x--elsewhere-roo-extensions\memory\extra.md') -Encoding ascii
+        $r = Invoke-Backup -Env @{ ROOSYNC_SHARED_PATH = $Shared; USERPROFILE = $seat.Home; ROOSYNC_MACHINE_ID = 'm' } -ArgList $BaseArgs
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        # exact dir: 1 memory file + rsm .env = 2. Foreign dir would stage 3.
+        $r.Output | Should -Match 'from 2 files'
+        $r.Output | Should -Not -Match 'from 3 files'
+    }
+
+    It 'resolves the exact derived dir when the suffix pattern cannot match it' {
+        # Workspace leaf with a dot: Claude normalizes it to '-' in the project
+        # dir name, so the derived dir (...-my-repo) never suffix-matches
+        # '*my.repo'. Exact-first resolves it; suffix-only discovery (the first
+        # cut of this PR) exited 1 "no memory dir found" on this seat shape.
+        $repoWithDot = Join-Path $Tmp 'my.repo'
+        $seat = New-FakeSeat 'seatB3' @()
+        $exact = Join-Path $seat.Projects ($repoWithDot.ToLower() -replace '[^a-z0-9]', '-')
+        New-Item -ItemType Directory -Force (Join-Path $exact 'memory') | Out-Null
+        'only-file' | Set-Content (Join-Path $exact 'memory\MEMORY.md') -Encoding ascii
+        $r = Invoke-Backup -Env @{ ROOSYNC_SHARED_PATH = $Shared; USERPROFILE = $seat.Home; ROOSYNC_MACHINE_ID = 'm' } -ArgList @('-WhatIf', '-RepoRoot', $repoWithDot, '-RsmEnvFile', $Seat.EnvFile)
+        $r.ExitCode | Should -Be 0 -Because $r.Output
+        $r.Output | Should -Match 'from 2 files'
+    }
+
     It 'fails loud when no memory dir matches, naming the override' {
         $seat = New-FakeSeat 'seatC' @('unrelated-project')
         $r = Invoke-Backup -Env @{ ROOSYNC_SHARED_PATH = $Shared; USERPROFILE = $seat.Home; ROOSYNC_MACHINE_ID = 'm' } -ArgList $BaseArgs

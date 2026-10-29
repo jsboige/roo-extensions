@@ -12,6 +12,12 @@
 # "memory dir missing" on every other seat (measured on web2, 28/10).
 # Nothing is guessed: an unresolvable path fails loud and names the override.
 #
+# The lane key <machine>-<checkout basename> is the repo's lane identity
+# (#4114, one instance per lane per machine): two seats cannot collide. Two
+# CHECKOUTS of the same workspace on one machine WOULD share daily/ and rotate
+# each other's archives - deliberate (one lane per machine); separate them
+# with -LaneLabel/-TargetRoot if a seat ever runs two. (ai-01 review #4415)
+#
 # Output: timestamped zip + sha256 fingerprints, bounded rotation, fail-loud guards.
 # Never prints file contents (secrets) - only names, sizes and hashes.
 #
@@ -57,12 +63,21 @@ $stamp = (Get-Date).ToUniversalTime().ToString('yyyyMMdd-HHmmss')
 function Resolve-LaneMemoryDir([string]$RepoRoot) {
     # Claude Code names the per-workspace project dir after the workspace path
     # (C:\dev\roo-extensions -> c--dev-roo-extensions), but that naming is an
-    # internal convention: DISCOVER the dir instead of re-deriving it, so a
-    # different drive letter or spelling on another seat cannot silently miss.
-    # Ambiguity is refused, never resolved by guess.
+    # internal convention. Resolution order (ai-01 review of #4415, note 2):
+    #   1. EXACT path-derived spelling first - when that form exists it IS this
+    #      workspace's dir, so a same-leaf dir belonging to another checkout can
+    #      never be picked silently over it;
+    #   2. suffix DISCOVERY as fallback (a renamed project dir the naming
+    #      convention missed must not silently miss);
+    #   3. ambiguity is refused, never resolved by guess.
     $projects = Join-Path $env:USERPROFILE '.claude\projects'
     $leaf = Split-Path -Leaf $RepoRoot
     if (-not (Test-Path $projects)) { Write-Output "[FAIL] no projects dir: $projects"; exit 1 }
+    $derived = $RepoRoot.ToLower() -replace '[^a-z0-9]', '-'
+    $exactPath = Join-Path $projects $derived
+    if ((Test-Path $exactPath) -and (Test-Path (Join-Path $exactPath 'memory'))) {
+        return (Join-Path $exactPath 'memory')
+    }
     $candidates = @(Get-ChildItem $projects -Directory -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -like "*$leaf" -and (Test-Path (Join-Path $_.FullName 'memory')) })
     if ($candidates.Count -eq 1) { return (Join-Path $candidates[0].FullName 'memory') }
@@ -70,10 +85,6 @@ function Resolve-LaneMemoryDir([string]$RepoRoot) {
         Write-Output "[FAIL] no memory dir found under $projects for lane '$leaf' - pass -MemoryDir"
         exit 1
     }
-    # Several candidates: prefer the one matching this workspace path spelling.
-    $derived = $RepoRoot.ToLower() -replace '[^a-z0-9]', '-'
-    $exact = @($candidates | Where-Object { $_.Name -eq $derived })
-    if ($exact.Count -eq 1) { return (Join-Path $exact[0].FullName 'memory') }
     Write-Output "[FAIL] ambiguous memory dir for lane '$leaf' - pass -MemoryDir. Candidates:"
     $candidates | ForEach-Object { Write-Output "       $($_.FullName)" }
     exit 1

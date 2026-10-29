@@ -111,9 +111,11 @@ on:
       - 'scripts/claude/run-eval-harness.ps1'
       - 'scripts/claude/eval-harness-verdicts.ps1'
       - 'scripts/claude/eval-harness-verdicts.Tests.ps1'
-      # lane-backup-defaults: backup-lane-essentials.Tests.ps1 pins the
+      # lane-backup-defaults (#4415): backup-lane-essentials.Tests.ps1 pins the
       # seat-resolved defaults of a script whose first version hardcoded
-      # po-2027's paths in its param defaults and died on every other seat.
+      # po-2027's paths in its param defaults and died on every other seat. The
+      # suite runs in marshall-scripts-pester (windows-latest) — its children
+      # are powershell.exe 5.1, absent from the ubuntu unit-pester runner.
       - 'scripts/claude/backup-lane-essentials.ps1'
       - 'scripts/claude/backup-lane-essentials.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
@@ -695,6 +697,14 @@ jobs:
       - name: Run harden-hidden-tasks suite (vllm incident 26/10)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/harden-hidden-tasks.Tests.ps1 -CI
+      # #4415: the backup-lane-essentials suite runs the REAL script as a
+      # powershell.exe 5.1 child on fixture seats (fleet floor, shell-fallback.md).
+      # The trigger paths alone re-ran unit-pester on the file — a job whose
+      # ubuntu runner never executes it (CHANGES point, ai-01 review of #4415);
+      # this step is where the suite actually runs.
+      - name: Run backup-lane-essentials suite (#4415)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/claude/backup-lane-essentials.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
