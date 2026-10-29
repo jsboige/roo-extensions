@@ -42,7 +42,22 @@ function Resolve-McpRuntimeEntry {
         } else {
             if ($Installed) { Write-Host "[RUNTIME] $($Spec.Package) $Installed -> $($Spec.Version) (upgrade)" -ForegroundColor Yellow }
             else { Write-Host "[RUNTIME] Installing $($Spec.Package)@$($Spec.Version) into $Dir" -ForegroundColor Cyan }
-            & npm install --prefix $Dir "$($Spec.Package)@$($Spec.Version)" 2>&1 | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+            # W1 (#4411 review): under the EAP=Stop inherited from the deploy
+            # script, PS 5.1 turns the FIRST stderr line merged by 2>&1 into a
+            # terminating RemoteException — and npm routinely warns on stderr
+            # (funding, deprecation, network). EAP is lowered ONLY around the
+            # call; $LASTEXITCODE stays the sole judge of success. The command
+            # is a script-scoped seam (defaults to npm) so the suite can drive
+            # the real EAP path against a stub that writes stderr with exit 0.
+            if (-not $script:McpRuntimeNpmCommand) { $script:McpRuntimeNpmCommand = 'npm' }
+            $PrevEAP = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                & $script:McpRuntimeNpmCommand install --prefix $Dir "$($Spec.Package)@$($Spec.Version)" 2>&1 |
+                    ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+            } finally {
+                $ErrorActionPreference = $PrevEAP
+            }
             if ($LASTEXITCODE -ne 0) {
                 throw "npm install failed for $($Spec.Package)@$($Spec.Version) (exit $LASTEXITCODE)"
             }
@@ -96,9 +111,13 @@ function New-SearxngTakeoverConfig {
     )
     $Config = @{ command = 'node'; args = @($EntryPath) }
     if ($ExistingEntry) {
-        foreach ($Field in 'env', 'alwaysAllow', 'disabled') {
-            if ($ExistingEntry.PSObject.Properties[$Field]) {
-                $Config[$Field] = $ExistingEntry.$Field
+        # Copy EVERY live field except the launcher pair (command/args) — not a
+        # fixed whitelist: this takeover pattern is the template for RSM (F2),
+        # where per-seat fields the list didn't name (type, timeout, ...) must
+        # survive too (#4411 review, non-blocking note).
+        foreach ($Prop in $ExistingEntry.PSObject.Properties) {
+            if ($Prop.Name -notin 'command', 'args') {
+                $Config[$Prop.Name] = $Prop.Value
             }
         }
     } else {

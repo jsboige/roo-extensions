@@ -14,7 +14,7 @@
 # Issue: #569, #597 - Claude Code MCP scopes
 #        #4149 F1 — playwright + searxng installed once per seat under
 #        ~/.claude/mcp-runtimes and launched `node <entry>` directly (no npx
-#        chain: 4 processes/session -> 1). Logic in lib\mcp-runtime.ps1.
+#        chain: 4 processes/session -> 1). Logic in mcp-runtime.lib.ps1.
 
 param(
     [string]$MachineId = $env:COMPUTERNAME.ToLower(),

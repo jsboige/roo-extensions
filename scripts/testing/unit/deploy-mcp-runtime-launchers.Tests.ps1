@@ -1,4 +1,4 @@
-# Tests unitaires pour scripts/deployment/mcp-runtime.lib.ps1 (#4149 F1)
+﻿# Tests unitaires pour scripts/deployment/mcp-runtime.lib.ps1 (#4149 F1)
 # Launcher flattening : installation per-seat + lancement `node <entry>` direct
 # (chaine npx = 4 processus/session -> 1), reprise en charge de searxng avec
 # preservation verbatim des champs per-seat (env avec auth, alwaysAllow,
@@ -124,6 +124,66 @@ Describe 'New-SearxngTakeoverConfig (#4149 F1)' {
         $config = New-SearxngTakeoverConfig -EntryPath 'X:\e.js' -ExistingEntry $existing
         $config.Keys | Should -Not -Contain 'env'
     }
+
+    It 'preserves every NON-launcher field (type, timeout — the RSM-template note, #4411 review)' {
+        $existing = @{ command = 'npx'; args = @('-y', 'x'); type = 'stdio'; timeout = 900000 } |
+            ConvertTo-Json | ConvertFrom-Json
+        $config = New-SearxngTakeoverConfig -EntryPath 'X:\e.js' -ExistingEntry $existing
+        $config.command | Should -Be 'node'
+        $config.args | Should -Be @('X:\e.js')
+        $config.type | Should -Be 'stdio'
+        $config.timeout | Should -Be 900000
+    }
+}
+
+Describe 'Resolve-McpRuntimeEntry — npm stderr under EAP=Stop (W1, #4411 review)' {
+
+    BeforeAll {
+        # Stub npm #1: routine stderr (both the native-style console path and
+        # the ErrorRecord path) + stdout, exit 0 — npm's everyday "warn"
+        # behaviour. Deliberately NOT self-protecting with -ErrorAction
+        # Continue: with the W1 fix absent, the child inherits EAP=Stop and
+        # the Write-Error terminates — this test must fall with it.
+        $script:stubOk = Join-Path $tmpRoot 'stub-npm-ok.ps1'
+        Set-Content -LiteralPath $stubOk -Value @'
+[Console]::Error.WriteLine('stub npm warn: native-style stderr line')
+Write-Error 'stub npm warn: ErrorRecord stderr line'
+Write-Output 'stub npm stdout line'
+exit 0
+'@
+        # Stub npm #2: stderr + non-zero exit — $LASTEXITCODE must be the judge.
+        $script:stubFail = Join-Path $tmpRoot 'stub-npm-fail.ps1'
+        Set-Content -LiteralPath $stubFail -Value @'
+[Console]::Error.WriteLine('stub npm failing stderr line')
+exit 3
+'@
+    }
+
+    AfterEach {
+        $script:McpRuntimeNpmCommand = $null
+    }
+
+    It 'survives routine npm stderr with exit 0 under EAP=Stop (PS 5.1 RemoteException regression guard)' {
+        New-RuntimeFixture -Name 'w1ok' -Package 'w1-pkg' -Version '0.9.0' -BinJson 'old.js' -BinFile 'old.js'
+        $spec = @{ Name = 'w1ok'; Package = 'w1-pkg'; Version = '1.0.0' }   # mismatch -> install path
+        $script:McpRuntimeNpmCommand = $stubOk
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Stop'
+        try {
+            $entry = Resolve-McpRuntimeEntry -Root $tmpRoot -Spec $spec
+            # The stub installs nothing: the OLD manifest+bin stay and resolve.
+            $entry | Should -Be (Join-Path $tmpRoot "w1ok\node_modules\w1-pkg\old.js")
+        } finally {
+            $ErrorActionPreference = $prev
+        }
+    }
+
+    It 'throws when npm exits non-zero ($LASTEXITCODE is the sole judge)' {
+        New-RuntimeFixture -Name 'w1fail' -Package 'w1f-pkg' -Version '0.9.0' -BinJson 'old.js' -BinFile 'old.js'
+        $spec = @{ Name = 'w1fail'; Package = 'w1f-pkg'; Version = '1.0.0' }
+        $script:McpRuntimeNpmCommand = $stubFail
+        { Resolve-McpRuntimeEntry -Root $tmpRoot -Spec $spec } | Should -Throw 'npm install failed*'
+    }
 }
 
 Describe 'deploy-claude-mcp-settings.ps1 — structural (#4149 F1)' {
@@ -136,8 +196,10 @@ Describe 'deploy-claude-mcp-settings.ps1 — structural (#4149 F1)' {
         $deploy | Should -Not -Match 'command\s*=\s*"npx"'
     }
 
-    It 'dot-sources the runtime lib and builds searxng through the takeover helper' {
-        $deploy | Should -Match 'lib\\mcp-runtime\.ps1'
+    It 'dot-sources the runtime lib (the REAL line, not a header comment — W2)' {
+        # W2 (#4411 review): the previous assertion matched the header comment,
+        # which names a file that does not exist. Anchor on the dot-source call.
+        $deploy | Should -Match '\.\s*\(Join-Path \$PSScriptRoot\s+"mcp-runtime\.lib\.ps1"\)'
         $deploy | Should -Match 'New-SearxngTakeoverConfig'
         $deploy | Should -Match 'ExistingSearxng'
     }
