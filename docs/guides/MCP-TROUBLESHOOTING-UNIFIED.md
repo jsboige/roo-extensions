@@ -129,7 +129,16 @@ foreach ($mcp in @("roo-state-manager", "jinavigator-server")) {
     $target = Get-McpEntry -ServerDir $serverDir
 
     if (-not $target) {
-        Write-Host "$mcp : MANQUANT - aucune version publiee (marqueur build-current absent) - compilation requise" -ForegroundColor Red
+        # DISTINGUER « marqueur publie absent » de « aucune entree servie » : sur un siege
+        # plus ancien, le wrapper peut encore servir le legacy gele `build/index.js`. Dire
+        # « MANQUANT » y serait un faux negatif de diagnostic (review #4431).
+        $markerPresent = Test-Path (Join-Path $serverDir "build-current")
+        $legacyEntry = Join-Path $serverDir "build/index.js"
+        if (-not $markerPresent -and (Test-Path $legacyEntry)) {
+            Write-Host "$mcp : MILLESIME PUBLIE ABSENT (marqueur build-current absent) - le wrapper peut encore servir le legacy gele $legacyEntry ; build/ est gele et n'est PAS l'entree publiee : recompiler puis publier un millesime" -ForegroundColor Yellow
+        } else {
+            Write-Host "$mcp : MANQUANT - aucune version publiee (marqueur build-current absent) - compilation requise" -ForegroundColor Red
+        }
         Set-Location $serverDir
         npm install
         npm run build

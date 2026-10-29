@@ -535,8 +535,16 @@ function Invoke-McpDiagnostic {
                 Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
             }
         } else {
-            $issues += "Aucune version publiee pour $mcp (marqueur build-current absent)"
-            Write-Host "❌ $mcp : MANQUANT (aucune version publiee)" -ForegroundColor Red
+            # « Marqueur publie absent » n'implique pas « aucune entree servie » : sur un siege
+            # plus ancien le wrapper peut encore servir le legacy gele `build/index.js`.
+            $legacyEntry = Join-Path $serverDir "build/index.js"
+            if (-not (Test-Path $marker) -and (Test-Path $legacyEntry)) {
+                $issues += "Millesime publie absent pour $mcp (marqueur build-current absent) : le wrapper peut encore servir le legacy gele build/index.js - rebuild puis publication requises"
+                Write-Host "⚠️ $mcp : MILLESIME PUBLIE ABSENT - legacy gele possiblement encore servi ($legacyEntry)" -ForegroundColor Yellow
+            } else {
+                $issues += "Aucune version publiee pour $mcp (marqueur build-current absent)"
+                Write-Host "❌ $mcp : MANQUANT (aucune version publiee)" -ForegroundColor Red
+            }
         }
     }
     
