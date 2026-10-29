@@ -110,7 +110,15 @@ Describe 'deploy-claude-mcp-settings: win-cli hors du jeu gere (arbitrage 29/10 
         $table | Should -Not -Match '"win-cli"'
     }
 
-    It 'EXECUTION sur seat factice sans win-cli : le JSON ecrit n en gagne aucune (preuve demandee)' {
+    # Les deux tests EXECUTOIRES tournent le VRAI script : cible Windows par
+    # conception (chemins "$RepoRoot\mcps\..." en backslashes literals +
+    # $env:USERPROFILE) — sur le runner Linux du job unit-pester la garde
+    # Test-Path du script ne resout pas et l'execution n'a pas de sens. La
+    # preuve executoire vit sur les sieges Windows (locale + marshall-scripts-
+    # pester) ; les invariants textuels (tests 1-2) couvrent la jambe Linux.
+    $onWindows = ($env:OS -eq 'Windows_NT')   # robuste PS 5.1 ET pwsh 7
+
+    It 'EXECUTION sur seat factice sans win-cli : le JSON ecrit n en gagne aucune (preuve demandee)' -Skip:(-not $onWindows) {
         $seat = New-SeatFixture -Root $tmpRoot -InitialServers @{ 'sk-agent' = @{ command = 'node'; args = @('stub') } }
         Install-RuntimesForSeat -SeatHome $seat
         Invoke-DeployOnSeat -SeatHome $seat
@@ -125,7 +133,7 @@ Describe 'deploy-claude-mcp-settings: win-cli hors du jeu gere (arbitrage 29/10 
         ($written.mcpServers.PSObject.Properties | Measure-Object).Count | Should -Be 4
     }
 
-    It 'EXECUTION sur seat factice PORTANT un win-cli legacy : l entree survive (le merge ne purge pas le non-gere)' {
+    It 'EXECUTION sur seat factice PORTANT un win-cli legacy : l entree survive (le merge ne purge pas le non-gere)' -Skip:(-not $onWindows) {
         # Comportement attenant documente dans le commentaire du script : le
         # retrait du jeu gere ne retire pas l entree des sieges qui la portent
         # deja — c est le recensement F1 qui les liste. Ce test fixe ce contrat.
