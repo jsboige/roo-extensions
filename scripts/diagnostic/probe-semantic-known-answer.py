@@ -1769,15 +1769,23 @@ def selftest() -> int:
                 return "# Erreur d'indexation\n\n**Tâche:** claude-x--u1\n**Erreur:** boom index"
             return super().call_tool(name, args, timeout_s)
 
-    try:
-        phase_index(FailFakeChild(), None, {})
-        failures.append("phase_index: un echec d'indexation n'a pas leve")
-    except RuntimeError as exc:
-        if "essais:" not in str(exc):
-            failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
-        # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
-        if "boom index" not in str(exc):
-            failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
+    # Corpus explicite : sur un runner CI (ou tout siege vierge), le defaut
+    # LOCAL_CORPUS_DEFAULT (~/.claude/projects) n'existe pas et corpus_files
+    # leverait AVANT la boucle — l'echec d'essai teste ici ne serait jamais
+    # atteint. Le selftest restait vert sur les sieges pourvus d'un corpus et
+    # rouge ailleurs : dependance au siege revelee par le branchage CI du 29/10.
+    with tempfile.TemporaryDirectory() as td_fail:
+        fail_root = Path(td_fail)
+        (fail_root / "session.jsonl").write_text("{}", encoding="utf-8")
+        try:
+            phase_index(FailFakeChild(), None, {}, fail_root)
+            failures.append("phase_index: un echec d'indexation n'a pas leve")
+        except RuntimeError as exc:
+            if "essais:" not in str(exc):
+                failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
+            # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
+            if "boom index" not in str(exc):
+                failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
 
     # InstrumentLimit = ABORT GLOBAL, pas un echec d'essai (mandat ai-01 29/10,
     # #4352). Une borne de lecture (fichier/ligne hors plafond) decrit le CORPUS,
