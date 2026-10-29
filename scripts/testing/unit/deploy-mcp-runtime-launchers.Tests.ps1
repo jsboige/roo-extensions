@@ -264,81 +264,55 @@ Describe 'mcp-process-census.ps1 — the BEFORE/AFTER instrument (#4149 F1)' {
 Describe 'Resolve-DeployRepoRoot (#4149 — never deploy from a worktree path)' {
 
     BeforeAll {
-        # Two real directories: the main checkout and a linked worktree.
-        $script:mainDir = Join-Path $tmpRoot 'main-checkout'
+        # REAL git, REAL linked worktree. The first version of this suite used
+        # a stub .ps1 as the git command: a .ps1 is not an executable on the
+        # Linux CI runner, so git never ran there — the redirect test failed
+        # on CI while two negative tests passed for the WRONG reason (they
+        # "passed" because the function had returned its input unexamined).
+        # The instrument now exercises the real command on both platforms.
+        $script:repoDir = Join-Path $tmpRoot 'repo'
         $script:linkedDir = Join-Path $tmpRoot 'linked-worktree'
-        $script:missingDir = Join-Path $tmpRoot 'announced-but-absent'
-        foreach ($d in $mainDir, $linkedDir) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
+        $script:plainDir = Join-Path $tmpRoot 'not-a-repo'
 
-        # `git worktree list --porcelain` semantics: the MAIN worktree comes
-        # first, then the linked ones, with `HEAD`/`branch` lines between.
-        $script:stubWorktree = Join-Path $tmpRoot 'stub-git-worktree.ps1'
-        Set-Content -LiteralPath $stubWorktree -Value @"
-Write-Output 'worktree $(($mainDir -replace '\\','/'))'
-Write-Output 'HEAD eee8352b0000000000000000000000000000abcd'
-Write-Output 'branch refs/heads/main'
-Write-Output ''
-Write-Output 'worktree $(($linkedDir -replace '\\','/'))'
-Write-Output 'HEAD afd428250000000000000000000000000000abcd'
-Write-Output 'branch refs/heads/wt/4149-deploy-reporoot'
-Write-Output ''
-exit 0
-"@
-
-        # Same shape, but the "main" it announces does not exist on disk.
-        $script:stubAbsent = Join-Path $tmpRoot 'stub-git-absent.ps1'
-        Set-Content -LiteralPath $stubAbsent -Value @"
-Write-Output 'worktree $(($missingDir -replace '\\','/'))'
-exit 0
-"@
-
-        # Not a git repo: a real 'fatal: not a git repository' on stderr, exit 128.
-        $script:stubFail = Join-Path $tmpRoot 'stub-git-fail.ps1'
-        Set-Content -LiteralPath $stubFail -Value @'
-[Console]::Error.WriteLine('fatal: not a git repository (or any of the parent directories): .git')
-exit 128
-'@
-
-        # Git answers something we cannot parse — the guard must not guess.
-        $script:stubGarbage = Join-Path $tmpRoot 'stub-git-garbage.ps1'
-        Set-Content -LiteralPath $stubGarbage -Value @'
-Write-Output 'nothing that looks like a worktree line'
-exit 0
-'@
+        New-Item -ItemType Directory -Path $repoDir -Force | Out-Null
+        & git -C $repoDir init -q 2>&1 | Out-Null
+        & git -C $repoDir -c user.email=test@example.invalid -c user.name=test `
+            commit -q --allow-empty -m init 2>&1 | Out-Null
+        # `git worktree add` wants a path that does not exist yet.
+        & git -C $repoDir worktree add -q $linkedDir -b wt/linked 2>&1 | Out-Null
+        New-Item -ItemType Directory -Path $plainDir -Force | Out-Null
     }
 
-    AfterEach { $script:McpRuntimeGitCommand = $null }
+    AfterEach {
+        $script:McpRuntimeGitCommand = $null
+        $script:McpRuntimeGitArgs = $null
+    }
 
     It 'redirects a deploy launched from a linked worktree to the main checkout' {
-        $script:McpRuntimeGitCommand = $stubWorktree
-        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $mainDir
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $repoDir
     }
 
     It 'leaves the root alone when the deploy already runs in the main checkout' {
-        $script:McpRuntimeGitCommand = $stubWorktree
-        (Resolve-DeployRepoRoot -RepoRoot $mainDir) | Should -Be $mainDir
+        (Resolve-DeployRepoRoot -RepoRoot $repoDir) | Should -Be $repoDir
     }
 
     It 'returns the input unchanged when git answers with a non-zero exit' {
-        # stderr from a failing git must not terminate the deploy either (same
-        # EAP discipline as the npm call, W1) — and must not produce a root.
-        $script:McpRuntimeGitCommand = $stubFail
+        # A real 'fatal: not a git repository' on stderr, exit 128 — it must not
+        # terminate the deploy (same EAP discipline as the npm call, W1) and it
+        # must not produce a root.
         $prev = $ErrorActionPreference
         $ErrorActionPreference = 'Stop'
         try {
-            (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
+            (Resolve-DeployRepoRoot -RepoRoot $plainDir) | Should -Be $plainDir
         } finally {
             $ErrorActionPreference = $prev
         }
     }
 
-    It 'returns the input unchanged on unparsable git output' {
-        $script:McpRuntimeGitCommand = $stubGarbage
-        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
-    }
-
-    It 'refuses to redirect to a main path that does not exist' {
-        $script:McpRuntimeGitCommand = $stubAbsent
+    It 'returns the input unchanged on git output it cannot parse' {
+        # Real git, real output, wrong shape: `git --version` answers on stdout
+        # with exit 0 and no worktree line — the guard must not guess.
+        $script:McpRuntimeGitArgs = @('--version')
         (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
     }
 }

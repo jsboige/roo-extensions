@@ -147,14 +147,21 @@ function Resolve-DeployRepoRoot {
     if (-not $script:McpRuntimeGitCommand) { $script:McpRuntimeGitCommand = 'git' }
     # Same EAP discipline as the npm call above (W1): stderr from a native
     # command is not an error condition, and $LASTEXITCODE is the only judge.
+    # The whole output is captured BEFORE the first line is read: piping into
+    # Select-Object -First 1 would stop the native command early and leave
+    # $LASTEXITCODE stale — the previous command's exit code.
+    $GitArgs = @('-C', $RepoRoot, 'worktree', 'list', '--porcelain')
+    if ($script:McpRuntimeGitArgs) { $GitArgs = @($script:McpRuntimeGitArgs) }
     $PrevEAP = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $First = (& $script:McpRuntimeGitCommand -C $RepoRoot worktree list --porcelain 2>&1 | Select-Object -First 1)
+        $Out = & $script:McpRuntimeGitCommand @GitArgs 2>&1
+        $Code = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $PrevEAP
     }
-    if ($LASTEXITCODE -ne 0 -or -not $First) { return $RepoRoot }
+    $First = @($Out) | Select-Object -First 1
+    if ($Code -ne 0 -or -not $First) { return $RepoRoot }
     if (([string]$First) -notmatch '^worktree\s+(.+?)\s*$') { return $RepoRoot }
     $Main = $Matches[1].Trim()
     if (-not $Main) { return $RepoRoot }
