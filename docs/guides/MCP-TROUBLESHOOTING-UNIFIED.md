@@ -1,7 +1,7 @@
 # Guide Unifie de Depannage MCP
 
 **Date:** 2026-02-09
-**Version:** 2.2.0 (sweep #2639 WS3 29/10/2026 : `quickfiles-server` retiré des scripts — serveur supprimé du code, 2026-09, #3423 ; chemins de build alignés sur les sorties réelles — `roo-state-manager` → `build-out/`, `jinavigator-server` → `dist/`, review #4420)
+**Version:** 2.3.0 (sweep #2639 WS3 29/10/2026, passe 2 : `quickfiles-server` retiré des scripts — serveur supprimé du code, 2026-09, #3423, review #4420 ; **entrée `roo-state-manager` corrigée** — l'entrée servie est le millésime publié `build-<sha16>/` désigné par le marqueur `build-current` (`build-out/` = scratch tsc, `build/` = legacy gelé, jamais réécrit) ; racines de checkout **paramétrées** ; `jinavigator-server` → `dist/` conservé)
 **Statut:** ACTIF
 
 ---
@@ -100,29 +100,45 @@ Write-Host "JSON valide" -ForegroundColor Green
 
 ```powershell
 # Verifier et recompiler chaque MCP
-$mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
-# Sortie de build reelle par serveur (verifie au gitlink) : il n'y a plus de chemin unique.
-#   roo-state-manager  : tsconfig outDir ./build-out (npm run build publie ensuite un vintage build-<id>/)
+# RACINE DU CHECKOUT : PARAMETREE (ce guide est lu sur plusieurs sieges).
+#   Definir une fois par siege : $env:ROO_EXTENSIONS_ROOT = "C:/dev/roo-extensions"
+#   (defaut : le repertoire courant)
+$RepoRoot = if ($env:ROO_EXTENSIONS_ROOT) { $env:ROO_EXTENSIONS_ROOT } elseif ($env:ROO_EXTENSIONS_PATH) { $env:ROO_EXTENSIONS_PATH } else { (Get-Location).Path }
+$serversDir = Join-Path $RepoRoot "mcps/internal/servers"
+
+# ENTREE REELLE de chaque serveur (verifie au code : mcp-wrapper.cjs v5 / resolve-build-dir.mjs) :
+#   roo-state-manager  : millesime publie build-<sha16>/ designe par le marqueur `build-current`
+#                        (`build-out/` = scratch tsc, JAMAIS l'entree servie ; `build/` = legacy gele)
 #   jinavigator-server : tsconfig outDir ./dist
-$mcpEntry = @{
-    "roo-state-manager"  = "build-out/index.js"
-    "jinavigator-server" = "dist/index.js"
+function Get-McpEntry {
+    param([string]$ServerDir)
+    $marker = Join-Path $ServerDir "build-current"
+    if (Test-Path $marker) {
+        $vintage = (Get-Content -Raw -LiteralPath $marker).Trim()
+        if ($vintage -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $ServerDir "$vintage/index.js"))) {
+            return Join-Path $ServerDir "$vintage/index.js"
+        }
+    }
+    $dist = Join-Path $ServerDir "dist/index.js"
+    if (Test-Path $dist) { return $dist }
+    return $null
 }
 
 foreach ($mcp in @("roo-state-manager", "jinavigator-server")) {
-    $target = "$mcpDir/$mcp/$($mcpEntry[$mcp])"
+    $serverDir = Join-Path $serversDir $mcp
+    $target = Get-McpEntry -ServerDir $serverDir
 
-    if (-not (Test-Path $target)) {
-        Write-Host "$mcp : MANQUANT - compilation requise" -ForegroundColor Red
-        Set-Location "$mcpDir/$mcp"
+    if (-not $target) {
+        Write-Host "$mcp : MANQUANT - aucune version publiee (marqueur build-current absent) - compilation requise" -ForegroundColor Red
+        Set-Location $serverDir
         npm install
         npm run build
     } elseif ((Get-Content $target -First 3) -match "placeholder") {
         Write-Host "$mcp : PLACEHOLDER - recompilation requise" -ForegroundColor Red
-        Set-Location "$mcpDir/$mcp"
+        Set-Location $serverDir
         npm run build
     } else {
-        Write-Host "$mcp : OK" -ForegroundColor Green
+        Write-Host "$mcp : OK ($target)" -ForegroundColor Green
     }
 }
 ```
@@ -160,11 +176,12 @@ $config = Get-Content $configPath -Raw
 
 ```powershell
 # Reinstaller les dependances pour chaque MCP
-$mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
+# (racine parametree : cf. bloc 1 — $env:ROO_EXTENSIONS_ROOT)
+$serversDir = Join-Path $RepoRoot "mcps/internal/servers"
 
 foreach ($mcp in @("jinavigator-server", "roo-state-manager")) {
     Write-Host "Installation dependances: $mcp" -ForegroundColor Yellow
-    Set-Location "$mcpDir/$mcp"
+    Set-Location (Join-Path $serversDir $mcp)
     npm install
     npm run build
 }
@@ -186,9 +203,10 @@ netstat -an | Select-String ":300[0-9]"
 # Verifier les processus Node
 Get-Process node -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, StartTime
 
-# Tester le demarrage manuel
-Set-Location "d:/dev/roo-extensions/mcps/internal/servers/roo-state-manager"
-node build-out/index.js
+# Tester le demarrage manuel (entree REELLE = millesime publie par le marqueur)
+Set-Location (Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager")
+$vintage = (Get-Content -Raw "build-current").Trim()
+node "$vintage/index.js"
 ```
 
 ### 5. Stubs detectes (fonctions vides)
@@ -230,11 +248,13 @@ Le MCP roo-state-manager pour Claude Code utilise un **wrapper** qui filtre les 
   "mcpServers": {
     "roo-state-manager": {
       "command": "node",
-      "args": ["d:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"]
+      "args": ["<RACINE_CHECKOUT>/mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"]
     }
   }
 }
 ```
+
+`<RACINE_CHECKOUT>` = la racine du checkout sur CE siege (`$env:ROO_EXTENSIONS_ROOT`, ex. `C:/dev/roo-extensions`) — le chemin n'est pas fige dans ce guide.
 
 **Wrapper:** mcp-wrapper.cjs (`../../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs`)
 
@@ -245,7 +265,7 @@ Le MCP roo-state-manager pour Claude Code utilise un **wrapper** qui filtre les 
 2. Verifier que le chemin vers `mcp-wrapper.cjs` est correct
 3. Tester le wrapper directement:
    ```powershell
-   Set-Location "d:/dev/roo-extensions/mcps/internal/servers/roo-state-manager"
+   Set-Location (Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager")
    node mcp-wrapper.cjs
    # Attendu: "Roo State Manager Server started - v1.0.14"
    ```
@@ -253,7 +273,7 @@ Le MCP roo-state-manager pour Claude Code utilise un **wrapper** qui filtre les 
 5. Redemarrer VS Code completement
 
 **Trop d'outils / crash au demarrage:**
-- S'assurer que le wrapper est utilise (`mcp-wrapper.cjs`), PAS `build/index.js` directement
+- S'assurer que le wrapper est utilise (`mcp-wrapper.cjs`) : il resout le millesime publie via `build-current` ; lancer un `index.js` en dur (scratch `build-out/` ou legacy `build/` gele) contourne cette resolution
 - Le wrapper filtre de 52+ outils a 18 outils RooSync
 
 **Debug logs:**
@@ -282,30 +302,41 @@ node mcp-wrapper.cjs
 ```powershell
 # validate-mcps.ps1 - Validation rapide de tous les MCPs
 function Test-AllMcps {
-    $mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
+    param(
+        # Racine du checkout : PARAMETREE (le guide est lu sur plusieurs sieges).
+        [string]$RepoRoot = $(if ($env:ROO_EXTENSIONS_ROOT) { $env:ROO_EXTENSIONS_ROOT } elseif ($env:ROO_EXTENSIONS_PATH) { $env:ROO_EXTENSIONS_PATH } else { (Get-Location).Path })
+    )
+    $serversDir = Join-Path $RepoRoot "mcps/internal/servers"
     $issues = @()
 
     Write-Host "=== VALIDATION MCPs ===" -ForegroundColor Cyan
 
     # 1. Verifier les builds
     Write-Host "`n1. Verification des builds..." -ForegroundColor Yellow
-    # Sortie de build reelle par serveur : roo-state-manager -> build-out/ (tsconfig outDir,
-    # puis vintage build-<id>/), jinavigator-server -> dist/ (tsc outDir).
-    $mcpChecks = @(
-        @{Name="roo-state-manager"; Build="build-out/index.js"},
-        @{Name="jinavigator-server"; Build="dist/index.js"}
-    )
+    # Entree REELLE (verifie au code : mcp-wrapper.cjs v5 / resolve-build-dir.mjs) :
+    #   roo-state-manager  -> millesime build-<sha16>/ designe par le marqueur `build-current`
+    #   jinavigator-server -> dist/index.js (tsc outDir)
+    # `build-out/` est un scratch tsc : le tester seul crierait "manquant" sur un siege sain.
+    foreach ($mcp in @("roo-state-manager", "jinavigator-server")) {
+        $serverDir = Join-Path $serversDir $mcp
+        $path = $null
+        $marker = Join-Path $serverDir "build-current"
+        if (Test-Path $marker) {
+            $vintage = (Get-Content -Raw -LiteralPath $marker).Trim()
+            if ($vintage -match '^build-[0-9a-f]{16}$') { $path = Join-Path $serverDir "$vintage/index.js" }
+        }
+        if (-not $path -and (Test-Path (Join-Path $serverDir "dist/index.js"))) {
+            $path = Join-Path $serverDir "dist/index.js"
+        }
 
-    foreach ($mcp in $mcpChecks) {
-        $path = "$mcpDir/$($mcp.Name)/$($mcp.Build)"
-        if (-not (Test-Path $path)) {
-            $issues += "$($mcp.Name): build manquant"
-            Write-Host "  MANQUANT: $($mcp.Name)" -ForegroundColor Red
+        if (-not $path -or -not (Test-Path $path)) {
+            $issues += "$mcp : aucune version publiee (marqueur build-current absent)"
+            Write-Host "  MANQUANT: $mcp (aucune version publiee)" -ForegroundColor Red
         } elseif ((Get-Item $path).Length -lt 1000) {
-            $issues += "$($mcp.Name): fichier trop petit (placeholder?)"
-            Write-Host "  SUSPECT: $($mcp.Name) (< 1KB)" -ForegroundColor Yellow
+            $issues += "$mcp : fichier trop petit (placeholder?)"
+            Write-Host "  SUSPECT: $mcp (< 1KB)" -ForegroundColor Yellow
         } else {
-            Write-Host "  OK: $($mcp.Name)" -ForegroundColor Green
+            Write-Host "  OK: $mcp ($path)" -ForegroundColor Green
         }
     }
 

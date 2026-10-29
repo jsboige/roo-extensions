@@ -1,8 +1,8 @@
 # 📋 Guide Complet - Dépannage et Résolution de Problèmes
 
 **Date de création** : 2025-10-22
-**Dernière mise à jour** : 2026-10-29 (sweep #2639 WS3 : `quickfiles-server`/`github-projects-mcp` retirés des scripts — serveurs supprimés du code 2026-09, #3423 ; chemins de build alignés sur `build-out/` et `dist/`, review #4420)
-**Version** : 1.3.0
+**Dernière mise à jour** : 2026-10-29 (sweep #2639 WS3, passe 2 : `quickfiles-server`/`github-projects-mcp` retirés des scripts — serveurs supprimés du code 2026-09, #3423 ; **entrée `roo-state-manager` corrigée** — millésime publié `build-<sha16>/` désigné par le marqueur `build-current` (`build-out/` = scratch tsc, `build/` = legacy gelé) ; racines de checkout et profil utilisateur **paramétrés** ; `jinavigator-server` → `dist/` conservé — review #4420)
+**Version** : 1.4.0
 **Auteur** : Roo Architect Complex
 **Statut** : 🟢 **ACTIF**
 **Catégorie** : GUIDE
@@ -141,7 +141,10 @@ Get-Content $PROFILE
 **Solution Niveau 3-4** :
 ```powershell
 # Solution 1 : Recharger manuellement
-$env:ROO_EXTENSIONS_PATH = "C:/dev/roo-extensions"
+# (le profil PowerShell de la flotte pose ROO_EXTENSIONS_ROOT ; ROO_EXTENSIONS_PATH reste
+#  accepte comme alias par les scripts de ce guide)
+$env:ROO_EXTENSIONS_ROOT = "C:/dev/roo-extensions"
+$env:ROO_EXTENSIONS_PATH = $env:ROO_EXTENSIONS_ROOT
 . $PROFILE
 
 # Solution 2 : Créer/reconfigurer .env
@@ -180,16 +183,22 @@ MCP server failed to start
 
 **Diagnostic Niveau 1** :
 ```powershell
-# Vérifier si les MCPs sont des placeholders
-cd "C:/dev/roo-extensions/sddd-tracking/scripts-transient"
-.\check-mcps-compilation-2025-10-23.ps1 -ValidateRealBuild
+# RACINE DU CHECKOUT : PARAMETREE (guide lu sur plusieurs sieges).
+#   Definir une fois : $env:ROO_EXTENSIONS_ROOT = "C:/dev/roo-extensions"  (defaut : repertoire courant)
+$RepoRoot = if ($env:ROO_EXTENSIONS_ROOT) { $env:ROO_EXTENSIONS_ROOT } elseif ($env:ROO_EXTENSIONS_PATH) { $env:ROO_EXTENSIONS_PATH } else { (Get-Location).Path }
+$rsmDir = Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager"
+
+# Vérifier si les MCPs sont des placeholders (script in-repo ; le dossier `sddd-tracking/scripts-transient`
+# cité par les versions précédentes n'existe plus)
+powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts/mcp/validate-before-push.ps1") -Quick
 
 # Vérifier présence des fichiers compilés (layout 2026 : vintages build-<sha>/ + pointeur build-current)
 # `build-current` est un FICHIER marqueur (contenu = nom du vintage) ; les vintages sont des
 # siblings à la racine RSM, pas des sous-répertoires de build/ (cf. resolve-build-dir.mjs).
-$v = (Get-Content "mcps/internal/servers/roo-state-manager/build-current" -Raw).Trim()
-Test-Path "mcps/internal/servers/roo-state-manager/$v/index.js"
-Get-ChildItem "mcps/internal/servers/roo-state-manager/" -Directory -Filter "build-*"
+# `build-out/` est le scratch tsc du build : jamais l'entrée servie.
+$v = (Get-Content (Join-Path $rsmDir "build-current") -Raw).Trim()
+Test-Path (Join-Path $rsmDir "$v/index.js")
+Get-ChildItem $rsmDir -Directory -Filter "build-*"
 ```
 
 **Analyse Niveau 2** :
@@ -201,18 +210,20 @@ Get-ChildItem "mcps/internal/servers/roo-state-manager/" -Directory -Filter "bui
 **Solution Niveau 3-4** :
 ```powershell
 # Solution 1 : Compilation complète (OBLIGATOIRE)
-cd "C:/dev/roo-extensions/mcps/internal"
+# tsc -> build-out/ (scratch) PUIS publish-build.mjs -> millesime build-<sha16>/ + marqueur build-current
+Set-Location $rsmDir
 npm run build
 
-# Solution 2 : Validation systématique
-cd "C:/dev/roo-extensions/sddd-tracking/scripts-transient"
-.\check-all-mcps-compilation-2025-10-23.ps1
+# Solution 2 : Validation systématique (script in-repo)
+powershell -ExecutionPolicy Bypass -File (Join-Path $RepoRoot "scripts/mcp/validate-before-push.ps1")
 
-# Solution 3 : Diagnostic anti-placeholder
-.\check-mcps-compilation-2025-10-23.ps1 -ValidateRealBuild
+# Solution 3 : Diagnostic anti-placeholder sur l'entrée RÉELLE (millésime publié, pas le scratch)
+$v = (Get-Content (Join-Path $rsmDir "build-current") -Raw).Trim()
+Get-Content (Join-Path $rsmDir "$v/index.js") -TotalCount 3
 
-# Solution 4 : Réparation complète si nécessaire
-Remove-Item -Recurse -Force "mcps/internal/servers/roo-state-manager/build-out" -ErrorAction SilentlyContinue
+# Solution 4 : Réparation complète si nécessaire (build-out = scratch tsc, régénérable)
+Remove-Item -Recurse -Force (Join-Path $rsmDir "build-out") -ErrorAction SilentlyContinue
+Set-Location $rsmDir
 npm install
 npm run build
 ```
@@ -484,44 +495,54 @@ if ($Fix) {
 ```powershell
 # diagnostic-mcps-complet.ps1
 function Invoke-McpDiagnostic {
+    param(
+        # Racine du checkout : PARAMETREE (le guide est lu sur plusieurs sieges).
+        [string]$RepoRoot = $(if ($env:ROO_EXTENSIONS_ROOT) { $env:ROO_EXTENSIONS_ROOT } elseif ($env:ROO_EXTENSIONS_PATH) { $env:ROO_EXTENSIONS_PATH } else { (Get-Location).Path })
+    )
     Write-Host "🔍 DIAGNOSTIC COMPLET DES MCPs" -ForegroundColor Yellow
     Write-Host "=" * 50 -ForegroundColor Yellow
     
+    $serversDir = Join-Path $RepoRoot "mcps/internal/servers"
     $issues = @()
     
     # 1. Vérification des placeholders
     Write-Host "`n1. Vérification des placeholders..." -ForegroundColor Cyan
-    # Sortie de build reelle par serveur (verifie au gitlink) : il n'y a plus de chemin unique.
-    #   roo-state-manager  : tsconfig outDir ./build-out (npm run build publie ensuite un vintage build-<id>/)
-    #   jinavigator-server : tsconfig outDir ./dist
+    # Entree REELLE de chaque serveur (verifie au code : mcp-wrapper.cjs v5 / resolve-build-dir.mjs) :
+    #   roo-state-manager  -> millesime build-<sha16>/ designe par le marqueur `build-current`
+    #                         (`build-out/` = scratch tsc, JAMAIS l'entree servie ; `build/` = legacy gele)
+    #   jinavigator-server -> dist/index.js (tsc outDir)
     # NB: jupyter-mcp-server N'EST PAS ici. Au gitlink, servers/jupyter-mcp-server/ ne
     # contient que README.md, __tests__/, jest.config.js et package*.json : pas de src/,
     # pas de tsconfig.json, pas de dist/ et aucun script build. Son `main` pointe sur un
     # dist/index.js qui n'existe pas — l'inclure ferait crier "MANQUANT" sur un siege sain.
     # Les notebooks passent par le MCP jupyter-papermill (cf. harnais-tightening §2).
-    $mcpEntry = @{
-        "roo-state-manager"   = "build-out/index.js"
-        "jinavigator-server"  = "dist/index.js"
-    }
-    
-    foreach ($mcp in @($mcpEntry.Keys | Sort-Object)) {
-        $entryPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/$($mcpEntry[$mcp])"
+    foreach ($mcp in @("jinavigator-server", "roo-state-manager")) {
+        $serverDir = Join-Path $serversDir $mcp
+        $entryPath = $null
+        $marker = Join-Path $serverDir "build-current"
+        if (Test-Path $marker) {
+            $vintage = (Get-Content -Raw -LiteralPath $marker).Trim()
+            if ($vintage -match '^build-[0-9a-f]{16}$') { $entryPath = Join-Path $serverDir "$vintage/index.js" }
+        }
+        if (-not $entryPath -and (Test-Path (Join-Path $serverDir "dist/index.js"))) {
+            $entryPath = Join-Path $serverDir "dist/index.js"
+        }
         
-        if (Test-Path $entryPath) {
+        if ($entryPath -and (Test-Path $entryPath)) {
             $content = Get-Content $entryPath | Select-Object -First 3
             if ($content -match "placeholder") {
                 $issues += "Placeholder détecté dans $mcp"
                 Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
             }
         } else {
-            $issues += "Fichier compilé manquant pour $mcp (attendu : $($mcpEntry[$mcp]))"
-            Write-Host "❌ $mcp : MANQUANT ($($mcpEntry[$mcp]))" -ForegroundColor Red
+            $issues += "Aucune version publiee pour $mcp (marqueur build-current absent)"
+            Write-Host "❌ $mcp : MANQUANT (aucune version publiee)" -ForegroundColor Red
         }
     }
     
     # 2. Vérification des chemins
     Write-Host "`n2. Vérification des chemins..." -ForegroundColor Cyan
-    $configPath = "C:/Users/jsboi/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+    $configPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
     if (Test-Path $configPath) {
         $config = Get-Content $configPath -Raw
         if ($config -match "D:/Dev/roo-extensions") {
