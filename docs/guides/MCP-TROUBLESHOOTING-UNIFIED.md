@@ -1,7 +1,7 @@
 # Guide Unifie de Depannage MCP
 
 **Date:** 2026-02-09
-**Version:** 2.1.0 (sweep #2639 WS3 29/10/2026 : `quickfiles-server` retiré des scripts — le serveur a été supprimé du code, 2026-09, #3423)
+**Version:** 2.2.0 (sweep #2639 WS3 29/10/2026 : `quickfiles-server` retiré des scripts — serveur supprimé du code, 2026-09, #3423 ; chemins de build alignés sur les sorties réelles — `roo-state-manager` → `build-out/`, `jinavigator-server` → `dist/`, review #4420)
 **Statut:** ACTIF
 
 ---
@@ -101,14 +101,18 @@ Write-Host "JSON valide" -ForegroundColor Green
 ```powershell
 # Verifier et recompiler chaque MCP
 $mcpDir = "d:/dev/roo-extensions/mcps/internal/servers"
-$mcps = @("jinavigator-server", "roo-state-manager")
+# Sortie de build reelle par serveur (verifie au gitlink) : il n'y a plus de chemin unique.
+#   roo-state-manager  : tsconfig outDir ./build-out (npm run build publie ensuite un vintage build-<id>/)
+#   jinavigator-server : tsconfig outDir ./dist
+$mcpEntry = @{
+    "roo-state-manager"  = "build-out/index.js"
+    "jinavigator-server" = "dist/index.js"
+}
 
-foreach ($mcp in $mcps) {
-    $buildFile = "$mcpDir/$mcp/build/index.js"
-    $distFile = "$mcpDir/$mcp/dist/index.js"
-    $target = if (Test-Path $buildFile) { $buildFile } elseif (Test-Path $distFile) { $distFile } else { $null }
+foreach ($mcp in @("roo-state-manager", "jinavigator-server")) {
+    $target = "$mcpDir/$mcp/$($mcpEntry[$mcp])"
 
-    if (-not $target) {
+    if (-not (Test-Path $target)) {
         Write-Host "$mcp : MANQUANT - compilation requise" -ForegroundColor Red
         Set-Location "$mcpDir/$mcp"
         npm install
@@ -184,7 +188,7 @@ Get-Process node -ErrorAction SilentlyContinue | Format-Table Id, ProcessName, S
 
 # Tester le demarrage manuel
 Set-Location "d:/dev/roo-extensions/mcps/internal/servers/roo-state-manager"
-node build/index.js
+node build-out/index.js
 ```
 
 ### 5. Stubs detectes (fonctions vides)
@@ -285,9 +289,11 @@ function Test-AllMcps {
 
     # 1. Verifier les builds
     Write-Host "`n1. Verification des builds..." -ForegroundColor Yellow
+    # Sortie de build reelle par serveur : roo-state-manager -> build-out/ (tsconfig outDir,
+    # puis vintage build-<id>/), jinavigator-server -> dist/ (tsc outDir).
     $mcpChecks = @(
-        @{Name="roo-state-manager"; Build="build/index.js"},
-        @{Name="jinavigator-server"; Build="build/index.js"}
+        @{Name="roo-state-manager"; Build="build-out/index.js"},
+        @{Name="jinavigator-server"; Build="dist/index.js"}
     )
 
     foreach ($mcp in $mcpChecks) {
