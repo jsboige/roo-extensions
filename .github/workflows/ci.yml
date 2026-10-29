@@ -285,8 +285,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: `submodules: recursive` fetched all NINE gitlinks on every job —
+      # measured HEAD trees (uncompressed) 2026-10-29: roo-code 134 MiB, zoo-code
+      # 132 MiB, Office-PowerPoint 67 MiB, markitdown 24 MiB, modelcontextprotocol
+      # 1 MiB, plus three small ones = ~384 MiB, against 27 MiB for mcps/internal,
+      # the ONLY one this job reads (its vitest suite addresses no other gitlink,
+      # checked by grep on src/ and tests/). Scoping the update keeps the same
+      # shallow, pinned-SHA clone semantics actions/checkout uses (`--depth=1`).
+      - name: Checkout mcps/internal submodule only
+        run: git submodule update --init --force --depth=1 --recursive mcps/internal
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -728,8 +736,14 @@ jobs:
       # green (clusterManager-Myia, second review of #3644).
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: only mcps/internal is read on disk by this suite (the alwaysAllow
+      # catalogue cross-check above; the remaining suites reference the other
+      # submodule paths as string literals in fixtures, never on disk). Scoping
+      # the update drops ~357 MiB of unused tree per job — same reasoning and
+      # measurement as build-and-test above.
+      - name: Checkout mcps/internal submodule only
+        run: git submodule update --init --force --depth=1 --recursive mcps/internal
 
       - name: Install Pester
         shell: pwsh
@@ -763,10 +777,13 @@ jobs:
   sk-agent-inventory:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (submodule provides the generator)
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: the generator lives in mcps/internal; the parent-side docs it
+      # guards are in this checkout. Same scoping as build-and-test above.
+      - name: Checkout mcps/internal submodule only
+        run: git submodule update --init --force --depth=1 mcps/internal
 
       - name: Inventory docs match template config
         run: |
