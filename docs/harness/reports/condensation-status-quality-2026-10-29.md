@@ -80,6 +80,10 @@ Le statut précédent conditionne le suivant (entrée `previousStatus` du prompt
 - **Levier statut manuel** : les `update` d'agents qui remplacent le statut par des listes plates sont un vecteur majeur (mécanisme C) — envisager une consigne de coordonnateur ou un template de section pour les updates manuels.
 - **Modèle** : la question du modèle (deepseek en tête de chaîne) reste ouverte au volet 4 avec les mesures de coût/tokens — hors périmètre de ce cycle.
 
+## Parité du prompt de `dashboard-llm-live.integration.test.ts` (vérifié)
+
+Le prompt statut reconstitué dans le test (ligne 156, 955 caractères) est un **variant raccourci** : ses 13 lignes significatives existent toutes verbatim dans le prompt de production, mais il lui manque les doctrines structurantes — LAST-KNOWN-STATE WINS, SILENCE ≠ OBSOLESCENCE, la structure à 8 sections (dont Patterns appris), la garde #3771 (états GitHub non sourcés), les règles d'HÉRITAGE. **Il ne peut pas servir d'oracle pour les replays du volet 5** : les expériences doivent exporter le prompt de production (ou le tester via les fonctions réelles), pas rejouer cette copie.
+
 ## Reproduction
 
 ```
