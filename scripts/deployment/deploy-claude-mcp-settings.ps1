@@ -24,18 +24,17 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Paths
+# win-cli quit the managed set (ai-01 arbitration 2026-10-29T01:16Z): the entry,
+# its $WinCliPath and its existence guard are gone. A seat that still carries a
+# win-cli entry in ~/.claude.json KEEPS it (the merge only upserts managed
+# servers); the F1 census lists the seats that still do.
 $RepoRoot = (Get-Item "$PSScriptRoot\..\..").FullName
-$WinCliPath = "$RepoRoot\mcps\external\win-cli\server\dist\index.js"
 $RooStatePath = "$RepoRoot\mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs"
 $RooStateCwd = "$RepoRoot\mcps\internal\servers\roo-state-manager\"
 $ClaudeJsonPath = "$env:USERPROFILE\.claude.json"
 $SettingsPath = "$env:USERPROFILE\.claude\settings.json"
 
 # Validate paths
-if (-not (Test-Path $WinCliPath)) {
-    Write-Error "win-cli not found at: $WinCliPath"
-    exit 1
-}
 if (-not (Test-Path $RooStatePath)) {
     Write-Error "roo-state-manager not found at: $RooStatePath"
     exit 1
@@ -91,10 +90,6 @@ if ($ClaudeJson.mcpServers -and $ClaudeJson.mcpServers.PSObject.Properties['sear
 $SearxngConfig = New-SearxngTakeoverConfig -EntryPath $Entries['searxng'] -ExistingEntry $ExistingSearxng
 
 $McpServers = @{
-    "win-cli" = @{
-        command = "node"
-        args = @($WinCliPath)
-    }
     "roo-state-manager" = @{
         command = "node"
         args = @($RooStatePath)
@@ -113,9 +108,10 @@ $McpServers = @{
 # replaced the whole object: on a seat carrying five registrations, deploying
 # these three deleted the other two (#3411 keeps the global sk-agent entry
 # load-bearing — measure 24/10 po-2028: sk-agent, searxng and jupyter-papermill
-# would have vanished on the next run). Managed set is now FOUR (#4149 F1 adds
-# searxng with its per-seat fields taken over, see above); the unmanaged
-# survivors this merge protects remain sk-agent and jupyter-papermill.
+# would have vanished on the next run). Managed set is now THREE (#4149 F1 adds
+# searxng with its per-seat fields taken over, see above; win-cli removed by the
+# ai-01 arbitration of 2026-10-29T01:16Z); the unmanaged survivors this merge
+# protects remain sk-agent and jupyter-papermill.
 $MergedServers = @{}
 if ($ClaudeJson.mcpServers) {
     foreach ($prop in $ClaudeJson.mcpServers.PSObject.Properties) {
