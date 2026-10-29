@@ -23,12 +23,22 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# The lib is dot-sourced HERE, ahead of the paths below, because $RepoRoot is
+# resolved through Resolve-DeployRepoRoot — and the runtimes section further
+# down uses the same file. (#4149)
+
+. (Join-Path $PSScriptRoot "mcp-runtime.lib.ps1")
+
 # Paths
 # win-cli quit the managed set (ai-01 arbitration 2026-10-29T01:16Z): the entry,
 # its $WinCliPath and its existence guard are gone. A seat that still carries a
 # win-cli entry in ~/.claude.json KEEPS it (the merge only upserts managed
 # servers); the F1 census lists the seats that still do.
-$RepoRoot = (Get-Item "$PSScriptRoot\..\..").FullName
+# $RepoRoot starts from this script's location, then Resolve-DeployRepoRoot
+# redirects it to the MAIN checkout when the deploy was launched from a linked
+# worktree — a worktree path written into ~/.claude.json outlives the worktree
+# and leaves the seat without an RSM (#4149).
+$RepoRoot = Resolve-DeployRepoRoot -RepoRoot (Get-Item "$PSScriptRoot\..\..").FullName
 $RooStatePath = "$RepoRoot\mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs"
 $RooStateCwd = "$RepoRoot\mcps\internal\servers\roo-state-manager\"
 $ClaudeJsonPath = "$env:USERPROFILE\.claude.json"
@@ -60,8 +70,7 @@ if (Test-Path $ClaudeJsonPath) {
 # Versions pinned exactly as measured in the fleet npx cache (po-2027, 28/10):
 # @playwright/mcp 0.0.83 (bin cli.js), mcp-searxng 2.9.0 (bin dist/cli.js).
 # Bump = edit the table; the bin is re-read from each package manifest.
-
-. (Join-Path $PSScriptRoot "mcp-runtime.lib.ps1")
+# (mcp-runtime.lib.ps1 is dot-sourced above, ahead of the $RepoRoot resolution.)
 
 $RuntimesRoot = "$env:USERPROFILE\.claude\mcp-runtimes"
 
