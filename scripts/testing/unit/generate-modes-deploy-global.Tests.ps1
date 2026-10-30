@@ -121,4 +121,38 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
             ($script:content -match [regex]::Escape("--target-extension <auto|roo|zoo>")) | Should -Be $true
         }
     }
+
+    Context "--dry-run n'ecrit RIEN (#4334)" {
+
+        It "parse le flag --dry-run" {
+            # Il n'etait pas parse du tout : un flag inconnu etait ignore
+            # silencieusement, donc le dry-run documente deployait pour de vrai.
+            ($script:content -match "process\.argv\[i\]\s*===\s*'--dry-run'") | Should -Be $true
+            ($script:content -match "dryRun:\s*false") | Should -Be $true
+        }
+
+        It "n'ecrit pas le fichier de sortie" {
+            ($script:content -match "if\s*\(!args\.dryRun\)\s*\{\s*fs\.writeFileSync\(args\.output") | Should -Be $true
+        }
+
+        It "ne cree pas le repertoire de sortie" {
+            ($script:content -match "if\s*\(!args\.dryRun\s*&&\s*!fs\.existsSync\(outputDir\)\)") | Should -Be $true
+        }
+
+        It "ne copie pas vers .roomodes" {
+            ($script:content -match "if\s*\(!args\.dryRun\)\s*\{\s*fs\.copyFileSync\(args\.output,\s*roomodesPath\)") | Should -Be $true
+        }
+
+        It "ne cree pas le repertoire global et ne copie pas vers la cible globale" {
+            ($script:content -match "if\s*\(!args\.dryRun\s*&&\s*!fs\.existsSync\(globalModesDir\)\)") | Should -Be $true
+            ($script:content -match "if\s*\(!args\.dryRun\)\s*\{\s*fs\.copyFileSync\(args\.output,\s*globalModesPath\)") | Should -Be $true
+        }
+
+        It "annonce le dry-run au lieu de mentir sur les cibles" {
+            # Sans ca le log affichait "Deployed to ..." alors que rien n'etait
+            # ecrit : c'est ce qui a rendu le defaut invisible sur le siege.
+            ($script:content -match "DRY RUN -- nothing was written") | Should -Be $true
+            ($script:content -match "Would deploy to global \(dry run\)") | Should -Be $true
+        }
+    }
 }
