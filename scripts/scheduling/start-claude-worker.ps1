@@ -961,7 +961,7 @@ function Get-GitHubTask {
                 id = "github-$($Issue.number)"
                 subject = $Issue.title
                 priority = "MEDIUM"
-                prompt = Build-GitHubPrompt -IssueNumber $Issue.number -Title $Issue.title -Body $Body
+                prompt = Build-GitHubPrompt -IssueNumber $Issue.number -Title $Issue.title -Body $Body -OwnClaimLane $(if (-not $SkipClaim) { $script:ClaimLane } else { "" })
                 source = "github"
                 issueNumber = $Issue.number
                 projectFields = $ProjectFields
@@ -1111,7 +1111,10 @@ function Build-GitHubPrompt {
     param(
         [int]$IssueNumber,
         [string]$Title,
-        [string]$Body
+        [string]$Body,
+        # Lane token of the [CLAIMED] this run's launcher just posted (empty when
+        # no claim was posted, e.g. -SkipClaim). See the "Your claim" block below.
+        [string]$OwnClaimLane = ""
     )
 
     $MachineId = $env:COMPUTERNAME.ToLower()
@@ -1139,6 +1142,16 @@ function Build-GitHubPrompt {
     $PromptParts += ""
     $PromptParts += "## Issue #$IssueNumber : $Title"
     $PromptParts += ""
+
+    # Own-claim notice: the agent otherwise reads the launcher's fresh [CLAIMED]
+    # as a twin session's claim (#4221 rule: "a claim of your lane absent from
+    # your context") and parks itself in WAIT behind its own lock, which then
+    # sleeps 24h (measured ai-01 29/10 on #2191, wait-state github-2191.json).
+    if ($OwnClaimLane) {
+        $PromptParts += "### Your claim on this issue"
+        $PromptParts += "The launcher of THIS run has just posted ``[CLAIMED] by claude on $OwnClaimLane`` on issue #$IssueNumber. That claim is YOURS: it is not a twin session's claim, and the claim-before-write guard (#4221) does not apply to it. Any OTHER active claim (another lane, or an older claim of lane $OwnClaimLane that predates this run) still applies."
+        $PromptParts += ""
+    }
 
     if ($Spec) {
         $PromptParts += "### Execution-Ready Spec"
