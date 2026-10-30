@@ -9,6 +9,13 @@
 # Un `throw` dans un bloc It est un echec de test dans les TROIS versions, et le
 # siege (po-2028) n'a pas pwsh : la suite doit etre executable partout.
 #
+# MINIMUM RÉEL : Pester 3.4. `BeforeAll`/`AfterAll` existent depuis 3.4 — mais
+# seulement À L'INTÉRIEUR d'un `Describe`, ce que cette suite respecte ; une
+# suite qui les sortirait au niveau du fichier exigerait 4+.
+# MESURÉ le 30/10/2026 sur ce siège : Pester 6.2.0 chargé sous
+# PowerShell 5.1.26100.9711 -> 9/9. Les versions 3.4.0 et 5.7.1 sont aussi
+# installées ; le runner CI installe Pester sans épinglage.
+#
 # Scénarios (grain G2, po-2028, 30/10/2026) :
 #   1. un jumeau sans canonique  -> état 'canonical-absent'
 #   2. un canonique vide + un jumeau plein -> état 'canonical-empty'

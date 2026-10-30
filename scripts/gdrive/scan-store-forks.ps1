@@ -39,9 +39,11 @@
     montage lent).
 .PARAMETER Json
     sortie JSON (une seule ligne) au lieu du rapport lisible.
-.PARAMETER SkipArchive
-    n'ignore pas le repertoire conflict-archive/ (par defaut il est ignore :
-    il contient les copies deja archivees, pas des forks vivants).
+.PARAMETER IncludeArchive
+    inclut le repertoire conflict-archive/ (par defaut il est ignore : il
+    contient les copies deja archivees, pas des forks vivants). Le nom dit ce
+    que le commutateur FAIT : la premiere version s'appelait -SkipArchive et
+    l'activait, a rebours de son nom (review ai-01 sur #4441).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\gdrive\scan-store-forks.ps1
@@ -53,7 +55,7 @@ param(
     [int]$Depth = 4,
     [switch]$Hash,
     [switch]$Json,
-    [switch]$SkipArchive
+    [switch]$IncludeArchive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -170,7 +172,7 @@ function Scan-Directory {
             })
         }
         if ($child.PSIsContainer) {
-            if (-not $SkipArchive -and $child.Name -eq 'conflict-archive') { continue }
+            if (-not $IncludeArchive -and $child.Name -eq 'conflict-archive') { continue }
             Scan-Directory -Dir $child.FullName -Level ($Level + 1)
         }
     }
