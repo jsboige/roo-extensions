@@ -288,6 +288,29 @@ python scripts/diagnostic/probe-semantic-known-answer.py --selftest   # fixtures
 
 Exit codes : 0 PASS (top 5 atteint) **ou INDEXED** (phase `--index` seule réussie — un wrapper qui enchaine A puis B ne doit pas s'arrêter après A, review #4398) / 1 FAIL (sonde saine, critère non tenu — phase verify) / 2 erreur d'instrument **ou recherche servie par un mode non sémantique (verdict `DEGRADED`)**.
 
+### `g6-pass-bound.py` (#4352, critère g6)
+
+Juge une **passe d'indexation** contre le **paceur**, pas contre une horloge plate. Le critère « 10 min, 5/5 » condamnait un worker sain : la passe de 655 s mesurée sur po-2028 (28/10) vaut `109 requêtes × 6 s` à `EMBEDDING_OPS_PER_MINUTE=10`, soit exactement ce que le paceur autorise.
+
+- **Borne dérivée sur les REQUÊTES** : `Δrequests × (60 000 / EMBEDDING_OPS_PER_MINUTE) × marge (1,5)` — `Δrequests` lu sur une fenêtre qui **contient** la passe (dernière `[EMB-METRICS]` avant le début, première après la fin). **Pas `called`** : `called` compte des **sub-chunks** (`+= batch.length`, `VectorIndexer.ts:1067`) quand le paceur compte des **requêtes** (`acquireEmbeddingSlot:216`) — au batch de 16 par défaut la borne sur `called` était 16× trop généreuse, donc aveugle (revue ai-01, 29/10 ; défaut mesuré, pas théorique).
+- **Vivacité jugée séparément** : `[EMB-METRICS]` est émis à chaque intervalle même quand rien ne passe ; une passe de N intervalles doit montrer ~N de ces lignes. Plus de `--max-missing` (défaut 2) intervalles muets = violation, la borne seule ne suffit pas.
+- **Recouvrement assumé, pas masqué** : la fenêtre du paceur est **par process**, donc les requêtes d'un callback concurrent sortent du même plafond. `Δrequests` est le plafond du temps mural — la question posée est « retenu seulement par son propre débit ? », jamais « cette tâche était-elle lente ».
+- **Fail-closed** : fenêtre non fermée, reset de compteur (redémarrage), ligne sans horodatage nécessaire à la fermeture, **ou métriques sans `requests=` (build antérieur au compteur)** → verdict `INSTRUMENT` (exit 2), jamais `PASS` par silence. Un log sans `pass done`, une entrée malformée (`ValueError`), **une source de taux non numérique, un `--env-file` illisible/sans la clé, et un paceur désactivé (taux 0 → borne vacante)** sont aussi des exit 2.
+- **Le taux vient du RSM mesuré, avec provenance** (CHANGES ai-01 29/10) : précédence `--ops-per-minute` > `--env-file <rsm>/.env` > env opérateur > défaut 10/min ; la source est toujours rendue (`rate: N/min (source: …)`, champ `rate_provenance` en JSON), et les rangs 3-4 portent la mise en garde « NOT the measured RSM's config ». La conversion env se faisait à la construction du parser et s'échappait en traceback (**exit 1 lu comme VIOLATION**) — résolue paresseusement, surchargeable par CLI.
+- **`rate_limited=` est un témoin, pas une clé** : un delta positif dans une fenêtre jugée dit que le paceur a attendu ; il n'identifie jamais le plafond configuré.
+- **La borne n'établit pas la cause exclusive** : les consommateurs non pacés (search/query) partagent l'embedder et leur latence peut gonfler le temps mural sans apparaître dans `Δrequests`.
+- **`pass done` est la ligne qui rend la borne calculable** (ms#1572) : sans elle, la durée de passe ne se déduisait qu'après coup des deltas de `called=`.
+- **Selftest branché en CI** : `scripts/testing/python/test_g6_pass_bound.py` (job statique, `unittest discover`). La fixture qui reproduit le défaut du 29/10 — 655 s, 400 sub-chunks, 5 requêtes → `VIOLATION` là où la borne sur `called` disait `PASS` — et celle du paceur désactivé (taux 0 → `INSTRUMENT`, jamais `PASS` à allocation infinie) ne peuvent plus pourrir en silence.
+
+```bash
+python scripts/diagnostic/g6-pass-bound.py --log <log RSM>
+python scripts/diagnostic/g6-pass-bound.py --log <f> --json
+python scripts/diagnostic/g6-pass-bound.py --log <f> --env-file <rsm>/.env
+python scripts/diagnostic/g6-pass-bound.py --selftest    # 8 fixtures hors ligne
+```
+
+Exit codes : 0 toutes les passes dans la borne et cadence préservée / 1 au moins une violation (dépassement **ou** tick affamé) / 2 erreur d'instrument.
+
 ## Compteurs mémoire
 
 ### `log-commit-charge.ps1` (#2992)
