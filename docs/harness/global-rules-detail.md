@@ -122,6 +122,23 @@ explicitement à un destinataire. Une candidate bloquée sort temporairement de 
 permet seulement de réexaminer la candidate : il ne vaut ni autorisation humaine ni preuve que la
 condition est satisfaite.
 
+### Lectures de sécurité (jamais retirées)
+
+Le ledger autorise à solder une obligation, jamais à sauter une vérification. C'est cette liste —
+et rien d'autre — que désigne la « frontière de sécurité » citée plus bas par les porteurs worker
+et coordinateur. Cinq lectures restent dues avant l'action qu'elles couvrent :
+
+| Lecture | Due avant |
+| --- | --- |
+| surface complète de la PR : body, tous les commentaires, toutes les reviews avec leur `state`, le diff | review ou merge |
+| fraîcheur du dashboard **et** du claim d'issue | livraison (`gh pr create`) |
+| assertion d'identité dans la commande qui agit | toute action publique |
+| vérification post-action : l'artefact cité existe réellement | tout rapport qui le cite |
+| relecture différée d'une fermeture | tout décompte de fermeture |
+
+Détail des règles qui les portent : [`agent-claim-discipline.md`](../../.claude/rules/agent-claim-discipline.md),
+[`pr-mandatory.md`](../../.claude/rules/pr-mandatory.md), [`issue-closure.md`](../../.claude/rules/issue-closure.md).
+
 ### Fraîcheur et observation
 
 Une lecture faite dans le tour est réutilisable. La rafraîchir seulement après une mutation pouvant

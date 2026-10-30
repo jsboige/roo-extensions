@@ -296,7 +296,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 
 - Tenir un **ledger turn-local** : `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`, `observer`, `evidence`. Aucun nouveau stockage persistant.
 - Avant un sweep speculatif, solder chaque obligation en vol en `done`, `blocked` avec reprise nommee, ou `handed-off` avec destinataire.
-- Reutiliser les lectures du tour ; rafraichir seulement apres mutation pertinente, acteur independant pertinent, ou frontiere de securite.
+- Reutiliser les lectures du tour ; rafraichir seulement apres mutation pertinente, acteur independant pertinent, ou frontiere de securite. La frontiere de securite est enumeree une fois, pour tous les porteurs : `docs/harness/global-rules-detail.md` § « Lectures de securite (jamais retirees) ».
 - Une condition asynchrone a **un seul observateur**. Aucun polling parallele si `Monitor`, une tache de fond ou `gh run watch -i 180` notifiera deja ; couvrir `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
 - Attribuer d'abord par `session_id`, puis machine ; distinguer `parent_session_id` et `subagent_id` quand disponibles. Machine-only ne prouve pas la cause.
 - Messages : **3-5 lignes par defaut**, sauf decision, blocage ou preuve qui exige davantage.

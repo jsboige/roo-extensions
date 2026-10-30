@@ -37,6 +37,10 @@ Describe 'Harness amplification control contract' {
             if ($Text -notmatch 'session_id') { $violations += 'session attribution' }
             if ($Text -notmatch '(?i)(parent_session_id|parent/sous-agent)') { $violations += 'parent/subagent attribution' }
             if ($Text -notmatch '3-5 lignes par defaut') { $violations += 'bounded communication' }
+            # Two per-cycle floors were removed on 2026-10-30 after reappearing
+            # between the 07/10 inventory and now: nothing guarded their absence.
+            if ($Text -match '(?i)[≥>]=?\s*1\s*artefacts?\s*(/|par)\s*cycle') { $violations += 'per-cycle artefact quota' }
+            if ($Text -match '(?i)apr[eè]s\s+chaque\s+action\s+majeure') { $violations += 'per-action reporting quota' }
             return $violations
         }
 
@@ -80,6 +84,33 @@ Describe 'Harness amplification control contract' {
     It 'rejects a reintroduced numeric production quota' {
         $mutant = $carriers['.claude/commands/executor.md'] + "`nObjectif : 2-3 taches substantielles par session minimum.`n"
         @(Get-AmplificationContractViolations -Text $mutant) | Should -Contain 'numeric task quota'
+    }
+
+    It 'rejects a reintroduced per-cycle artefact quota' {
+        $mutant = $carriers['.claude/commands/executor.md'] + "`n- Anti-spam : $([char]0x2265)1 artefact/cycle sinon [INFO].`n"
+        @(Get-AmplificationContractViolations -Text $mutant) | Should -Contain 'per-cycle artefact quota'
+    }
+
+    It 'rejects a reintroduced per-action reporting quota' {
+        $mutant = $carriers['.claude/commands/executor.md'] + "`nRapporter la progression apr$([char]0x00E8)s chaque action majeure.`n"
+        @(Get-AmplificationContractViolations -Text $mutant) | Should -Contain 'per-action reporting quota'
+    }
+
+    It 'keeps the security reads enumerated once, in the shared detail doc' {
+        # AC3 of #3647: the enumeration used to live only in the coordinator file,
+        # so a worker applying the ledger could not find its own boundary.
+        $detail = Get-Content (Join-Path $repoRoot 'docs/harness/global-rules-detail.md') -Raw
+        foreach ($needle in @(
+            'Lectures de s\S*curit\S* \(jamais retir\S*es\)',
+            'surface compl\S*te de la PR',
+            'assertion d.identit\S* dans la commande qui agit',
+            'relecture diff\S*e d.une fermeture'
+        )) {
+            $detail | Should -Match $needle
+        }
+        foreach ($worker in @('.claude/commands/executor.md', '.claude/skills/executor/SKILL.md')) {
+            $carriers[$worker] | Should -Match 'global-rules-detail\.md' -Because "$worker must point at the single enumeration"
+        }
     }
 
     It 'rejects concurrent polling in place of the single observer' {
