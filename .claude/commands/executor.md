@@ -650,7 +650,7 @@ git push origin main
 
 - Tenir un **ledger turn-local** des obligations demarrees dans ce tour : `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`, `observer`, `evidence`. Il vit dans le raisonnement du tour, pas dans un nouveau fichier ou service persistant.
 - Avant tout sweep ou nouvelle exploration, chaque obligation en vol doit etre `done`, `blocked` avec condition de reprise nommee, ou `handed-off` avec destinataire explicite. **Scans de dette obligatoires** (catalogue I1-I8, patrouilles planifiees) : ils restent dus et ne sont pas gates par la valeur marginale. **Exploration speculative** : gatee — une recherche large dont la reponse ne changerait aucune decision ne s'ouvre pas. Le discriminant est l'**objet** (une dette nommee et due vs une reponse sans effet sur une decision), jamais l'ampleur.
-- Reutiliser toute lecture deja faite dans le tour. Rafraichir seulement apres une action susceptible d'avoir change l'etat, un acteur independant pertinent, ou une frontiere de securite.
+- Reutiliser toute lecture deja faite dans le tour. Rafraichir seulement apres une action susceptible d'avoir change l'etat, un acteur independant pertinent, ou une frontiere de securite. Cette frontiere est enumeree une fois, pour tous les porteurs : `docs/harness/global-rules-detail.md` § « Lectures de securite (jamais retirees) ».
 - Une condition asynchrone a **un seul observateur**. Ne pas ajouter de polling parallele quand `Monitor`, une tache de fond ou `gh run watch -i 180` notifiera deja. L'observateur couvre `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
 - Attribuer d'abord par `session_id`, puis par machine ; quand disponible, distinguer `parent_session_id` et `subagent_id`. Une agregation machine-only n'est pas une attribution de cause.
 - Messages de coordination : **3-5 lignes par defaut**. Depasser seulement pour une decision, un blocage ou une preuve qui serait autrement invérifiable.
@@ -663,9 +663,9 @@ git push origin main
 ScheduleWakeup(delaySeconds: 3540, prompt: "/executor", reason: "...")
 ```
 
-- **Caps IDLE levés** (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **Caps IDLE levés** (07-03, #1417+#2185 relâchés) : deep-queue illimitée.
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Réveil immédiat sans attendre le tick.
-- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + WAKE-CLAUDE, pas via timer adaptatif.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP (#2185) + WAKE-CLAUDE, pas via timer adaptatif.
 
 ### Session Hygiene — Restart Cadence (#2532)
 
@@ -696,7 +696,7 @@ Un redémarrage = fermer puis relancer la session Claude Code (VS Code) ; le `[W
 - Tache qui prend >2h sans progres visible
 
 ### Communication
-- **Dashboard RooSync** : Rapporter la progression apres chaque action majeure via `roosync_dashboard(action: "append", type: "workspace", ...)`
+- **Dashboard RooSync** : `roosync_dashboard(action: "append", type: "workspace", ...)` — le canal durable du cycle (`[DONE]`, `[BLOCKED]`, `[ASK]`), pas un rapport par action.
 - **RooSync** : Rapport concis au coordinateur (accomplissements + commits)
 - **GitHub** : Commenter les issues avec les resultats
 - Messages courts et factuels, pas de pavés

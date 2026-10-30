@@ -618,10 +618,10 @@ CronCreate(cron: "23 */12 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
-- **À chaque réveil**, dispatch deep-queue substantielle (**≥12h de matière**, plus longue que l'intervalle coordinateur — directive user 2026-10-05) par machine. **La cadence du coordinateur ne borne pas la file des exécuteurs** : un cycle coord plus espacé se compense par des deep-queues **multi-grains** (plusieurs issues indépendantes par machine, ordonnées), pas par moins de travail dispatché (directive user 2026-09-24). Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **À chaque réveil**, dispatch deep-queue substantielle (**≥12h de matière**, plus longue que l'intervalle coordinateur — directive user 2026-10-05) par machine. **La cadence du coordinateur ne borne pas la file des exécuteurs** : un cycle coord plus espacé se compense par des deep-queues **multi-grains** (plusieurs issues indépendantes par machine, ordonnées), pas par moins de travail dispatché (directive user 2026-09-24). Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
-- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via [WAKE-CLAUDE], pas via timer adaptatif.
 - **Propagation autres workspaces** : Quand tu coordonnes un autre workspace (CoursIA notamment), poster cette règle sur leur dashboard également.
 
 ### Post-Continuation Cron Verification (#2832 — anti-silent-coordinator)
