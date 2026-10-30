@@ -9,7 +9,9 @@ toutes les lanes tiraient le meme grain a chaque cycle).
 
 Le picker tire dans 3 urnes ponderees :
   - grain      : issues actionnables (labels `approved` / `bug` / `investigation`)
-  - umbrella   : issues parentes/epics (label `epic`) - signal de coordination
+  - umbrella   : issues parentes/epics (label `epic` OU marqueur de titre
+                 borne, ex. suffixe parenthese « epic » accentue) - signal
+                 de coordination
   - delivered  : PRs ouvertes (collectees pour la seule exclusion « issue deja
                  portee par une PR ouverte », JAMAIS servies comme candidat
                  libre : une PR n'est pas un grain - mesure c.309, ms#1538)
@@ -81,6 +83,7 @@ import socket
 import subprocess
 import sys
 import time
+import unicodedata
 from pathlib import Path
 
 # Reutilisation de la logique de claim (ADR 017) - pas de reecriture (#4103).
@@ -105,6 +108,17 @@ FROZEN_LABELS = {"frozen"}
 # en cas de CO-OCCURRENCE - mesure 03/10 : #4038 (bug + needs-approval) pickee
 # au 1er tirage, contrairement au contrat documente ci-dessus.
 GATED_LABELS = {"needs-approval", "deferred", "blocked-on-gate"}
+
+# Umbrella par TITRE en plus du label - friction web2 c.91 (30/10) : #3151
+# porte un suffixe parenthese « (epic) » (e accentue) dans son titre SANS le
+# label `epic` et a ete servie trois cycles de suite depuis l'urne grain.
+# Motifs BORNES uniquement (prefixe `[EPIC]` / `Epic:` / `Epic -`, ou
+# suffixe parenthese en fin de titre) : le mot nu dans une phrase
+# (« epicenter ») reste un grain. Source ASCII pur : l'accent aigu du e du
+# suffixe reel est retire a l'execution par normalisation NFKD - la
+# convention cp1252 du fichier est preservee.
+EPIC_TITLE_PREFIX_RE = re.compile(r"^\s*\[?\s*epic\b")
+EPIC_TITLE_SUFFIX_RE = re.compile(r"\(\s*epic\s*\)\s*$")
 
 # Repos a scanner (anti-double-claim #3407 : 2 depots)
 REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
@@ -223,8 +237,37 @@ def normalize_rest_item(raw: dict, repo: str) -> dict:
     }
 
 
+def _ascii_fold(text: str) -> str:
+    """Minuscules + accents retires (NFKD, marques combinantes supprimees).
+
+    La forme accentuee du marqueur epic (e accent aigu) devient « epic »
+    sans que le SOURCE ne quitte l'ASCII : la convention cp1252 du fichier
+    (impressions console, #3675) reste intacte.
+    """
+    decomposed = unicodedata.normalize("NFKD", (text or "").lower())
+    return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+
+
+def _looks_like_epic_title(title: str) -> bool:
+    """True si le TITRE porte un marqueur d'epic borne (prefixe ou suffixe).
+
+    Filet complementaire au label `epic`, pas son remplacement - friction
+    web2 c.91 : une epic non etiquetee (marqueur de titre accentue) sinon
+    servie comme grain a une lane. Le coordinateur garde la main sur le
+    relabel ; ce filet evite seulement de la classer actionnable.
+    """
+    folded = _ascii_fold(title)
+    return bool(EPIC_TITLE_PREFIX_RE.search(folded)
+                or EPIC_TITLE_SUFFIX_RE.search(folded))
+
+
 def bucketize_items(items: list):
     """Repartit les items collectes dans les 3 urnes + compte le trou.
+
+    Umbrella = label `epic` OU marqueur de titre borne (voir
+    `_looks_like_epic_title`) - friction web2 c.91 : #3151 (suffixe
+    parenthese epic accentue, sans label) etait servie depuis l'urne grain
+    trois cycles de suite.
 
     Retourne (buckets, unlabelled_open, open_issues) :
       - buckets['delivered'] = PRs ouvertes (cle `pull_request` cote REST) ;
@@ -244,7 +287,7 @@ def bucketize_items(items: list):
         open_issues += 1
         if labels & (FROZEN_LABELS | GATED_LABELS):
             continue
-        if labels & UMBRELLA_LABELS:
+        if labels & UMBRELLA_LABELS or _looks_like_epic_title(item.get("title")):
             buckets["umbrella"].append(item)
         elif labels & GRAIN_LABELS:
             buckets["grain"].append(item)

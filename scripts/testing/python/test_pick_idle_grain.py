@@ -30,10 +30,11 @@ pick = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(pick)
 
 
-def _item(number, *, is_pr=False, labels=(), repo="jsboige/roo-extensions"):
+def _item(number, *, is_pr=False, labels=(), repo="jsboige/roo-extensions",
+          title=None):
     return {
         "number": number,
-        "title": f"item {number}",
+        "title": f"item {number}" if title is None else title,
         "body": "",
         "labels": [{"name": n} for n in labels],
         "assignees": [],
@@ -101,6 +102,85 @@ class OpenPrIsNeverFree(unittest.TestCase):
         self.assertEqual(open_issues, 1)  # the PR is not an open ISSUE
         cited = pick.cited_issues_by_open_prs(buckets["delivered"])
         self.assertEqual(cited.get(("jsboige/jsboige-mcp-servers", 4151)), 1549)
+
+
+class EpicByTitleIsUmbrella(unittest.TestCase):
+    """An epic carried by its TITLE marker (no `epic` label) is umbrella, not grain.
+
+    Measured on web2 (cycle c.91, 30/10): #3151 ("[#2191] RooSync canal sous
+    PostgreSQL - messagerie + dashboards hors GDrive (épic)", labels
+    approved/claude-only, NO `epic` label) was drawn from the GRAIN urn three
+    cycles in a row - umbrella classification was label-only. The net reads a
+    bounded title marker (prefix "[EPIC]"/"Epic:"/"Epic -" or a parenthesized
+    suffix at end of title), never the bare word: "epicenter" stays a grain.
+    """
+
+    # The exact measured shape of #3151 (accented suffix, actionable labels).
+    EPIC_SUFFIX_TITLE = (
+        "[#2191] RooSync canal sous PostgreSQL — messagerie + dashboards "
+        "hors GDrive (épic)")
+
+    def test_measured_epic_suffix_lands_in_umbrella_not_grain(self):
+        issue = _item(3151, labels=("approved", "claude-only"),
+                      title=self.EPIC_SUFFIX_TITLE)
+        buckets, unlabelled_open, open_issues = pick.bucketize_items([issue])
+        self.assertEqual([i["number"] for i in buckets["umbrella"]], [3151])
+        self.assertEqual(buckets["grain"], [])
+        self.assertEqual(unlabelled_open, 0)
+        self.assertEqual(open_issues, 1)
+
+    def test_epic_prefix_variants_land_in_umbrella(self):
+        for title in ("Epic: Optimisation consommation crédits",
+                      "[EPIC] Fleet hardening", "[ÉPIC] Mixed accents",
+                      "Epic - Fleet hardening"):
+            with self.subTest(title=title):
+                issue = _item(1, labels=("approved",), title=title)
+                buckets, _, _ = pick.bucketize_items([issue])
+                self.assertEqual([i["number"] for i in buckets["umbrella"]], [1])
+                self.assertEqual(buckets["grain"], [])
+
+    def test_bare_epic_word_inside_a_sentence_stays_grain(self):
+        # No false positives: the marker must be a bounded prefix/suffix, the
+        # bare word anywhere else is ordinary vocabulary ("epicenter").
+        for title in ("Fix the epicenter of the search failure",
+                      "Add epic mode to the picker",
+                      "item 4400"):
+            with self.subTest(title=title):
+                issue = _item(4400, labels=("approved",), title=title)
+                buckets, unlabelled_open, _ = pick.bucketize_items([issue])
+                self.assertEqual([i["number"] for i in buckets["grain"]], [4400])
+                self.assertEqual(buckets["umbrella"], [])
+                self.assertEqual(unlabelled_open, 0)
+
+    def test_unlabelled_epic_by_title_counts_as_umbrella_not_hole(self):
+        # An epic-shaped title with NO urn label must join umbrella, not the
+        # unlabelled hole counter (that hole is the coordinator's signal).
+        issue = _item(3151, labels=(), title=self.EPIC_SUFFIX_TITLE)
+        buckets, unlabelled_open, open_issues = pick.bucketize_items([issue])
+        self.assertEqual(len(buckets["umbrella"]), 1)
+        self.assertEqual(unlabelled_open, 0)
+        self.assertEqual(open_issues, 1)
+
+    def test_looks_like_epic_title_direct_cases(self):
+        cases = {
+            "…hors GDrive (épic)": True,      # accented suffix (measured #3151)
+            "[ÉPIC] upper accented": True,     # NFKD + lower
+            "Epic: prefix": True,
+            "epicenter of the failure": False,  # word boundary, not a marker
+            "Add epic mode": False,
+            "": False,
+            None: False,
+        }
+        for title, expected in cases.items():
+            with self.subTest(title=title):
+                self.assertEqual(pick._looks_like_epic_title(title), expected)
+
+    def test_epic_label_alone_still_lands_in_umbrella(self):
+        # The label path is unchanged - the title net only widens it.
+        issue = _item(3111, labels=("epic", "approved"))
+        buckets, _, _ = pick.bucketize_items([issue])
+        self.assertEqual([i["number"] for i in buckets["umbrella"]], [3111])
+        self.assertEqual(buckets["grain"], [])
 
 
 if __name__ == "__main__":
