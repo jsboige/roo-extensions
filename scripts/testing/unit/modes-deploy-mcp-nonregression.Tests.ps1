@@ -172,6 +172,22 @@ BeforeAll {
         return $map
     }
 
+    function Get-FullTreeSnapshot {
+        # Files AND directories under a root (ai-01 CHANGES on #4432): the dry-run
+        # proof must catch a stray directory even when no file ever lands in it,
+        # and a stray file even at a location no explicit assert names.
+        param([string]$Root)
+        $files = @{}
+        $dirs = @()
+        if ($Root -and (Test-Path -LiteralPath $Root)) {
+            Get-ChildItem -LiteralPath $Root -Recurse -File | ForEach-Object {
+                $files[$_.FullName] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+            }
+            $dirs = @(Get-ChildItem -LiteralPath $Root -Recurse -Directory | ForEach-Object { $_.FullName })
+        }
+        return @{ Files = $files; Dirs = $dirs }
+    }
+
     function Invoke-DeployModes {
         # Child of the SAME engine (Pester may be powershell.exe 5.1 or pwsh,
         # on Windows or Linux) — the script's `exit` paths must not kill the suite.
@@ -601,6 +617,126 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             $r.Output | Should -Match 'neither Roo Code nor Zoo Code is installed'
             (Test-Path -LiteralPath $jsRooStorageDir) | Should -BeFalse -Because 'a refused deploy must not leave a ghost Roo globalStorage'
             (Test-Path -LiteralPath $jsZooStorageDir) | Should -BeFalse
+        }
+    }
+
+    Context 'generate-modes.js --dry-run behavioural proof (#4334)' {
+
+        # ai-01 CHANGES on #4432: the six static cases in
+        # generate-modes-deploy-global.Tests.ps1 only inspect the SOURCE TEXT --
+        # a future extra write can pass that regex suite. These three tests
+        # invoke the REAL node CLI and assert the FILESYSTEM:
+        #   1. with --dry-run: zero files AND zero directories, anywhere;
+        #   2. without the flag: the same invocation writes every target
+        #      (positive control -- it proves the assertions can SEE a write);
+        #   3. a mutation witness: removing one guard IS detected.
+        #
+        # Targets are explicit and disposable: --output and --global-path both
+        # point INSIDE the sandbox, and the script's ROOT (the .roomodes parent)
+        # is the sandbox copy itself -- no real globalStorage, no real .roomodes.
+        # --global-path short-circuits the extension resolution, so no extension
+        # fixture is needed and no host globalStorage is ever probed.
+        #
+        # UNRESOLVED LIMITATION (NanoClaw review on #4432, NAMED, NOT FIXED HERE):
+        # an unknown flag is still silently ignored by parseArgs. --dry-run is now
+        # parsed, but the wider class "any unrecognised flag is dropped without
+        # error" stays open -- coordinator decision, deliberately not expanded here.
+
+        BeforeEach {
+            # Fresh disposable targets per test. The parents are deliberately ABSENT,
+            # so a directory creation is observable (the old defect created one).
+            $drRoot = Join-Path $script:Sandbox 'dryrun-targets'
+            if (Test-Path -LiteralPath $drRoot) { Remove-Item -LiteralPath $drRoot -Recurse -Force }
+            $out = Join-Path $drRoot (Join-Path 'out' 'modes.yaml')
+            $globalTarget = Join-Path $drRoot (Join-Path 'global' 'custom_modes.yaml')
+        }
+
+        It 'with --dry-run writes ZERO files and ZERO directories (full-sandbox diff)' {
+            $before = Get-FullTreeSnapshot -Root $script:Sandbox
+            # The sandbox may already carry a .roomodes (the local-deploy Context
+            # above wrote one): the contract is "UNCHANGED", not "absent".
+            $roomodes = Join-Path $script:Sandbox '.roomodes'
+            $roomodesHashBefore = if (Test-Path -LiteralPath $roomodes) { (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash } else { $null }
+
+            $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $out,
+                                        '--deploy', '--deploy-global', '--global-path', $globalTarget,
+                                        '--dry-run')
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            $r.Output | Should -Match 'DRY RUN -- nothing was written'
+            # Explicit targets: file absent AND parent directory absent.
+            (Test-Path -LiteralPath $out) | Should -BeFalse -Because 'dry-run wrote the output file'
+            (Test-Path -LiteralPath (Split-Path -Parent $out)) | Should -BeFalse -Because 'dry-run created the output directory'
+            (Test-Path -LiteralPath $globalTarget) | Should -BeFalse -Because 'dry-run wrote the global target'
+            (Test-Path -LiteralPath (Split-Path -Parent $globalTarget)) | Should -BeFalse -Because 'dry-run created the global target directory'
+            if ($roomodesHashBefore) {
+                (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash | Should -Be $roomodesHashBefore -Because 'dry-run rewrote .roomodes'
+            } else {
+                (Test-Path -LiteralPath $roomodes) | Should -BeFalse -Because 'dry-run deployed .roomodes'
+            }
+            # The airtight half: NOTHING appeared anywhere in the sandbox -- a write
+            # at a location no explicit assert names still fails here.
+            $after = Get-FullTreeSnapshot -Root $script:Sandbox
+            @($after.Files.Keys | Sort-Object) | Should -Be @($before.Files.Keys | Sort-Object) -Because 'dry-run added or removed a file in the sandbox'
+            @($after.Dirs | Sort-Object) | Should -Be @($before.Dirs | Sort-Object) -Because 'dry-run created or removed a directory in the sandbox'
+            foreach ($path in $before.Files.Keys) {
+                $after.Files[$path] | Should -Be $before.Files[$path] -Because "dry-run modified an existing file: $path"
+            }
+        }
+
+        It 'same invocation WITHOUT the flag is the positive control: every target IS written' {
+            # The sandbox may already carry a .roomodes (the local-deploy Context
+            # above wrote a JSON one): the contract is "rewritten by THIS deploy",
+            # so the hash MUST change -- an absent write would leave it identical.
+            $roomodes = Join-Path $script:Sandbox '.roomodes'
+            $roomodesHashBefore = if (Test-Path -LiteralPath $roomodes) { (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash } else { $null }
+
+            $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $out,
+                                        '--deploy', '--deploy-global', '--global-path', $globalTarget)
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            $r.Output | Should -Match 'Deployed to global:'
+            # Output file + the directory that had to be created for it.
+            (Test-Path -LiteralPath $out) | Should -BeTrue
+            (Test-Path -LiteralPath (Split-Path -Parent $out)) | Should -BeTrue
+            ([regex]::Matches((Get-Content -LiteralPath $out -Raw), '(?m)^\s*- slug:')).Count | Should -Be $script:ExpectedModeCount
+            # .roomodes at the SANDBOX root (disposable copy), with full mode parity.
+            (Test-Path -LiteralPath $roomodes) | Should -BeTrue
+            (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash | Should -Not -Be $roomodesHashBefore -Because 'the .roomodes deploy did not happen'
+            ([regex]::Matches((Get-Content -LiteralPath $roomodes -Raw), '(?m)^\s*- slug:')).Count | Should -Be $script:ExpectedModeCount
+            # Global target + its directory, with full mode parity.
+            (Test-Path -LiteralPath $globalTarget) | Should -BeTrue
+            (Test-Path -LiteralPath (Split-Path -Parent $globalTarget)) | Should -BeTrue
+            ([regex]::Matches((Get-Content -LiteralPath $globalTarget -Raw), '(?m)^\s*- slug:')).Count | Should -Be $script:ExpectedModeCount
+        }
+
+        It 'mutation witness: an unguarded write IS detected by the behavioural layer' {
+            # ai-01 CHANGES: prove the layer can FAIL. The sandbox copy of the
+            # script loses its writeFileSync dry-run guard, and the SAME dry-run
+            # invocation runs against it: the output file must APPEAR -- that
+            # appearance IS the detection (the zero-assertion of the first test
+            # would go red on this mutant).
+            $scriptPath = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'scripts' 'generate-modes.js'))
+            $originalBytes = [System.IO.File]::ReadAllBytes($scriptPath)
+            $original = [System.Text.Encoding]::UTF8.GetString($originalBytes)
+            $mutated = $original -replace 'if \(!args\.dryRun\) \{\s*fs\.writeFileSync\(args\.output', "if (true) {`n    fs.writeFileSync(args.output"
+            $mutated | Should -Not -Be $original -Because 'the mutation did not apply -- the witness would pass without detecting anything'
+            # The output target lives in the sandbox ROOT (its parent exists): the
+            # mkdir guard is still intact, so the unguarded write cannot die on
+            # ENOENT -- it must land, visibly.
+            $witnessOut = Join-Path $script:Sandbox 'mutant-witness-out.yaml'
+            try {
+                [System.IO.File]::WriteAllText($scriptPath, $mutated, (New-Object System.Text.UTF8Encoding($false)))
+                $r = Invoke-GenerateModes @('--format', 'yaml', '--output', $witnessOut, '--dry-run')
+            } finally {
+                # Byte-exact restore (the sandbox is disposable, but the next test
+                # in this run must see the pristine script).
+                [System.IO.File]::WriteAllBytes($scriptPath, $originalBytes)
+            }
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            (Test-Path -LiteralPath $witnessOut) | Should -BeTrue -Because 'the unguarded write did not happen -- the behavioural layer would be blind to it'
+            # And the log still claims nothing was written: that is the original defect.
+            $r.Output | Should -Match 'DRY RUN -- nothing was written'
         }
     }
 

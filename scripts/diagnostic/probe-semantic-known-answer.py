@@ -14,7 +14,12 @@ Deux phases, deux sieges :
        (fenetre : dernieres 24 h, taille 10 Ko-2 Mo — au-dela, l'indexation
        synchrone peut mourir au timeout outil 300 s, trou #4352 g3) ;
     2. extrait une PHRASE distinctives du contenu reel via conversation_browser(view)
-       — jamais une lecture directe du JSONL (#1785) ;
+       — jamais une lecture directe du JSONL (#1785) ; la phrase refuse les
+       sorties d'outil GENERIQUES (le succes standard d'un append de dashboard,
+       les en-tetes gras) et doit etre RARE : un SCAN VERBATIM des transcripts
+       locaux ne la retrouve que dans 1 session (la cible). Mesure ai-01 28/10 (file 20261028i) :
+       un verify sur « Message ajouté au dashboard '…' » FAIL sans rien mesurer
+       — cette ligne vit dans des centaines de sessions ;
     3. indexe la session via roosync_indexing(action:"index", task_id,
        source:"claude-code", queued:false) — le defaut 'roo' resout un repertoire de
        tache et echoue sur un .jsonl ; et depuis g3 le defaut d'indexation MET EN
@@ -26,7 +31,10 @@ Deux phases, deux sieges :
        pas un echec** : 0 veut souvent dire « deja indexee pour cette tache »
        (dedup ms#1557). C'est la phase VERIFY qui tranche, pas le compteur.
        (Mesure ai-01 28/10 : la forme Markdown seule etait lue comme une panne,
-       exit 2 sans rien mesurer — verdict faux, mesure saine.)
+       exit 2 sans rien mesurer — verdict faux, mesure saine.) Quand les DEUX
+       formes coexistent, le JSON embarque portant `success` FAIT FOI : un
+       `success:false` prime sur l'en-tete Markdown (file 20261028i, suivi 1 —
+       cas injoignable aujourd'hui, rendu impossible).
     4. affiche TASK_ID + PHRASE verbatim (a copier vers le siege B).
 
   Phase VERIFY (n'importe quel siege, typiquement B) :
@@ -71,15 +79,18 @@ from __future__ import annotations
 
 import argparse
 import calendar
+import itertools
 import json
 import queue
 import re
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import Sequence
 
 # ---------------------------------------------------------------------------
 # Constantes
@@ -95,6 +106,77 @@ MAX_RESULTS = 5                  # critere 4 : « ranks in the top 5 »
 INDEX_ATTEMPTS = 3               # candidats tentes avant de declarer l'instrument en echec
 PHRASE_MIN_CHARS = 60
 PHRASE_MAX_CHARS = 240
+# RARETE de la phrase (file 20261028i, ai-01 28/10) : le verify live a FAIL sur
+# « Message ajouté au dashboard 'workspace-roo-extensions' » — la ligne de succes
+# standard de CHAQUE append, presente dans des centaines de sessions. Un FAIL la-
+# dessus ne mesure pas l'index. Une phrase retrouvee au-dela de
+# MAX_PHRASE_SPREAD_SESSIONS n'est pas discriminante et est ecartee.
+#
+# La mesure est un SCAN VERBATIM LOCAL (ai-01 CHANGES #4412), pas une recherche
+# texte distante : `roosync_search(action:"text")` decoupe la requete en jetons et
+# matche sur N'IMPORTE LEQUEL (`search-fallback.tool.ts:76-79`), en rendant
+# `totalFound = cleanResults.length` (`:247`) — un compte PLAFONNE de taches qui
+# partagent au moins un mot commun. Une phrase presente dans sa seule session y
+# « apparait » dans toutes celles qui contiennent « session » ou « dashboard » :
+# le filtre s'effondrait a chaque fois, et le verify ne tournait jamais.
+MAX_PHRASE_SPREAD_SESSIONS = 1
+# MINIMUM 1, pas 0 : la phrase est EXTRAITE de la cible, donc un scan des
+# transcripts du siege doit la retrouver au moins chez elle. 0 = corpus
+# incomplet/illisible ou phrase manguee par le rendu — la regle precedente
+# (« un spread de 0 reste accepte : l'indexation a pu echouer ») parlait de la
+# recherche INDEXEE, ou l'absence pouvait signifier un index en panne. Un scan de
+# FICHIERS n'a pas cette excuse : l'absence n'y prouve rien, donc on refuse
+# (fail-closed) au lieu d'accepter en silence.
+MIN_PHRASE_SPREAD_SESSIONS = 1
+PHRASE_SPREAD_MAX_TRIES = 5          # candidates evaluees avant d'abandonner
+# Bornes de LECTURE du scan verbatim (review ai-01 #4412, points 2 et 3).
+# Le corpus d'un siege monte facilement a plusieurs centaines de Mo (535 Mo sur
+# ai-01) : le lire en `read_text()` charge un fichier entier en memoire, et une
+# seule session geante suffit a faire tomber le processus. La lecture est donc
+# LINEAIRE (une ligne a la fois : la memoire est bornee par le plafond de LIGNE,
+# jamais par la taille du fichier), avec un plafond par FICHIER et un plafond par
+# LIGNE.
+#
+# Ce qu'un depassement NE fait PAS : il ne saute pas le fichier pour rendre PASS.
+# Un fichier non lu est un trou dans la mesure, donc la sonde rend exit 2
+# (INSTRUMENT) en nommant le compte et le volume des exclusions. La rectification
+# ai-01 sur #4412 est explicite : « un fichier trop gros ne peut pas etre
+# simplement saute puis produire PASS ».
+# MESURE (web1, 29/10, tracemalloc) : sur un transcript synthetique de 315 Mo, la
+# lecture lineaire plafonnee tient en ~0,04 Mo de pic, la lecture d'un bloc
+# (`read_text`, l'ancien code) en 945 Mo — ~3x la taille du fichier, et un ratio
+# de 21 000 entre les deux. Controle du cas pathologique : une UNIQUE ligne de
+# 100 Mo picote a 67 Mo (bornee par le plafond de ligne) et leve
+# `InstrumentLimit` — elle n'est jamais chargee entiere.
+#
+# Consequence sur le plafond fichier : le garder bas (100-256 Mo) alors que la
+# memoire ne depend plus de lui rendrait la sonde inutilisable sur le siege qui a
+# motive la review — ai-01 porte un transcript de 737 Mo, et un plafond a 256 Mo
+# y rendrait un exit 2 a chaque run, sans rien mesurer. Il ne reste donc qu'un
+# garde anti-derive (temps de balayage), place tres au-dessus de tout transcript
+# reel (le plus gros observe : 737 Mo).
+MAX_CORPUS_FILE_BYTES = 4 * 1024 * 1024 * 1024   # 4 Go par transcript (garde anti-derive)
+MAX_CORPUS_LINE_BYTES = 32 * 1024 * 1024         # 32 Mo par ligne (sortie d'outil geante)
+# NB : la borne de ligne est comparee a `len(chunk)`, c'est-a-dire en CARACTERES
+# deja lus et non en octets du fichier. C'est la grandeur qui compte ici : c'est
+# la memoire allouee qu'on borne (~1 a 4 octets par caractere selon le contenu).
+# Corpus de reference du scan verbatim : les transcripts Claude Code du siege.
+# `candidate_sessions` ne retient que `source in ("claude","claude-code")`, et
+# l'indexeur lit ces memes fichiers — c'est donc exactement le corpus dans lequel
+# la phrase doit etre rare. Un corpus absent ou vide est une ERREUR (fail-closed),
+# jamais un spread de 0.
+LOCAL_CORPUS_DEFAULT = Path.home() / ".claude" / "projects"
+# Repertoire des transcripts de SOUS-AGENTS : ils appartiennent a la session
+# parente (review ai-01 #4412, point 3). Les compter comme des sessions gonfle le
+# spread d'une phrase presente chez la cible elle-meme — une phrase ecrite par le
+# sous-agent du siege ferait echouer le critere « <= 1 session ».
+SUBAGENT_DIR = "subagents"
+# Dossiers dont les `.jsonl` ne sont PAS des sessions indexables (review ai-01
+# r4, observation corpus) : `memory/user-words-journal.jsonl` et consorts sont
+# des journaux, pas des transcripts de session. Les compter gonflerait le spread
+# d'une phrase banale. Aucun fichier n'est supprime - ils sont seulement
+# ECARTES de l'eligibilite.
+NON_SESSION_DIRS = {"memory", SUBAGENT_DIR}
 SECRET_MARKERS = re.compile(
     r"(api[_-]?key|secret|token|password|passwd|bearer|sk-[a-zA-Z0-9]|ghp_[a-zA-Z0-9]"
     r"|BEGIN [A-Z ]+PRIVATE|AKIA[0-9A-Z]{16}|-----)",
@@ -290,7 +372,15 @@ def parse_index_result(text: str):
     n'accepte jamais « pas d'erreur connue » comme un succes.
     """
     payload = parse_embedded_json(text)
-    if isinstance(payload, dict) and payload.get("success") is True:
+    if isinstance(payload, dict) and "success" in payload:
+        # PRECEDENCE (file 20261028i, suivi 1) : un JSON embarque portant
+        # `success` fait FOI sur l'en-tete Markdown qui l'entoure. Un
+        # `success:false` derriere « # Indexation sémantique terminée » serait
+        # sinon lu comme un succes par la branche Markdown ci-dessous. Cas
+        # aujourd'hui injoignable (le serveur n'embarque un JSON que sur
+        # succes) : on le rend IMPOSSIBLE plutot que d'attendre de le vivre.
+        if payload.get("success") is not True:
+            return None
         payload.setdefault("form", "json")
         # Clef normalisee, quelle que soit la forme : les consommateurs (et la
         # sortie `--json`) n'ont pas a connaitre deux orthographes.
@@ -418,15 +508,47 @@ _RENDERER_LINE_MARKERS = (
     "▶", "====",                 # en-tete de tache / separateurs
 )
 
+# Sorties d'OUTIL generiques : presentes dans presque toute session ayant appele
+# l'outil (ligne de succes d'un append de dashboard, en-tetes de boite). Choisir
+# une phrase la echoue le verify SANS mesurer l'index (mesure ai-01 28/10 : FAIL
+# sur « Message ajouté au dashboard 'workspace-roo-extensions' », file 20261028i).
+# La rarete mesuree (pick_rare_phrase) attrape le reste de la famille.
+_GENERIC_TOOL_OUTPUT_MARKERS = (
+    "Message ajouté au dashboard",                    # roosync_dashboard append
+    "Message envoyé", "Réponse envoyée",              # roosync_messages send/reply
+    "Message marqué comme lu",                        # roosync_messages mark_read
+    "Actions disponibles", "Boîte de Réception",      # en-tetes de rendu inbox
+)
 
-def pick_phrase(text: str) -> str:
-    """Phrase distinctive, balayee depuis la fin (contenu tardif = plus specifique).
+# Decorations de presentation posees DEVANT une ligne de resultat : emoji de
+# statut (le serveur prefixe ses succes d'un `✅`), tag crochet `[OK]`/`[DONE]`,
+# gras `**`, `Succès :`. Un `startswith` nu les laisse toutes passer (review
+# #4412 : Hermes 🟠 + ai-01 CHANGES — `✅ Message ajouté au dashboard …` etait
+# retenue comme phrase). Les tests de marqueurs s'appliquent a la ligne NUE.
+# Le tag crochet est limite aux MAJUSCULES : `[tool_result]` (lowercase) doit
+# rester refuse par le tuple de prefixes, pas redevenir eligible apres retrait.
+_DECOR_EMOJI = re.compile(r"^[℀-⯿️‍\U0001F000-\U0001FBFF]+")
+_DECOR_TAG = re.compile(r"^\[[A-Z]{1,10}\]\s*")
+_DECOR_SUCCES = re.compile(r"^Succès\s*:\s*")
 
-    Regles : longueur PHRASE_MIN..PHRASE_MAX, pas de marqueur de secret, pas de
-    ligne de commande/outil NI du renderer (bruit non semantique, absent de
-    l'index tel quel), pas de markdown lourd. Le prefixe de rendu `| ` est retire
-    AVANT les filtres : le `|` doit rejeter les tableaux markdown, pas la prose.
-    """
+
+def _strip_line_decorations(ln: str) -> str:
+    """Ligne nue apres retrait des decorations (`✅`, `[OK]`, `**`, `Succès :`)
+    — le support sur lequel les marqueurs generiques et d'erreur se testent."""
+    prev = None
+    while prev != ln:
+        prev = ln
+        ln = _DECOR_EMOJI.sub("", ln)
+        ln = _DECOR_TAG.sub("", ln)
+        ln = _DECOR_SUCCES.sub("", ln)
+        ln = ln.lstrip("* ")
+    return ln
+
+
+def _phrase_candidates(text: str):
+    """Lignes candidates de la phrase, de la FIN vers le debut (contenu tardif =
+    plus specifique). Filtres de pick_phrase, en generateur pour que la rarete
+    mesuree (pick_rare_phrase) puisse passer a la candidate suivante."""
     for raw in reversed(text.splitlines()):
         ln = raw.strip()
         if ln.startswith(_RENDER_PREFIX):
@@ -435,18 +557,320 @@ def pick_phrase(text: str) -> str:
             continue
         if SECRET_MARKERS.search(ln):
             continue
+        bare = _strip_line_decorations(ln)
         # Prefixes d'erreur serveur : un message d'erreur fait 60-240 caracteres et
         # passe toutes les autres bornes — il ne doit JAMAIS devenir la phrase de
-        # sonde (durcissement Hermes, review #4398).
-        if ln.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
-                          "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
+        # sonde (durcissement Hermes, review #4398). Test sur la ligne NUE : la
+        # forme decoree `✅ Erreur lors de…` passe le test brut (review #4412).
+        if bare.startswith(("Tool call:", "[tool_result]", "```", "#", "|", "- [",
+                            "Erreur:", "Erreur lors de", "Error:", "ERROR:")):
             continue
         if any(ln.startswith(m) for m in _RENDERER_LINE_MARKERS):
             continue
+        # Sorties d'outil generiques + en-tetes gras (`**Tâche:**`, `**Status**`,
+        # `**📋 Aperçu…`) : metadata de rendu, pas de la prose de session. Mesure
+        # ai-01 28/10 (file 20261028i) : sans cela, le verify FAIL sur la ligne de
+        # succes standard d'un append de dashboard — sans rien mesurer. Test sur
+        # la ligne NUE : le serveur prefixe ses succes d'un `✅` et les deux
+        # reviews ont mesure `✅ Message ajouté…` / `[OK] Message envoyé…` /
+        # `Succès : Message ajouté…` retenues comme phrases (review #4412).
+        if any(bare.startswith(m) for m in _GENERIC_TOOL_OUTPUT_MARKERS):
+            continue
+        if ln.startswith("**"):
+            continue
+        # Signature de LIGNE DE TABLEAU markdown : apres retrait du prefixe de
+        # rendu `| `, le premier `|` d'une ligne prefixee a ete consomme et
+        # `col1 | col2 |` echappe au filtre `|` ci-dessus (review #4412, Hermes
+        # 🟡 : le commentaire promettait le rejet des tableaux, la forme
+        # prefixee passait). Deux separateurs suffisent a signer la ligne.
+        if ln.count("|") >= 2 and " | " in ln:
+            continue
         if ln.count('"') > 6 or ln.count("{") + ln.count("}") > 2:
             continue
+        yield ln
+
+
+def pick_phrase(text: str) -> str:
+    """Phrase distinctive, balayee depuis la fin (contenu tardif = plus specifique).
+
+    Regles : longueur PHRASE_MIN..PHRASE_MAX, pas de marqueur de secret, pas de
+    ligne de commande/outil, NI du renderer (bruit non semantique, absent de
+    l'index tel quel), NI de sortie d'outil generique / en-tete gras, pas de
+    markdown lourd. Le prefixe de rendu `| ` est retire AVANT les filtres : le
+    `|` doit rejeter les tableaux markdown, pas la prose.
+    """
+    for ln in _phrase_candidates(text):
         return ln
     raise RuntimeError("aucune phrase candidate extraite de la session (contenu trop pauvre)")
+
+
+class InstrumentLimit(RuntimeError):
+    """Une borne de lecture empeche de mesurer le corpus ENTIER.
+
+    Distincte d'une erreur generique de propos : ce n'est ni un PASS ni un FAIL de
+    fond, c'est l'INSTRUMENT qui ne peut pas conclure (exit 2). Sauter le fichier
+    hors bornes et rendre PASS serait un faux succes — exactement le defaut que la
+    review ai-01 (#4412) a nomme.
+    """
+
+
+def corpus_files(root: Path) -> list[Path]:
+    """Les transcripts `.jsonl` du corpus local — une liste VIDE est une ERREUR.
+
+    Fail-closed (ai-01 CHANGES #4412, point 2) : un corpus absent ou vide ne rend
+    pas « 0 session », il rend une erreur. Sans cette garde, un `--corpus-dir`
+    mal pointe (ou un corpus deplace) ferait trouver TOUTES les phrases rares et
+    ramenerait exactement le defaut mesure — une sonde qui accepte une phrase
+    banale parce qu'elle n'a rien pu mesurer.
+
+    UNE ENTREE = UNE SESSION (review ai-01 #4412, point 3). Les transcripts de
+    sous-agents vivent sous `<session>/subagents/*.jsonl` : ce sont des morceaux
+    de la MEME session, pas des sessions. Ils sont ECARTES et jamais LUS — leur
+    contenu n'est ni balaye ni replie sur la session parente (le transcript de
+    tete represente seul la session) ; seul leur NOMBRE est rapporte dans
+    l'erreur de corpus vide. Les compter comme des sessions gonflerait le
+    spread d'une phrase ecrite par le sous-agent de la cible, et l'arme
+    « spread <= 1 » se declencherait sur une phrase qui n'existe que chez elle.
+
+    ELIGIBILITE = LE LAYOUT REEL d'une session indexable (review ai-01 r4,
+    observation corpus). Un transcript de session est un `.jsonl` pose
+    DIRECTEMENT dans un repertoire de projet : `<projets>/<hash>/<uuid>.jsonl`
+    (racine = le conteneur de projets, `LOCAL_CORPUS_DEFAULT`) ou
+    `<hash>/<uuid>.jsonl` (racine = le repertoire projet lui-meme). Tout le reste
+    est ECARTE et COMPTE : `memory/user-words-journal.jsonl` (un journal, pas une
+    session), les sous-dossiers plus profonds, et les `.jsonl` hors layout. Le
+    defaut nomme un fichier `memory/…` comme une session, ce qui gonfle le spread
+    d'une phrase banale - exactement l'arme « spread <= 1 » qu'on veut ecarter.
+    Aucun fichier n'est SUPPRIME : l'eligibilite est filtree, la donnee reste.
+    """
+    if not root.is_dir():
+        raise RuntimeError(
+            f"corpus local introuvable : {root} — la rarete VERBATIM n'est pas "
+            "mesurable sans lui (fail-closed : « corpus absent » n'est pas "
+            "« 0 session »)"
+        )
+    sessions: dict[str, Path] = {}
+    subagent_files = 0
+    non_session_files = 0
+    for p in root.rglob("*.jsonl"):
+        if not p.is_file():
+            continue
+        if SUBAGENT_DIR in {seg.lower() for seg in p.parts[:-1]}:
+            subagent_files += 1
+            continue
+        try:
+            rel_parts = p.relative_to(root).parts
+        except ValueError:
+            non_session_files += 1
+            continue
+        # Un dossier connu non-session ('memory', 'subagents') sur le chemin, ou
+        # une profondeur hors layout : ce `.jsonl` n'est pas une session.
+        if any(seg.lower() in NON_SESSION_DIRS for seg in rel_parts[:-1]) or len(rel_parts) not in (1, 2):
+            non_session_files += 1
+            continue
+        # Cle de session : le basename du transcript de tete (`<uuid>.jsonl`).
+        # `setdefault` : deux chemins qui resolvent la meme session ne comptent
+        # qu'une fois, quel que soit l'ordre de parcours.
+        sessions.setdefault(p.stem, p)
+    if not sessions:
+        raise RuntimeError(
+            f"corpus local VIDE sous {root} (aucun transcript de session, "
+            f"{subagent_files} fichier(s) de sous-agent ecarte(s), "
+            f"{non_session_files} fichier(s) hors layout de session ecarte(s)) — "
+            "spread non mesurable (fail-closed)"
+        )
+    return sorted(sessions.values())
+
+
+def _phrase_needles(phrase: str) -> tuple[str, ...]:
+    """Formes sous lesquelles la phrase peut apparaitre dans un transcript.
+
+    Un `.jsonl` stocke le texte dans des chaines JSON : un guillemet ou un
+    antislash y est echappe, et certaines sessions ecrivent l'ASCII etendu en
+    `\\uXXXX`. Tester la seule forme brute SOUS-COMPTERAIT des sessions qui
+    contiennent pourtant la phrase — or le sous-comptage est le sens DANGEREUX
+    (une phrase banale passerait pour rare).
+    """
+    needles = [phrase]
+    for ensure_ascii in (False, True):
+        escaped = json.dumps(phrase, ensure_ascii=ensure_ascii)[1:-1]
+        if escaped not in needles:
+            needles.append(escaped)
+    return tuple(needles)
+
+
+def verbatim_spreads(files: Sequence[Path], phrases: Sequence[str]) -> dict[str, int]:
+    """Nombre de SESSIONS dont le texte contient la phrase LITTERALEMENT.
+
+    Instrument de rarete (ai-01 CHANGES #4412, point 1). Remplace la recherche
+    texte distante, qui ne mesurait pas ce qu'elle annoncait : le handler
+    tokenise en OR (« match ANY token », `search-fallback.tool.ts:76-79`) et rend
+    `totalFound = cleanResults.length` (`:247`), un compte PLAFONNE de taches
+    partageant au moins un mot. Deux consequences mesurees par ai-01 : une phrase
+    presente dans sa seule session « apparait » partout ou « session » figure, et
+    les 5 candidates s'epuisaient avant que le verify ne tourne.
+
+    Une passe par ensemble de candidates (<= 5) de CHAQUE essai : la boucle
+    d'indexation appelle cette fonction une fois par candidat tente (<=
+    INDEX_ATTEMPTS), et chaque appel re-balaye le corpus. A l'INTERIEUR d'un
+    essai, un seul passage couvre toutes les candidates — aucune passe par
+    phrase. Chaque phrase est plafonnee a MAX + 1 des qu'elle depasse le seuil :
+    au-dela, le detail ne sert plus a decider, seulement a nommer l'echec.
+
+    Lecture LINEAIRE et bornee (review ai-01 #4412, point 2) : le transcript est
+    parcouru ligne a ligne, donc la memoire est bornee par la plus grosse LIGNE et
+    non par la taille du FICHIER. Un fichier ou une ligne au-dela des plafonds ne
+    fait pas « sauter et continuer » : il est compte comme EXCLUSION et la mesure
+    entiere leve `InstrumentLimit` (exit 2). Une exclusion silencieuse rendrait un
+    PASS sur un corpus qu'on n'a pas lu — le faux succes que la review nomme.
+
+    UNE SESSION = UN COMPTE (review ai-01 r4, blocage 1) : une phrase y compte
+    AU PLUS UNE FOIS, meme si elle y apparait sur plusieurs lignes. Compter par
+    LIGNE saturationait a tort le spread d'une phrase qui n'existe que chez elle
+    — le cas reel d'une session qui cite sa propre reponse ou un echo d'outil
+    (reproduction d'ai-01 : deux lignes, une session, `{phrase: 2}` au lieu de
+    `{phrase: 1}`). Le contrat — `rarity.corpus_sessions`, le README et le nom de
+    la mesure — parle de SESSIONS ; le code comptait des lignes.
+
+    CANDIDATES REPETEES : dedupliquees en entree, pour que lister la meme phrase
+    deux fois ne change pas la mesure (review ai-01 r4).
+    """
+    # Une candidate listee plusieurs fois reste UNE candidate : le compte est un
+    # nombre de sessions, jamais un nombre d'occurrences dans la liste.
+    phrases = list(dict.fromkeys(phrases))
+    counts = {p: 0 for p in phrases}
+    needles = {p: _phrase_needles(p) for p in phrases}
+    saturated: set[str] = set()
+    excluded: list[tuple[str, float, str]] = []
+    for path in files:
+        if len(saturated) == len(phrases):
+            break
+        try:
+            size = path.stat().st_size
+        except OSError as exc:
+            raise RuntimeError(
+                f"corpus local illisible ({path.name}) : {exc} — spread non mesurable "
+                "(fail-closed)"
+            ) from exc
+        if size > MAX_CORPUS_FILE_BYTES:
+            excluded.append((path.name, size / 1e6, "plafond fichier"))
+            continue
+        # Lecture LINEAIRE plafonnee. `for line in fh` ne suffit PAS : l'iterateur
+        # alloue la ligne ENTIERE avant qu'on puisse mesurer sa taille, donc un
+        # unique enregistrement de plusieurs Go coûterait plusieurs Go malgre la
+        # « lecture ligne a ligne ». `readline(plafond + 1)` rend au plus
+        # plafond+1 caracteres : au-dela, la ligne est DETECTEE sans etre chargee
+        # (review ai-01 #4412, point 2).
+        try:
+            # Phrases vues dans CE fichier : une session = un compte, quel que
+            # soit le nombre de lignes qui portent la phrase.
+            seen: set[str] = set()
+            file_excluded = False
+            with path.open("r", encoding="utf-8", errors="replace") as fh:
+                while True:
+                    line = fh.readline(MAX_CORPUS_LINE_BYTES + 1)
+                    if not line:
+                        break
+                    if len(line) > MAX_CORPUS_LINE_BYTES:
+                        # Une ligne geante (sortie d'outil) ne peut pas etre
+                        # comparee sans repayer le pic memoire qu'on vient
+                        # d'eliminer : le fichier est une EXCLUSION, pas un 0.
+                        excluded.append((path.name, len(line) / 1e6, "plafond ligne"))
+                        file_excluded = True
+                        break
+                    for phrase in phrases:
+                        if phrase in saturated:
+                            continue
+                        if any(n in line for n in needles[phrase]):
+                            seen.add(phrase)
+            if file_excluded:
+                # Fichier exclu : aucune phrase n'y est comptee (l'exclusion
+                # releve plus bas de toute facon — un PASS sur un corpus
+                # partiellement lu serait un faux succes).
+                continue
+            for phrase in seen:
+                counts[phrase] += 1
+                if counts[phrase] > MAX_PHRASE_SPREAD_SESSIONS:
+                    saturated.add(phrase)
+        except OSError as exc:
+            # Une session illisible = un trou dans le corpus : l'absence de la
+            # phrase n'y est plus prouvable, donc on refuse de conclure.
+            raise RuntimeError(
+                f"corpus local illisible ({path.name}) : {exc} — spread non mesurable "
+                "(fail-closed)"
+            ) from exc
+    if excluded:
+        total_mb = sum(mb for _, mb, _ in excluded)
+        detail = ", ".join(f"{name} ({mb:.0f} Mo, {why})" for name, mb, why in excluded[:3])
+        raise InstrumentLimit(
+            f"{len(excluded)} transcript(s) hors bornes de lecture ({total_mb:.0f} Mo; "
+            f"plafond {MAX_CORPUS_FILE_BYTES / 1e6:.0f} Mo/fichier, "
+            f"{MAX_CORPUS_LINE_BYTES / 1e6:.0f} Mo/ligne) : {detail}"
+            f"{' …' if len(excluded) > 3 else ''} — la rarete n'a PAS ete mesuree sur le "
+            "corpus entier : un transcript ecarte ne peut pas produire un PASS "
+            "(rectification ai-01 : « un fichier trop gros ne peut pas etre simplement "
+            "saute puis produire PASS »)"
+        )
+    return counts
+
+
+def pick_rare_phrase(text: str, spread_fn) -> tuple[str, int]:
+    """Premiere candidate retrouvee dans [MIN, MAX] session(s) VERBATIM.
+
+    `spread_fn` rend le nombre de sessions contenant la phrase litteralement, ou
+    `None` quand elle n'a pas ete mesuree. `None` LEVE (fail-closed, ai-01
+    CHANGES #4412 point 2) : « pas de compte » n'est pas « aucun matching », et
+    l'ancien `totalFound` absent lu comme 0 faisait accepter n'importe quoi.
+
+    spread 0 est REFUSE aussi : la phrase vient de la cible, donc un scan de ses
+    transcripts doit la retrouver au moins chez elle. 0 signifie corpus
+    incomplet/illisible ou phrase manguee par le rendu — rien qui autorise a
+    conclure « rare ».
+    """
+    tried = []
+    for ln in _phrase_candidates(text):
+        if len(tried) >= PHRASE_SPREAD_MAX_TRIES:
+            break
+        spread = spread_fn(ln)
+        if spread is None:
+            # Aucune mesure pour cette candidate : on ne peut ni l'accepter ni la
+            # compter comme « non rare ». Lever est le seul verdict honnete.
+            raise RuntimeError(
+                f"spread VERBATIM non mesure pour une candidate ({ln[:60]}…) — "
+                "fail-closed : un compte absent n'est pas un compte nul"
+            )
+        tried.append((ln, spread))
+        if MIN_PHRASE_SPREAD_SESSIONS <= spread <= MAX_PHRASE_SPREAD_SESSIONS:
+            return ln, spread
+    if not tried:
+        # Distinction exige par les deux reviews (ai-01 CHANGES :547, Hermes 🟡) :
+        # « aucune candidate apres refus statique » n'est PAS un echec de rarete —
+        # 0 recherche consommee, et le message doit le dire.
+        raise RuntimeError(
+            "aucune phrase candidate apres filtrage statique — toutes les lignes "
+            "du view sont du bruit de rendu ou de sortie d'outil (refus statique, "
+            "pas un echec de rarete)"
+        )
+    # Les deux familles de refus sont nommees SEPAREMENT : « trop banale » et
+    # « absente du corpus local » demandent des gestes opposes (prendre une autre
+    # phrase / verifier le corpus), et les confondre redonne exactement le message
+    # trompeur que la review :547 avait fait retirer.
+    absent = [ln for ln, spread in tried if spread < MIN_PHRASE_SPREAD_SESSIONS]
+    common = [(ln, spread) for ln, spread in tried if spread > MAX_PHRASE_SPREAD_SESSIONS]
+    # Un compte saturé vaut « au moins N », pas N (review ai-01 #4412, info) : le
+    # scan s'arrete à MAX+1, donc l'afficher comme un compte exact ferait lire une
+    # borne basse comme une mesure — c'est ce chiffre que l'opérateur utilise pour
+    # décider de prendre une autre phrase.
+    detail = "; ".join(
+        f"{'≥ ' if spread > MAX_PHRASE_SPREAD_SESSIONS else ''}{spread} session(s) : {ln[:60]}…"
+        for ln, spread in tried
+    )
+    raise RuntimeError(
+        f"aucune phrase discriminante sur {len(tried)} candidate(s) — attendu "
+        f"{MIN_PHRASE_SPREAD_SESSIONS}-{MAX_PHRASE_SPREAD_SESSIONS} session(s) "
+        f"VERBATIM ; {len(common)} trop banale(s), {len(absent)} absente(s) du "
+        f"corpus local — {detail}"
+    )
 
 
 def index_source(conv: dict) -> str:
@@ -473,7 +897,12 @@ def _short_index_error(err: str) -> str:
     return (match.group(1) if match else (err or "")).replace("\n", " ").strip()
 
 
-def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
+def phase_index(
+    child: McpChild,
+    task_id: str | None,
+    out: dict,
+    corpus_dir: Path = LOCAL_CORPUS_DEFAULT,
+) -> None:
     """Indexe le premier candidat indexable, puis extrait la phrase de son contenu.
 
     L'ordre compte : indexer AVANT d'extraire la phrase evite de payer un `view`
@@ -481,6 +910,11 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
     le listing, fichier disparu) laisse simplement la place au suivant.
     """
     attempts: list[dict] = []
+    # Chargé AVANT la boucle : un corpus absent ou vide n'est pas l'échec d'UN
+    # candidat, c'est la sonde entière qui ne peut pas mesurer (fail-closed,
+    # ai-01 CHANGES #4412 point 2). Le laisser dans le `try` par candidat ferait
+    # rendre « indexation en échec sur 3 candidat(s) » — un faux diagnostic.
+    corpus = corpus_files(corpus_dir)
     for cand_id, conv in candidate_sessions(child, task_id)[:INDEX_ATTEMPTS]:
         # TOUT le corps du candidat est sous le meme `try` : un echec de `view` ou
         # d'extraction de phrase ne doit pas emporter les candidats SUIVANTS. Le
@@ -526,7 +960,29 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
             # embarque : pick_phrase balaye les lignes du contenu reel. Un
             # json.dumps ferait UNE ligne unique, rejetee par les bornes par ligne
             # (note convergente ai-01 + Hermes, review #4398).
-            phrase = pick_phrase(view_raw)
+            # RARETE mesuree (file 20261028i) : une ligne generique (le succes
+            # standard d'un append de dashboard) echoue le verify sans rien
+            # mesurer — la phrase doit vivre dans <= 1 session, la cible.
+            # RARETE VERBATIM (ai-01 CHANGES #4412) : une passe sur le corpus
+            # local pour l'ensemble des <=5 candidates DE CET ESSAI (la boucle
+            # appelle le scan une fois par candidat tente, <= INDEX_ATTEMPTS),
+            # puis la premiere qui vit dans une seule session. Aucun appel
+            # `roosync_search` ici : le mode texte tokenise en OR et rend un
+            # compte plafonne, donc il ne mesurait pas la phrase (mesure ai-01
+            # sur `search-fallback.tool.ts:76-79`/`:247`).
+            candidates = list(
+                itertools.islice(_phrase_candidates(view_raw), PHRASE_SPREAD_MAX_TRIES)
+            )
+            spreads = verbatim_spreads(corpus, candidates)
+            phrase, spread = pick_rare_phrase(view_raw, spreads.get)
+        except InstrumentLimit:
+            # Une borne de lecture (fichier/ligne hors plafond) est un etat du
+            # CORPUS, pas l'echec d'UN candidat : le candidat suivant re-balayerait
+            # le meme corpus et re-payerait un appel d'index pour le meme verdict
+            # (mandat ai-01 29/10 : abort immediat, UN seul scan, AUCUN appel
+            # d'index suivant). Propagee vers le handler principal ->
+            # INSTRUMENT_ERROR / exit 2.
+            raise
         except RuntimeError as exc:
             # Reponse d'ERREUR JSON-RPC, pas un silence : p.ex. -32603, le transport
             # MCP coupe a 300 s AVANT la fin du travail serveur. C'est un echec
@@ -547,6 +1003,15 @@ def phase_index(child: McpChild, task_id: str | None, out: dict) -> None:
         }
         out["phrase"] = phrase
         out["index"] = idx
+        # Preuve de la mesure de rareté : sur QUEL corpus et avec quel spread la
+        # phrase a été retenue. Sans ces deux nombres, un verdict live ne dit pas
+        # si le filtre a travaillé ou s'il a laissé passer.
+        # `corpus_sessions` : unites de compte REELLES (review ai-01 #4412 point 3).
+        # Le nom `corpus_files` mentait depuis que le sous-agent est ecarte, pas
+        # lu (une session = son transcript de tete seul), et la cle est nouvelle
+        # (pas renommee) pour qu'un lecteur d'ancien
+        # JSON ne prenne pas un compte de sessions pour un compte de fichiers.
+        out["rarity"] = {"corpus_sessions": len(corpus), "spread": spread}
         out["index_attempts"] = attempts  # candidats ecartes avant celui-ci
         return
     raise RuntimeError(
@@ -691,6 +1156,298 @@ def selftest() -> int:
     if pick_phrase("\n".join(rendered.splitlines()[2:6])) != want_rendered:
         failures.append("pick_phrase: prose prefixee seule non extraite")
 
+    # pick_phrase : sorties d'outil GENERIQUES refusees (file 20261028i). Le FAIL
+    # de production mesurait « Message ajouté au dashboard 'workspace-roo-extensions' »,
+    # la ligne de succes standard de CHAQUE append : elle ne prouve rien sur
+    # l'index. Les en-tetes gras (`**Tâche:**`) sont de la metadata de rendu.
+    generic = "\n".join([
+        "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+        "Message ajouté au dashboard 'workspace-roo-extensions' [split en 2 parts]",
+        "**Tâche:** claude-x--u1 -- entete de resultat pas plus longue que ca pour rester dans les bornes.",
+    ])
+    got_generic = pick_phrase(generic)
+    if got_generic != "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.":
+        failures.append(f"pick_phrase generique: {got_generic!r}")
+
+    # Decorations : le serveur prefixe ses lignes de succes d'un emoji, les
+    # appelants de `[OK]`/`Succès :` — le refus statique doit voir DESSOUS
+    # (review #4412 : Hermes 🟠 + ai-01 CHANGES ; les trois formes mesurees en
+    # review doivent echouer, pas seulement la forme nue).
+    decorated_generic = "\n".join([
+        "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.",
+        "✅ Message ajouté au dashboard 'workspace-roo-extensions' (id: msg-20261028T203330-vokt0i-0001)",
+        "[OK] Message envoyé à myia-po-2025:roo-extensions (msg-20261028T214940-27is1d) priorite HIGH",
+        "Succès : Message ajouté au dashboard 'workspace-hermes-agent' avec 3 tags et 1 mention",
+        "**Message ajouté au dashboard 'workspace-roo-extensions'** en gras, meme combat de bord",
+        "✅ Erreur lors de l'envoi du message: destinataire inconnu sur le canal roosync_messages",
+    ])
+    got_decorated = pick_phrase(decorated_generic)
+    if got_decorated != "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre.":
+        failures.append(f"pick_phrase decore: {got_decorated!r}")
+    # Vraie prose decoree : la normalisation ne doit pas la rendre ineligible —
+    # sinon le filtre refuserait la moitie d'une session reelle d'execution.
+    decorated_prose = "✅ Build vert sur po-2023 ce matin : 15907 tests passes, zero echec apres le bump submodule."
+    if pick_phrase(decorated_prose) != decorated_prose:
+        failures.append("pick_phrase decore: une vraie prose decoree a ete refusee")
+
+    # Ligne de tableau dont le premier `|` a ete consomme comme prefixe de rendu :
+    # deux separateurs ` | ` signent le tableau (review #4412, Hermes 🟡 — le
+    # filtre `|` ne couvrait que la forme non prefixee).
+    try:
+        pick_phrase("Machine | Verdict | Mesure | Gain projeté pour le prochain tour de coordination flotte")
+        failures.append("pick_phrase: une ligne de tableau depourvue de son premier | a ete retenue")
+    except RuntimeError:
+        pass
+
+    # pick_rare_phrase : la rareté tranche là où les filtres statiques ne voient
+    # rien. La ligne tardive (derniere => premiere scannée) n'est PAS statiquement
+    # generique mais vit dans 3 sessions : ecartee. La prose plus ancienne, elle,
+    # n'est que dans la cible : retenue.
+    late_multi = "Total : 140 messages, 2 non lus, 138 lus — aucune action requise de ce cycle present."
+    def _fake_spread(p: str):
+        return 3 if p == late_multi else 1
+
+    rare_body = "\n".join([
+        "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
+        late_multi,
+    ])
+    got_rare, got_spread = pick_rare_phrase(rare_body, _fake_spread)
+    if got_rare != "Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h." or got_spread != 1:
+        failures.append(f"pick_rare_phrase: {(got_rare, got_spread)!r}")
+    # spread 0 est REFUSE (ai-01 CHANGES #4412 point 2). La phrase vient de la
+    # CIBLE : un scan de ses transcripts doit la retrouver au moins chez elle.
+    # 0 = corpus incomplet/illisible ou phrase manguee par le rendu. L'ancienne
+    # regle « 0 accepte » venait de la recherche INDEXEE (0 pouvait y dire « index
+    # en panne ») ; un scan de FICHIERS n'a pas cette excuse.
+    try:
+        pick_rare_phrase(rare_body, lambda p: 0)
+        failures.append("pick_rare_phrase: spread 0 a ete accepte (fail-open)")
+    except RuntimeError as exc:
+        if "absente(s) du corpus local" not in str(exc):
+            failures.append(f"pick_rare_phrase: refus a 0 mal nomme: {exc}")
+    # Aucune mesure rendue (None) => LEVER. C'est le fail-open reproche : l'ancien
+    # `totalFound` absent etait converti en 0, et 0 passait pour « rare ».
+    try:
+        pick_rare_phrase(rare_body, lambda p: None)
+        failures.append("pick_rare_phrase: spread None a ete accepte (fail-open)")
+    except RuntimeError as exc:
+        if "non mesure" not in str(exc):
+            failures.append(f"pick_rare_phrase: None mal nomme: {exc}")
+    # Tout banale => echec BRUYANT qui dit les compteurs.
+    try:
+        pick_rare_phrase(late_multi, lambda p: 7)
+        failures.append("pick_rare_phrase: une phrase a 7 sessions a ete retenue")
+    except RuntimeError as exc:
+        if "7 session(s)" not in str(exc):
+            failures.append(f"pick_rare_phrase: compte absent du message: {exc}")
+        # Un compte SATURE est imprime « ≥ N » (review ai-01 #4412, info) : le scan
+        # s'arrete a MAX+1, donc N n'est qu'une borne basse. Sans le « ≥ », le
+        # message presente une borne comme une mesure.
+        if "≥ 7 session(s)" not in str(exc):
+            failures.append(f"pick_rare_phrase: compte saturé non marqué « ≥ »: {exc}")
+
+    # RARETE VERBATIM vs TOKENISATION OR (ai-01 CHANGES #4412 point 1). Le serveur
+    # decoupe la requete et matche sur N'IMPORTE quel jeton
+    # (`search-fallback.tool.ts:76-79`), en rendant un compte PLAFONNE
+    # (`:247`) : une phrase presente dans SA SEULE session « apparait » dans
+    # toutes celles qui partagent un mot. Le scan local doit dire 1, jamais 4.
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        target_phrase = (
+            "Le relais dashboards PG-only exige que chaque siege pose sa cle avant le jalon du 27 octobre."
+        )
+        (root / "a-target.jsonl").write_text(
+            json.dumps({"text": target_phrase}), encoding="utf-8")
+        # Trois sessions qui partagent des MOTS de la phrase (relais, dashboards,
+        # chaque siege, jalon...) mais aucune ne la contient : un compteur
+        # tokenise les retiendrait toutes les trois.
+        for i, jeton in enumerate((
+            "relais dashboards deconnexion observee sur la fenetre nocturne du service",
+            "chaque siege doit poser sa cle avant tout redemarrage du service audio",
+            "le jalon du 27 octobre reste la cible de la migration flotte complete",
+        )):
+            (root / f"b-{i}.jsonl").write_text(json.dumps({"text": jeton}), encoding="utf-8")
+        sp = verbatim_spreads(corpus_files(root), [target_phrase])
+        if sp.get(target_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp.get(target_phrase)!r} session(s) pour une phrase "
+                "presente UNE fois — la tokenisation OR en donnerait 4"
+            )
+        # Guillemet : le transcript le stocke ECHAPPE. Tester la seule forme brute
+        # sous-compterait — le sens dangereux (une phrase banale paraitrait rare).
+        quoted = 'Le message "Message ajouté au dashboard" reste refuse statiquement par la sonde.'
+        (root / "c-quote.jsonl").write_text(json.dumps({"text": quoted}), encoding="utf-8")
+        sp_q = verbatim_spreads(corpus_files(root), [quoted])
+        if sp_q.get(quoted) != 1:
+            failures.append(f"verbatim_spreads: guillemet echappe non reconnu ({sp_q.get(quoted)!r})")
+        # Fail-closed : corpus ABSENT et corpus VIDE levent, jamais un spread de 0.
+        try:
+            corpus_files(root / "absent")
+            failures.append("corpus_files: un corpus ABSENT a ete accepte (fail-open)")
+        except RuntimeError:
+            pass
+        with tempfile.TemporaryDirectory() as td_empty:
+            try:
+                corpus_files(Path(td_empty))
+                failures.append("corpus_files: un corpus VIDE a ete accepte (fail-open)")
+            except RuntimeError:
+                pass
+
+        # UNE ENTREE = UNE SESSION (review ai-01 #4412, point 3) : le transcript
+        # de sous-agent vit sous `<session>/subagents/` et appartient a la session
+        # parente. Compte comme une session, il ferait 2 pour la cible elle-meme
+        # et l'arme « spread <= 1 » refuserait une phrase qui n'existe qu'ici.
+        session_dir = root / "d-session"
+        (session_dir / "subagents").mkdir(parents=True, exist_ok=True)
+        sub_phrase = (
+            "Le transcript d'un sous-agent rattache sa mesure a la session parente, "
+            "jamais a un fichier separe."
+        )
+        (root / "d-session.jsonl").write_text(
+            json.dumps({"text": sub_phrase}), encoding="utf-8")
+        (session_dir / "subagents" / "agent-1.jsonl").write_text(
+            json.dumps({"text": sub_phrase}), encoding="utf-8")
+        files_after = corpus_files(root)
+        if any(SUBAGENT_DIR in {seg.lower() for seg in p.parts[:-1]} for p in files_after):
+            failures.append("corpus_files: un transcript de sous-agent est servi comme session")
+        sp_sub = verbatim_spreads(files_after, [sub_phrase])
+        # La phrase vit dans 2 FICHIERS (tete + sous-agent) mais UNE seule session :
+        # le compte doit rester 1.
+        if sp_sub.get(sub_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_sub.get(sub_phrase)!r} session(s) alors que le "
+                "sous-agent compte dans la session parente (attendu 1)"
+            )
+
+        # REPETITION DANS UNE MEME SESSION (review ai-01 r4, blocage 1) : une
+        # session qui se cite elle-meme (reponse + echo d'outil) porte la meme
+        # phrase sur PLUSIEURS lignes. Le compte est par SESSION : 1, pas le
+        # nombre de lignes. Le mutant « increment par ligne » fait ECHOUER ce
+        # test (il rendrait 3).
+        rep_phrase = (
+            'Le transcript se cite "lui-meme" et repete la phrase mesuree dans la '
+            "meme session."
+        )
+        (root / "f-repeat.jsonl").write_text(
+            "\n".join([
+                json.dumps({"text": rep_phrase}),
+                json.dumps({"text": "une ligne sans rapport pour la mesure"}),
+                json.dumps({"text": rep_phrase}),
+                json.dumps({"text": rep_phrase}),
+            ]) + "\n",
+            encoding="utf-8",
+        )
+        sp_rep = verbatim_spreads(corpus_files(root), [rep_phrase])
+        if sp_rep.get(rep_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_rep.get(rep_phrase)!r} session(s) pour une phrase "
+                "repetee dans UNE SEULE session (attendu 1) — le compte est par session, "
+                "pas par ligne"
+            )
+        # La meme phrase dans DEUX sessions distinctes reste SATUREE (>= 2) : le
+        # correctif ne doit pas sous-compter au point d'accepter une phrase banale.
+        two_phrase = "La meme phrase dans deux sessions distinctes doit rester refusee."
+        (root / "g-two-1.jsonl").write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        (root / "g-two-2.jsonl").write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        sp_two = verbatim_spreads(corpus_files(root), [two_phrase])
+        if (sp_two.get(two_phrase) or 0) < 2:
+            failures.append(
+                f"verbatim_spreads: {sp_two.get(two_phrase)!r} session(s) pour une phrase "
+                "presente dans DEUX sessions distinctes (attendu >= 2)"
+            )
+        # Des CANDIDATES REPETEES ne changent pas la mesure.
+        sp_dup = verbatim_spreads(corpus_files(root), [rep_phrase, rep_phrase, rep_phrase])
+        if sp_dup.get(rep_phrase) != 1:
+            failures.append(
+                f"verbatim_spreads: {sp_dup.get(rep_phrase)!r} session(s) avec des candidates "
+                "REPETEES (attendu 1, identique a la liste sans doublon)"
+            )
+        # ... et la deduplication RESTAURE l'arret precoce : une liste de
+        # candidates dupliquee reste UNE candidate, donc la saturation
+        # s'atteint et le scan s'arrete la. Sans deduplication, la condition
+        # d'arret ne peut jamais etre vraie (une seule phrase ne peut pas
+        # saturer trois entrees) et le scan parcourt le corpus en entier —
+        # ici jusqu'au fichier hors bornes, qui declenche alors INSTRUMENT.
+        early1 = root / "h-early-1.jsonl"
+        early2 = root / "h-early-2.jsonl"
+        early1.write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        early2.write_text(json.dumps({"text": two_phrase}), encoding="utf-8")
+        big_early = root / "i-big-early.jsonl"
+        big_early.write_text(json.dumps({"text": two_phrase * 200}), encoding="utf-8")
+        saved_cap_early = globals()["MAX_CORPUS_FILE_BYTES"]
+        try:
+            globals()["MAX_CORPUS_FILE_BYTES"] = 1000
+            sp_early = verbatim_spreads(
+                [early1, early2, big_early], [two_phrase, two_phrase, two_phrase])
+            if (sp_early.get(two_phrase) or 0) != 2:
+                failures.append(
+                    f"verbatim_spreads: {sp_early.get(two_phrase)!r} session(s) pour une phrase "
+                    "saturee en 2 sessions (attendu 2)"
+                )
+        except InstrumentLimit as exc:
+            failures.append(
+                "verbatim_spreads: le scan ne s'est pas arrete apres saturation (fichier hors "
+                f"bornes lu) — la deduplication des candidates ne fonctionne pas : {exc}"
+            )
+        finally:
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_cap_early
+        # ELIGIBILITE DU CORPUS (review ai-01 r4, observation) : un `.jsonl` hors
+        # layout de session (`memory/…`) n'est pas une session. Aucun fichier
+        # n'est supprime — il est seulement ecarte.
+        mem_dir = root / "memory"
+        mem_dir.mkdir(parents=True, exist_ok=True)
+        mem_phrase = "Un journal utilisateur n'est pas une session et ne compte pas."
+        (mem_dir / "user-words-journal.jsonl").write_text(
+            json.dumps({"text": mem_phrase}), encoding="utf-8")
+        sp_mem = verbatim_spreads(corpus_files(root), [mem_phrase])
+        if (sp_mem.get(mem_phrase) or 0) != 0:
+            failures.append(
+                "corpus_files: un fichier hors layout de session est servi comme session "
+                f"({sp_mem.get(mem_phrase)!r} session(s), attendu 0)"
+            )
+
+        # PLAFONDS DE LECTURE (review ai-01 #4412, point 2) : un fichier hors
+        # bornes n'est ni saute ni rendu 0 — il leve InstrumentLimit, donc aucun
+        # PASS ne peut sortir d'un corpus partiellement lu.
+        big = root / "e-big.jsonl"
+        big.write_text(json.dumps({"text": target_phrase}), encoding="utf-8")
+        saved_file_cap = globals()["MAX_CORPUS_FILE_BYTES"]
+        saved_line_cap = globals()["MAX_CORPUS_LINE_BYTES"]
+        try:
+            globals()["MAX_CORPUS_FILE_BYTES"] = 8
+            try:
+                verbatim_spreads([big], [target_phrase])
+                failures.append("verbatim_spreads: un fichier hors plafond a ete ignore (faux PASS)")
+            except InstrumentLimit as exc:
+                if "plafond fichier" not in str(exc):
+                    failures.append(f"verbatim_spreads: plafond fichier mal nomme: {exc}")
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_file_cap
+            globals()["MAX_CORPUS_LINE_BYTES"] = 8
+            try:
+                verbatim_spreads([big], [target_phrase])
+                failures.append("verbatim_spreads: une LIGNE hors plafond a ete ignoree (faux PASS)")
+            except InstrumentLimit as exc:
+                if "plafond ligne" not in str(exc):
+                    failures.append(f"verbatim_spreads: plafond ligne mal nomme: {exc}")
+        finally:
+            globals()["MAX_CORPUS_FILE_BYTES"] = saved_file_cap
+            globals()["MAX_CORPUS_LINE_BYTES"] = saved_line_cap
+        # ... et le meme corpus redevient mesurable une fois les bornes retablies.
+        if verbatim_spreads([big], [target_phrase]).get(target_phrase) != 1:
+            failures.append("verbatim_spreads: lecture cassee apres restauration des plafonds")
+    # Toutes les lignes refusees STATIQUEMENT : le message doit nommer le refus
+    # statique, pas un echec de rarete — 0 recherche consommee (ai-01 CHANGES
+    # :547 : « 0 candidats a plus de 1 session(s) » etait trompeur).
+    try:
+        pick_rare_phrase(
+            "Message ajouté au dashboard 'workspace-roo-extensions' (id: msg-x-0001) avec 2 tags INFO",
+            lambda p: 0,
+        )
+        failures.append("pick_rare_phrase: une sortie generique unique a ete retenue")
+    except RuntimeError as exc:
+        if "filtrage statique" not in str(exc):
+            failures.append(f"pick_rare_phrase: zero-candidat mal nomme: {exc}")
+
     # vocabulaire `view` : drift hors ligne (bloquant 1, review #4398 — "Compact"
     # appartient au vocabulaire de summarize, pas de view)
     if VIEW_DETAIL_LEVEL not in VIEW_DETAIL_LEVELS:
@@ -820,6 +1577,10 @@ def selftest() -> int:
                 # Forme REELLE du view summary : prose sous prefixe `    | `,
                 # lignes renderer et footer APRES elle (capture de forme,
                 # view-conversation-tree.ts:1245/1249 + engine.ts:234 — r3).
+                # Puis DEUX lignes tardives generiques (file 20261028i) : le
+                # succes standard d'un append de dashboard (refus STATIQUE) et
+                # un en-tete de boite (refus par RARETE mesuree) — dans cet
+                # ordre, le scan depuis la fin les rencontre AVANT la prose.
                 return "\n".join([
                     "==== session claude-x--u1 ====",
                     "▶️ Task: claude-x--u1 (3 messages)",
@@ -829,12 +1590,37 @@ def selftest() -> int:
                     "      | Verification faite sur les 17 marqueurs PG ce matin, aucun repli observe sur la fenetre de 24 h.",
                     "  [\U0001F6E0️ mcp__roo-state-manager__roosync_dashboard] → success (09:44:11)",
                     "• Taille totale: 19845 chars, Limite: 30000, Surplus: 0 (3 task(s))",
+                    "      | Message ajouté au dashboard 'workspace-roo-extensions' [split en 2 parts]",
+                    "      | Total : 140 messages, 2 non lus, 138 lus — aucune action requise de ce cycle present.",
                 ])
+            if name == "roosync_search":
+                # Spread de rarete (file 20261028i). Le plafonnement releve en
+                # vrai est represente : la ligne generique rend 1 ligne mais
+                # totalFound=3 — compter les seules lignes la croirait rare.
+                q = str(args.get("search_query") or "")
+                if q.startswith("Total :"):
+                    return json.dumps({
+                        "results": [{"taskId": "claude-x--u1"}],
+                        "totalFound": 3,
+                    }, indent=2)
+                return json.dumps({
+                    "results": [{"taskId": "claude-x--u1"}],
+                    "totalFound": 1,
+                }, indent=2)
             raise AssertionError(f"appel inattendu: {name} {args}")
 
     fake = IndexFakeChild()
     idx_out: dict = {}
-    phase_index(fake, None, idx_out)
+    # Corpus local du test (le scan lit des FICHIERS, il n'y a plus de recherche) :
+    # la prose ciblee dans UNE session, la ligne « Total : … » dans TROIS autres.
+    with tempfile.TemporaryDirectory() as td_corpus:
+        corpus_root = Path(td_corpus)
+        (corpus_root / "target.jsonl").write_text(
+            json.dumps({"text": want_rendered}), encoding="utf-8")
+        for i in range(3):
+            (corpus_root / f"multi-{i}.jsonl").write_text(
+                json.dumps({"text": late_multi}), encoding="utf-8")
+        phase_index(fake, None, idx_out, corpus_root)
     list_args = [a for n, a in fake.calls if n == "conversation_browser" and a.get("action") == "list"]
     if not list_args or list_args[0].get("source") != "all":
         failures.append(f"phase_index: list source={list_args[0].get('source') if list_args else None!r} (attendu 'all')")
@@ -855,6 +1641,25 @@ def selftest() -> int:
         failures.append(f"phase_index: phrase={idx_out.get('phrase')!r}")
     if (ph := idx_out.get("phrase")) and ("→" in ph or ph.startswith(("•", "["))):
         failures.append(f"phase_index: phrase = ligne du renderer: {ph!r}")
+    # Rareté e2e (ai-01 CHANGES #4412) : le spread est mesuré par le SCAN LOCAL,
+    # donc AUCUN `roosync_search` ne doit partir pour le compte — le mode texte
+    # tokenise en OR et rend un compte plafonné, c'est le défaut mesuré. La ligne
+    # « Total : … » (3 sessions du corpus de test) est écartée, la prose ciblee
+    # (1 session) retenue, et la mesure est rapportée dans `rarity`.
+    spread_calls = [a for n, a in fake.calls if n == "roosync_search"]
+    if spread_calls:
+        failures.append(
+            f"phase_index: {len(spread_calls)} appel(s) roosync_search pour le spread "
+            "— la rareté doit être un scan VERBATIM local"
+        )
+    rarity = idx_out.get("rarity") or {}
+    if rarity.get("spread") != 1:
+        failures.append(f"phase_index: rarity={rarity!r} (spread attendu 1)")
+    if rarity.get("corpus_sessions") != 4:
+        failures.append(
+            f"phase_index: rarity={rarity!r} (4 SESSIONS attendues dans le corpus de test — "
+            "unite de compte depuis l'exclusion des sous-agents, non lus)"
+        )
     if idx_out.get("index") is None or (idx_out.get("index") or {}).get("success") is not True:
         failures.append(f"phase_index: index={idx_out.get('index')!r}")
     # Un succes a 0 chunk n'est PAS un echec : il doit avoir ete accepte, et la phase
@@ -905,6 +1710,51 @@ def selftest() -> int:
     if parse_index_result(json.dumps({"success": False, "error": "boom"})) is not None:
         failures.append("parse_index_result: un JSON success=false a ete lu comme un succes")
 
+    # PRECEDENCE du JSON embarque (file 20261028i, suivi 1) : un success:false
+    # en JSON doit PRIMER sur l'en-tete Markdown « terminée » qui l'entoure.
+    # Cas aujourd'hui injoignable cote serveur — le rendant impossible ici, la
+    # sonde ne le decouvrira pas en production. Sans la sortie anticipee, la
+    # branche Markdown lit ce melange comme un succes.
+    mixed = "\n".join([
+        "# Indexation sémantique terminée",
+        "",
+        "**Tâche:** claude-x--u1",
+        "**Chunks indexés:** 7",
+        "",
+        "```json",
+        json.dumps({"success": False, "error": "embeddings en echec partiel"}),
+        "```",
+    ])
+    if parse_index_result(mixed) is not None:
+        failures.append("parse_index_result: un success:false JSON n'a pas prime sur l'en-tete Markdown")
+    # Et le melange INVERSE reste un succes : en-tete Markdown + JSON success:true.
+    mixed_ok = "\n".join([
+        "# Indexation sémantique terminée",
+        "**Chunks indexés:** 7",
+        "```json",
+        json.dumps({"success": True, "chunksIndexed": 7, "reason": "7 point(s) écrit(s)"}),
+        "```",
+    ])
+    ok_parsed = parse_index_result(mixed_ok)
+    if not ok_parsed or ok_parsed.get("form") != "json" or ok_parsed.get("chunks_indexed") != 7:
+        failures.append(f"parse_index_result: Markdown + JSON success=true non accepte -> {ok_parsed!r}")
+    # ...et un JSON embarque SANS clef `success` ne fait PAS foi : c'est du
+    # contenu cite (apercu de resultat d'outil), pas le verdict d'indexation.
+    # Sans cette borne, « le JSON prime » deviendrait « n'importe quel JSON
+    # prime » et un succes Markdown portant un apercu JSON serait lu en echec.
+    mixed_foreign = "\n".join([
+        "# Indexation sémantique terminée",
+        "**Chunks indexés:** 5",
+        "```json",
+        json.dumps({"action": "append", "written": True}),
+        "```",
+    ])
+    foreign_parsed = parse_index_result(mixed_foreign)
+    if not foreign_parsed or foreign_parsed.get("form") != "markdown" or foreign_parsed.get("chunks_indexed") != 5:
+        failures.append(
+            "parse_index_result: un JSON embarque sans clef success a fait foi sur l'en-tete Markdown "
+            f"-> {foreign_parsed!r}")
+
     json_only = parse_index_result(json.dumps({"success": True, "points": 42}))
     if not json_only or json_only.get("form") != "json":
         failures.append(f"parse_index_result: forme JSON historique non acceptee -> {json_only!r}")
@@ -919,15 +1769,86 @@ def selftest() -> int:
                 return "# Erreur d'indexation\n\n**Tâche:** claude-x--u1\n**Erreur:** boom index"
             return super().call_tool(name, args, timeout_s)
 
+    # Corpus explicite : sur un runner CI (ou tout siege vierge), le defaut
+    # LOCAL_CORPUS_DEFAULT (~/.claude/projects) n'existe pas et corpus_files
+    # leverait AVANT la boucle — l'echec d'essai teste ici ne serait jamais
+    # atteint. Le selftest restait vert sur les sieges pourvus d'un corpus et
+    # rouge ailleurs : dependance au siege revelee par le branchage CI du 29/10.
+    with tempfile.TemporaryDirectory() as td_fail:
+        fail_root = Path(td_fail)
+        (fail_root / "session.jsonl").write_text("{}", encoding="utf-8")
+        try:
+            phase_index(FailFakeChild(), None, {}, fail_root)
+            failures.append("phase_index: un echec d'indexation n'a pas leve")
+        except RuntimeError as exc:
+            if "essais:" not in str(exc):
+                failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
+            # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
+            if "boom index" not in str(exc):
+                failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
+
+    # InstrumentLimit = ABORT GLOBAL, pas un echec d'essai (mandat ai-01 29/10,
+    # #4352). Une borne de lecture (fichier/ligne hors plafond) decrit le CORPUS,
+    # pas le candidat : le bug etait que InstrumentLimit herite de RuntimeError,
+    # donc le `except RuntimeError` par candidat l'avalait -> le candidat suivant
+    # re-payait UN APPEL D'INDEX et UN SCAN COMPLET du corpus pour le meme
+    # verdict. Assert : InstrumentLimit PROPAGEE hors de phase_index, UN seul
+    # scan, AUCUN appel d'index suivant.
+    class TwoCandidatesChild(IndexFakeChild):
+        """Deux candidats indexables : sans l'abort, le 2e serait tente."""
+
+        def call_tool(self, name, args, timeout_s):
+            if args.get("action") == "list":
+                now = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
+
+                def conv(tid):
+                    return {"taskId": tid, "source": "claude",
+                            "metadata": {"totalSize": 50000, "createdAt": now,
+                                         "messageCount": 12,
+                                         "machineId": socket.gethostname()}}
+
+                return json.dumps({"conversations": [
+                    conv("claude-x--u1"), conv("claude-x--u3")]}, indent=2)
+            return super().call_tool(name, args, timeout_s)
+
+    limit_child = TwoCandidatesChild()
+    real_spreads = verbatim_spreads
+    scan_calls: list[list[str]] = []
+
+    def counting_spreads(files, phrases):
+        scan_calls.append(list(phrases))
+        return real_spreads(files, phrases)
+
+    globals()["verbatim_spreads"] = counting_spreads
+    saved_cap_abort = globals()["MAX_CORPUS_FILE_BYTES"]
     try:
-        phase_index(FailFakeChild(), None, {})
-        failures.append("phase_index: un echec d'indexation n'a pas leve")
-    except RuntimeError as exc:
-        if "essais:" not in str(exc):
-            failures.append(f"phase_index: echec sans detail des essais -> {str(exc)[:120]!r}")
-        # …et le detail doit porter la RAISON, pas l'en-tete tronque du serveur.
-        if "boom index" not in str(exc):
-            failures.append(f"phase_index: detail sans la raison de l'echec -> {str(exc)[:160]!r}")
+        with tempfile.TemporaryDirectory() as td_lim:
+            lim_root = Path(td_lim)
+            (lim_root / "big.jsonl").write_text(json.dumps({"text": "x" * 50}),
+                                                encoding="utf-8")
+            globals()["MAX_CORPUS_FILE_BYTES"] = 8
+            try:
+                phase_index(limit_child, None, {}, lim_root)
+                failures.append(
+                    "phase_index: InstrumentLimit avalee (aucune levee) — abort global attendu")
+            except InstrumentLimit:
+                pass  # comportement attendu : propagee, pas comptee comme un essai
+            except RuntimeError as exc:
+                failures.append(
+                    "phase_index: InstrumentLimit traitee comme echec d'essai "
+                    f"(RuntimeError: {str(exc)[:100]!r}) — abort global attendu")
+            index_after = [a for n, a in limit_child.calls if n == "roosync_indexing"]
+            if len(index_after) != 1:
+                failures.append(
+                    f"phase_index: {len(index_after)} appel(s) roosync_indexing autour de "
+                    "l'InstrumentLimit (attendu 1 : AUCUN appel d'index apres l'abort)")
+            if len(scan_calls) != 1:
+                failures.append(
+                    f"phase_index: {len(scan_calls)} scan(s) du corpus (attendu 1 : "
+                    "la borne decrit le corpus, pas le candidat)")
+    finally:
+        globals()["verbatim_spreads"] = real_spreads
+        globals()["MAX_CORPUS_FILE_BYTES"] = saved_cap_abort
 
     # call_tool : une erreur serveur rendue en CONTENU doit lever. La forme testee
     # est celle que le serveur EMET reellement — `isError` sur le RESULTAT, pas sur
@@ -1001,11 +1922,22 @@ def selftest() -> int:
             print(f"  - {f}")
         return 1
     print("[SELFTEST] PASS (phrase, erreur-comme-phrase rejetee, prefixe de rendu | "
-          "retire + lignes renderer exclues, vocabulaire view, args du view + list "
+          "retire + lignes renderer exclues, sorties d'outil generiques refusees + "
+          "rarete VERBATIM mesuree (scan local, 1 session ; OR tokenise et corpus vide refuses), "
+          "sous-agent compte dans SA session (1, pas 2), repetition dans UNE session "
+          "comptee UNE fois (pas par ligne), deux sessions distinctes = sature, "
+          "candidates repetees sans effet + arret precoce apres saturation, "
+          "fichier hors layout de session ecarte du corpus, "
+          "plafonds de lecture fichier/ligne => "
+          "INSTRUMENT (jamais un faux PASS) ET abort global en phase d'index "
+          "(propagee, 1 seul scan, aucun appel d'index suivant), compte sature marque "
+          "« ≥ » et non presente comme une mesure, "
+          "vocabulaire view, args du view + list "
           "source=all, createdAt non-texte ecarte, parsing pretty-printe, rang top-5, "
           "repli textuel refuse (drapeau + mode seul), timeout enfant muet, ligne de "
           "log ignoree, index queued=false, succes Markdown ET JSON embarque acceptes "
-          "(0 chunk n'est pas un echec), erreur d'indexation refusee, isError au "
+          "(0 chunk n'est pas un echec), erreur d'indexation refusee, JSON embarque "
+          "fait foi (success:false prime sur l'en-tete Markdown), isError au "
           "niveau resultat)")
     return 0
 
@@ -1022,6 +1954,9 @@ def main() -> int:
     ap.add_argument("--task-id", help="task_id RSM impose (defaut : auto parmi les sessions des 24 h)")
     ap.add_argument("--phrase", help="phrase de sonde (phase verify ; defaut : celle extraite en phase index)")
     ap.add_argument("--rsm-dir", type=Path, default=DEFAULT_RSM_DIR, help="racine du serveur RSM")
+    ap.add_argument("--corpus-dir", type=Path, default=LOCAL_CORPUS_DEFAULT,
+                    help="corpus local des transcripts ou la rarete de la phrase est mesuree VERBATIM "
+                         "(defaut : ~/.claude/projects)")
     ap.add_argument("--json", action="store_true", help="sortie machine-readable")
     ap.add_argument("--selftest", action="store_true", help="fixtures hors ligne, aucun reseau")
     args = ap.parse_args()
@@ -1048,7 +1983,7 @@ def main() -> int:
 
         phrase = args.phrase
         if do_index:
-            phase_index(child, args.task_id, out)
+            phase_index(child, args.task_id, out, args.corpus_dir)
             phrase = phrase or out.get("phrase")
         if do_verify:
             if not phrase or not (args.task_id or out.get("task_id")):
@@ -1086,6 +2021,9 @@ def main() -> int:
                     print("[index] 0 chunk — la phase verify tranche (recherche, pas compteur)")
             if out.get("phrase"):
                 print(f"[phrase] {out['phrase']}")
+            if out.get("rarity"):
+                r = out["rarity"]
+                print(f"[rarity] spread={r['spread']} sur {r.get('corpus_sessions', r.get('corpus_files'))} session(s) locales")
             if "rank" in out:
                 print(f"[rank] {out['rank']} (top {MAX_RESULTS}) — machines vues : "
                       f"{out.get('search', {}).get('machines_found')}")
@@ -1102,6 +2040,22 @@ def main() -> int:
             print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         else:
             print(f"[ERROR] {exc}")
+        return 2
+    except MemoryError as exc:
+        # INSTRUMENT, jamais FAIL (review ai-01 #4412, point 2). `MemoryError`
+        # n'herite pas de RuntimeError : il traversait le handler, Python sortait
+        # avec le code 1, et un wrapper lisait « 1 » comme un FAIL de fond — un
+        # corpus trop gros devenait « la recherche a echoue ». La mesure n'a pas
+        # eu lieu : c'est exit 2.
+        out["error"] = (
+            f"memoire insuffisante pendant la mesure ({exc or 'MemoryError'}) — "
+            "corpus trop volumineux pour ce siege : la sonde n'a pas conclu"
+        )
+        out["verdict"] = "INSTRUMENT_ERROR"
+        if args.json:
+            print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+        else:
+            print(f"[ERROR] {out['error']}")
         return 2
     except (TimeoutError, RuntimeError, FileNotFoundError, OSError, json.JSONDecodeError) as exc:
         out["error"] = str(exc)

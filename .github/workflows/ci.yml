@@ -118,6 +118,16 @@ on:
       # are powershell.exe 5.1, absent from the ubuntu unit-pester runner.
       - 'scripts/claude/backup-lane-essentials.ps1'
       - 'scripts/claude/backup-lane-essentials.Tests.ps1'
+      # #4149 F2 (web2): sk-agent-daemon.Tests.ps1 guards the three seat scripts
+      # that replace the per-session stdio server with one shared daemon. It
+      # runs in marshall-scripts-pester (windows-latest — its children are
+      # powershell.exe 5.1). Same gap as every entry above: a main push touching
+      # a guarded script OR its suite must re-run the job that pins its dry-run
+      # purity and config-integrity gate.
+      - 'scripts/deployment/start-sk-agent-daemon.ps1'
+      - 'scripts/deployment/configure-sk-agent-http-client.ps1'
+      - 'scripts/deployment/install-sk-agent-daemon-schtask.ps1'
+      - 'scripts/deployment/sk-agent-daemon.Tests.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
       # never to the other) and the amputated one reported "Done." while
@@ -140,6 +150,20 @@ on:
       # change to the probe landing on main re-ran nothing — the same gap as the entries
       # above, closed in the PR that wires it.
       - 'scripts/diagnostic/g6-pass-bound.py'
+      # #4352 (mandat ai-01 29/10): test_probe_semantic_known_answer.py in
+      # scripts/testing/python/ runs the probe's --selftest OFFLINE plus a
+      # NEGATIVE CONTROL (a copy with the InstrumentLimit global-abort clause
+      # removed must make the selftest fail red) — the probe's own path must
+      # re-trigger the job that runs it (same rule as deny-fallback above;
+      # scripts/testing/python/** below already covers the wrapper itself).
+      - 'scripts/diagnostic/probe-semantic-known-answer.py'
+      # #4438: probe-qdrant-ingress.py is the seat-side probe of the PUBLIC
+      # vector-store ingress (the 502 blackhole of 30/10 00:33Z was invisible
+      # to every off-host seat). Its guard is
+      # scripts/testing/unit/probe-qdrant-ingress.Tests.ps1 — the probe's own
+      # path must re-trigger the job that runs it (same rule as the two
+      # entries above).
+      - 'scripts/diagnostic/probe-qdrant-ingress.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
@@ -290,8 +314,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: `submodules: recursive` fetched all NINE gitlinks on every job —
+      # measured HEAD trees (uncompressed) 2026-10-29: roo-code 134 MiB, zoo-code
+      # 132 MiB, Office-PowerPoint 67 MiB, markitdown 24 MiB, modelcontextprotocol
+      # 1 MiB, plus three small ones = ~384 MiB, against 27 MiB for mcps/internal,
+      # the ONLY one this job reads (its vitest suite addresses no other gitlink,
+      # checked by grep on src/ and tests/). Scoping the update keeps the same
+      # shallow, pinned-SHA clone semantics actions/checkout uses (`--depth=1`).
+      - name: Checkout mcps/internal submodule only
+        # The job-level `defaults.run.working-directory` (above) points at a
+        # directory that does not exist yet in a fresh runner — the submodule
+        # is only populated BY this step, so the shell cannot even start
+        # there ("An error occurred trying to start process '/usr/bin/bash'
+        # with working directory '.../mcps/internal/servers/roo-state-manager'").
+        # Run this step from the workspace root; the steps that DO need the
+        # package directory (npm ci / build / vitest) keep the job default.
+        working-directory: ${{ github.workspace }}
+        run: git submodule update --init --force --depth=1 --recursive mcps/internal
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -710,6 +750,16 @@ jobs:
       - name: Run backup-lane-essentials suite (#4415)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/claude/backup-lane-essentials.Tests.ps1 -CI
+      # #4149 F2 (web2): the sk-agent daemon seat suite spawns the REAL scripts
+      # as powershell.exe 5.1 children — its two pinned regressions (UTF-8-no-BOM
+      # read as ANSI, backup picked by name instead of mtime) only reproduce
+      # under that engine, so pwsh/linux would stay green while guarding
+      # nothing. Same acceptance criterion as the suites above (the fleet runs
+      # 5.1), hence this windows-latest job; it first lived in scripts/testing/
+      # unit and went red on ubuntu (#4414 CI, powershell.exe absent).
+      - name: Run sk-agent daemon seat suite (#4149 F2)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/deployment/sk-agent-daemon.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
@@ -733,8 +783,14 @@ jobs:
       # green (clusterManager-Myia, second review of #3644).
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: only mcps/internal is read on disk by this suite (the alwaysAllow
+      # catalogue cross-check above; the remaining suites reference the other
+      # submodule paths as string literals in fixtures, never on disk). Scoping
+      # the update drops ~357 MiB of unused tree per job — same reasoning and
+      # measurement as build-and-test above.
+      - name: Checkout mcps/internal submodule only
+        run: git submodule update --init --force --depth=1 --recursive mcps/internal
 
       - name: Install Pester
         shell: pwsh
@@ -768,10 +824,13 @@ jobs:
   sk-agent-inventory:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (submodule provides the generator)
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
+
+      # #4376: the generator lives in mcps/internal; the parent-side docs it
+      # guards are in this checkout. Same scoping as build-and-test above.
+      - name: Checkout mcps/internal submodule only
+        run: git submodule update --init --force --depth=1 --recursive mcps/internal
 
       - name: Inventory docs match template config
         run: |

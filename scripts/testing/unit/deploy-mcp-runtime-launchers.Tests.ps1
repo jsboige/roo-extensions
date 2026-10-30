@@ -261,6 +261,86 @@ Describe 'mcp-process-census.ps1 — the BEFORE/AFTER instrument (#4149 F1)' {
     }
 }
 
+Describe 'Resolve-DeployRepoRoot (#4149 — never deploy from a worktree path)' {
+
+    BeforeAll {
+        # REAL git, REAL linked worktree. The first version of this suite used
+        # a stub .ps1 as the git command: a .ps1 is not an executable on the
+        # Linux CI runner, so git never ran there — the redirect test failed
+        # on CI while two negative tests passed for the WRONG reason (they
+        # "passed" because the function had returned its input unexamined).
+        # The instrument now exercises the real command on both platforms.
+        $script:repoDir = Join-Path $tmpRoot 'repo'
+        $script:linkedDir = Join-Path $tmpRoot 'linked-worktree'
+        $script:plainDir = Join-Path $tmpRoot 'not-a-repo'
+
+        New-Item -ItemType Directory -Path $repoDir -Force | Out-Null
+        & git -C $repoDir init -q 2>&1 | Out-Null
+        & git -C $repoDir -c user.email=test@example.invalid -c user.name=test `
+            commit -q --allow-empty -m init 2>&1 | Out-Null
+        # `git worktree add` wants a path that does not exist yet.
+        & git -C $repoDir worktree add -q $linkedDir -b wt/linked 2>&1 | Out-Null
+        New-Item -ItemType Directory -Path $plainDir -Force | Out-Null
+    }
+
+    AfterEach {
+        $script:McpRuntimeGitCommand = $null
+        $script:McpRuntimeGitArgs = $null
+    }
+
+    It 'redirects a deploy launched from a linked worktree to the main checkout' {
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $repoDir
+    }
+
+    It 'leaves the root alone when the deploy already runs in the main checkout' {
+        (Resolve-DeployRepoRoot -RepoRoot $repoDir) | Should -Be $repoDir
+    }
+
+    It 'returns the input unchanged when git answers with a non-zero exit' {
+        # A real 'fatal: not a git repository' on stderr, exit 128 — it must not
+        # terminate the deploy (same EAP discipline as the npm call, W1) and it
+        # must not produce a root.
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Stop'
+        try {
+            (Resolve-DeployRepoRoot -RepoRoot $plainDir) | Should -Be $plainDir
+        } finally {
+            $ErrorActionPreference = $prev
+        }
+    }
+
+    It 'returns the input unchanged on git output it cannot parse' {
+        # Real git, real output, wrong shape: `git --version` answers on stdout
+        # with exit 0 and no worktree line — the guard must not guess.
+        $script:McpRuntimeGitArgs = @('--version')
+        (Resolve-DeployRepoRoot -RepoRoot $linkedDir) | Should -Be $linkedDir
+    }
+}
+
+Describe 'deploy-claude-mcp-settings.ps1 — root resolution is WIRED (#4149)' {
+
+    BeforeAll {
+        $script:deploy = Get-Content -Raw (Join-Path $repoRoot "scripts/deployment/deploy-claude-mcp-settings.ps1")
+    }
+
+    It 'calls Resolve-DeployRepoRoot on the script-location root' {
+        # Anchored on the real assignment, not on a comment about it.
+        $deploy | Should -Match '\$RepoRoot\s*=\s*Resolve-DeployRepoRoot\s+-RepoRoot\s+\(Get-Item\s+"\$PSScriptRoot'
+    }
+
+    It 'dot-sources the lib BEFORE the root resolution (the function must exist when called)' {
+        $sourcePos = $deploy.IndexOf('mcp-runtime.lib.ps1")')
+        $callPos = $deploy.IndexOf('Resolve-DeployRepoRoot -RepoRoot')
+        $sourcePos | Should -BeGreaterThan -1
+        $callPos | Should -BeGreaterThan -1
+        $sourcePos | Should -BeLessThan $callPos
+    }
+
+    It 'dot-sources the lib exactly once' {
+        ([regex]::Matches($deploy, '\.\s*\(Join-Path \$PSScriptRoot\s+"mcp-runtime\.lib\.ps1"\)')).Count | Should -Be 1
+    }
+}
+
 AfterAll {
     if (Test-Path $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue }
 }

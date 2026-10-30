@@ -1,10 +1,18 @@
 # 📋 Guide Complet - Installation et Configuration des MCPs
 
+> ⚠️ **[INSTANTANÉ PÉRIMÉ — sweep #2639 WS3, 29/10/2026]** Ce guide photographie l'état du
+> **2025-10-28** (roo-state-manager « placeholder », statuts d'alors). Il ne reflète plus le dépôt :
+> `quickfiles-server` et `github-projects-mcp` ont été **supprimés** du code (2026-09, #3423) ;
+> les serveurs internes actuels sont roo-state-manager, sk-agent, jinavigator-server,
+> jupyter-mcp-server, jupyter-papermill-mcp-server et open-terminal-mcp. Pour l'état courant des
+> MCPs, voir `CLAUDE.md` §MCPs et `.claude/rules/tool-availability.md` — ce document reste comme
+> trace de la mission d'origine (règle no-deletion-without-proof).
+
 **Date de création** : 2025-10-22
 **Dernière mise à jour** : 2025-10-28
 **Version** : 2.0.0
 **Auteur** : Roo Architect Complex
-**Statut** : 🟢 **VALIDÉ AVEC LEÇONS APPRISES**
+**Statut** : 🟢 **VALIDÉ AVEC LEÇONS APPRISES** (à la date de l'instantané)
 **Catégorie** : GUIDE
 
 ---
