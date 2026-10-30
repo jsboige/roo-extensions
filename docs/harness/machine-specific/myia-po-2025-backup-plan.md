@@ -2,6 +2,7 @@
 
 **Lane :** `myia-po-2025:roo-extensions` · **Établi :** 2026-10-20 · **Relecture :** à chaque test de restauration, au minimum trimestrielle
 **Mandat :** user 2026-10-20 — « un plan de sauvegarde des configs et de tout ce qui n'est pas sous git […] tous les workspaces doivent avoir un plan de sauvegarde de leurs données critiques […] ça mérite une issue et un suivi de long terme avec tests de restauration. »
+**Règle user 2026-10-30 13:54Z (postérieure au plan, prioritaire) :** « Tous les backups doivent sortir de D sur GDrive et/ou le disque USB » — **D: = transit seul**. Voir §2 T1.
 **Point de rendez-vous flotte :** [`jsboige/Maintenance#126`](https://github.com/jsboige/Maintenance/issues/126) — l'inventaire publié et les preuves de test vivent sur l'issue ; **ce document est le plan du workspace**.
 
 Fil conducteur : **ce qui n'est pas sous git n'existe qu'une fois**, et **un backup jamais restauré est une hypothèse, pas une sauvegarde**.
@@ -27,7 +28,9 @@ F1, F4, F5 et F7 sont **propres à cette lane** — F7 partiellement : le réper
 
 ## 2. Canaux, cadence, rétention
 
-**T1 — local** : `D:\dev\backups\po2025-roo-extensions\<AAAAMMJJ>\` — une archive par famille + manifeste. Hors dépôt, jamais dans git.
+**T1 — local (transit)** : `D:\dev\backups\po2025-roo-extensions\<AAAAMMJJ>\` — une archive par famille + manifeste. Hors dépôt, jamais dans git.
+
+> **Règle user 2026-10-30 13:54Z — D: n'est plus une destination, seulement un transit.** « Tous les backups doivent sortir de D sur GDrive et/ou le disque USB. » T1 est donc un **tampon de transit** : tout ce qui y est écrit doit être **migré vers G: (ou F:)** avec **manifeste sha256** avant de compter comme sauvegardé, et le résidu D: est purgé. *Appliqué le 30/10* : le résidu `20261020\` (15 fichiers / 3,2 Mo) a été copié vers `G:\Mon Drive\Synchronisation\RooSync\po2025-roo-extensions-backups\t1-20261020\`, **15/15 empreintes sha256 identiques**, manifeste de migration écrit (`manifest-migration-20261030.txt`), puis le dossier D: a été supprimé — **preuve écrite avant suppression**, aucun reparse point dans l'arbre. L'organe mutualisé (§6) écrit **déjà directement sur G:** (`Claude-Backup-NonGit`, `LastTaskResult=0`) : c'est le canal de référence.
 
 **T2 — hors-machine** : `G:\Mon Drive\Backups-Cloud\po2025-roo-extensions\<AAAAMMJJ>\` — **même doctrine que les transcripts** ([`claude-transcript-archiving.md`](../reference/claude-transcript-archiving.md)) : archive unique `.7z`, vérifiée par `7z t`, **jamais d'arbre brut** sur DriveFS. Familles éligibles : F1, F4+F7 (vérifiées sans motif secret). Créneau hebdomadaire décalé (dimanche), pour ne pas se disputer la fenêtre d'upload avec les tâches 04:17 / 04:41.
 
@@ -60,11 +63,13 @@ Tous les tests restaurent **pour de vrai**, sur une **cible jetable**, et compar
 
 ## 4. Procédures de restauration
 
-**F1 — mémoire de lane** (local) :
+**F1 — mémoire de lane** (source de référence = **G:**, D: n'est qu'un transit) :
+
 ```powershell
-7z x -y "-oD:\restauration\memoire" "D:\dev\backups\po2025-roo-extensions\<date>\memoire-lane-<date>.7z"
+7z x -y "-oD:\restauration\memoire" "G:\Mon Drive\Synchronisation\RooSync\po2025-roo-extensions-backups\t1-20261020\memoire-lane-20261020.7z"
 # recopier vers l'emplacement cible, puis comparer fichier par fichier (sha256)
 ```
+Un reliquat sur `D:\dev\backups\…` n'est **pas** une source de restauration : il doit d'abord être migré sur G: avec manifeste sha256 (§2 T1).
 
 **F1 — hors-machine** : identique en lisant l'archive sur `G:\Mon Drive\Backups-Cloud\po2025-roo-extensions\<date>\`.
 
