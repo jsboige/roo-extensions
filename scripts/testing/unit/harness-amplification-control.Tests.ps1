@@ -41,6 +41,23 @@ Describe 'Harness amplification control contract' {
             # between the 07/10 inventory and now: nothing guarded their absence.
             if ($Text -match '(?i)[≥>]=?\s*1\s*artefacts?\s*(/|par)\s*cycle') { $violations += 'per-cycle artefact quota' }
             if ($Text -match '(?i)apr[eè]s\s+chaque\s+action\s+majeure') { $violations += 'per-action reporting quota' }
+            # #3647 follow-up (30/10): the security reads are enumerated ONCE, in
+            # the shared detail doc. A carrier that re-lists them keeps a second
+            # copy — two copies drift, and the stale one is the one read.
+            # Patterns are ASCII-safe (no accented literal): a mojibake pattern
+            # under PS 5.1 would die silently.
+            $readMarkers = @(
+                '(?i)surface compl\S*te (?:de la )?PR',
+                '(?i)fraicheur avant livraison',
+                "(?i)assertion d.identit\S* dans la commande qui agit",
+                '(?i)v\S*rification post.action',
+                '(?i)relecture diff\S*e (?:d.une|de) fermeture'
+            )
+            $readCopies = 0
+            foreach ($marker in $readMarkers) {
+                if ($Text -match $marker) { $readCopies += 1 }
+            }
+            if ($readCopies -ge 2) { $violations += 'security reads duplicated in a carrier' }
             return $violations
         }
 
@@ -108,9 +125,21 @@ Describe 'Harness amplification control contract' {
         )) {
             $detail | Should -Match $needle
         }
-        foreach ($worker in @('.claude/commands/executor.md', '.claude/skills/executor/SKILL.md')) {
+        foreach ($worker in @(
+            '.claude/commands/executor.md',
+            '.claude/skills/executor/SKILL.md',
+            '.claude/commands/coordinate.md'
+        )) {
             $carriers[$worker] | Should -Match 'global-rules-detail\.md' -Because "$worker must point at the single enumeration"
         }
+    }
+
+    It 'rejects a carrier that re-lists the security reads instead of pointing at them' {
+        # The coordinator file kept its own copy of the enumeration (found
+        # 30/10, after the enumeration had been centralised for the workers).
+        # Two copies drift — the stale one is the one that gets read.
+        $mutant = $carriers['.claude/commands/executor.md'] + "`n- supprimer une lecture de securite : surface complete de PR avant review/merge, fraicheur avant`n  livraison, assertion d'identite dans la commande qui agit, verification post-action, relecture`n  differee de fermeture.`n"
+        @(Get-AmplificationContractViolations -Text $mutant) | Should -Contain 'security reads duplicated in a carrier'
     }
 
     It 'rejects concurrent polling in place of the single observer' {
