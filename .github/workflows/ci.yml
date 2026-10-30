@@ -152,6 +152,13 @@ on:
       # re-trigger the job that runs it (same rule as deny-fallback above;
       # scripts/testing/python/** below already covers the wrapper itself).
       - 'scripts/diagnostic/probe-semantic-known-answer.py'
+      # #4438: probe-qdrant-ingress.py is the seat-side probe of the PUBLIC
+      # vector-store ingress (the 502 blackhole of 30/10 00:33Z was invisible
+      # to every off-host seat). Its guard is
+      # scripts/testing/unit/probe-qdrant-ingress.Tests.ps1 — the probe's own
+      # path must re-trigger the job that runs it (same rule as the two
+      # entries above).
+      - 'scripts/diagnostic/probe-qdrant-ingress.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
