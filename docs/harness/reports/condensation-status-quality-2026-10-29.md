@@ -4,19 +4,19 @@
 
 ## Résumé exécutif
 
-La dégradation perçue par l'utilisateur est **réelle, récente et mesurable** sur le corpus des archives de condensation (2 283 archives `global` + `workspace-roo-extensions`, mai→29/10) :
+La dégradation perçue par l'utilisateur est **réelle, récente et mesurable** sur le corpus des archives de condensation (**2 284** archives `global` + `workspace-roo-extensions`, mai→29/10) :
 
 1. **Structure** : le statut `global` passe de 5-6/8 sections attendues (7-16/10) à 2/8 (24-27/10) puis **0/8 (28-29/10)** ; `workspace-roo-extensions` est à 0/8 de façon soutenue depuis le 25/10.
 2. **Trois mécanismes concourent**, aucun n'est le seul coupable :
    - **A — troncature déterministe par le haut** (`truncateToMaxSize` garde la fin) : décapite le statut (en-tête `## [key]` + Résumé + État des systèmes + Décisions actées). Observé directement : snapshot de 15 640 o commençant au milieu d'une liste, sans en-tête, 2 sections sur 8.
    - **B — le modèle de fallback ne suit pas la structure** : des statuts annoncés à 10,3-14,9 Ko (sous le plafond, donc jamais tronqués) n'ont que 0-3/8 sections. Sur 120 passes d'octobre avec frontmatter daté : 114 `ok-with-fallback`, toutes via `deepseek-v4-flash`.
-   - **C — remplacements manuels + héritage verrouillé (auto-feedback confirmé sur cas)** : un `update` d'agent remplace le statut par une liste plate minuscule (157-1 845 o, 0/8) ; la condensation suivante hérite de cette base (consigne « HÉRITER, ne pas réécrire ») et le garde never-worse-than-input (#3962) laisse passer la sortie tout aussi plate. Cas du 29/10 : sortie 14,9 Ko à 17:57 → `update` ~19:40 (1 845 o) → passe 20:27 deepseek rend 1 847 o, 0/8. **Verrouillage démontré bout à bout.**
+   - **C — effondrement du statut entre deux passes, verrouillage NON démontré (lecture corrigée 29/10 21:05Z et 30/10)** : l'entrée `global` passe de 15 442 o / 3 sections (17:57) à 1 845 o / 0 sections (20:27) **sans archive intermédiaire** — deux writers possibles non départagés par le corpus : la sortie de la passe 17:57 elle-même (fallback, mécanisme B) ou un `update` manuel dans la fenêtre (vecteur documenté : les `update` plats de 157-1 845 o existent dans le corpus). En revanche, le maillon « la passe suivante hérite et rend plate » est **contredit sur la seule passe mesurable** : la passe 20:27, entrée plate 1 845 o, annonce en live 14,3 Ko structurés (mesuré par ai-01, corroboré par l'append 20:41 à 14 880 o structurés) — la structure est **récupérée** depuis la base plate. Le verrouillage auto-feedback n'est donc **pas établi** ; les volets 4-5 devront rejouer la chaîne avant de l'affirmer.
 3. **Primaire en panne depuis le 23/10 18:01** : 100 % des passes `global` en fallback cloud pendant 6 jours (le primaire ne produisait déjà plus que des passes lentes, 434-833 s, du 19 au 22/10).
 4. **Taille ≠ qualité** : les statuts sont restés à ~15,3-15,8 Ko pendant que la structure s'effondrait ; plusieurs dépassent le plafond de 15 360 o (jusqu'à ~16 012 o mesurés) — les marqueurs #1502/#3803 sont ajoutés APRÈS l'application du plafond.
 
 ## 1 — Corpus (volet 1)
 
-- **Source** : `dashboards/archive/*.md` du shared-state GDrive, clés `global` et `workspace-roo-extensions`, 2026-05-01 → 2026-10-29. 2 283 fichiers indexés (empreintes SHA256, tailles, frontmatter, issue annoncée par le message système CONDENSATION).
+- **Source** : `dashboards/archive/*.md` du shared-state GDrive, clés `global` et `workspace-roo-extensions`, 2026-05-01 → 2026-10-29. **2 284 fichiers indexés** (empreintes SHA256, tailles, frontmatter, issue annoncée par le message système CONDENSATION). *Comptage fait autorité : le fichier déposé sur le shared-state (21:41Z), **recompté ligne par ligne le 30/10 → 2 284** ; les « 2 283 » d'une première version de ce rapport ne sont pas réconciliables avec le dépôt (aucune trace conservée du run intermédiaire) — l'écart ±1 est un artefact de brouillon, pas une archive ambigüe.*
 - **Instrument** : `scripts/analysis/condensation_corpus_scan.py` (lecture seule, émet du JSONL de métadonnées — aucun transcript copié).
 - **Dépôt du corpus** : `.shared-state/condensation-audit-4434/` (stockage autorisé flotte) — `condensation_corpus.jsonl`, agrégats.
 - **Couverture** : `workspace-roo-extensions` continu (~350-400 archives/mois, juin→oct.) ; `global` : **0 archive en juin** (trou de conservation, pas de paires fabriquées), 5 en juillet, 14 en août, puis continu.
@@ -63,13 +63,13 @@ Reconstitué par `git log -S` (submodule `mcps/internal`) :
 
 Corrélation : la vague fallbackcontinue démarre le 23/10 18:01 — entre #1470 (21/10) et #1495 (24/10) ; elle coïncide avec la dégradation du primaire vLLM ai-01 (passes 434-833 s les 19-22/10, puis échecs), pas avec un changement de code local. Date d'effet ≠ date de merge : les statuts dégradés sous fallback le deviennent au moment où l'HÔTE sert la panne primaire, quelle que soit la version du build.
 
-## 3 — Hypothèse auto-feedback (volet 3) : CONFIRMÉE sur cas, mécanisme identifié
+## 3 — Hypothèse auto-feedback (volet 3) : vecteurs documentés, verrouillage NON démontré (lecture corrigée 30/10)
 
-Le statut précédent conditionne le suivant (entrée `previousStatus` du prompt). Trois verrous observés :
+Le statut précédent conditionne le suivant (entrée `previousStatus` du prompt). Trois constats — dont le premier **corrige** une version antérieure de ce rapport :
 
-1. **Cas 29/10 (bout en bout)** : 17:57 sortie LLM 14,9 Ko (3/8) → `update` manuel ~19:40 le remplace par 1 845 o plats (0/8) → passe 20:27 (`deepseek-v4-flash`) hérite et rend 1 847 o plats (0/8) ; le garde never-worse-than-input compare à l'entrée également plate → passe. La structure ne revient pas tant que la base héritée est plate.
+1. **Cas 29/10 soir — pinné sur les deux archives, lecture corrigée (30/10)** : l'entrée `global` à 17:57 est de **15 442 o / 3 sections** (`global-2026-10-29T17-57-52.md`, snapshot #3962 : Livrables récents, En cours, Métriques de référence) ; à 20:27 elle est de **1 845 o / 0 sections** — une liste plate de puces « décisions » (`global-2026-10-29T20-27-36.md`). L'effondrement s'est produit **sans archive intermédiaire** : le corpus ne départage pas (i) la sortie de la passe 17:57 elle-même (fallback, mécanisme B — ses annonces ne sont pas mesurables depuis l'archive, voir Fragilités) de (ii) un `update` manuel dans la fenêtre 17:57-20:27 (vecteur documenté par ailleurs : `update` plats de 157-1 845 o). **Le maillon « héritage verrouillé » est contredit sur la seule passe mesurable** : la passe 20:27 (entrée plate 1 845 o) annonce en live **14,3 Ko via fallback cloud** (mesuré firsthand par ai-01, corroboré par l'append 20:41 à 14 880 o structurés) — la structure est **récupérée** depuis la base plate. Le mécanisme d'héritage reste documenté (consigne « HÉRITER, ne pas réécrire » + garde never-worse-than-input comparant à l'entrée) ; c'est le **verrouillage** qui n'est pas établi.
 2. **Oscillation 28-29/10** (les deux clés) : le corpus alterne listes plates minuscules (157-1 845 o) et régénérations ~15 Ko à chaque passe — chaque régénération repart de la base dégradée précédente.
-3. **Coupe par le haut** : la section du haut (en-tête + Résumé + État des systèmes + Décisions actées) est la première sacrifiée par la troncature ET jamais restaurée par l'héritage — cohérent avec 0/59 pour les trois premières sections sous fallback.
+3. **Coupe par le haut** : la section du haut (en-tête + Résumé + État des systèmes + Décisions actées) est la première sacrifiée par la troncature, et absente de l'héritage sur toute la fenêtre 24-27/10 (0/59) — la récupération observée à 20:27 le 29/10 (item 1) prouve qu'elle n'est pas impossible, mais elle n'a pas été la tendance de la fenêtre.
 
 **Limite** : la propagation multi-générations (amplification vs récupération) exige les replays du volet 5 — non couverts par ce cycle (aucun appel cloud émis, aucun statut de production réécrit).
 
@@ -86,8 +86,13 @@ Le prompt statut reconstitué dans le test (ligne 156, 955 caractères) est un *
 
 ## Reproduction
 
-```
+```bash
 python scripts/analysis/condensation_corpus_scan.py --out corpus.jsonl
 ```
 
 Lecture seule sur le shared-state ; aucune écriture dashboard/PG/Qdrant ; aucun appel LLM émis pour cette analyse (corpus passif uniquement).
+
+### Fragilités connues du parseur (bornes de mesure — à connaître avant de réutiliser les chiffres)
+
+- **`COND_MSG_RE` prend le PREMIER match** du message système CONDENSATION dans l'archive. Une archive qui **cite** un message CONDENSATION antérieur (message système conservé dans la fenêtre) fait attribuer à la passe les chiffres de la citation, pas ceux de la passe réelle. **Artefact mesuré (30/10) sur les deux rangées du soir du 29/10** : `global-2026-10-29T20-27-36.md` porte `status_kb=15.0` qui appartient à un message 18:19:54 **cité** (le seul bloc CONDENSATION du fichier), et `global-2026-10-29T17-57-52.md` porte `status_kb=14.9` qui appartient à un message 17:31:20 cité — l'annonce de la passe qui crée l'archive n'est pas dans son propre fichier (le message système est ajouté après l'archivage). **Conséquence : les `status_kb` du corpus sont des annonces de passes PRÉCÉDENTES ; les tailles mesurables sans ambiguïté sont `bytes` (fichier) et `before_bytes` (snapshot #3962).** Non corrigé dans l'instrument ce cycle.
+- **`section_metrics` compte les sections par sous-chaîne dans les en-têtes** (`#+ … <nom>`) : un en-tête unique « Décisions actées et En cours » compte **2**. Les `sections_present` sont des **bornes hautes**, pas des comptes exacts — conservateur pour le constat 0/8 (un faux 0 est impossible par ce biais), mais un « n/8 » intermédiaire peut être surestimé.
