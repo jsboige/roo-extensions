@@ -455,9 +455,9 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
 - transformer « valeur marginale » en permission generale de finir apres une PR bloquee :
   `always-pick-next` **reste obligatoire** — on prend une **autre** issue en souffrance, et on ne
   s'arrete que lorsqu'il n'en reste plus d'actionnable **et** que les trois conditions tiennent ;
-- supprimer une lecture de securite : surface complete de PR avant review/merge, fraicheur avant
-  livraison, assertion d'identite dans la commande qui agit, verification post-action, relecture
-  differee de fermeture.
+- supprimer une lecture de securite : les lectures sont enumerees UNE seule fois, pour tous les
+  porteurs, dans `docs/harness/global-rules-detail.md` § « Lectures de securite (jamais retirees) ».
+  Ce pointeur n'est pas une liste a recopier : une copie ici divergerait de la source.
 
 **Pourquoi** (arbitrage user 14/09, #3647) : *« le probleme, pour le coordinateur, est de ne pas
 s'arreter et d'attendre le prochain cron quand les lanes sont deja bien provisionnees en son absence
