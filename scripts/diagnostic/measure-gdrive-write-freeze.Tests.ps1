@@ -17,6 +17,10 @@
 #   (b) un fichier CHAUD dans un jumeau        -> exit 1, NOT-MET nomme le jumeau
 #   (c) une famille absente (zero instance)    -> exit 2, la sortie NOMME la famille
 #   (d) age brut 23 h 58 (affiche 24,0) a 24 h -> exit 1 : la decision lit le brut, l'arrondi n'est que l'affichage
+#   (e) une enumeration qui ECHOUE              -> exit 2, la sortie nomme le chemin en echec
+#       (jonction cassee : sans la garde, la recursion rend 0 fichier et le mtime de la
+#        jonction -- date de sa creation -- fabrique un verdict. Une famille illisible ne
+#        doit jamais devenir un verdict, ni FROZEN ni ACTIVE.)
 #
 # Execution : powershell -NoProfile -ExecutionPolicy Bypass -File scripts/testing/run-pester-tests.ps1 -Path scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1
 
@@ -68,6 +72,12 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
     AfterAll {
         foreach ($fx in $script:Fixtures) {
             if (Test-Path -LiteralPath $fx) {
+                # Cas (e) : delier les jonctions AVANT le rm recursif -- `Remove-Item -Recurse`
+                # suit un reparse point et supprimerait la cible, et refuse la jonction cassee.
+                # `[IO.Directory]::Delete($p, $false)` = rmdir nu : supprime le lien seul.
+                Get-ChildItem -LiteralPath $fx -Force -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LinkType } |
+                    ForEach-Object { [IO.Directory]::Delete($_.FullName, $false) }
                 Remove-Item -LiteralPath $fx -Recurse -Force -ErrorAction SilentlyContinue
             }
         }
@@ -105,5 +115,28 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
         $r = Invoke-Measure -Store $fx
         Assert-That ($r.ExitCode -eq 1) "exit code attendu 1 (ACTIVE) : 23 h 58 brut < 24 h meme si l'arrondi affiche 24,0 -- obtenu $($r.ExitCode) -- sortie: $($r.Output)"
         Assert-That ($r.Output -match 'PHASE-D\] NOT-MET') "ligne NOT-MET absente de la sortie"
+    }
+
+    It '(e) une enumeration en echec (jonction cassee) rend exit 2, jamais un verdict fabrique' {
+        $fx = New-FrozenStore
+        # Famille lisible, mais une INSTANCE de la famille est illisible : la recursion dedans
+        # echoue. Sans la garde, Get-ChildItem rend 0 fichier et le mtime de la jonction (sa
+        # date de creation, donc "maintenant") fabrique un verdict ACTIVE sur une ecriture qui
+        # n'a jamais eu lieu. Mesure du 31/10 sur ce siege : la garde rend
+        # `[INSTRUMENT] enumeration inside <chemin> errored: ...` + exit 2.
+        # Jonction et non repertoire : c'est le seul moyen portable de rendre une entree
+        # enumerable PARENT mais illisible DEDANS, sans ACE ni droit eleve. La suite est de
+        # toute facon Windows-only (enfant powershell.exe 5.1).
+        $junc = Join-Path $fx 'inventories (9)'
+        # `New-Item -ItemType Junction` REFUSE une cible absente (mesure du 31/10 sur ce siege :
+        # "Nous n'avons pas pu trouver l'element ...") -- `mklink /J` l'accepte, c'est donc lui
+        # qui fabrique la jonction CASSEE. Les guillemets ne sont pas cosmetiques : le nom du
+        # fixture contient un espace et des parentheses.
+        cmd /c mklink /J "$junc" (Join-Path $fx '__absent-target__') | Out-Null
+        Assert-That ((Get-Item -LiteralPath $junc -Force -ErrorAction SilentlyContinue).LinkType -eq 'Junction') 'fixture : la jonction cassee n''a pas ete creee'
+        $r = Invoke-Measure -Store $fx
+        Assert-That ($r.ExitCode -eq 2) "exit code attendu 2 (instrument), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
+        Assert-That ($r.Output -match 'enumeration inside') "la sortie ne dit pas quelle enumeration a echoue: $($r.Output)"
+        Assert-That ($r.Output -match [regex]::Escape('inventories (9)')) "la sortie ne nomme pas l'instance illisible: $($r.Output)"
     }
 }
