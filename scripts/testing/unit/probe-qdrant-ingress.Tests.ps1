@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Guards the #4438 public-ingress probe (scripts/diagnostic/probe-qdrant-ingress.py).
 

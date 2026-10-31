@@ -129,9 +129,14 @@ class ProbeContractTests(unittest.TestCase):
             os.remove(tmp)
 
     def test_missing_env_file_degrades_to_the_public_default(self):
-        url, key, _source = probe_mod.resolve_target(None, os.path.join(os.path.dirname(SCRIPT_PATH), "does-not-exist.env"))
+        # #4438 follow-up item 2: hermetic. The resolver reads os.environ
+        # BEFORE the env file — without clear=True, a seat-level QDRANT_URL
+        # User variable makes the public-default assertion fail for a reason
+        # unrelated to the code under test (same form as the next test).
+        with mock.patch.dict(os.environ, {}, clear=True):
+            url, key, _source = probe_mod.resolve_target(None, os.path.join(os.path.dirname(SCRIPT_PATH), "does-not-exist.env"))
         self.assertEqual(url, "https://qdrant.myia.io/collections")
-        self.assertIn(key, (None, os.environ.get("QDRANT_API_KEY")))
+        self.assertIsNone(key)
 
     def test_default_url_is_the_single_source_of_truth(self):
         # #4438: le defaut fonctionnel doit deriver de DEFAULT_URL, sinon le
