@@ -924,6 +924,8 @@ Describe 'classify-machine-usability (#4327)' {
 
         It 'skips the WinRM latency probe for the seat itself and carries the channel to the sample' {
             $calls = @{ latency = @() }
+            # Identity: the target must not depend on the TrustedHosts of the seat running the suite.
+            function Resolve-WinrmTarget { param($ComputerName) $ComputerName }
             function Test-TcpPort { param($ComputerName, $Port, $TimeoutMs) $Port -eq 5985 }
             function Measure-DrivingChannel { param($ComputerName, $Port, $TimeoutMs, [switch]$WinRm) [PSCustomObject]@{ answered = $true; latencyMs = 2; statusCode = 401 } }
             function Get-HeartbeatFacts { param($Machine) [PSCustomObject]@{ ageSeconds = 60; instrumentPresent = $true } }
@@ -968,6 +970,7 @@ Describe 'classify-machine-usability (#4327)' {
         }
 
         It 'carries a failed read''s own error text to the sample' {
+            function Resolve-WinrmTarget { param($ComputerName) $ComputerName }
             function Test-TcpPort { param($ComputerName, $Port, $TimeoutMs) $Port -eq 5985 }
             function Measure-DrivingChannel { param($ComputerName, $Port, $TimeoutMs, [switch]$WinRm) [PSCustomObject]@{ answered = $true; latencyMs = 2; statusCode = 401 } }
             function Get-HeartbeatFacts { param($Machine) [PSCustomObject]@{ ageSeconds = 60; instrumentPresent = $true } }
@@ -982,6 +985,76 @@ Describe 'classify-machine-usability (#4327)' {
 
             (New-LiveSample -Machine 'myia-po-2023').systemLogError | Should -Be 'IdleTimeout 12 s refused'
             (New-LiveSample -Machine 'myia-po-2024').systemLogError | Should -BeNullOrEmpty -Because 'a successful read carries no error'
+        }
+    }
+
+    Context 'WinRM target - the address TrustedHosts covers, not always the name (31/10)' {
+        # Measured 31/10 13:05Z from ai-01 (TrustedHosts = four seats by name +
+        # 192.168.0.*): po-2028 refused by NAME client-side, 192.168.0.54 read its
+        # System log with the same credential. The live sweep left the seat that
+        # motivated #4327 blind (system-log-unavailable, exit 3).
+        BeforeAll {
+            $env:CLASSIFIER_LIB_ONLY = '1'
+            try { . $script:ClassifierPath } finally { Remove-Item Env:CLASSIFIER_LIB_ONLY -ErrorAction SilentlyContinue }
+            $script:SavedComputerName = $env:COMPUTERNAME
+            $env:COMPUTERNAME = 'MYIA-SELF-SEAT'
+            $script:AiTrusted = 'myia-ai-01,myia-po-2023,myia-po-2024,myia-po-2025,myia-po-2026,192.168.0.*'
+        }
+        AfterAll {
+            $env:COMPUTERNAME = $script:SavedComputerName
+        }
+
+        It 'keeps the name of a seat the list already names' {
+            Resolve-WinrmTarget -ComputerName 'myia-po-2024' -TrustedHosts $script:AiTrusted -Addresses @('192.168.0.44') |
+                Should -Be 'myia-po-2024' -Because 'a seat that works by name must not change channel'
+            Resolve-WinrmTarget -ComputerName 'MYIA-PO-2024' -TrustedHosts $script:AiTrusted -Addresses @('192.168.0.44') |
+                Should -Be 'MYIA-PO-2024' -Because 'WinRM matches TrustedHosts without case'
+            Resolve-WinrmTarget -ComputerName 'myia-po-2028' -TrustedHosts '*' -Addresses @('192.168.0.54') |
+                Should -Be 'myia-po-2028' -Because 'a wildcard list covers every name'
+        }
+
+        It 'takes the first covered IPv4 address when the name is not listed' {
+            Resolve-WinrmTarget -ComputerName 'myia-po-2028' -TrustedHosts $script:AiTrusted -Addresses @('172.20.0.5', '192.168.0.54') |
+                Should -Be '192.168.0.54' -Because 'an address outside the list would fail exactly like the name'
+        }
+
+        It 'falls back to the name when nothing covered resolves' {
+            Resolve-WinrmTarget -ComputerName 'myia-po-2027' -TrustedHosts $script:AiTrusted -Addresses @('10.42.0.7') |
+                Should -Be 'myia-po-2027' -Because 'the client''s own refusal must stay the error the row carries'
+            Resolve-WinrmTarget -ComputerName 'myia-po-2027' -TrustedHosts '' -Addresses @('192.168.0.57') |
+                Should -Be 'myia-po-2027' -Because 'an empty list covers nothing'
+            Resolve-WinrmTarget -ComputerName 'myia-po-2027' -TrustedHosts $script:AiTrusted -Addresses @() |
+                Should -Be 'myia-po-2027'
+        }
+
+        It 'never throws on a name that does not resolve, with the live list and live DNS' {
+            { Resolve-WinrmTarget -ComputerName 'no-such-seat.invalid' } | Should -Not -Throw
+            Resolve-WinrmTarget -ComputerName 'no-such-seat.invalid' | Should -Be 'no-such-seat.invalid'
+        }
+
+        It 'sends both WinRM calls to the resolved target, keeps the name in the row, never resolves the seat itself' {
+            $calls = @{ resolve = @(); latency = @(); log = @() }
+            function Resolve-WinrmTarget { param($ComputerName) $calls.resolve += $ComputerName; if ($ComputerName -eq 'myia-po-2028') { '192.168.0.54' } else { $ComputerName } }
+            function Test-TcpPort { param($ComputerName, $Port, $TimeoutMs) $Port -eq 5985 }
+            function Measure-DrivingChannel { param($ComputerName, $Port, $TimeoutMs, [switch]$WinRm) [PSCustomObject]@{ answered = $true; latencyMs = 2; statusCode = 401 } }
+            function Get-HeartbeatFacts { param($Machine) [PSCustomObject]@{ ageSeconds = 60; instrumentPresent = $true } }
+            function Measure-WinrmLatency { param($ComputerName, $Count, $TimeoutMs, $Credential) $calls.latency += $ComputerName; [PSCustomObject]@{ samples = @(40, 41, 42); error = '' } }
+            function Read-SystemLogFacts {
+                param($ComputerName, $Credential, $ProbeTimeoutMs, $WindowMinutes)
+                $calls.log += $ComputerName
+                $ch = if (Test-IsLocalSeat $ComputerName) { 'local' } else { 'winrm' }
+                [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $null; events = @(); channel = $ch }
+            }
+
+            $remote = New-LiveSample -Machine 'myia-po-2028'
+            $self = New-LiveSample -Machine 'myia-self-seat'
+
+            $calls.latency | Should -Be @('192.168.0.54')
+            $calls.log | Should -Be @('192.168.0.54', 'myia-self-seat') -Because 'the seat must keep its name to be read in-process'
+            $calls.resolve | Should -Be @('myia-po-2028') -Because 'an address for the seat itself would reopen the loopback'
+            $remote.machine | Should -Be 'myia-po-2028' -Because 'the row names the seat, not the address it was reached on'
+            $remote.systemLogChannel | Should -Be 'winrm'
+            $self.systemLogChannel | Should -Be 'local'
         }
     }
 }

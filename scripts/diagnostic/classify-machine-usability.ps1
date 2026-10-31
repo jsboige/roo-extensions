@@ -711,6 +711,35 @@ function Test-IsLocalSeat {
     return (-not [string]::IsNullOrEmpty($self)) -and ($n -eq $self.ToLowerInvariant())
 }
 
+function Resolve-WinrmTarget {
+    # The address the WinRM calls go to. Outside a domain, the client only talks to a
+    # host its TrustedHosts list covers. ai-01 lists four seats by name plus
+    # 192.168.0.*, so seats added later failed client-side by NAME while their IPv4
+    # address answered with the same credential (measured 31/10 13:05Z on po-2028:
+    # name refused, 192.168.0.54 read the System log). Order: the name when the list
+    # covers it (nothing changes for those seats), else the first IPv4 address the
+    # list covers, else the name - so the failure stays the client's own message.
+    # -TrustedHosts and -Addresses exist for the tests; omitted, they are read live.
+    param([string]$ComputerName, [string]$TrustedHosts, [string[]]$Addresses)
+
+    if (-not $PSBoundParameters.ContainsKey('TrustedHosts')) {
+        try { $TrustedHosts = [string](Get-Item WSMan:\localhost\Client\TrustedHosts -ErrorAction Stop).Value } catch { return $ComputerName }
+    }
+    $patterns = @($TrustedHosts -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $covered = { param($h) foreach ($p in $patterns) { if ($h -like $p) { return $true } }; return $false }
+    if (& $covered $ComputerName) { return $ComputerName }
+
+    if (-not $PSBoundParameters.ContainsKey('Addresses')) {
+        try {
+            $Addresses = @([System.Net.Dns]::GetHostAddresses($ComputerName) |
+                Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
+                ForEach-Object { $_.IPAddressToString })
+        } catch { $Addresses = @() }
+    }
+    foreach ($a in @($Addresses)) { if (& $covered $a) { return $a } }
+    return $ComputerName
+}
+
 function Read-SystemLogFacts {
     # Last boot + the events of [boot, boot+20 min], read over the same authenticated
     # WinRM channel as the latency probe - or in-process for the seat itself (see
@@ -1175,11 +1204,15 @@ function New-LiveSample {
         # the WinRM loopback that Test-IsLocalSeat documents as broken, and each try
         # costs a DCOM 10010 in the seat's own System log on every fire. A seat timing
         # its own WinRM is not the wedge signal anyway - a wedged seat runs no task.
+        # The seat itself keeps its name: Read-SystemLogFacts recognises it by name to
+        # read in-process, and an address would send it back to the loopback.
+        $winrmTarget = $Machine
         if (-not (Test-IsLocalSeat $Machine)) {
-            $lat = Measure-WinrmLatency -ComputerName $Machine -Count $LatencyProbes -TimeoutMs $ProbeTimeoutMs -Credential $Credential
+            $winrmTarget = Resolve-WinrmTarget -ComputerName $Machine
+            $lat = Measure-WinrmLatency -ComputerName $winrmTarget -Count $LatencyProbes -TimeoutMs $ProbeTimeoutMs -Credential $Credential
             $latencySamples = @($lat.samples)
         }
-        $facts = Read-SystemLogFacts -ComputerName $Machine -Credential $Credential -ProbeTimeoutMs $ProbeTimeoutMs -WindowMinutes $BurstWindowEndMinutes
+        $facts = Read-SystemLogFacts -ComputerName $winrmTarget -Credential $Credential -ProbeTimeoutMs $ProbeTimeoutMs -WindowMinutes $BurstWindowEndMinutes
         $systemLogOk = [bool]$facts.ok
         $systemLogChannel = $facts.channel
         if (-not $facts.ok) { $systemLogError = $facts.error }
