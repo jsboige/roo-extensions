@@ -1,22 +1,23 @@
 # Claudish cascade synchronisation — RSM instrument (#4427)
 
-**Outil visé :** `roosync_claudish_cascade` — **STATUT : PROPOSÉ, NON CÂBLÉ** (voir « Où en est-on »)
+**Outil visé :** `roosync_claudish_cascade` — **STATUT : CÂBLÉ** (servi depuis ms#1591, `dbb04054` ; déployé flotte par le bump #4452, `d8bce638` du 31/10)
 **Issue :** #4427 (côté roo-extensions) · volet réconciliation immédiate et politique : `jsboige/claudish#764`
 **Code réel :** `mcps/internal/servers/roo-state-manager/src/services/cascade-payload.ts` (CONTRAT) + `mcps/internal/servers/roo-state-manager/src/services/cascade-sync.ts` (INSTRUMENT)
 
-> Cette fiche est la **spec** de l'outil. Elle décrit un outil qui **n'existe pas encore** comme
-> outil MCP : le contrat et l'instrument sont livrés, le **câblage MCP** ne l'est pas. Aucun
-> inventaire d'outils ne doit donc être incrémenté tant que l'outil n'est pas câblé (le compte
-> reste à **17**).
+> Cette fiche est la **spec** de l'outil. L'outil est **câblé** : `roosync_claudish_cascade` est
+> servi par le serveur depuis ms#1591 et déployé sur la flotte par le bump #4452 (gitlink
+> `ee5d7a8c`, 31/10 04:57Z). Le compte d'outils du serveur est donc passé de **17 à 18**
+> (recompté de première main le 31/10 sur `allToolDefinitions` : 18 entrées actives).
 
-## Où en est-on (30/10)
+## Où en est-on (31/10)
 
 | Volet | État | Où |
 |---|---|---|
 | **PR1** — contrat (schéma, parseur du canon, validateurs) | **MERGÉE** (`df0a6e3e`) | `cascade-payload.ts` |
-| **PR2** — instrument (fraîcheur, comparaison de VALEURS, plan borné, sauvegarde) | **ouverte**, en re-review | `cascade-sync.ts` |
-| **PR3a** — les 4 refus de l'APPROVE PR1 (RESET, reset illisible, DIRECTION écrasée, exclusion intégrale) | **ouverte** | `cascade-payload.ts` |
-| **PR3** — câblage de l'outil `roosync_claudish_cascade` + canal de collecte du hub | **non commencé** | — |
+| **PR2** — instrument (fraîcheur, comparaison de VALEURS, plan borné, sauvegarde) | **MERGÉE** (ms#1584, `f50a9e11`) | `cascade-sync.ts` |
+| **PR3a** — les 4 refus de l'APPROVE PR1 (RESET, reset illisible, DIRECTION écrasée, exclusion intégrale) | **MERGÉE** (ms#1588, `edb4a1bf`) | `cascade-payload.ts` |
+| **PR3** — câblage de l'outil `roosync_claudish_cascade` + canal de collecte du hub | **MERGÉE** (ms#1591, `dbb04054`) | registre d'outils |
+| Suites post-review — casse B11 (ms#1592, `bbea8772`), `.env` atomique + doublons (ms#1593, `f8c2f7a9`), contrat de casse du canon (ms#1594, `bc09ce4d`), gate HTTP lecture/écriture (ms#1595, `ceee19a1`) | **MERGÉES** | `cascade-payload.ts`, `http-transport.ts` |
 
 Le code cité ci-dessous existe donc déjà pour le contrat et l'instrument ; les noms de fichiers
 historiques (`ClaudishCascadeService.ts`, `src/tools/roosync/cascade.ts`) **n'existent pas**.

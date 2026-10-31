@@ -673,7 +673,9 @@ function Measure-WinrmLatency {
     for ($i = 0; $i -lt $Count; $i++) {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $opts = New-PSSessionOption -OpenTimeout $TimeoutMs -OperationTimeout $TimeoutMs -CancelTimeout $TimeoutMs -IdleTimeout $TimeoutMs
+            # No -IdleTimeout: the server refuses any value under 60 s, so every probe
+            # failed before running (see Read-SystemLogFacts).
+            $opts = New-PSSessionOption -OpenTimeout $TimeoutMs -OperationTimeout $TimeoutMs -CancelTimeout $TimeoutMs
             $invokeArgs = @{
                 ComputerName = $ComputerName
                 ScriptBlock  = { 1 }
@@ -693,24 +695,53 @@ function Measure-WinrmLatency {
     return [PSCustomObject]@{ samples = @($samples); error = $errorText }
 }
 
+function Test-IsLocalSeat {
+    # The seat this classifier runs on. Its own System log is read IN-PROCESS, never
+    # over WinRM loopback, which is not an equivalent channel - measured on ai-01:
+    # a loopback shell as the local account maint-admin fails with WinRM id=86,
+    # 0x80080005 (wsmprovhost never registers, DCOM 10010), on 28/10 00:00Z and again
+    # on 31/10 11:38Z, while that same account's shells opened from ANOTHER machine
+    # succeed (31/10 00:05-00:07Z, no id=86). The task already runs on the seat with
+    # a token that reads that log, so the loopback hop only added a failure mode.
+    param([string]$ComputerName)
+    if ([string]::IsNullOrWhiteSpace($ComputerName)) { return $false }
+    $n = $ComputerName.Trim().ToLowerInvariant()
+    if ($n -in @('localhost', '127.0.0.1', '::1', '.')) { return $true }
+    $self = $env:COMPUTERNAME
+    return (-not [string]::IsNullOrEmpty($self)) -and ($n -eq $self.ToLowerInvariant())
+}
+
 function Read-SystemLogFacts {
     # Last boot + the events of [boot, boot+20 min], read over the same authenticated
-    # WinRM channel as the latency probe. Returns ok=$false on any failure so the
-    # caller can report `system-log-unavailable` instead of pretending zero bursts
-    # means a healthy machine.
+    # WinRM channel as the latency probe - or in-process for the seat itself (see
+    # Test-IsLocalSeat). Returns ok=$false on any failure so the caller can report
+    # `system-log-unavailable` instead of pretending zero bursts means a healthy
+    # machine. `channel` says which path was used: a local read proves nothing about
+    # the credential, and the installer's acceptance run must not count it.
     param([string]$ComputerName, $Credential = $null, $ProbeTimeoutMs = 3000, [int]$WindowMinutes = 20)
+
+    $local = Test-IsLocalSeat $ComputerName
+    $channel = if ($local) { 'local' } else { 'winrm' }
 
     # New-PSSessionOption is resolved OUTSIDE any catch would be a silent death on a
     # host that lacks the WSMan cmdlets (ci runs this suite on ubuntu, where the whole
     # sweep once produced no output at all): a missing instrument must come back as
     # ok=$false, never as a terminating error that kills the JSON.
-    try {
-        $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4) -IdleTimeout ($ProbeTimeoutMs * 4)
-        $invokeArgs = @{ ComputerName = $ComputerName; SessionOption = $opts; ErrorAction = 'Stop' }
-    } catch {
-        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @() }
+    $invokeArgs = $null
+    if (-not $local) {
+        try {
+            # IdleTimeout stays at its default (-1 = the server's own). The server
+            # rejects any value under 60 s ("valeur minimale autorisee 60 (secondes)"),
+            # and the 12 s set here made EVERY remote read fail whatever the
+            # credential: measured 31/10 on po-2024, po-2025, po-2028, all three read
+            # fine with the same credential once the option was dropped.
+            $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4)
+            $invokeArgs = @{ ComputerName = $ComputerName; SessionOption = $opts; ErrorAction = 'Stop' }
+        } catch {
+            return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @(); channel = $channel }
+        }
+        if ($null -ne $Credential) { $invokeArgs['Credential'] = $Credential }
     }
-    if ($null -ne $Credential) { $invokeArgs['Credential'] = $Credential }
 
     $bootBlock = {
         $ev = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 12 } -MaxEvents 1 -ErrorAction Stop
@@ -718,17 +749,17 @@ function Read-SystemLogFacts {
         return $ev.TimeCreated.ToUniversalTime().ToString('o')
     }
     try {
-        $bootRaw = Invoke-Command @invokeArgs -ScriptBlock $bootBlock
+        $bootRaw = if ($local) { & $bootBlock } else { Invoke-Command @invokeArgs -ScriptBlock $bootBlock }
     } catch {
-        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @() }
+        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @(); channel = $channel }
     }
     if ([string]::IsNullOrEmpty($bootRaw)) {
-        return [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $null; events = @() }
+        return [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $null; events = @(); channel = $channel }
     }
     try {
         $boot = ConvertTo-UtcDateTime $bootRaw
     } catch {
-        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @() }
+        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @(); channel = $channel }
     }
     $to = $boot.AddMinutes($WindowMinutes)
 
@@ -750,11 +781,15 @@ function Read-SystemLogFacts {
         }
     }
     try {
-        $events = @(Invoke-Command @invokeArgs -ScriptBlock $eventsBlock -ArgumentList $boot.ToString('o'), $to.ToString('o'))
+        $events = if ($local) {
+            @(& $eventsBlock $boot.ToString('o') $to.ToString('o'))
+        } else {
+            @(Invoke-Command @invokeArgs -ScriptBlock $eventsBlock -ArgumentList $boot.ToString('o'), $to.ToString('o'))
+        }
     } catch {
-        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $boot; events = @() }
+        return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $boot; events = @(); channel = $channel }
     }
-    return [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $boot; events = $events }
+    return [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $boot; events = $events; channel = $channel }
 }
 
 function Get-HeartbeatFacts {
@@ -1133,11 +1168,21 @@ function New-LiveSample {
     $burst = $null
     $external = $null
     $systemLogOk = $false
+    $systemLogChannel = $null
+    $systemLogError = $null
     if ($open.Count -gt 0 -and $drivingPort -eq 5985) {
-        $lat = Measure-WinrmLatency -ComputerName $Machine -Count $LatencyProbes -TimeoutMs $ProbeTimeoutMs -Credential $Credential
-        $latencySamples = @($lat.samples)
+        # No latency probe against the seat itself: the only channel it could use is
+        # the WinRM loopback that Test-IsLocalSeat documents as broken, and each try
+        # costs a DCOM 10010 in the seat's own System log on every fire. A seat timing
+        # its own WinRM is not the wedge signal anyway - a wedged seat runs no task.
+        if (-not (Test-IsLocalSeat $Machine)) {
+            $lat = Measure-WinrmLatency -ComputerName $Machine -Count $LatencyProbes -TimeoutMs $ProbeTimeoutMs -Credential $Credential
+            $latencySamples = @($lat.samples)
+        }
         $facts = Read-SystemLogFacts -ComputerName $Machine -Credential $Credential -ProbeTimeoutMs $ProbeTimeoutMs -WindowMinutes $BurstWindowEndMinutes
         $systemLogOk = [bool]$facts.ok
+        $systemLogChannel = $facts.channel
+        if (-not $facts.ok) { $systemLogError = $facts.error }
         if ($facts.ok) {
             $lastBoot = $facts.lastBootUtc
             $burst = Find-LogonDeathBurst -Events $facts.events -LastBootUtc $lastBoot -MinEvents $BurstMinEvents -WindowStartMinutes $BurstWindowStartMinutes -WindowEndMinutes $BurstWindowEndMinutes
@@ -1159,6 +1204,8 @@ function New-LiveSample {
         burst                      = $burst
         externalLogonCount         = $external
         systemLogAvailable         = $systemLogOk
+        systemLogChannel           = $systemLogChannel
+        systemLogError             = $systemLogError
         drivingPort                = $drivingPort
     }
 }
@@ -1307,6 +1354,12 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
             -ExternalLogonCount $sample.externalLogonCount -DrivingPort $sample.drivingPort `
             -SlowThresholdMs $WinrmSlowMs -HeartbeatStaleSeconds $HeartbeatStaleSeconds `
             -ProbedPorts $ProbedPorts -SampledPorts $ProbedPorts -LatencyAbnormalMinCount $LatencyAbnormalMinCount -BurstMinEvents $BurstMinEvents
+        # Which path read the System log ('local' | 'winrm' | $null when not read):
+        # the installer's acceptance run counts only 'winrm' rows as credential proof.
+        $r | Add-Member -NotePropertyName systemLogChannel -NotePropertyValue $sample.systemLogChannel -Force
+        # Why the read failed, verbatim: without it `system-log-unavailable` hid an
+        # option the server rejected behind what read as a credential problem.
+        $r | Add-Member -NotePropertyName systemLogError -NotePropertyValue $sample.systemLogError -Force
         $results += $r
     }
 }

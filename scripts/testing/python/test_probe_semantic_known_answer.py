@@ -36,6 +36,13 @@ _SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 _ABORT_CLAUSE = re.compile(
     r"\n        except InstrumentLimit:\n(?:            .*\n)*?            raise\n")
 
+# The encoding clause the cp1252 witness removes: the loop at the top of main()
+# that forces utf-8 on both streams (identical to g6-pass-bound.py's).
+_RECONFIGURE_LOOP = re.compile(
+    r"\n    for stream in \(sys\.stdout, sys\.stderr\):\n"
+    r"        if hasattr\(stream, \"reconfigure\"\):\n"
+    r"            stream\.reconfigure\(encoding=\"utf-8\", errors=\"replace\"\)\n")
+
 
 class ProbeSemanticKnownAnswerSelftest(unittest.TestCase):
 
@@ -45,6 +52,47 @@ class ProbeSemanticKnownAnswerSelftest(unittest.TestCase):
         self.assertEqual(proc.returncode, 0,
                          f"selftest failed:\n{proc.stdout}\n{proc.stderr}")
         self.assertIn("[SELFTEST] PASS", proc.stdout)
+
+    def test_selftest_survives_a_cp1252_console(self):
+        # Measured on po-2028 (31/10): the PASS line carries `≥`, and on a cp1252
+        # console (Windows default) printing it raised UnicodeEncodeError *from the
+        # success branch* — the probe's own positive control exited 1 with a
+        # traceback, which any caller reads as FAIL. CI never saw it: the static job
+        # runs on a UTF-8 Linux worker, so the seat was the only place the control
+        # was broken. PYTHONIOENCODING reproduces the console on any OS.
+        proc = subprocess.run([sys.executable, _SCRIPT, "--selftest"],
+                              capture_output=True, text=True, timeout=300,
+                              encoding="utf-8", errors="replace",
+                              env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+        self.assertEqual(proc.returncode, 0,
+                         f"selftest failed on a cp1252 console:\n{proc.stdout}\n{proc.stderr}")
+        self.assertIn("[SELFTEST] PASS", proc.stdout)
+
+    def test_negative_control_cp1252_without_the_reconfigure_loop_fails(self):
+        # Witness for the fix above: drop the stdout/stderr reconfigure and the same
+        # cp1252 run MUST fail. Without this, a green cp1252 test proves nothing — a
+        # future edit could stop printing `≥` and the test would pass while the
+        # console hazard stayed unguarded elsewhere.
+        with open(_SCRIPT, "r", encoding="utf-8") as fh:
+            src = fh.read()
+        mutated, n = _RECONFIGURE_LOOP.subn("\n", src)
+        self.assertEqual(
+            n, 1,
+            "la boucle de reconfigure stdout/stderr est introuvable ou ambigue "
+            f"({n} occurrence(s)) — le temoin negatif cp1252 ne peut pas etre arme ; "
+            "mets a jour la regex de ce wrapper")
+        with tempfile.TemporaryDirectory() as td:
+            mutant = os.path.join(td, "probe-mutant-encoding.py")
+            with open(mutant, "w", encoding="utf-8") as fh:
+                fh.write(mutated)
+            proc = subprocess.run([sys.executable, mutant, "--selftest"],
+                                  capture_output=True, text=True, timeout=300,
+                                  encoding="utf-8", errors="replace",
+                                  env={**os.environ, "PYTHONIOENCODING": "cp1252"})
+        self.assertNotEqual(
+            proc.returncode, 0,
+            "le selftest reste VERT sur un console cp1252 apres suppression de la "
+            "boucle de reconfigure — le mutant survit, la garde ne garde rien")
 
     def test_negative_control_abort_clause_removed_fails(self):
         # Temoin negatif : retire la clause d'abort global, exige que le
