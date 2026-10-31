@@ -183,5 +183,35 @@ class EpicByTitleIsUmbrella(unittest.TestCase):
         self.assertEqual(buckets["grain"], [])
 
 
+class FreeMeansNoClaimNotIdle(unittest.TestCase):
+    """#23500 — the retained candidate's label must name what was measured.
+
+    `check_candidate` only reads the claim protocol. The old `LIBRE` label read
+    as "nobody is working on it", which is a different, unmeasured proposition,
+    and produced either a claim on in-flight work or a silent discard that
+    looks like a saturated pool. Measured 2026-10-31 (c.336): #2242 came out
+    `LIBRE` while the workspace dashboard carried a dated block line.
+    """
+
+    def test_a_retained_candidate_names_what_was_measured(self):
+        self.assertEqual(pick._verdict_label(False, ""),
+                         "AUCUN CLAIM (activite non mesuree)")
+
+    def test_the_old_word_is_gone(self):
+        # The mutation guard: putting `LIBRE` back turns this red.
+        self.assertNotIn("LIBRE", pick._verdict_label(False, ""))
+
+    def test_a_skipped_candidate_keeps_its_reason(self):
+        self.assertEqual(pick._verdict_label(True, "active claim by myia-ai-01"),
+                         "SKIP (active claim by myia-ai-01)")
+
+    def test_the_json_contract_is_untouched(self):
+        # The machine surface (skipped/reason) is what downstream code parses;
+        # only the human label changes.
+        entry = pick._candidate_entry("grain", _item(4400), False, "")
+        self.assertEqual(entry["skipped"], False)
+        self.assertIsNone(entry["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()
