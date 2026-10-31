@@ -312,6 +312,28 @@ python scripts/diagnostic/g6-pass-bound.py --selftest    # 11 fixtures hors lign
 
 Exit codes : 0 toutes les passes dans la borne et cadence préservée / 1 au moins une violation (dépassement **ou** tick affamé — prime sur `INSTRUMENT`) / 2 erreur d'instrument.
 
+## Store partagé RooSync (GDrive)
+
+### `measure-gdrive-write-freeze.ps1` (#4131, Phase D)
+
+Instrument **lecture seule** du critère de bascule PG : les familles `inventories*`, `messages*` et `.machine-registry*` du shared state G: sont-elles **gelées (aucune écriture) depuis 24 h** ? Tant qu'un siège écrit, GDrive reste dans le chemin critique et la rétrogradation en export n'est pas acquise. Le script ne décide de rien d'autre : il mesure des mtimes et rend un verdict, sans interprétation.
+
+- **Les jumeaux comptent comme des instances à part entière** (`inventories (2)`, `messages (2)`, `.machine-registry (1).json`). Un siège lié à un jumeau écrit exactement pareil : un instrument qui ne regarderait que le nom canonique annoncerait `FROZEN` pendant qu'un jumeau est chaud. **Le suffixe est l'ordre de matérialisation LOCAL de DriveFS** — le même dossier s'appelle `(2)` sur un siège et `(1)` sur un autre (mesuré 30/10) : la mesure s'agrège **par siège, puis se somme**, jamais par un nom supposé flotte.
+- **La décision lit l'âge BRUT**, l'arrondi n'est que l'affichage : 23 h 58 s'affiche `24,0` et reste ACTIVE sous un seuil de 24 h.
+- **Exit codes** : 0 `FROZEN` (critère atteint) / 1 `ACTIVE` (critère non atteint, chaque instance chaude est nommée avec son âge) / 2 **erreur d'instrument** — chemin partagé illisible, famille sans aucune instance (sinon un nom disparu passerait pour un gel), **ou une énumération en échec**.
+- **Fail-closed sur l'énumération** : une entrée de famille lisible au niveau parent mais illisible dedans (jonction cassée, répertoire inaccessible) rend `[INSTRUMENT] enumeration inside <chemin> errored: …` + exit 2. Sans cette garde, la récursion rend 0 fichier et le mtime de l'entrée — sa date de création, donc « maintenant » — fabrique un `ACTIVE` sur une écriture qui n'a jamais eu lieu (mutation vérifiée : suite (e) rouge sur le script privé de la garde).
+- **Suite Pester** : `scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1` (5 cas, exécutés par `marshall-scripts-pester` sur `windows-latest` — l'enfant est `powershell.exe` 5.1, absent des runners ubuntu) : (a) gel → `MET` en listant les familles vues, (b) jumeau chaud → `NOT-MET` en le nommant, (c) famille absente → exit 2 en la nommant, (d) âge brut vs arrondi, (e) énumération en échec → exit 2.
+
+```powershell
+# Verdict Phase D sur le shared state par défaut (G:\Mon Drive\...\RooSync\.shared-state)
+powershell -ExecutionPolicy Bypass -File scripts\diagnostic\measure-gdrive-write-freeze.ps1
+
+# Store et seuil explicites (l'instrument est aussi pilotable en fixture)
+powershell -ExecutionPolicy Bypass -File scripts\diagnostic\measure-gdrive-write-freeze.ps1 -SharedPath <chemin> -FreezeHours 24
+```
+
+Lecture seule de bout en bout : aucun fichier écrit, aucune purge, aucun resync forcé — le calendrier de bascule appartient à #4131, pas à l'instrument. Verdicts datés publiés sur #4131 (30/10 19:52Z et 31/10 07:53Z sur le siège po-2025 : `NOT-MET 6/6`).
+
 ## Compteurs mémoire
 
 ### `log-commit-charge.ps1` (#2992)
