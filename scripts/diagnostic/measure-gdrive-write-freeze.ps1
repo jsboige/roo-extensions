@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Phase D instrument: are the G: shared-state families still being written?
 
@@ -14,7 +14,8 @@ to a twin keeps writing to G: just the same -- an instrument that watched only t
 canonical name would report FROZEN while a twin was still hot.
 
 Writes nothing. Exit 0 = FROZEN (criterion met), 1 = ACTIVE (criterion not met),
-2 = instrument error (shared path unreadable, or no family found).
+2 = instrument error (shared path unreadable, a family produced no instances,
+or an enumeration errored).
 
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File scripts\diagnostic\measure-gdrive-write-freeze.ps1
@@ -44,12 +45,22 @@ $families = @('inventories', 'messages', '.machine-registry')
 
 $rows = @()
 foreach ($family in $families) {
-    $entries = @(Get-ChildItem -LiteralPath $SharedPath -Filter ($family + '*') -Force -ErrorAction SilentlyContinue)
+    $famErr = $null
+    $entries = @(Get-ChildItem -LiteralPath $SharedPath -Filter ($family + '*') -Force -ErrorAction SilentlyContinue -ErrorVariable famErr)
+    if (@($famErr).Count -gt 0) {
+        Write-Output ("[INSTRUMENT] enumeration of '{0}*' under {1} errored: {2}" -f $family, $SharedPath, $famErr[0].Exception.Message)
+        exit 2
+    }
     foreach ($entry in $entries) {
         $isDir = [bool]$entry.PSIsContainer
         if ($isDir) {
             $kind = 'DIR'
-            $files = @(Get-ChildItem -LiteralPath $entry.FullName -Recurse -File -Force -ErrorAction SilentlyContinue)
+            $recErr = $null
+            $files = @(Get-ChildItem -LiteralPath $entry.FullName -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable recErr)
+            if (@($recErr).Count -gt 0) {
+                Write-Output ("[INSTRUMENT] enumeration inside {0} errored: {1}" -f $entry.FullName, $recErr[0].Exception.Message)
+                exit 2
+            }
             $count = $files.Count
             $newest = $files | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
             if ($newest) {
@@ -65,9 +76,10 @@ foreach ($family in $families) {
             $mtime = $entry.LastWriteTimeUtc
             $where = $entry.Name
         }
-        $ageH = [math]::Round(($now - $mtime).TotalHours, 1)
+        $ageRaw = ($now - $mtime).TotalHours
+        $ageH = [math]::Round($ageRaw, 1)
         $verdict = 'ACTIVE'
-        if ($ageH -ge $FreezeHours) { $verdict = 'FROZEN' }
+        if ($ageRaw -ge $FreezeHours) { $verdict = 'FROZEN' }
 
         $rows += [pscustomobject]@{
             Family      = $family
@@ -82,8 +94,10 @@ foreach ($family in $families) {
     }
 }
 
-if ($rows.Count -eq 0) {
-    Write-Output "[INSTRUMENT] no inventories*/messages*/.machine-registry* under $SharedPath"
+$seen = @($rows | ForEach-Object { $_.Family } | Select-Object -Unique)
+$missing = @($families | Where-Object { $seen -notcontains $_ })
+if ($missing.Count -gt 0) {
+    Write-Output ("[INSTRUMENT] family(ies) with zero instances under {0}: {1}" -f $SharedPath, ($missing -join ', '))
     exit 2
 }
 
@@ -110,5 +124,5 @@ if ($active.Count -gt 0) {
     exit 1
 }
 
-Write-Output ("[PHASE-D] MET -- all {0} family instance(s) frozen for at least {1} h" -f $rows.Count, $FreezeHours)
+Write-Output ("[PHASE-D] MET -- all {0} instance(s) across {1} frozen for at least {2} h" -f $rows.Count, ($seen -join ', '), $FreezeHours)
 exit 0

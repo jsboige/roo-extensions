@@ -50,6 +50,11 @@ on:
       # script must re-trigger the unit-pester job on a main push (same rule as
       # every entry above — eleventh instance of the gap, not a new exception).
       - 'scripts/diagnostic/classify-machine-usability.ps1'
+      # #4451: the Phase D freeze measure's suite (marshall job below) drives the
+      # REAL instrument as a powershell.exe 5.1 child on a throwaway fixture; the
+      # guarded script and its suite must re-trigger that job on main pushes.
+      - 'scripts/diagnostic/measure-gdrive-write-freeze.ps1'
+      - 'scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1'
       - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
       # #833: the audit-grader Pester fixture below runs the REAL
@@ -86,7 +91,7 @@ on:
       - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
       # Plan Marshall (audit 27/09): the marshall-scripts-pester job below runs
-      # twelve Pester suites — most execute the REAL scripts as powershell.exe
+      # thirteen Pester suites — most execute the REAL scripts as powershell.exe
       # 5.1 children, and each guarded script AND its suite must re-trigger it
       # on main pushes (same principle as above; #3902/#3903/#3906/#3907/#3908/#3905).
       # Count re-derived from the job's own steps (#3321): it said "seven" for
@@ -774,6 +779,14 @@ jobs:
       - name: Run sk-agent daemon seat suite (#4149 F2)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/deployment/sk-agent-daemon.Tests.ps1 -CI
+      # #4451: the Phase D freeze instrument decides from Get-ChildItem
+      # enumeration and file mtimes; its suite drives the REAL script as a
+      # powershell.exe 5.1 child on a throwaway fixture, pinning the three
+      # false-verdict paths the ai-01 review found (missing family read as MET,
+      # errored enumeration read as FROZEN, age rounded before comparison).
+      - name: Run measure-gdrive-write-freeze suite (#4451)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
