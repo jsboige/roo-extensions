@@ -2,9 +2,9 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"title": "Reference AlwaysAllow Configuration",
 	"description": "Configuration de reference pour l'auto-approbation des outils MCP sur toutes les machines Roo",
-	"version": "1.4.0",
-	"lastUpdated": "2026-09-14",
-	"issue": "#3639 - roo-state-manager alwaysAllow recomputed against the served catalogue (33 -> 17); #1681 - SSH tools removed from default alwaysAllow",
+	"version": "1.5.0",
+	"lastUpdated": "2026-10-31",
+	"issue": "#3639 - roo-state-manager alwaysAllow recomputed against the served catalogue (33 -> 17); #4427 - roosync_claudish_cascade served since ms#1591 (17 -> 18); #1681 - SSH tools removed from default alwaysAllow",
 	"mcpServers": {
 		"jinavigator": {
 			"alwaysAllow": [
@@ -53,7 +53,7 @@
 			]
 		},
 		"roo-state-manager": {
-			"_comment": "v1.4.0 (2026-09-14, #3639): recomputed against the catalogue actually served by ListTools (allToolDefinitions in src/tools/tool-definitions.ts), not inherited from history. Count 33 -> 17: added claudish_traffic, roosync_harmonization, roosync_messages; removed 19 names the server no longer advertises. Legacy names are worse than noise here -- they are redirect-only in registry.ts, so whitelisting them hid the gap between the reference and the live catalogue. Historical: v1.2.0 listed 34 (post CONS-1 -> #675); v1.3.0 claimed 15 (2026-05-19, already stale at the time).",
+			"_comment": "v1.4.0 (2026-09-14, #3639): recomputed against the catalogue actually served by ListTools (allToolDefinitions in src/tools/tool-definitions.ts), not inherited from history. Count 33 -> 17: added claudish_traffic, roosync_harmonization, roosync_messages; removed 19 names the server no longer advertises. Legacy names are worse than noise here -- they are redirect-only in registry.ts, so whitelisting them hid the gap between the reference and the live catalogue. Historical: v1.2.0 listed 34 (post CONS-1 -> #675); v1.3.0 claimed 15 (2026-05-19, already stale at the time). v1.5.0 (2026-10-31, #4427): 17 -> 18, roosync_claudish_cascade added in catalogue order; auto-approval is safe because its only seat write (apply) defaults to dry_run:true and a real write needs dry_run:false explicitly, the same class as roosync_config.",
 			"alwaysAllow": [
 				"conversation_browser",
 				"roosync_search",
@@ -66,6 +66,7 @@
 				"roosync_baseline",
 				"roosync_config",
 				"roosync_harmonization",
+				"roosync_claudish_cascade",
 				"roosync_inventory",
 				"roosync_mcp_management",
 				"roosync_storage_management",
