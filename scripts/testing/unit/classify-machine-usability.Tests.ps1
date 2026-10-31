@@ -946,20 +946,23 @@ Describe 'classify-machine-usability (#4327)' {
 
         # The server refuses an IdleTimeout under 60 s: with 3 s / 12 s set here, every
         # remote read failed whatever the credential (measured 31/10 on three seats).
-        It 'leaves IdleTimeout at the server default on both remote calls' -Skip:(-not (Get-Command New-PSSessionOption -ErrorAction SilentlyContinue)) {
+        # New-PSSessionOption is faked too: on the ubuntu runner the cmdlet exists but
+        # cannot build an option, so a test on the real object never reached the calls.
+        It 'leaves IdleTimeout at the server default on both remote calls' {
             $seen = [System.Collections.ArrayList]::new()
-            function Invoke-Command {
-                [CmdletBinding()] param($ComputerName, $ScriptBlock, $SessionOption, $Credential)
-                [void]$seen.Add($SessionOption)
-                return $null
+            function New-PSSessionOption {
+                [CmdletBinding()] param($OpenTimeout, $OperationTimeout, $CancelTimeout, $IdleTimeout)
+                [void]$seen.Add([hashtable]::new($PSBoundParameters))
+                [PSCustomObject]@{ fake = $true }
             }
+            function Invoke-Command { [CmdletBinding()] param($ComputerName, $ScriptBlock, $SessionOption, $Credential) return $null }
 
             $null = Measure-WinrmLatency -ComputerName 'myia-po-2023' -Count 1 -TimeoutMs 3000
             $null = Read-SystemLogFacts -ComputerName 'myia-po-2023' -Credential $null -ProbeTimeoutMs 3000
 
-            $seen.Count | Should -Be 2 -Because 'one latency probe plus one boot read'
-            foreach ($o in $seen) {
-                $ms = $o.IdleTimeout.TotalMilliseconds
+            $seen.Count | Should -Be 2 -Because 'one option for the latency probe, one for the log read'
+            foreach ($b in $seen) {
+                $ms = if ($b.ContainsKey('IdleTimeout')) { [double]$b['IdleTimeout'] } else { -1 }
                 ($ms -lt 0 -or $ms -ge 60000) | Should -BeTrue -Because "WinRM rejects an IdleTimeout under 60 s, got $ms ms"
             }
         }
