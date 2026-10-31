@@ -64,7 +64,7 @@ host > `.env`, #2719 : `dotenv.config()` ne surcharge jamais une variable hôte 
 | --- | --- | --- |
 | 1 | `--ops-per-minute N` | explicite, gagne sur tout |
 | 2 | env `EMBEDDING_OPS_PER_MINUTE` | **portée hôte** — quand le process mesuré hérite de cette variable, c'est la valeur **effective** (le `.env` ne peut pas la surcharger) ; la provenance l'écrit |
-| 3 | `--env-file <rsm>/.env` | le `.env` que le RSM mesuré charge réellement ; illisible ou sans la clé → `INSTRUMENT` (exit 2) — après qu'on a nommé la config mesurée, l'outil ne **devine plus** ; `export KEY=VALUE` accepté (follow-up 4) |
+| 3 | `--env-file <rsm>/.env` | le `.env` que le RSM mesuré charge réellement ; **illisible** → `INSTRUMENT` (exit 2) ; **sans la clé** → `INSTRUMENT` (exit 2) **seulement si le rang 2 ne la porte pas non plus** — quand l'env opérateur l'a, c'est lui qui s'applique et l'absence dans le fichier est sans effet ; après qu'on a nommé la config mesurée, l'outil ne **devine plus** ; `export KEY=VALUE` accepté (follow-up 4) |
 | 4 | défaut 10/min | `background-services.ts` — même mise en garde |
 
 Quand l'env opérateur **et** l'env-file portent la clé, la valeur de l'env-file est rendue comme
@@ -134,7 +134,8 @@ borne sur `called` disait `PASS`) et celle du paceur désactivé (taux 0 → `IN
 `PASS` à allocation infinie) ne peuvent plus pourrir sans rendre la CI rouge. Le wrapper couvre en
 plus, en sous-processus : env non numérique → exit 2, surcharge CLI de l'environnement cassé,
 **env opérateur > env-file avec valeur `SHADOWED` rendue** (follow-up 3), syntaxe
-`export KEY=VALUE` (follow-up 4), env-file sans la clé → exit 2, `pass done` non horodaté →
+`export KEY=VALUE` (follow-up 4), env-file sans la clé → exit 2 **tant que le rang 2 ne la porte
+pas** (avec un env opérateur qui la porte, l'absence dans le fichier est sans effet), `pass done` non horodaté →
 exit 2 run entier (follow-up 1), violation non masquée par un trou d'instrument → exit 1
 (follow-up 2), log hors ordre jugé par horodatage (follow-up 5).
 
@@ -143,7 +144,7 @@ Exit codes : `0` toutes les passes dans la borne et cadence préservée · `1` a
 (follow-up 2 : masquer une violation mesurée derrière un trou d'instrument est la panne la plus
 grave ; la première version sortait 2) · `2` erreur d'instrument (log illisible, fenêtre non fermée,
 reset de compteur, métriques sans `requests=`, entrée malformée, **source de taux non numérique,
-env-file illisible/sans clé, paceur désactivé, `pass done` non horodaté**) — jamais un « propre » par
+env-file illisible, env-file sans clé **faute d'env opérateur**, paceur désactivé, `pass done` non horodaté**) — jamais un « propre » par
 silence : un log sans `pass done` est un exit 2.
 
 ## Le critère, en une ligne
