@@ -83,15 +83,16 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
         $script:referencePath = Join-Path $script:projectRoot 'roo-config/mcp/reference-alwaysallow.json'
         $script:CatalogueSourcePath = Join-Path $script:projectRoot 'mcps/internal/servers/roo-state-manager/src/tools/tool-definitions.ts'
 
-        # The 17-tool roo-state-manager catalogue served by ListTools at the time
-        # of #3639, mirrored from allToolDefinitions and cross-checked against
-        # that source by the block that skips without submodules.
-        $script:Catalogue17 = @(
+        # The roo-state-manager catalogue served by ListTools: 17 tools at #3639,
+        # 18 since ms#1591 (#4427, roosync_claudish_cascade). Mirrored from
+        # allToolDefinitions and cross-checked against that source by the block
+        # that skips without submodules.
+        $script:Catalogue = @(
             'conversation_browser', 'roosync_search', 'roosync_indexing', 'codebase_search',
             'read_vscode_logs', 'claudish_traffic', 'export_data', 'roosync_compare_config',
-            'roosync_baseline', 'roosync_config', 'roosync_harmonization', 'roosync_inventory',
-            'roosync_mcp_management', 'roosync_storage_management', 'roosync_diagnose',
-            'roosync_messages', 'roosync_dashboard'
+            'roosync_baseline', 'roosync_config', 'roosync_harmonization', 'roosync_claudish_cascade',
+            'roosync_inventory', 'roosync_mcp_management', 'roosync_storage_management',
+            'roosync_diagnose', 'roosync_messages', 'roosync_dashboard'
         )
 
         # Names the v1.3.0 reference carried that the catalogue no longer advertises.
@@ -190,14 +191,14 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
         }
 
         It 'lists exactly the advertised tools -- none missing, none extra' {
-            $delta = Get-AlwaysAllowDelta -ReferenceTools $script:Catalogue17 -CurrentTools $script:refTools
+            $delta = Get-AlwaysAllowDelta -ReferenceTools $script:Catalogue -CurrentTools $script:refTools
             $delta.Added   | Should -BeNullOrEmpty -Because 'every advertised tool must be auto-approved'
             $delta.Removed | Should -BeNullOrEmpty -Because 'the reference must not keep names the server dropped'
         }
 
-        It 'carries the recomputed count (33 historical -> 17 current)' {
-            $script:refTools.Count | Should -Be 17
-            $script:ref.version     | Should -Be '1.4.0'
+        It 'carries the recomputed count (33 historical -> 17 at #3639 -> 18 current)' {
+            $script:refTools.Count | Should -Be 18
+            $script:ref.version     | Should -Be '1.5.0'
             $script:ref.issue       | Should -Match '#3639'
         }
 
@@ -232,7 +233,7 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
                 (($base -creplace '([a-z0-9])([A-Z])', '$1_$2')).ToLower()
             })
 
-            $served.Count | Should -Be 17
+            $served.Count | Should -Be 18
             $delta = Get-AlwaysAllowDelta -ReferenceTools $served -CurrentTools $script:refTools
             $delta.Added   | Should -BeNullOrEmpty -Because 'the submodule serves a tool the reference omits'
             $delta.Removed | Should -BeNullOrEmpty -Because 'the reference lists a tool the submodule does not serve'
@@ -299,8 +300,8 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
                 New-Item -ItemType Directory -Path (Split-Path -Parent $rooSentinel) -Force | Out-Null
                 [System.IO.File]::WriteAllText($rooSentinel, 'roo-shell-sentinel', [System.Text.UTF8Encoding]::new($false))
 
-                # ai-01's verified live state: 15 of 17 tools present.
-                $liveTools = @($script:Catalogue17 | Where-Object { $script:MissingOnAi01 -notcontains $_ })
+                # ai-01's verified live state at #3639: every tool but the two it missed.
+                $liveTools = @($script:Catalogue | Where-Object { $script:MissingOnAi01 -notcontains $_ })
                 Write-LiveSettings -Path $zooPath -Tools $liveTools
 
                 $result = Invoke-Sync -Rel $Rel -RefFlag $RefFlag -Root $root
@@ -398,7 +399,7 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
                 $zooPath = Get-SeatPath -Root $root -Seat ZooCode
                 # Both directions present at once: a current tool missing (added)
                 # and a historical name the catalogue dropped (removed/kept).
-                $liveTools = @($script:Catalogue17 | Where-Object { $script:MissingOnAi01 -notcontains $_ }) + @('roosync_send')
+                $liveTools = @($script:Catalogue | Where-Object { $script:MissingOnAi01 -notcontains $_ }) + @('roosync_send')
                 Write-LiveSettings -Path $zooPath -Tools $liveTools
                 $before = Get-Content -LiteralPath $zooPath -Raw
 
