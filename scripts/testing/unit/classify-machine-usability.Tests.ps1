@@ -861,4 +861,87 @@ Describe 'classify-machine-usability (#4327)' {
             $text | Should -Match 'REFUS: le lanceur resolu vit dans un worktree git'
         }
     }
+
+    Context 'Self seat - its System log is read in-process, never over WinRM loopback (31/10)' {
+        # Measured on ai-01: a loopback shell as maint-admin dies with WinRM id=86
+        # 0x80080005 (28/10 00:00Z, 31/10 11:38Z) while the same account's shells from
+        # another machine succeed (31/10 00:05Z). The fakes below are plain functions:
+        # PowerShell's dynamic scoping resolves them before the real cmdlets from inside
+        # the dot-sourced probes, and Get-WinEvent does not exist on the ubuntu runner.
+        BeforeAll {
+            $env:CLASSIFIER_LIB_ONLY = '1'
+            try { . $script:ClassifierPath } finally { Remove-Item Env:CLASSIFIER_LIB_ONLY -ErrorAction SilentlyContinue }
+            $script:SavedComputerName = $env:COMPUTERNAME
+            $env:COMPUTERNAME = 'MYIA-SELF-SEAT'
+        }
+        AfterAll {
+            $env:COMPUTERNAME = $script:SavedComputerName
+        }
+
+        It 'recognises the seat by its own name in any case, and loopback aliases' {
+            Test-IsLocalSeat 'myia-self-seat' | Should -BeTrue
+            Test-IsLocalSeat 'MYIA-SELF-SEAT' | Should -BeTrue
+            Test-IsLocalSeat 'localhost' | Should -BeTrue
+            Test-IsLocalSeat '127.0.0.1' | Should -BeTrue
+            Test-IsLocalSeat 'myia-po-2023' | Should -BeFalse
+            Test-IsLocalSeat '' | Should -BeFalse -Because 'an empty target is not this seat'
+        }
+
+        It 'reads the seat''s boot and events locally and never opens a WinRM shell' {
+            $calls = @{ invoke = 0; winevent = 0 }
+            $bootUtc = [DateTime]::SpecifyKind([datetime]'2026-10-31T10:00:00', [DateTimeKind]::Utc)
+            function Invoke-Command { $calls.invoke++; throw 'loopback WinRM must not be used for the seat itself' }
+            function Get-WinEvent {
+                [CmdletBinding()] param([hashtable]$FilterHashtable, [int]$MaxEvents)
+                $calls.winevent++
+                if (@($FilterHashtable.Id) -contains 12) { return [PSCustomObject]@{ TimeCreated = $bootUtc } }
+                foreach ($i in 1..5) {
+                    [PSCustomObject]@{ TimeCreated = $bootUtc.AddMinutes(3); Id = 7031; Message = "svc_ab12$i stopped" }
+                }
+            }
+
+            $facts = Read-SystemLogFacts -ComputerName 'myia-self-seat' -Credential $null
+
+            $facts.ok | Should -BeTrue
+            $facts.channel | Should -Be 'local'
+            $facts.lastBootUtc.ToUniversalTime() | Should -Be $bootUtc
+            @($facts.events).Count | Should -Be 5
+            $calls.invoke | Should -Be 0 -Because 'the seat reads its own log in-process'
+            $calls.winevent | Should -Be 2 -Because 'one boot read plus one window read, both local'
+        }
+
+        It 'keeps a remote seat on WinRM and never answers it from the local log' {
+            $calls = @{ invoke = 0; winevent = 0 }
+            function Invoke-Command { $calls.invoke++; throw 'remote shell refused' }
+            function Get-WinEvent { [CmdletBinding()] param([hashtable]$FilterHashtable, [int]$MaxEvents) $calls.winevent++ }
+
+            $facts = Read-SystemLogFacts -ComputerName 'myia-po-2023' -Credential $null
+
+            $facts.ok | Should -BeFalse -Because 'the remote read failed and must say so'
+            $facts.channel | Should -Be 'winrm'
+            $calls.winevent | Should -Be 0 -Because 'a remote failure must never be filled in from this seat''s own log'
+        }
+
+        It 'skips the WinRM latency probe for the seat itself and carries the channel to the sample' {
+            $calls = @{ latency = @() }
+            function Test-TcpPort { param($ComputerName, $Port, $TimeoutMs) $Port -eq 5985 }
+            function Measure-DrivingChannel { param($ComputerName, $Port, $TimeoutMs, [switch]$WinRm) [PSCustomObject]@{ answered = $true; latencyMs = 2; statusCode = 401 } }
+            function Get-HeartbeatFacts { param($Machine) [PSCustomObject]@{ ageSeconds = 60; instrumentPresent = $true } }
+            function Measure-WinrmLatency { param($ComputerName, $Count, $TimeoutMs, $Credential) $calls.latency += $ComputerName; [PSCustomObject]@{ samples = @(40, 41, 42); error = '' } }
+            function Read-SystemLogFacts {
+                param($ComputerName, $Credential, $ProbeTimeoutMs, $WindowMinutes)
+                $ch = if (Test-IsLocalSeat $ComputerName) { 'local' } else { 'winrm' }
+                [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $null; events = @(); channel = $ch }
+            }
+
+            $self = New-LiveSample -Machine 'myia-self-seat'
+            $remote = New-LiveSample -Machine 'myia-po-2023'
+
+            $calls.latency | Should -Be @('myia-po-2023') -Because 'only the remote seat is timed over WinRM'
+            @($self.LatencySamplesMs).Count | Should -Be 0
+            $self.systemLogChannel | Should -Be 'local'
+            $remote.systemLogChannel | Should -Be 'winrm'
+            @($remote.LatencySamplesMs).Count | Should -Be 3
+        }
+    }
 }

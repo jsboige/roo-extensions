@@ -186,7 +186,11 @@ if ($credOk) {
     }
 
     $windowsSeats = @($json.machines | Where-Object { [int]$_.drivingPort -eq 5985 })
-    $reachable = @($windowsSeats | Where-Object { $_.verdict -ne 'unreachable' })
+    # The seat running the installer reads its own log in-process (systemLogChannel
+    # 'local', #4327 31/10): that read never touches the credential, so it can prove
+    # nothing about it. Only remote reads count, or a bad credential passes on the
+    # strength of the local row alone.
+    $reachable = @($windowsSeats | Where-Object { $_.verdict -ne 'unreachable' -and $_.systemLogChannel -ne 'local' })
     $logUnavail = @($reachable | Where-Object { @($_.findings) -contains 'system-log-unavailable' })
 
     if ($windowsSeats.Count -eq 0) {
@@ -194,7 +198,7 @@ if ($credOk) {
         exit 1
     }
     if ($reachable.Count -eq 0) {
-        Write-Host "REFUS: aucun siege Windows joignable dans l'acceptance run - le credential ne peut etre valide. Aucune tache n'est enregistree." -ForegroundColor Red
+        Write-Host "REFUS: aucun siege Windows DISTANT joignable dans l'acceptance run (la ligne du siege local est lue sans le credential et ne compte pas) - le credential ne peut etre valide. Aucune tache n'est enregistree." -ForegroundColor Red
         exit 1
     }
     if ($logUnavail.Count -eq $reachable.Count) {
