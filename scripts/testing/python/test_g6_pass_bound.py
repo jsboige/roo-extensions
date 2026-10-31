@@ -145,6 +145,27 @@ class G6PassBoundRateResolution(unittest.TestCase):
         self.assertIn("2/min", proc.stdout)  # the shadowed value is still printed
         self.assertIn("(source:", proc.stdout)
 
+    def test_env_file_without_key_is_harmless_when_the_operator_env_carries_it(self):
+        # #4352 (31/10, doc alignment): the refusal on a key-less env-file is
+        # CONDITIONAL. `resolve_rate` bails only when the operator env lacks the key
+        # too; when rank 2 carries it, rank 2 applies and the file's silence is
+        # irrelevant. The doc — the table and the exit-2 list — said "exit 2" without
+        # that condition. This pins the true branch; the sibling test below
+        # (host env cleared) pins the refusing one, so neither half can rot alone.
+        path = self._log(
+            "2026-10-29T00:15:00.000Z [EMB-METRICS] called=1744 requests=109 rate_limited=3\n"
+            "2026-10-29T00:00:00.000Z [EMB-METRICS] called=0 requests=0 rate_limited=0\n"
+            "2026-10-29T00:10:00.000Z [EMB-METRICS] called=1600 requests=100 rate_limited=2\n"
+            "2026-10-29T00:05:00.000Z [EMB-METRICS] called=800 requests=50 rate_limited=1\n"
+            "2026-10-29T00:10:55.000Z [Qdrant-Worker] pass done: 5 task(s) in 655000ms\n")
+        env_file = self._env_file("OTHER_KEY=1\n")
+        proc = _run("--log", path, "--env-file", env_file,
+                    env=_env(EMBEDDING_OPS_PER_MINUTE="10"))
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        self.assertNotIn("carries no EMBEDDING_OPS_PER_MINUTE", proc.stderr)
+        self.assertIn("operator env", proc.stdout)
+        self.assertIn("verdict=PASS", proc.stdout)
+
     def test_export_syntax_in_env_file_is_accepted(self):
         # follow-up 4: `export KEY=VALUE` used to be invisible to the parser, so a
         # docker-style .env made the tool refuse ("carries no key") on a file that
