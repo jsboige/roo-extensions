@@ -203,6 +203,7 @@ if ($credOk) {
     }
     if ($logUnavail.Count -eq $reachable.Count) {
         Write-Host ("REFUS: system-log-unavailable sur TOUS les {0} siege(s) Windows joignable(s) ({1}) - le credential ne fonctionne pas." -f $reachable.Count, (($logUnavail | ForEach-Object { $_.machine }) -join ', ')) -ForegroundColor Red
+        foreach ($u in $logUnavail) { Write-Host ("  {0} : {1}" -f $u.machine, $u.systemLogError) -ForegroundColor DarkGray }
         Write-Host "A corriger avant de relancer :"
         Write-Host "  - le compte doit exister cote sieges et etre autorise sur WinRM (TrustedHosts / comptes locaux) ;"
         Write-Host "  - il doit pouvoir lire le journal System a distance : verifier a la main"

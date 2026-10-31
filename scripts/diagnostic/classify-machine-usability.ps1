@@ -673,7 +673,9 @@ function Measure-WinrmLatency {
     for ($i = 0; $i -lt $Count; $i++) {
         $sw = [System.Diagnostics.Stopwatch]::StartNew()
         try {
-            $opts = New-PSSessionOption -OpenTimeout $TimeoutMs -OperationTimeout $TimeoutMs -CancelTimeout $TimeoutMs -IdleTimeout $TimeoutMs
+            # No -IdleTimeout: the server refuses any value under 60 s, so every probe
+            # failed before running (see Read-SystemLogFacts).
+            $opts = New-PSSessionOption -OpenTimeout $TimeoutMs -OperationTimeout $TimeoutMs -CancelTimeout $TimeoutMs
             $invokeArgs = @{
                 ComputerName = $ComputerName
                 ScriptBlock  = { 1 }
@@ -728,7 +730,12 @@ function Read-SystemLogFacts {
     $invokeArgs = $null
     if (-not $local) {
         try {
-            $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4) -IdleTimeout ($ProbeTimeoutMs * 4)
+            # IdleTimeout stays at its default (-1 = the server's own). The server
+            # rejects any value under 60 s ("valeur minimale autorisee 60 (secondes)"),
+            # and the 12 s set here made EVERY remote read fail whatever the
+            # credential: measured 31/10 on po-2024, po-2025, po-2028, all three read
+            # fine with the same credential once the option was dropped.
+            $opts = New-PSSessionOption -OpenTimeout $ProbeTimeoutMs -OperationTimeout ($ProbeTimeoutMs * 4) -CancelTimeout ($ProbeTimeoutMs * 4)
             $invokeArgs = @{ ComputerName = $ComputerName; SessionOption = $opts; ErrorAction = 'Stop' }
         } catch {
             return [PSCustomObject]@{ ok = $false; error = $_.Exception.Message; lastBootUtc = $null; events = @(); channel = $channel }
@@ -1162,6 +1169,7 @@ function New-LiveSample {
     $external = $null
     $systemLogOk = $false
     $systemLogChannel = $null
+    $systemLogError = $null
     if ($open.Count -gt 0 -and $drivingPort -eq 5985) {
         # No latency probe against the seat itself: the only channel it could use is
         # the WinRM loopback that Test-IsLocalSeat documents as broken, and each try
@@ -1174,6 +1182,7 @@ function New-LiveSample {
         $facts = Read-SystemLogFacts -ComputerName $Machine -Credential $Credential -ProbeTimeoutMs $ProbeTimeoutMs -WindowMinutes $BurstWindowEndMinutes
         $systemLogOk = [bool]$facts.ok
         $systemLogChannel = $facts.channel
+        if (-not $facts.ok) { $systemLogError = $facts.error }
         if ($facts.ok) {
             $lastBoot = $facts.lastBootUtc
             $burst = Find-LogonDeathBurst -Events $facts.events -LastBootUtc $lastBoot -MinEvents $BurstMinEvents -WindowStartMinutes $BurstWindowStartMinutes -WindowEndMinutes $BurstWindowEndMinutes
@@ -1196,6 +1205,7 @@ function New-LiveSample {
         externalLogonCount         = $external
         systemLogAvailable         = $systemLogOk
         systemLogChannel           = $systemLogChannel
+        systemLogError             = $systemLogError
         drivingPort                = $drivingPort
     }
 }
@@ -1347,6 +1357,9 @@ if (-not [string]::IsNullOrEmpty($ReplayFile)) {
         # Which path read the System log ('local' | 'winrm' | $null when not read):
         # the installer's acceptance run counts only 'winrm' rows as credential proof.
         $r | Add-Member -NotePropertyName systemLogChannel -NotePropertyValue $sample.systemLogChannel -Force
+        # Why the read failed, verbatim: without it `system-log-unavailable` hid an
+        # option the server rejected behind what read as a credential problem.
+        $r | Add-Member -NotePropertyName systemLogError -NotePropertyValue $sample.systemLogError -Force
         $results += $r
     }
 }

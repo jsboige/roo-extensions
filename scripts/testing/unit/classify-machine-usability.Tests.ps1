@@ -943,5 +943,42 @@ Describe 'classify-machine-usability (#4327)' {
             $remote.systemLogChannel | Should -Be 'winrm'
             @($remote.LatencySamplesMs).Count | Should -Be 3
         }
+
+        # The server refuses an IdleTimeout under 60 s: with 3 s / 12 s set here, every
+        # remote read failed whatever the credential (measured 31/10 on three seats).
+        It 'leaves IdleTimeout at the server default on both remote calls' -Skip:(-not (Get-Command New-PSSessionOption -ErrorAction SilentlyContinue)) {
+            $seen = [System.Collections.ArrayList]::new()
+            function Invoke-Command {
+                [CmdletBinding()] param($ComputerName, $ScriptBlock, $SessionOption, $Credential)
+                [void]$seen.Add($SessionOption)
+                return $null
+            }
+
+            $null = Measure-WinrmLatency -ComputerName 'myia-po-2023' -Count 1 -TimeoutMs 3000
+            $null = Read-SystemLogFacts -ComputerName 'myia-po-2023' -Credential $null -ProbeTimeoutMs 3000
+
+            $seen.Count | Should -Be 2 -Because 'one latency probe plus one boot read'
+            foreach ($o in $seen) {
+                $ms = $o.IdleTimeout.TotalMilliseconds
+                ($ms -lt 0 -or $ms -ge 60000) | Should -BeTrue -Because "WinRM rejects an IdleTimeout under 60 s, got $ms ms"
+            }
+        }
+
+        It 'carries a failed read''s own error text to the sample' {
+            function Test-TcpPort { param($ComputerName, $Port, $TimeoutMs) $Port -eq 5985 }
+            function Measure-DrivingChannel { param($ComputerName, $Port, $TimeoutMs, [switch]$WinRm) [PSCustomObject]@{ answered = $true; latencyMs = 2; statusCode = 401 } }
+            function Get-HeartbeatFacts { param($Machine) [PSCustomObject]@{ ageSeconds = 60; instrumentPresent = $true } }
+            function Measure-WinrmLatency { param($ComputerName, $Count, $TimeoutMs, $Credential) [PSCustomObject]@{ samples = @(); error = 'probe refused' } }
+            function Read-SystemLogFacts {
+                param($ComputerName, $Credential, $ProbeTimeoutMs, $WindowMinutes)
+                if ($ComputerName -eq 'myia-po-2023') {
+                    return [PSCustomObject]@{ ok = $false; error = 'IdleTimeout 12 s refused'; lastBootUtc = $null; events = @(); channel = 'winrm' }
+                }
+                [PSCustomObject]@{ ok = $true; error = ''; lastBootUtc = $null; events = @(); channel = 'winrm' }
+            }
+
+            (New-LiveSample -Machine 'myia-po-2023').systemLogError | Should -Be 'IdleTimeout 12 s refused'
+            (New-LiveSample -Machine 'myia-po-2024').systemLogError | Should -BeNullOrEmpty -Because 'a successful read carries no error'
+        }
     }
 }
