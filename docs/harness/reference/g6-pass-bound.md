@@ -54,16 +54,22 @@ compris les cycles vides ou bloqués — c'est ce qui en fait l'instrument. Une 
 doit donc montrer ~N de ces lignes ; plus de `--max-missing` (défaut 2) intervalles muets est une
 violation, pas un arrondi.
 
-## D'où vient le taux (CHANGES ai-01, 29/10)
+## D'où vient le taux (CHANGES ai-01, 29/10 · follow-up 3, 31/10)
 
-Le plafond appartient au **RSM mesuré**, pas au shell de l'opérateur. Précédence :
+Le plafond appartient au **RSM mesuré**. La précédence **miroir la résolution du RSM lui-même** —
+host > `.env`, #2719 : `dotenv.config()` ne surcharge jamais une variable hôte déjà posée, et
+`applyEnvFileForNonHostKeys` applique le même rang. Première version (inversée) :
 
 | rang | source | note |
 | --- | --- | --- |
 | 1 | `--ops-per-minute N` | explicite, gagne sur tout |
-| 2 | `--env-file <rsm>/.env` | le `.env` que le RSM mesuré charge réellement ; illisible ou sans la clé → `INSTRUMENT` (exit 2) — après qu'on a nommé la config mesurée, l'outil ne **devine plus** |
-| 3 | env `EMBEDDING_OPS_PER_MINUTE` | environnement de l'**opérateur** — la provenance l'écrit : ce n'est pas forcément la config du process mesuré |
+| 2 | env `EMBEDDING_OPS_PER_MINUTE` | **portée hôte** — quand le process mesuré hérite de cette variable, c'est la valeur **effective** (le `.env` ne peut pas la surcharger) ; la provenance l'écrit |
+| 3 | `--env-file <rsm>/.env` | le `.env` que le RSM mesuré charge réellement ; illisible ou sans la clé → `INSTRUMENT` (exit 2) — après qu'on a nommé la config mesurée, l'outil ne **devine plus** ; `export KEY=VALUE` accepté (follow-up 4) |
 | 4 | défaut 10/min | `background-services.ts` — même mise en garde |
+
+Quand l'env opérateur **et** l'env-file portent la clé, la valeur de l'env-file est rendue comme
+**`SHADOWED`** — elle est affichée, jamais utilisée : certifier le plafond du `.env` pendant que le
+process mesuré tourne sur la valeur hôte serait la mesure d'un autre process (follow-up 3).
 
 La provenance est **toujours rendue** (`rate: N/min (source: …)`, champ `rate_provenance` en JSON).
 Une valeur **non numérique** dans l'env ou l'env-file est un `INSTRUMENT` (exit 2) — la conversion se
@@ -99,7 +105,12 @@ borne dépendante d'un réglage local non mesuré ailleurs. Le paceur reste donc
 - Un **reset de compteur** dans la fenêtre (redémarrage de process) rend le delta ininterprétable :
   verdict `INSTRUMENT`, jamais `PASS`. Fail-closed, comme le reste du corpus.
 - Une ligne **sans horodatage** n'est pas devinée : si elle est nécessaire pour fermer une fenêtre,
-  la passe est `INSTRUMENT`.
+  la passe est `INSTRUMENT`. Un `pass done` **sans horodatage** est pire : une passe violante
+  enregistrée sans son horloge ne doit pas pouvoir **disparaître du verdict** — tout le run devient
+  `INSTRUMENT` (follow-up 1, 31/10 ; la première version la comptait `untimed_lines=1` et rendait
+  quand même `PASS`).
+- Les lignes sont jugées par **ordre d'horodatage**, pas par ordre du fichier : un writer qui flush
+  hors ordre ne casse plus la chaîne `prev`/`next` (follow-up 5).
 - Une ligne **sans `requests=`** (build antérieur au compteur) ne permet pas de calculer la borne :
   `INSTRUMENT`, jamais un `PASS` replié sur `called`.
 
@@ -109,7 +120,7 @@ borne dépendante d'un réglage local non mesuré ailleurs. Le paceur reste donc
 python scripts/diagnostic/g6-pass-bound.py --log <log RSM contenant [EMB-METRICS] et "pass done">
 python scripts/diagnostic/g6-pass-bound.py --log <f> --json
 python scripts/diagnostic/g6-pass-bound.py --log <f> --env-file <rsm>/.env
-python scripts/diagnostic/g6-pass-bound.py --selftest      # 8 fixtures hors ligne
+python scripts/diagnostic/g6-pass-bound.py --selftest      # 11 fixtures hors ligne
 ```
 
 Les deux lignes lues viennent de `background-services.ts` : `[EMB-METRICS] … called=… requests=…
@@ -122,13 +133,18 @@ fixture qui reproduit le défaut du 29/10 (655 s, 400 sub-chunks, 5 requêtes �
 borne sur `called` disait `PASS`) et celle du paceur désactivé (taux 0 → `INSTRUMENT`, jamais le
 `PASS` à allocation infinie) ne peuvent plus pourrir sans rendre la CI rouge. Le wrapper couvre en
 plus, en sous-processus : env non numérique → exit 2, surcharge CLI de l'environnement cassé,
-précédence `--env-file` + provenance rendue, env-file sans la clé → exit 2.
+**env opérateur > env-file avec valeur `SHADOWED` rendue** (follow-up 3), syntaxe
+`export KEY=VALUE` (follow-up 4), env-file sans la clé → exit 2, `pass done` non horodaté →
+exit 2 run entier (follow-up 1), violation non masquée par un trou d'instrument → exit 1
+(follow-up 2), log hors ordre jugé par horodatage (follow-up 5).
 
 Exit codes : `0` toutes les passes dans la borne et cadence préservée · `1` au moins une violation
-(dépassement **ou** tick affamé) · `2` erreur d'instrument (log illisible, fenêtre non fermée,
+(dépassement **ou** tick affamé) — **`VIOLATION` prime sur `INSTRUMENT` dans le verdict global**
+(follow-up 2 : masquer une violation mesurée derrière un trou d'instrument est la panne la plus
+grave ; la première version sortait 2) · `2` erreur d'instrument (log illisible, fenêtre non fermée,
 reset de compteur, métriques sans `requests=`, entrée malformée, **source de taux non numérique,
-env-file illisible/sans clé, paceur désactivé**) — jamais un « propre » par silence :
-un log sans `pass done` est un exit 2.
+env-file illisible/sans clé, paceur désactivé, `pass done` non horodaté**) — jamais un « propre » par
+silence : un log sans `pass done` est un exit 2.
 
 ## Le critère, en une ligne
 
