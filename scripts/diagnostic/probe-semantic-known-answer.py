@@ -1947,6 +1947,14 @@ def selftest() -> int:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    # Measured on po-2028 (31/10): the selftest's PASS line carries `≥`, and a cp1252
+    # console (Windows default, miniconda 3.13) raised UnicodeEncodeError *while printing
+    # the success message* — the probe's own positive control died with a traceback,
+    # exit 1, indistinguishable from FAIL to any caller. Same defect and same fix as
+    # g6-pass-bound.py (the two scripts share a seat and a console).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description="Sonde a reponse connue — recherche semantique (#4352 critere 4)")
     here = Path(__file__).resolve().parent
     ap.add_argument("--index", action="store_true", help="phase A : resoudre + indexer + extraire la phrase")
