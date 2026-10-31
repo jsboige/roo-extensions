@@ -28,6 +28,14 @@ def _run(*args, **kwargs):
                           capture_output=True, text=True, timeout=120, **kwargs)
 
 
+def _env(**overrides):
+    """A copy of os.environ with EMBEDDING_OPS_PER_MINUTE removed, so a stray value
+    in the CI runner's shell cannot flip the precedence under test."""
+    base = {k: v for k, v in os.environ.items() if k != "EMBEDDING_OPS_PER_MINUTE"}
+    base.update(overrides)
+    return base
+
+
 class G6PassBoundSelftest(unittest.TestCase):
 
     def test_selftest_passes(self):
@@ -119,24 +127,42 @@ class G6PassBoundRateResolution(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertNotIn("EMBEDDING_OPS_PER_MINUTE", proc.stderr)
 
-    def test_env_file_wins_over_operator_env_and_states_provenance(self):
-        # one pass line, no metrics -> INSTRUMENT "window not closed", but the report
-        # still runs and must state where the rate came from.
+    def test_operator_env_wins_over_env_file_and_states_shadowing(self):
+        # follow-up 3 (ai-01 review 29/10): the measured RSM resolves host > .env
+        # (#2719 — dotenv.config() never overrides a host variable), so the tool
+        # must rank the operator env above --env-file and print the env-file value
+        # as SHADOWED. The first version had the rank inverted: it certified the
+        # .env ceiling while the measured process actually ran on the host value.
         path = self._log(
             "2026-10-29T00:10:00.000Z [Qdrant-Worker] pass done: 2 task(s) in 600000ms\n")
         env_file = self._env_file("# seat .env\nEMBEDDING_OPS_PER_MINUTE=2\n")
         proc = _run("--log", path, "--env-file", env_file,
-                    env={**os.environ, "EMBEDDING_OPS_PER_MINUTE": "30"})
+                    env=_env(EMBEDDING_OPS_PER_MINUTE="30"))
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("operator env", proc.stdout)
+        self.assertIn("30/min", proc.stdout)
+        self.assertIn("SHADOWED", proc.stdout)
+        self.assertIn("2/min", proc.stdout)  # the shadowed value is still printed
+        self.assertIn("(source:", proc.stdout)
+
+    def test_export_syntax_in_env_file_is_accepted(self):
+        # follow-up 4: `export KEY=VALUE` used to be invisible to the parser, so a
+        # docker-style .env made the tool refuse ("carries no key") on a file that
+        # did carry it.
+        path = self._log(
+            "2026-10-29T00:10:00.000Z [Qdrant-Worker] pass done: 2 task(s) in 600000ms\n")
+        env_file = self._env_file("export EMBEDDING_OPS_PER_MINUTE=2\n")
+        proc = _run("--log", path, "--env-file", env_file, env=_env())
         self.assertEqual(proc.returncode, 2)
         self.assertIn("env-file", proc.stdout)
         self.assertIn("2/min", proc.stdout)
-        self.assertIn("(source:", proc.stdout)
+        self.assertNotIn("carries no EMBEDDING_OPS_PER_MINUTE", proc.stderr)
 
     def test_env_file_without_key_refuses_to_guess(self):
         path = self._log(
             "2026-10-29T00:10:00.000Z [Qdrant-Worker] pass done: 2 task(s) in 600000ms\n")
         env_file = self._env_file("OTHER_KEY=1\n")
-        proc = _run("--log", path, "--env-file", env_file)
+        proc = _run("--log", path, "--env-file", env_file, env=_env())
         self.assertEqual(proc.returncode, 2, proc.stderr or proc.stdout)
         self.assertIn("carries no EMBEDDING_OPS_PER_MINUTE", proc.stderr)
 
@@ -152,6 +178,68 @@ class G6PassBoundRateResolution(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stdout)
         self.assertIn("pacing disabled", proc.stdout)
         self.assertIn("vacuous", proc.stdout)
+
+
+class G6PassBoundFollowUps(unittest.TestCase):
+    """The five non-blocking follow-ups of ai-01's #4422 review, fixed in one pass:
+
+    1. untimed `pass done` = whole-run INSTRUMENT (was silently dropped);
+    2. VIOLATION wins the overall verdict over INSTRUMENT (was masked, exit 2);
+    3. operator env ranks above --env-file, host > .env (#2719) — pinned above;
+    4. `export KEY=VALUE` accepted — pinned above;
+    5. out-of-order logs judged in timestamp order (was: prev lost, INSTRUMENT).
+    """
+
+    def _log(self, body: str) -> str:
+        fd, path = tempfile.mkstemp(prefix="g6-fu-", suffix=".log")
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_untimed_pass_done_is_whole_run_instrument(self):
+        # follow-up 1: a healthy timed pass plus a `pass done` line without its
+        # clock — the first version judged only the timed pass and exited 0.
+        path = self._log(
+            "2026-10-29T00:00:00.000Z [EMB-METRICS] called=0 requests=0 rate_limited=0\n"
+            "2026-10-29T00:05:00.000Z [EMB-METRICS] called=800 requests=50 rate_limited=1\n"
+            "2026-10-29T00:10:00.000Z [EMB-METRICS] called=1600 requests=100 rate_limited=2\n"
+            "2026-10-29T00:15:00.000Z [EMB-METRICS] called=1744 requests=109 rate_limited=3\n"
+            "2026-10-29T00:10:55.000Z ⏱️ [Qdrant-Worker] pass done: 5 task(s) in 655000ms\n"
+            "⏱️ [Qdrant-Worker] pass done: 3 task(s) in 400000ms\n")
+        proc = _run("--log", path, env=_env())
+        self.assertEqual(proc.returncode, 2, proc.stderr or proc.stdout)
+        self.assertIn("untimed `pass done`", proc.stdout)
+        self.assertIn("INSTRUMENT", proc.stdout)
+
+    def test_violation_is_not_masked_by_instrument(self):
+        # follow-up 2: pass #1 violates the bound (5 requests x 6s x 1.5 = 45s for a
+        # 655s pass), pass #2 has no closing metric (INSTRUMENT). The overall verdict
+        # is VIOLATION — exit 1 — because masking a measured violation behind an
+        # instrument gap is the worse failure. The first version exited 2.
+        path = self._log(
+            "2026-10-29T00:00:00.000Z [EMB-METRICS] called=0 requests=0\n"
+            "2026-10-29T00:05:00.000Z [EMB-METRICS] called=160 requests=2\n"
+            "2026-10-29T00:10:00.000Z [EMB-METRICS] called=320 requests=4\n"
+            "2026-10-29T00:15:00.000Z [EMB-METRICS] called=400 requests=5\n"
+            "2026-10-29T00:10:55.000Z ⏱️ [Qdrant-Worker] pass done: 5 task(s) in 655000ms\n"
+            "2026-10-29T00:33:20.000Z ⏱️ [Qdrant-Worker] pass done: 5 task(s) in 600000ms\n")
+        proc = _run("--log", path, env=_env())
+        self.assertEqual(proc.returncode, 1, proc.stderr or proc.stdout)
+        self.assertIn("VIOLATION", proc.stdout)
+
+    def test_out_of_order_log_is_judged_in_time_order(self):
+        # follow-up 5: metrics flushed 900, 0, 600, 300 — the file-order walk of the
+        # first version saw the 900 line first, lost `prev`, and returned INSTRUMENT.
+        path = self._log(
+            "2026-10-29T00:15:00.000Z [EMB-METRICS] called=1744 requests=109 rate_limited=3\n"
+            "2026-10-29T00:00:00.000Z [EMB-METRICS] called=0 requests=0 rate_limited=0\n"
+            "2026-10-29T00:10:00.000Z [EMB-METRICS] called=1600 requests=100 rate_limited=2\n"
+            "2026-10-29T00:05:00.000Z [EMB-METRICS] called=800 requests=50 rate_limited=1\n"
+            "2026-10-29T00:10:55.000Z ⏱️ [Qdrant-Worker] pass done: 5 task(s) in 655000ms\n")
+        proc = _run("--log", path, env=_env())
+        self.assertEqual(proc.returncode, 0, proc.stderr or proc.stdout)
+        self.assertIn("verdict=PASS", proc.stdout)
 
 
 if __name__ == "__main__":

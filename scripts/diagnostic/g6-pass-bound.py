@@ -34,25 +34,35 @@ Liveness is judged separately, because a bounded pass could still starve the tic
 that lasts N intervals must still show ~N of those lines. More than `--max-missing`
 absent intervals is a violation, not a rounding error.
 
-Where the rate comes from (ai-01 CHANGES 29/10)
-------------------------------------------------
-The ceiling belongs to the MEASURED RSM, not to the operator's shell. Precedence:
+Where the rate comes from (ai-01 CHANGES 29/10; rank corrected 31/10)
+---------------------------------------------------------------------
+The ceiling belongs to the MEASURED RSM, not to the operator's shell. The RSM applies
+**host > .env** (#2719): `src/index.ts:50` runs `dotenv.config({path, quiet:true})` with
+no `override`, and `applyEnvFileForNonHostKeys` restores host keys afterwards. The rank
+order below mirrors that, so the value the tool computes on is the value the RSM paces
+on when the operator shell shares the RSM's host scope:
 
   1. `--ops-per-minute N`           (CLI — explicit, wins over everything)
-  2. `--env-file <rsm>/.env`        (the .env the measured RSM actually loads; if the
-                                     file is unreadable or lacks the key: INSTRUMENT,
-                                     exit 2 — after asking for the measured config the
-                                     tool does not fall back to a guess)
-  3. `EMBEDDING_OPS_PER_MINUTE`     (operator environment — printed with an explicit
-                                     caution: this is the OPERATOR's value, not
-                                     necessarily the measured process's)
+  2. `EMBEDDING_OPS_PER_MINUTE`     (operator environment = host scope; printed with an
+                                     explicit caution that it must match the measured
+                                     process's host. When --env-file is also given and
+                                     carries the key, its value is printed as SHADOWED
+                                     — that is what the RSM would do with it)
+  3. `--env-file <rsm>/.env`        (the .env the measured RSM loads; consulted only
+                                     when the host does not carry the key; `export
+                                     KEY=VALUE` lines are accepted. If the file is
+                                     unreadable or lacks the key: INSTRUMENT, exit 2 —
+                                     after asking for the measured config the tool does
+                                     not fall back to a guess)
   4. default 10/min                 (background-services.ts — same caution)
 
-The provenance is always printed (`rate: N/min (source: …)`), and a nonnumeric value in
-the environment or env-file is INSTRUMENT (exit 2), never a traceback: an exit 1 would
-read as a VIOLATION downstream. `rate_limited=` (boot-cumulative, ms#1572) is used as a
-witness only — a positive delta in a judged window says pacing WAS active; it never
-identifies the configured ceiling.
+The first version ranked the env-file ABOVE the operator env (ai-01 review 29/10,
+follow-up 3): with `EMBEDDING_OPS_PER_MINUTE` set at User scope the RSM paced on the
+host value while the tool computed on the .env value, labelled `(source: env-file)` —
+the two instruments disagreed in silence. A nonnumeric value in the winning source is
+INSTRUMENT (exit 2), never a traceback: an exit 1 would read as a VIOLATION downstream.
+`rate_limited=` (boot-cumulative, ms#1572) is used as a witness only — a positive delta
+in a judged window says pacing WAS active; it never identifies the configured ceiling.
 
 `EMBEDDING_OPS_PER_MINUTE=0` disables the pacer in the RSM (VectorIndexer.ts:217): the
 bound is then vacuous — no allowance can be derived from an unpaced window, so the
@@ -80,6 +90,14 @@ A text log holding the RSM stdout lines, each carrying a timestamp prefix
 (`2026-10-29T07:44:47.328Z`, `[2026-10-29 07:44:47]`, `2026-10-29 07:44:47,123`).
 Lines without a timestamp are counted (`untimed=` in the report) and, when one of them is
 needed to close a window, that pass is INSTRUMENT — the tool does not guess a clock.
+A `pass done` line without a timestamp is an INSTRUMENT for the whole run, never a
+silently dropped pass: a violating pass recorded without its `[EMB-METRICS]` clock must
+not vanish from the verdict (ai-01 review 29/10, follow-up 1 — the first version counted
+`untimed_lines=1` and still said PASS).
+
+Lines are judged in TIMESTAMP order, not file order: metrics and passes are sorted by
+their parsed time before any window is closed, so an out-of-order writer cannot break
+the `prev`/`next` chain (ai-01 review 29/10, follow-up 5).
 
   [EMB-METRICS] called=... requests=... cached=... ... rate_limited=... cache_size=...
   ⏱️ [Qdrant-Worker] pass done: 5 task(s) in 655123ms
@@ -94,9 +112,13 @@ Usage
 Exit codes
 ----------
   0  every pass within the pacer bound and cadence preserved
-  1  at least one violation (over bound, or tick starved)
+  1  at least one violation (over bound, or tick starved) — VIOLATION wins the
+     overall verdict over INSTRUMENT: a log carrying both still exits 1, because
+     masking a measured violation behind an instrument gap is the worse failure
+     (ai-01 review 29/10, follow-up 2 — the first version exited 2)
   2  instrument failure (unreadable log, unclosed window, counter reset,
-     nonnumeric rate source, env-file unreadable/missing key, pacing disabled)
+     nonnumeric rate source, env-file unreadable/missing key, pacing disabled,
+     untimed `pass done` line)
 """
 
 from __future__ import annotations
@@ -184,11 +206,13 @@ def parse_time(text: str, base_date: str | None) -> float | None:
     return None
 
 
-def scan(path: str) -> tuple[list[Metrics], list[Pass], int]:
-    """Return (metrics, passes, untimed_line_count) preserving file order."""
+def scan(path: str) -> tuple[list[Metrics], list[Pass], int, int]:
+    """Return (metrics, passes, untimed_line_count, untimed_pass_count) preserving
+    file order — judge() re-sorts by parsed time before walking the chain."""
     metrics: list[Metrics] = []
     passes: list[Pass] = []
     untimed = 0
+    untimed_passes = 0
     base_date: str | None = None
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for line in fh:
@@ -214,13 +238,19 @@ def scan(path: str) -> tuple[list[Metrics], list[Pass], int]:
             if done:
                 if stamp is None:
                     untimed += 1
+                    untimed_passes += 1
                 else:
                     passes.append(Pass(stamp, int(done.group(1)), int(done.group(2))))
-    return metrics, passes, untimed
+    return metrics, passes, untimed, untimed_passes
 
 
 def judge(passes: list[Pass], metrics: list[Metrics], ops_per_minute: float, margin: float,
           interval_s: float, max_missing: int) -> list[Verdict]:
+    # follow-up 5 (ai-01 review 29/10): the prev/nxt walk below assumes
+    # chronological order — a writer that flushes out of order must not break the
+    # chain. Nothing downstream may rely on file order.
+    passes = sorted(passes, key=lambda p: p.time)
+    metrics = sorted(metrics, key=lambda m: m.time)
     verdicts: list[Verdict] = []
     for idx, p in enumerate(passes):
         v = Verdict(index=idx, tasks=p.tasks, duration_ms=p.duration_ms, status="PASS")
@@ -304,23 +334,40 @@ def judge(passes: list[Pass], metrics: list[Metrics], ops_per_minute: float, mar
     return verdicts
 
 
+def overall_status(verdicts: list[Verdict], untimed_passes: int = 0) -> str:
+    """VIOLATION wins over INSTRUMENT (ai-01 review 29/10, follow-up 2): masking a
+    measured violation behind an instrument gap is the worse failure, so a log
+    carrying both still exits 1. An untimed `pass done` line is an instrument gap
+    for the whole run (follow-up 1) — a pass recorded without its clock must not
+    vanish from the verdict."""
+    statuses = [v.status for v in verdicts]
+    if "VIOLATION" in statuses:
+        return "VIOLATION"
+    if "INSTRUMENT" in statuses or untimed_passes > 0:
+        return "INSTRUMENT"
+    return "PASS"
+
+
 def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interval_s: float,
-           untimed: int, as_json: bool, rate_provenance: str = "") -> int:
+           untimed: int, as_json: bool, rate_provenance: str = "",
+           untimed_passes: int = 0) -> int:
     for v in verdicts:
         print(f"pass #{v.index + 1}: {v.tasks} task(s) in {v.duration_ms} ms -> {v.status}"
               f"  (requests={v.requests} allowed={('%.0f' % v.allowed_ms) if v.allowed_ms is not None else 'n/a'} ms, "
               f"ticks {v.intervals_seen}/{v.intervals_expected})")
         for reason in v.reasons:
             print(f"   ! {reason}")
-    statuses = [v.status for v in verdicts]
-    overall = ("INSTRUMENT" if "INSTRUMENT" in statuses
-               else "VIOLATION" if "VIOLATION" in statuses
-               else "PASS")
+    if untimed_passes:
+        print(f"! {untimed_passes} untimed `pass done` line(s): INSTRUMENT for the whole "
+              "run — a pass recorded without its [EMB-METRICS] clock must not vanish "
+              "(follow-up 1)")
+    overall = overall_status(verdicts, untimed_passes)
     if as_json:
         print(json.dumps({
             "verdict": overall,
             "passes": len(verdicts),
             "untimed_lines": untimed,
+            "untimed_passes": untimed_passes,
             "ops_per_minute": ops_per_minute,
             "rate_provenance": rate_provenance,
             "margin": margin,
@@ -329,6 +376,7 @@ def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interv
         }, indent=2))
     else:
         print(f"verdict={overall} passes={len(verdicts)} untimed_lines={untimed} "
+              f"untimed_passes={untimed_passes} "
               f"ops_per_minute={ops_per_minute:g} margin={margin:g} interval={interval_s:g}s")
         if rate_provenance:
             print(f"rate: {ops_per_minute:g}/min (source: {rate_provenance})")
@@ -340,10 +388,11 @@ def report(verdicts: list[Verdict], ops_per_minute: float, margin: float, interv
 # --- selftest ---------------------------------------------------------------
 
 def _log(passes: list[tuple[float, int, int]], metrics: list[tuple],
-         timed: bool = True) -> str:
+         timed: bool = True, sort: bool = True) -> str:
     """Compose a synthetic log; tuples are (t, called, requests) — requests optional
     (omit it to model a build that predates embeddings_requests_total), rate_limited
-    optional 4th element (default 0: pacing never waited)."""
+    optional 4th element (default 0: pacing never waited). sort=False writes the
+    rows in the given order to model a writer that flushed out of time order."""
     import tempfile
 
     def stamp(t: float) -> str:
@@ -358,7 +407,8 @@ def _log(passes: list[tuple[float, int, int]], metrics: list[tuple],
         rows.append((t, "M", f"[EMB-METRICS] called={called}{tail} rate_limited={rl} cache_size=0"))
     for t, tasks, dur in passes:
         rows.append((t, "P", f"⏱️ [Qdrant-Worker] pass done: {tasks} task(s) in {dur}ms"))
-    rows.sort(key=lambda r: r[0])
+    if sort:
+        rows.sort(key=lambda r: r[0])
     body = "\n".join(f"{stamp(t)} {line}" if timed else line for t, _, line in rows)
     path = tempfile.mkstemp(prefix="g6-selftest-", suffix=".log")[1]
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
@@ -369,21 +419,24 @@ def _log(passes: list[tuple[float, int, int]], metrics: list[tuple],
 def selftest() -> int:
     t0 = 1_764_720_000.0  # 2026-10-29T00:00:00Z
     failures: list[str] = []
+    runs = 0
 
     def run(name: str, path: str, expect: str,
             rate: float = DEFAULT_OPS_PER_MINUTE) -> None:
+        nonlocal runs
+        runs += 1
         try:
-            metrics, passes, untimed = scan(path)
+            metrics, passes, untimed, untimed_passes = scan(path)
             verdicts = judge(passes, metrics, rate, DEFAULT_MARGIN,
                              DEFAULT_INTERVAL_S, DEFAULT_MAX_MISSING)
         except (OSError, ValueError) as exc:
             print(f"[selftest] {name}: raised {type(exc).__name__} ({exc}) FAIL")
             failures.append(name)
             return
-        statuses = [v.status for v in verdicts]
-        got = ("INSTRUMENT" if "INSTRUMENT" in statuses
-               else "VIOLATION" if "VIOLATION" in statuses
-               else "PASS" if statuses else "EMPTY")
+        if verdicts or untimed_passes:
+            got = overall_status(verdicts, untimed_passes)
+        else:
+            got = "EMPTY"
         mark = "ok" if got == expect else "FAIL"
         print(f"[selftest] {name}: {got} (expected {expect}) {mark}")
         if got != expect:
@@ -426,10 +479,12 @@ def selftest() -> int:
         [(t0 + 0, 0, 0), (t0 + 300, 1_440, 90), (t0 + 600, 48, 3), (t0 + 900, 192, 12)]),
         "INSTRUMENT")
 
-    # (f) untimed lines -> no clock, so nothing is judged at all (untimed_lines > 0).
+    # (f) untimed lines -> no clock for anything, and the `pass done` line itself is
+    #     untimed: INSTRUMENT for the whole run (follow-up 1) — never a silent EMPTY
+    #     that a caller could read as "nothing happened".
     run("untimed log", _log(
         [(t0 + 655, 5, 655_000)],
-        [(t0 + 0, 0, 0), (t0 + 900, 1_744, 109)], timed=False), "EMPTY")
+        [(t0 + 0, 0, 0), (t0 + 900, 1_744, 109)], timed=False), "INSTRUMENT")
 
     # (g) a build that predates embeddings_requests_total: `called` alone cannot bound
     #     anything, so the honest answer is INSTRUMENT -- never a PASS on 16x-inflated data.
@@ -445,8 +500,36 @@ def selftest() -> int:
         [(t0 + 0, 0, 0), (t0 + 300, 800, 50), (t0 + 600, 1_600, 100), (t0 + 900, 1_744, 109)]),
         "INSTRUMENT", rate=0.0)
 
+    # (i) follow-up 1: a healthy timed pass PLUS an untimed `pass done` line — the
+    #     untimed pass must poison the whole run (INSTRUMENT), not be dropped while
+    #     the timed ones report PASS. The first version did exactly that.
+    healthy = _log(
+        [(t0 + 655, 5, 655_000)],
+        [(t0 + 0, 0, 0), (t0 + 300, 800, 50, 1), (t0 + 600, 1_600, 100, 2),
+         (t0 + 900, 1_744, 109, 3)])
+    with open(healthy, "a", encoding="utf-8", newline="\n") as fh:
+        fh.write("⏱️ [Qdrant-Worker] pass done: 3 task(s) in 400000ms\n")
+    run("untimed pass done poisons the run (follow-up 1)", healthy, "INSTRUMENT")
+
+    # (j) follow-up 2: a log carrying BOTH a measured violation (pass #1, the #4422
+    #     stall shape) and an instrument gap (pass #2, unclosed window) — the overall
+    #     verdict is VIOLATION. The first version let INSTRUMENT mask it (exit 2).
+    run("violation wins over instrument (follow-up 2)", _log(
+        [(t0 + 655, 5, 655_000), (t0 + 2_000, 5, 600_000)],
+        [(t0 + 0, 0, 0), (t0 + 300, 160, 2), (t0 + 600, 320, 4), (t0 + 900, 400, 5)]),
+        "VIOLATION")
+
+    # (k) follow-up 5: the writer flushed out of time order (metrics written 900,
+    #     0, 600, 300). Judged in TIMESTAMP order the window still closes and the
+    #     pass is healthy; the file-order walk of the first version lost `prev`
+    #     entirely and returned INSTRUMENT.
+    run("out-of-order log judged in time order (follow-up 5)", _log(
+        [(t0 + 655, 5, 655_000)],
+        [(t0 + 900, 1_744, 109, 3), (t0 + 0, 0, 0), (t0 + 600, 1_600, 100, 2),
+         (t0 + 300, 800, 50, 1)], sort=False), "PASS")
+
     print(f"[selftest] {'PASS' if not failures else 'FAIL'} "
-          f"({8 - len(failures)}/8{' — ' + ', '.join(failures) if failures else ''})")
+          f"({runs - len(failures)}/{runs}{' — ' + ', '.join(failures) if failures else ''})")
     return 0 if not failures else 1
 
 
@@ -454,61 +537,93 @@ def resolve_rate(cli_value: float | None, env_file: str | None
                  ) -> tuple[float | None, str, str | None]:
     """Pick the pacer ceiling with its provenance.
 
-    Precedence: CLI > --env-file > operator env > default. The value belongs to the
-    MEASURED RSM (ai-01 CHANGES 29/10); a source that is not the measured process's
-    own config is returned with a caution appended to the provenance. Returns
-    (rate, provenance, error): rate is None and error set when a source that was
-    explicitly requested (env-file) or present (operator env) cannot be read as a
-    number — fail-closed, the caller turns that into exit 2.
+    Precedence (mirrors the measured RSM's own resolution — host > .env, #2719:
+    dotenv.config() does not override an existing host variable, and
+    applyEnvFileForNonHostKeys enforces the same rank, ai-01 review 29/10
+    follow-up 3): CLI > operator env (host scope) > --env-file > default. When the
+    operator env and the env-file both carry the key, the env-file value is printed
+    as SHADOWED, not used. `export KEY=VALUE` lines are accepted in the env-file
+    (follow-up 4). Returns (rate, provenance, error): rate is None and error set
+    when a source that was explicitly requested (env-file) or present (operator
+    env) cannot be read as a number — fail-closed, the caller turns that into
+    exit 2.
     """
     if cli_value is not None:
         return cli_value, f"CLI --ops-per-minute={cli_value:g}", None
-    if env_file:
+
+    def _env_file_raw(path: str) -> tuple[str | None, str | None]:
+        """(raw value, error) for EMBEDDING_OPS_PER_MINUTE in the given .env."""
         try:
-            with open(env_file, "r", encoding="utf-8-sig") as fh:
+            with open(path, "r", encoding="utf-8-sig") as fh:
                 for line in fh:
                     line = line.strip()
+                    if line.startswith("export "):
+                        line = line[len("export "):]
                     if not line or line.startswith("#") or "=" not in line:
                         continue
                     key, _, raw = line.partition("=")
                     if key.strip() == "EMBEDDING_OPS_PER_MINUTE":
-                        raw = raw.split("#", 1)[0].strip().strip("'\"")
-                        try:
-                            return float(raw), f"env-file {env_file} ({raw}/min)", None
-                        except ValueError:
-                            return None, env_file, (
-                                f"EMBEDDING_OPS_PER_MINUTE={raw!r} in {env_file} "
-                                "is not a number")
+                        return raw.split("#", 1)[0].strip().strip("'\""), None
+            return None, None
         except OSError as exc:
-            return None, env_file, f"cannot read --env-file {env_file}: {exc}"
+            return None, f"cannot read --env-file {path}: {exc}"
+
+    file_raw, file_err = _env_file_raw(env_file) if env_file else (None, None)
+    if file_err is not None:
+        return None, env_file, file_err
+    if env_file and file_raw is None and "EMBEDDING_OPS_PER_MINUTE" not in os.environ:
         return None, env_file, (
             f"--env-file {env_file} carries no EMBEDDING_OPS_PER_MINUTE — refusing to "
             "guess after the measured config was named (pass --ops-per-minute)")
-    raw = os.environ.get("EMBEDDING_OPS_PER_MINUTE")
-    if raw is not None:
+
+    host_raw = os.environ.get("EMBEDDING_OPS_PER_MINUTE")
+    if host_raw is not None:
+        shadow = (f"; env-file {env_file} carries {file_raw}/min — SHADOWED "
+                  "(host > .env, #2719, follow-up 3)"
+                  if file_raw is not None else "")
         try:
-            return float(raw), (f"operator env EMBEDDING_OPS_PER_MINUTE={raw} "
-                                "(NOT the measured RSM's config)"), None
+            rate = float(host_raw)
         except ValueError:
-            return None, raw, (f"EMBEDDING_OPS_PER_MINUTE={raw!r} in the environment "
-                               "is not a number — pass --ops-per-minute with the "
-                               "measured RSM's effective value")
+            note = (f" (the shadowed env-file value {file_raw!r} is not used either — "
+                    "host > .env, #2719)" if file_raw is not None else "")
+            return None, host_raw, (f"EMBEDDING_OPS_PER_MINUTE={host_raw!r} in the "
+                                    f"environment is not a number{note} — pass "
+                                    "--ops-per-minute with the measured RSM's "
+                                    "effective value")
+        return rate, (f"operator env EMBEDDING_OPS_PER_MINUTE={host_raw} "
+                      f"(host scope{shadow})"), None
+    if file_raw is not None:
+        try:
+            return float(file_raw), f"env-file {env_file} ({file_raw}/min)", None
+        except ValueError:
+            return None, env_file, (
+                f"EMBEDDING_OPS_PER_MINUTE={file_raw!r} in {env_file} "
+                "is not a number")
     return DEFAULT_OPS_PER_MINUTE, (f"default {DEFAULT_OPS_PER_MINUTE:g}/min "
                                     "(background-services.ts — NOT the measured "
                                     "RSM's config)"), None
 
 
 def main() -> int:
+    # The log lines this tool echoes carry `⏱️` and `Δ`; on a cp1252 Windows console
+    # a bare print() raises UnicodeEncodeError, i.e. a traceback that any caller
+    # reads as exit 1 = VIOLATION. Force UTF-8 with replacement so the report is
+    # printable everywhere (measured on po-2028, miniconda Python 3.13).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(
         description="#4352 g6 — judge indexing passes against the embedding pacer bound")
     parser.add_argument("--log", help="log file holding [EMB-METRICS] and 'pass done' lines")
     parser.add_argument("--ops-per-minute", type=float, default=None,
-                        help="pacer ceiling (default: --env-file, then env "
-                             f"EMBEDDING_OPS_PER_MINUTE, then {DEFAULT_OPS_PER_MINUTE:g})")
+                        help="pacer ceiling (default: env EMBEDDING_OPS_PER_MINUTE "
+                             f"(host scope), then --env-file, then {DEFAULT_OPS_PER_MINUTE:g})")
     parser.add_argument("--env-file",
                         help="the .env the MEASURED RSM loads; read "
-                             "EMBEDDING_OPS_PER_MINUTE from it (wins over the "
-                             "operator env, loses to --ops-per-minute)")
+                             "EMBEDDING_OPS_PER_MINUTE from it (used only when the "
+                             "operator env does not carry the key — host > .env, "
+                             "#2719; loses to --ops-per-minute; export KEY=VALUE "
+                             "accepted)")
     parser.add_argument("--margin", type=float, default=DEFAULT_MARGIN,
                         help=f"allowance over the pacer floor (default {DEFAULT_MARGIN})")
     parser.add_argument("--interval-seconds", type=float, default=DEFAULT_INTERVAL_S,
@@ -533,8 +648,8 @@ def main() -> int:
         return 2
 
     try:
-        metrics, passes, untimed = scan(args.log)
-        if not passes:
+        metrics, passes, untimed, untimed_passes = scan(args.log)
+        if not passes and not untimed_passes:
             print(f"[INSTRUMENT] no 'pass done' line in {args.log} — nothing judged",
                   file=sys.stderr)
             return 2
@@ -550,7 +665,7 @@ def main() -> int:
         return 2
 
     return report(verdicts, rate, args.margin, args.interval_seconds,
-                  untimed, args.json, rate_provenance)
+                  untimed, args.json, rate_provenance, untimed_passes)
 
 
 if __name__ == "__main__":
