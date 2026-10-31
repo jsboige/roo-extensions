@@ -28,7 +28,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `roosync/` | 33 | Synchronisation multi-machines RooSync (indexation, storage, config sync) |
 | `dashboard-scheduler/` | 13 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation, listener diagnostics, zombie watchdog #3687) |
 | `messaging/` | 5 | Communication inter-machines (ventilation, inbox) |
-| `gdrive/` | 1 | Intégration Google Drive |
+| `gdrive/` | 2 | Intégration Google Drive — purge des artefacts accumulés (#2121) ; **sonde d'inventaire des copies de conflit DriveFS** (grain G2, lecture seule : aucune écriture, aucun rename, aucune suppression) |
 | `gdrivefs-watchdog/` | 3 | Watchdog GoogleDriveFS.exe (silent-exit #2875 + hung-process + cooldown #2933) — relance auto quand le process meurt |
 | `scheduler/` | 7 | Configuration du scheduler Roo |
 | `helpers/` | 1 | Utilitaires de revue (review-dedup-helper) |

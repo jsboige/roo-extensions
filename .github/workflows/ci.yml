@@ -86,10 +86,11 @@ on:
       - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
       # Plan Marshall (audit 27/09): the marshall-scripts-pester job below runs
-      # seven Pester suites — six that execute the REAL scripts as powershell.exe
-      # 5.1 children, plus the start-claude-worker static suite (#3905) — each
-      # guarded script AND its suite must re-trigger it on main
-      # pushes (same principle as above; #3902/#3903/#3906/#3907/#3908/#3905).
+      # twelve Pester suites — most execute the REAL scripts as powershell.exe
+      # 5.1 children, and each guarded script AND its suite must re-trigger it
+      # on main pushes (same principle as above; #3902/#3903/#3906/#3907/#3908/#3905).
+      # Count re-derived from the job's own steps (#3321): it said "seven" for
+      # four suites longer than the job did.
       - 'scripts/roosync/migrate-roosync-storage.ps1'
       - 'scripts/roosync/migrate-roosync-storage.Tests.ps1'
       - 'scripts/maintenance/maintenance-workflow.ps1'
@@ -99,6 +100,12 @@ on:
       - 'scripts/maintenance/classify-claude-sessions.py'
       - 'scripts/gdrive/purge-shared-state-artifacts.ps1'
       - 'scripts/gdrive/purge-shared-state-artifacts.Tests.ps1'
+      # #4441: the store-fork probe is READ-ONLY by contract — the suite's
+      # before/after SHA-256 fingerprint is the only thing that keeps it so. A
+      # regression that starts writing to the shared store would otherwise stay
+      # green (CHANGES point, ai-01 review of #4441).
+      - 'scripts/gdrive/scan-store-forks.ps1'
+      - 'scripts/gdrive/scan-store-forks.Tests.ps1'
       - 'scripts/claude/worktree-cleanup.Tests.ps1'
       - 'scripts/infra/check-disk-free.ps1'
       - 'scripts/infra/check-disk-free.Tests.ps1'
@@ -145,6 +152,11 @@ on:
       # scripts/testing/python/ runs its selftest — a change to the probe
       # landing on main must re-run both (same gap as every entry above).
       - 'scripts/diagnostic/check-deny-fallback.py'
+      # #4352 g6 (ai-01 review 29/10): test_g6_pass_bound.py (static python job) runs the
+      # probe's selftest and pins its exit-2 INSTRUMENT contract. Without this path a
+      # change to the probe landing on main re-ran nothing — the same gap as the entries
+      # above, closed in the PR that wires it.
+      - 'scripts/diagnostic/g6-pass-bound.py'
       # #4352 (mandat ai-01 29/10): test_probe_semantic_known_answer.py in
       # scripts/testing/python/ runs the probe's --selftest OFFLINE plus a
       # NEGATIVE CONTROL (a copy with the InstrumentLimit global-abort clause
@@ -725,6 +737,13 @@ jobs:
       - name: Run purge-shared-state-artifacts suite (#3907)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/purge-shared-state-artifacts.Tests.ps1 -CI
+      # #4441: same runner as the purge suite above and for the same reason — its
+      # children are powershell.exe 5.1 on a throwaway fixture. The suite's 5th
+      # test hashes the whole fixture tree before and after the probe: the
+      # read-only contract on the shared store is an assertion, not a comment.
+      - name: Run scan-store-forks suite (#4441)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/scan-store-forks.Tests.ps1 -CI
       - name: Run check-disk-free suite (#3908)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/infra/check-disk-free.Tests.ps1 -CI
