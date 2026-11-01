@@ -25,7 +25,8 @@ Exit codes :
     0  = OK (tous les gitlinks modifies atteignables, ou rien a verifier)
     1  = ORPHAN — au moins un gitlink absent des branches remote : pousser le
          submodule d'abord (branche + PR), sinon NE PAS pousser le parent
-    2  = instrument (depot introuvable, fetch impossible, ref inconnue) —
+    2  = instrument (depot introuvable, fetch impossible, ref inconnue, depot qui
+         ne declare aucun submodule — lance depuis un submodule) —
          un garde muet ne valide rien, il arrete
 """
 
@@ -89,7 +90,15 @@ def main():
 
     rc, ref_sha, err = run_git(["rev-parse", "--verify", f"{args.ref}^{{commit}}"])
     if rc != 0:
-        print(f"[ERROR] ref inconnue {args.ref!r}: {err}", file=sys.stderr)
+        # Nommer le depot interroge (un cwd dans un submodule repond en son nom) et
+        # l'orthographe remote quand elle existe : une branche jamais tiree en local
+        # n'est que origin/<ref> (friction po-2028, 01/11).
+        _, toplevel, _ = run_git(["rev-parse", "--show-toplevel"])
+        hint = ""
+        if run_git(["rev-parse", "--verify", "--quiet", f"origin/{args.ref}^{{commit}}"])[0] == 0:
+            hint = f" — la branche existe au remote : relancer avec origin/{args.ref}"
+        print(f"[ERROR] ref inconnue {args.ref!r} dans {toplevel or '(hors depot)'}{hint}: {err}",
+              file=sys.stderr)
         sys.exit(2)
 
     if not args.no_fetch:
@@ -101,6 +110,19 @@ def main():
     rc, base_sha, err = run_git(["rev-parse", "--verify", f"{args.base}^{{commit}}"])
     if rc != 0:
         print(f"[ERROR] base inconnue {args.base!r}: {err}", file=sys.stderr)
+        sys.exit(2)
+
+    # Garde 0 (#3454) appliquee a l'organe lui-meme : lance depuis un submodule, git
+    # repond au nom de CE depot — HEAD, origin/main et le diff y sont valides, aucun
+    # gitlink n'y change, et le garde rendait « OK — aucun gitlink modifie », exit 0,
+    # sur le mauvais depot (mesure ai-01 01/11 depuis mcps/internal). Un depot qui ne
+    # declare de submodule ni a la ref ni a la base n'a rien a proteger : c'est
+    # l'instrument qui est mal pointe, pas un OK.
+    if all(run_git(["cat-file", "-e", f"{sha}:.gitmodules"])[0] != 0 for sha in (ref_sha, base_sha)):
+        _, toplevel, _ = run_git(["rev-parse", "--show-toplevel"])
+        print(f"[ERROR] aucun .gitmodules a {args.ref} ni a {args.base} dans {toplevel} — ce garde "
+              f"verifie le depot PARENT : relancer depuis le parent ou l'un de ses worktrees",
+              file=sys.stderr)
         sys.exit(2)
 
     # Delta scope : merge-base(ref, base). Sans ancetre commun, on verifie TOUT.
