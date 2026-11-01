@@ -199,7 +199,7 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 **Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen' --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen -label:copilot-target' --limit 40 --json number,title,labels")
 ```
 
 > ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
@@ -237,6 +237,11 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 > - **`-label:frozen`** (#3381, decision user du 23/09) — l'issue est **gelee par decision** jusqu'a
 >   ce qu'on retire le label. Le gel ne depend plus d'un agent qui lit un commentaire `[FROZEN]` :
 >   la requete l'ecarte, comme `deferred`. Meme filtre que `start-claude-worker.ps1` et `/executor`.
+> - **`-label:copilot-target`** (#622, decision ai-01 du 01/11) — un grain `copilot-target`
+>   appartient au **pont Copilot seul** (`start-copilot-dispatcher.ps1` lit exclusivement ce label,
+>   cadence PT12H). Tu tires plus vite que lui : #4306 a ete reclamee par une lane **2 h apres sa
+>   creation, avant le premier tir du pont** — pool vide, l'AC0 du chantier devenue non mesurable.
+>   Meme exclusion dans `start-claude-worker.ps1` et `pick_idle_grain.py`.
 
 **Etape B — Selectionner une issue (priorité) :**
 

@@ -104,6 +104,36 @@ class OpenPrIsNeverFree(unittest.TestCase):
         self.assertEqual(cited.get(("jsboige/jsboige-mcp-servers", 4151)), 1549)
 
 
+class CopilotTargetIsReservedToTheBridge(unittest.TestCase):
+    """#622 (decision ai-01, c.6554348206): the lane pickers draw faster than the
+    Copilot bridge's PT12H cadence. #4306 (`copilot-target`, created 21/10 00:05Z
+    to feed the bridge) was claimed by a regular lane at 02:17Z -- before the
+    bridge's first draw -- and the pool has been empty since 11:07Z. A
+    copilot-target grain must never leave this picker as LIBRE, whatever its
+    other labels, and the exclusion reads LOCAL data (no claim lookup).
+    """
+
+    def test_copilot_target_issue_is_skipped_with_the_named_reason(self):
+        issue = _item(4306, labels=("approved", "copilot-target"))
+        with mock.patch.object(pick.check_issue_claim, "fetch_issue",
+                               side_effect=AssertionError("no claim lookup on a bridge grain")):
+            skip, reason = pick.check_candidate("grain", issue, "myia-po-2024",
+                                                "myia-po-2024:roo-extensions")
+        self.assertTrue(skip)
+        self.assertIn("reserved to the Copilot bridge", reason)
+
+    def test_the_exclusion_reads_the_label_not_the_title(self):
+        # The reservation is the LABEL; a title that merely mentions copilot must
+        # not trip it. Guards the opposite mutant: a substring match on the item.
+        issue = _item(4400, labels=("approved",),
+                      title="investigate why the copilot bridge went silent")
+        with mock.patch.object(pick.check_issue_claim, "fetch_issue",
+                               return_value={"comments": []}):
+            skip, reason = pick.check_candidate("grain", issue, "myia-po-2024",
+                                                "myia-po-2024:roo-extensions")
+        self.assertFalse(skip, reason)
+
+
 class EpicByTitleIsUmbrella(unittest.TestCase):
     """An epic carried by its TITLE marker (no `epic` label) is umbrella, not grain.
 

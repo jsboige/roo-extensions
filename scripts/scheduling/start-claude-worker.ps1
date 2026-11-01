@@ -800,7 +800,12 @@ function Get-GitHubTask {
         # `-label:frozen` (#3381, decision user 23/09) : une issue gelee par decision reste hors du
         # vivier tant qu'on ne retire pas le label. Le gel ne depend plus d'un agent qui lit un
         # commentaire [FROZEN] : c'est le serveur qui l'ecarte, comme `deferred`.
-        $IssuesJson = & cmd /c "gh issue list --repo jsboige/roo-extensions --search ""is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen"" --limit 30 --json number,title,body,labels,assignees 2>&1"
+        # `-label:copilot-target` (#622, decision ai-01 01/11) : un grain copilot-target appartient
+        # au pont Copilot SEUL (start-copilot-dispatcher.ps1 lit exclusivement ce label, cadence
+        # PT12H). Ce worker tire plus vite : #4306 a ete reclamee par une lane 2 h apres sa creation,
+        # avant le premier tir du pont -- pool vide, AC0 non mesurable. Meme exclusion dans
+        # pick_idle_grain.py et .roo/scheduler-workflow-executor.md.
+        $IssuesJson = & cmd /c "gh issue list --repo jsboige/roo-extensions --search ""is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen -label:copilot-target"" --limit 30 --json number,title,body,labels,assignees 2>&1"
 
         if ($LASTEXITCODE -ne 0) { return $null }
 

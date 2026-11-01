@@ -109,6 +109,17 @@ FROZEN_LABELS = {"frozen"}
 # au 1er tirage, contrairement au contrat documente ci-dessus.
 GATED_LABELS = {"needs-approval", "deferred", "blocked-on-gate"}
 
+# #622 (decision ai-01, c.6554348206) : un grain `copilot-target` appartient au
+# pont Copilot SEUL (start-copilot-dispatcher.ps1 lit exclusivement ce label,
+# cadence PT12H). Les pickers de lane tirent plus vite : #4306 a ete reclamee
+# par une lane 2 h apres sa creation, AVANT le premier tir du pont -- le pool
+# s'est vide et l'AC0 du chantier est devenue non mesurable. L'exclusion vit
+# dans les TROIS pickers (celui-ci, start-claude-worker.ps1, scheduler Zoo),
+# toujours comme une garde au moment de tirer, jamais comme un retrait a la
+# collecte : le pont et ce picker ne lisent pas la meme source.
+COPILOT_TARGET_LABEL = "copilot-target"
+COPILOT_SKIP_REASON = COPILOT_TARGET_LABEL + ": reserved to the Copilot bridge"
+
 # Umbrella par TITRE en plus du label - friction web2 c.91 (30/10) : #3151
 # porte un suffixe parenthese « (epic) » (e accentue) dans son titre SANS le
 # label `epic` et a ete servie trois cycles de suite depuis l'urne grain.
@@ -473,6 +484,8 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
       presente comme libre. Aucune lecture de verrou (ADR 016).
     - Issue deja portee par une PR ouverte (decision ai-01 du 25/10) : ecartee
       sur donnee LOCALE (aucun appel API), avant toute lecture de claim.
+    - Label copilot-target (#622, decision ai-01 du 01/11) : reserve au pont
+      Copilot, ecarte sur donnee LOCALE, sans appel API.
     - Etiquette de lane etrangere : ecarte sans appel API (donnee locale),
       comparee sur la MACHINE (les etiquettes du depot portent la machine).
     - Claim etranger actif : REUTILISE check_issue_claim (ADR 017, peremption
@@ -492,6 +505,10 @@ def check_candidate(urn: str, item: dict, own_machine: str, own_lane: str = None
     if cited_pr is not None:
         return True, f"cited by open PR #{cited_pr}"
     labels = {lbl.get("name") for lbl in item.get("labels", [])}
+    if COPILOT_TARGET_LABEL in labels:
+        # Donne LOCALE, aucun appel API : le label EST la reservation (voir la
+        # constante ci-dessus pour la chronologie mesuree).
+        return True, COPILOT_SKIP_REASON
     foreign = foreign_machine_labels(labels, own_machine)
     if foreign:
         return True, "machine label " + ", ".join(foreign)
