@@ -96,10 +96,21 @@ Describe 'frontiere de jour -- le log de la veille porte les evenements du jour'
     # pgSamples=0 window=1.0h verdict=OK -- l instrument se declarait sain sans avoir
     # rien lu, chaque nuit, a deux jours de la bascule PG.
     #
-    # Deux mutants sont tues ici :
+    # TROIS familles de mutants sont tuees ici (reviews r1 po-2027 + po-2024) :
     #   A. retirer le repli sur le fichier le plus recent -> test 1 (plus rien lu) ;
     #   B. le garder SANS le filtre -Since -> test 2 (24 h de la veille comptees dans
-    #      un taux horaire, le chiffre devient faux dans l autre sens).
+    #      un taux horaire, le chiffre devient faux dans l autre sens) ;
+    #   C. comparer le minuit LOCAL aux champs UTC des en-tetes (au lieu d instants)
+    #      -> test 2 : l evenement 23:30Z (00:30 locales) doit RENTRER ;
+    #   D. dropper un en-tete illisible -> test 3 : il doit etre COMPTE ;
+    #   E. ne lire qu un fichier de rotation (une journee active en produit plusieurs,
+    #      -44 mesures chez po-2024) -> test 4 : tous les chunks entrent.
+
+    # Convention des fixtures de ce Describe : les horodatages entre crochets sont
+    # des en-tetes RSM, donc UTC (mesure po-2027 : en-tete 00:12:20, horloge locale
+    # 01:12:20). Le siege de reference est UTC+1 : minuit LOCAL du 01/11 = 23:00Z
+    # du 31/10. C est ce -Since (un instant UTC) que le main reel construit via
+    # $midnight.ToUniversalTime().
 
     It 'resout le fichier de la veille quand celui du jour n existe pas encore' {
         $dir = Join-Path $TestDrive 'logs-boundary'
@@ -111,38 +122,96 @@ Describe 'frontiere de jour -- le log de la veille porte les evenements du jour'
 
         $files = @(Get-DefaultRsmLogPaths -DayStamp '20261101' -LogDir $dir)
 
-        # Le nom du jour reste en tete (contrat inchange) et le fichier vivant suit.
-        $files[0] | Should -Match 'roosync-20261101\.log$'
-        ($files -join ';') | Should -Match 'roosync-20261031\.log'
-        # Sans le repli, l instrument ne lisait aucun fichier : c est le mutant A.
-        $metrics = Get-RsmLogMetrics -Files $files -Since ([datetime]'2026-11-01 00:00:00')
+        # Le fichier absent du jour ne laisse plus d entree fantome (Test-Path la
+        # sautait de toute facon) ; seul le vivant de la veille est rendu. Sans le
+        # repli sur son stamp, l instrument ne lisait RIEN : c est le mutant A.
+        $files.Count | Should -Be 1
+        $files[0] | Should -Match 'roosync-20261031\.log$'
+        $metrics = Get-RsmLogMetrics -Files $files -Since ([datetime]'2026-10-31 23:00:00')
         $metrics.LogFiles | Should -Be 1
         $metrics.PgLatencies.Count | Should -Be 1
     }
 
-    It 'tronque les evenements d avant minuit (mutant B : 24 h dans un taux horaire)' {
+    It 'tronque avant minuit LOCAL en comparant des instants, pas des champs UTC (mutants B et C)' {
         $log = Join-Path $TestDrive 'boundary-trim.log'
         New-RsmHealthFixtureLog -Path $log -Lines @(
             '[2026-10-31 09:00:00] [WARN] Inbox file read timed out (cloud-only?): vieux.md',
-            '[2026-10-31 23:59:59] [WARN] [pg-cold-pool-resume] [pg-resume] connection timeout (cold pool)',
-            '[2026-11-01 00:00:30] [WARN] Inbox file read timed out (cloud-only?): recent.md',
+            '[2026-10-31 22:30:00] [WARN] Inbox file read timed out (cloud-only?): 23h30-locales-31-10.md',
+            '[2026-10-31 23:00:00] [WARN] Inbox file read timed out (cloud-only?): minuit-local-pile.md',
+            '[2026-10-31 23:30:00] [WARN] [pg-cold-pool-resume] [pg-resume] connection timeout (cold pool)',
             '[2026-11-01 00:02:00] [INFO] [dashboard-pg] dashboard served from PG in 41ms (global, 12 messages)'
         )
-        $since = [datetime]'2026-11-01 00:00:00'
+        # Minuit local du 01/11 sur un siege UTC+1 = 23:00Z la veille.
+        $since = [datetime]::SpecifyKind([datetime]'2026-10-31 23:00:00', [datetimekind]::Utc)
 
         $trimmed = Get-RsmLogMetrics -Files @($log) -Since $since
 
-        # Seul l evenement de 00:00:30 passe le filtre ; le timeout de 23:59:59 et le
-        # cloud-only de 09:00 restent dehors malgre leur presence dans le fichier.
+        # 22:30Z = 23:30 locales le 31/10 : dehors. 23:00Z = minuit local PILE :
+        # dedans (borne stricte, nit 3 de la review -- un -le l exclurait). 23:30Z =
+        # 00:30 locales le 01/11 : DEDANS -- c est le mutant C : une comparaison de
+        # champs (23:30 « le 31/10 » < « 01/11 00:00 ») le jetait a tort avec les 671
+        # evenements mesures par po-2027 sur le fichier de bascule.
         $trimmed.CloudOnly | Should -Be 1
-        $trimmed.ConnectionTimeouts | Should -Be 0
+        $trimmed.ConnectionTimeouts | Should -Be 1
         $trimmed.PgLatencies.Count | Should -Be 1
 
         # Sans -Since, le comportement d avant ce grain est preserve a l identique
         # (lecture explicite d un vieux fichier pour un post-mortem).
         $unfiltered = Get-RsmLogMetrics -Files @($log)
-        $unfiltered.CloudOnly | Should -Be 2
+        $unfiltered.CloudOnly | Should -Be 3
         $unfiltered.ConnectionTimeouts | Should -Be 1
+    }
+
+    It 'compte un en-tete illisible sous -Since actif (mutant D : cacher un evenement)' {
+        # L invariant du grain : un en-tete qui commence par [ mais ne parse pas est
+        # COMPTE, pas droppé -- cacher un evenement est exactement le defaut que ce
+        # grain supprime. Le mutant `else { continue }` apres le if ($stamp.Success)
+        # survit a la suite entiere sans ce test (mesure po-2024, trou B).
+        $log = Join-Path $TestDrive 'unparseable-header.log'
+        New-RsmHealthFixtureLog -Path $log -Lines @(
+            '[2026-10-31 23:40:00] [WARN] [pg-resume] connection timeout -- en-tete valide',
+            '[channel-pg-breaker] connection timeout -- en-tete sans horodatage, doit etre compte',
+            '    "detail": "ligne indentee, ignoree par le filtre ^[ habituel"'
+        )
+        $since = [datetime]::SpecifyKind([datetime]'2026-10-31 23:00:00', [datetimekind]::Utc)
+
+        $m = Get-RsmLogMetrics -Files @($log) -Since $since
+
+        $m.ConnectionTimeouts | Should -Be 2
+    }
+
+    It 'lit TOUS les chunks de rotation de la veille, pas seulement le plus recent (mutant E)' {
+        # logger.ts tourne a 10 Mo SANS renommer le canonique : une journee active
+        # produit roosync-<jour>.log + -2.log + -3.log... (44 chunks mesures chez
+        # po-2024 le 31/10). Ne lire que le plus recent sous-compte silencieusement
+        # (1 evenement sur 3 dans la repro po-2024).
+        $dir = Join-Path $TestDrive 'logs-rotation'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261031.log') -Lines @(
+            '[2026-10-31 23:50:00] [INFO] [dashboard-pg] dashboard served from PG in 20ms (canonique)',
+            '[2026-10-31 23:55:00] [INFO] [dashboard-pg] dashboard served from PG in 21ms (canonique)'
+        )
+        New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261031-2.log') -Lines @(
+            '[2026-11-01 00:05:00] [INFO] [dashboard-pg] dashboard served from PG in 22ms (chunk -2)'
+        )
+        # Leurre ecrit en DERNIER (donc le plus recent par mtime) : suffixe non
+        # numerique -- un repli « fichier le plus recent » nu le prendrait, la regex
+        # de chunk doit le refuser (nit po-2027 : roosync-<autre>.log).
+        New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261031-migration.log') -Lines @(
+            '[2026-11-01 00:06:00] [INFO] [dashboard-pg] dashboard served from PG in 99ms (leurre)'
+        )
+
+        $files = @(Get-DefaultRsmLogPaths -DayStamp '20261101' -LogDir $dir)
+
+        $files.Count | Should -Be 2
+        ($files -join ';') | Should -Match 'roosync-20261031\.log'
+        ($files -join ';') | Should -Match 'roosync-20261031-2\.log'
+        ($files -join ';') | Should -Not -Match 'migration'
+
+        # Les 3 evenements des deux fichiers legitimes sont lus ; le leurre ne l est pas.
+        $m = Get-RsmLogMetrics -Files $files -Since ([datetime]::SpecifyKind([datetime]'2026-10-31 23:00:00', [datetimekind]::Utc))
+        $m.LogFiles | Should -Be 2
+        $m.PgLatencies.Count | Should -Be 3
     }
 
     It 'ne duplique pas le fichier quand le log du jour EST le plus recent' {
@@ -168,7 +237,7 @@ Describe 'frontiere de jour -- le log de la veille porte les evenements du jour'
         New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261031.log') -Lines @(
             '[2026-11-01 00:01:08] [INFO] [dashboard-pg] dashboard served from PG in 22ms (global, 12 messages)'
         )
-        $midnight = [datetime]'2026-11-01 00:00:00'
+        $midnight = [datetime]::SpecifyKind([datetime]'2026-10-31 23:00:00', [datetimekind]::Utc)
 
         $plan = Resolve-RsmLogPlan -DayStamp '20261101' -Midnight $midnight -LogDir $dir
 
@@ -181,13 +250,16 @@ Describe 'frontiere de jour -- le log de la veille porte les evenements du jour'
         @($explicit.Files).Count | Should -Be 1
     }
 
-    It 'le bloc principal passe bien la troncature a l agregateur (cablage)' {
+    It 'le bloc principal passe bien la troncature a l agregateur, en UTC (cablage)' {
         # Meme idiome que l assertion stdout de cette suite : ce qui ne peut pas etre
-        # execute en processus est lu dans le code, commentaires retires.
+        # execute en processus est lu dans le code, commentaires retires. L ancrage
+        # ToUniversalTime() est le mutant C vu DU bloc principal : sans lui, la
+        # conversion peut disparaitre du cablage alors que les fonctions restent
+        # correctes et que toute la suite reste verte.
         $instrument = Get-Content (Join-Path $projectRoot 'scripts/diagnostic/measure-rsm-health.ps1') -Raw
         $code = (@(($instrument -split "`n") | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
 
-        $code | Should -Match 'Resolve-RsmLogPlan -LogPath \$LogPath -DayStamp \$DayStamp -Midnight \$midnight'
+        $code | Should -Match 'Resolve-RsmLogPlan -LogPath \$LogPath -DayStamp \$DayStamp -Midnight \(\$midnight\.ToUniversalTime\(\)\)'
         $code | Should -Match 'Get-RsmLogMetrics -Files \$plan\.Files -Since \$plan\.Since'
     }
 }
