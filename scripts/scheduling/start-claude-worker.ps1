@@ -273,10 +273,21 @@ function Test-SkAgentAvailable {
 
         # 4. JSON-RPC initialize handshake via background job with timeout
         $InitRequest = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"worker-preflight","version":"1.0.0"}}}'
+        # The request goes through a BOM-less file redirected with '<', never a pipe:
+        # under powershell.exe 5.1 on a UTF-8 code page (ACP 65001), `$Request | & cmd`
+        # writes EF BB BF before the request and the server rejects '﻿{...' as
+        # invalid JSON (measured ai-01 2026-11-01: 14 runs FAILED since 02/10, 0 OK,
+        # while sk-agent answered from pwsh 7).
         $Job = Start-Job -ScriptBlock {
             param($Wrapper, $Request)
-            $Response = $Request | & cmd /c "powershell -ExecutionPolicy Bypass -NoProfile -File ""$Wrapper"" 2>&1"
-            $Response | Select-Object -Last 5
+            $RequestFile = [System.IO.Path]::GetTempFileName()
+            try {
+                [System.IO.File]::WriteAllText($RequestFile, $Request + "`n", (New-Object System.Text.UTF8Encoding $false))
+                $Response = & cmd /c "powershell -ExecutionPolicy Bypass -NoProfile -File ""$Wrapper"" < ""$RequestFile"" 2>&1"
+                $Response | Select-Object -Last 5
+            } finally {
+                Remove-Item -LiteralPath $RequestFile -Force -ErrorAction SilentlyContinue
+            }
         } -ArgumentList $WrapperScript, $InitRequest
 
         $Completed = Wait-Job -Job $Job -Timeout $TimeoutSeconds
@@ -294,7 +305,11 @@ function Test-SkAgentAvailable {
             Write-Log "sk-agent pre-flight OK (handshake responded)"
             return $true
         } else {
-            Write-Log "sk-agent pre-flight FAILED (no valid initialize response)" "WARN"
+            # Name what came back: a bare FAILED hid the BOM rejection for a month.
+            $Received = (@($Output) | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) -join ' | '
+            if (-not $Received) { $Received = '(no output)' }
+            if ($Received.Length -gt 600) { $Received = $Received.Substring(0, 600) + '...' }
+            Write-Log "sk-agent pre-flight FAILED (no valid initialize response) — received: $Received" "WARN"
             return $false
         }
     } catch {
