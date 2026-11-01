@@ -244,6 +244,9 @@ on:
       # Bandwidth leak 26/10: metered-link-watch.Tests.ps1 (unit-pester) guards
       # this script -- same rule, the guarded source re-triggers its suite.
       - 'scripts/monitoring/metered-link-watch.ps1'
+      # check_gitlinks_pushed.py (#4098 guard): its suite lives in
+      # scripts/testing/python/ (covered above); the guarded source re-triggers it.
+      - 'scripts/git/check_gitlinks_pushed.py'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks

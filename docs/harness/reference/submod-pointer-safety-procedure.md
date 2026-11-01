@@ -102,7 +102,7 @@ python scripts/git/check_gitlinks_pushed.py --json ...    # sortie machine
 |---|---|---|
 | `0` | OK | pousser le parent |
 | `1` | ORPHAN — SHA absente des branches remote du submodule | pousser le submodule d'abord (branche + PR), re-vérifier, puis parent |
-| `2` | instrument (fetch impossible, dépôt submodule introuvable) | réparer l'instrument, jamais bypasser |
+| `2` | instrument (fetch impossible, dépôt submodule introuvable, ref inconnue, ou lancé depuis un dépôt qui ne déclare aucun `.gitmodules` — un cwd dans le submodule) | réparer l'instrument, jamais bypasser ; une ref seulement remote s'écrit `origin/<ref>` |
 
 Le dépôt du submodule est résolu via `--git-common-dir` du parent (`<common>/modules/<path>`),
 jamais `git -C <path>` — un submodule non peuplé dans un worktree fait remonter `git -C` au
