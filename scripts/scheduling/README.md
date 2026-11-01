@@ -182,13 +182,15 @@ Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658
 - **Toutes les issues ouvertes sont candidates, pas seulement `roo-schedulable`.** Le worker
   ramasse l'ensemble des issues dispatchées.
 - **Le filtre `no:assignee` est appliqué côté serveur, et il est obligatoire** (#490 / #3081) :
-  `--search 'is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen' --limit 30`. Le `continue`
+  `--search 'is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen -label:copilot-target' --limit 30`. Le `continue`
   côté client sur `assignees.Count -gt 0` reste, mais il ne suffit pas — mesure du 2026-08-11 :
   **80 des 95 issues ouvertes étaient assignées, dont les 40 premières**. Une fenêtre de 30 filtrée
   seulement côté client rendait donc **zéro candidat**, et affamait les deux flottes en silence.
 - Les labels `harness-change`, `deferred` et `epic` sont exclus côté serveur. `epic` depuis #3592 :
   une epic est un conteneur, pas un work item, et **aucun filtrage aval ne la rattrape** — contrairement
   à `needs-approval`, laissé au filtre client (L.696) pour ne pas dupliquer la règle à deux endroits.
+- `copilot-target` est exclu côté serveur depuis #622 (décision ai-01 du 01/11) : ces grains
+  appartiennent au pont Copilot seul (`start-copilot-dispatcher.ps1`, PT12H), qu'une lane devance.
 - Les issues avec `Agent: Roo` (explicitement, sans Both/Any) sont ignorées.
 - Les issues verrouillées par un commentaire récent — motifs `LOCK:`, `[CLAIMED]` ou `Claimed by` —
   sont ignorées pendant **30 minutes** (L.856), pas 5.

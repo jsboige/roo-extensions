@@ -221,9 +221,9 @@ ouvertes ; ce ne sont pas des preneurs de tâches de code.
 
 ```bash
 # Claude-Worker (start-claude-worker.ps1) — saute aussi les issues dont le champ Machine nomme une autre machine
-gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels   --search "is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen" --jq length
+gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels   --search "is:open no:assignee -label:harness-change -label:deferred -label:epic -label:frozen -label:copilot-target" --jq length
 # Zoo (scheduler-workflow-executor.md) — exclut en plus claude-only, needs-approval, blocked-on-gate
-gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels   --search "is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen" --jq length
+gh issue list --repo jsboige/roo-extensions --limit 100 --json number,title,labels   --search "is:open no:assignee -label:claude-only -label:needs-approval -label:blocked-on-gate -label:harness-change -label:deferred -label:epic -label:frozen -label:copilot-target" --jq length
 ```
 
 1. **Compter les deux filtres, puis lire ce qu'ils rendent** (retirer `--jq length` pour les

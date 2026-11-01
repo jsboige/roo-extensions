@@ -66,6 +66,9 @@ on:
       - '.claude/commands/**'
       - '.claude/skills/**'
       - '.claude/configs/user-global-claude.md'
+      # #622 follow-up: test_issue_picker_selector_parity.py (scripts/testing/python/)
+      # guards the picker selectors these workflows carry; .roo/ had no glob here.
+      - '.roo/scheduler-workflow-*.md'
       # #3656: user-arbitration-registry.Tests.ps1 guards the carrier above AND
       # escalation-protocol.md level 5 (AskUserQuestion removed from the
       # harness) -- the doc's own path must re-trigger the suite too.
