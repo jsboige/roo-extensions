@@ -229,7 +229,7 @@ execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchr
 > ⚠️ **LIMITE OBLIGATOIRE** : Traiter **MAXIMUM 5 issues** par cycle. Au-delà, le volume d'appels d'outils explose le contexte (80-200 messages, saturation GLM).
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic -label:frozen' --limit 5 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic -label:frozen -label:copilot-target' --limit 5 --json number,title,labels")
 ```
 
 **Note :** `--limit 5` remplace l'ancien `--limit 40`. Le round-robin se fait sur plusieurs cycles, pas dans un seul.
@@ -253,6 +253,12 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 > Meme terme et meme motif que `start-claude-worker.ps1` l.682 (#3592) et que `/executor`
 > SKILL.md l.99, qui excluent `epic` du vivier actionnable. Ce fichier etait le dernier chemin de
 > dispatch a ne pas s'y conformer.
+
+> ⚠️ **`-label:copilot-target`** (#622, decision ai-01 du 01/11) — un grain `copilot-target` appartient
+> au **pont Copilot seul** (`start-copilot-dispatcher.ps1`, cadence PT12H). Le dispatcher a une lane
+> reproduit #4306, reclamee 2 h apres sa creation, avant le premier tir du pont. Meme exclusion que
+> `scheduler-workflow-executor.md`, `start-claude-worker.ps1` et `pick_idle_grain.py` ; ce selecteur
+> etait le dernier sans elle (signale par web1, dashboard c.736).
 
 **5. Dispatcher les issues (max 5)**
 
