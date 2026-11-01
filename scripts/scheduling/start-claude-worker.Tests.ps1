@@ -190,3 +190,74 @@ Describe 'start-claude-worker.ps1 — Request-StaleReview wiring (re-push branch
         (Get-Content -LiteralPath $policy -Raw) | Should -Match 'dette du reviewer'
     }
 }
+
+# --- Test-SkAgentAvailable: the handshake must reach a healthy server intact ---
+#
+# Measured ai-01 2026-11-01: 14 worker runs with "sk-agent pre-flight FAILED" since
+# 02/10, 0 OK, while sk-agent answered in 12 s from pwsh 7. Under powershell.exe 5.1
+# on a UTF-8 system code page (ACP 65001), `$Request | & cmd ...` writes EF BB BF
+# before the request; the MCP parser rejects '﻿{...' as invalid JSON. The
+# SHIPPED function is extracted and run in a powershell.exe 5.1 child (the engine
+# the worker runs under) against a stub server that answers only a request whose
+# first stdin byte is '{'. The BOM reproduces on a 65001 seat; a 1252 runner
+# cannot produce it, so there the first case is a non-regression of the redirect.
+
+Describe 'start-claude-worker.ps1 — Test-SkAgentAvailable handshake (behavioral, PS 5.1 child)' {
+    BeforeAll {
+        $script:ps51 = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $script:canRun = $env:WINDIR -and (Test-Path -LiteralPath $script:ps51)
+        $m = [regex]::Match($script:src, '(?s)(function Test-SkAgentAvailable \{.*?\r?\n\})')
+        if (-not $m.Success) { throw 'Test-SkAgentAvailable not found in start-claude-worker.ps1' }
+        $script:fnText = $m.Groups[1].Value
+
+        function script:Invoke-Preflight([string]$StubBody) {
+            $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $skDir = Join-Path $root 'mcps\internal\servers\sk-agent'
+            New-Item -ItemType Directory -Path $skDir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $skDir 'sk_agent_config.json') -Value '{}' -Encoding ASCII
+            Set-Content -LiteralPath (Join-Path $skDir 'run-sk-agent.ps1') -Value $StubBody -Encoding ASCII
+            $log = Join-Path $root 'worker.log'
+            $harness = @"
+`$RepoRoot = '$root'
+function Write-Log { param(`$Message, `$Level = 'INFO') Add-Content -LiteralPath '$log' -Value "[`$Level] `$Message" }
+$($script:fnText)
+`$r = Test-SkAgentAvailable -TimeoutSeconds 60
+"RESULT=`$r"
+"@
+            $hp = Join-Path $root 'harness.ps1'
+            # BOM: powershell.exe 5.1 reads a BOM-less script as ANSI, and the
+            # extracted function carries non-ASCII comments.
+            [System.IO.File]::WriteAllText($hp, $harness, (New-Object System.Text.UTF8Encoding $true))
+            $out = & $script:ps51 -NoProfile -ExecutionPolicy Bypass -File $hp 2>&1
+            [pscustomobject]@{
+                Result = (@($out) -match '^RESULT=' | Select-Object -Last 1)
+                Log    = if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Raw } else { '' }
+            }
+        }
+
+        # Answers JSON-RPC only when the first stdin byte is '{' (0x7B); otherwise
+        # reports the first bytes it got, like the real parser error does.
+        $script:healthyStub = @'
+$s = [Console]::OpenStandardInput(); $buf = New-Object byte[] 4096; $n = $s.Read($buf, 0, 4096)
+if ($n -gt 0 -and $buf[0] -eq 0x7B) { [Console]::Out.WriteLine('{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05"}}') }
+else { [Console]::Out.WriteLine('stub: Invalid JSON, stdin starts with ' + (($buf[0..([Math]::Max(0, [Math]::Min($n, 3) - 1))] | ForEach-Object { '{0:x2}' -f $_ }) -join '')) }
+'@
+        $script:brokenStub = @'
+[Console]::Out.WriteLine('stub-marker-4471: validation error for JSONRPCMessage')
+'@
+    }
+
+    It 'a healthy server answers: the request reaches its stdin starting with "{" and the verdict is OK' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-Preflight $script:healthyStub
+        $r.Result | Should -Be 'RESULT=True'
+        $r.Log | Should -Match 'sk-agent pre-flight OK'
+    }
+
+    It 'a server that never answers "result" fails, and the FAILED line names what was received' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-Preflight $script:brokenStub
+        $r.Result | Should -Be 'RESULT=False'
+        $r.Log | Should -Match 'pre-flight FAILED.*stub-marker-4471'
+    }
+}
