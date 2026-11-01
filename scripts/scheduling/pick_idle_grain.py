@@ -561,6 +561,28 @@ def _candidate_entry(urn: str, item: dict, skip: bool, reason: str) -> dict:
     }
 
 
+def _verdict_label(skip: bool, reason: str) -> str:
+    """Libelle humain d'un candidat — nomme ce qui a ete MESURE, rien de plus.
+
+    `check_candidate` ne lit que le protocole de claim (ADR 017) : un candidat
+    ecarte porte sa raison, un candidat retenu n'a simplement **aucun claim**.
+    Le libelle `LIBRE` se lisait « personne ne travaille dessus » alors que le
+    contrat de `check_lane_claim.py` dit seulement « aucune autre lane ne le
+    reserve » — deux propositions vraies en meme temps et non synonymes
+    (#23500). Cout observe : un claim pose sur un travail en cours, ou un
+    ecartement silencieux qui se lit comme un pool sature.
+
+    Mesure du 2026-10-31 (c.336) : #2242 rendu `LIBRE` alors que le dashboard
+    portait une ligne de blocage datee (hote po-2026 en reparation materielle,
+    reexamen 03/11) — le tirage ne peut pas le savoir, il ne lit ni dashboard
+    ni blocage. Le libelle doit donc dire ce qu'il a lu, pas ce qu'il laisse
+    croire.
+    """
+    if skip:
+        return f"SKIP ({reason})"
+    return "AUCUN CLAIM (activite non mesuree)"
+
+
 def main() -> int:
     _make_stdout_encoding_safe()
     parser = argparse.ArgumentParser(
@@ -705,7 +727,7 @@ def main() -> int:
         print(f"[SEED] machine={machine}, slot={slot}, seed={seed} ({seed_origin})")
         print(f"[CANDIDATS] tirage sans remise (top {args.top} -> elargi si tous pris) :")
         for i, c in enumerate(checked, 1):
-            status = f"SKIP ({c['reason']})" if c["skipped"] else "LIBRE"
+            status = _verdict_label(c["skipped"], c["reason"])
             print(f"  {i}. {c['urn']} {c['repo']}#{c['number']}: {c['title'][:80]} — {status}")
         if pick is None:
             print(f"[ALL-CLAIMED] Tous les candidats du pool sont pris "
