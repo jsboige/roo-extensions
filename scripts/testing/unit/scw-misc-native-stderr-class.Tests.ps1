@@ -40,8 +40,14 @@ Describe 'start-claude-worker misc-native families stderr class (#3731)' {
         @($bare) | Should -Be @()
     }
 
-    It 'stdin-pipe site converted without losing the pipe (sk-agent handshake)' {
-        $script:src | Should -Match '\$Request \| & cmd /c "powershell [^\r\n]*2>&1"'
+    # The handshake's stdin is fed by a BOM-less file redirected inside cmd. The
+    # former `$Request | & cmd` pipe prefixed stdin with EF BB BF under 5.1 on ACP
+    # 65001 and sk-agent rejected it (measured ai-01 2026-11-01). A CI runner on
+    # 1252 does not reproduce the BOM, so this text guard is what catches a
+    # return of the pipe.
+    It 'stdin site keeps feeding the request, through a file redirect, never a pipe (sk-agent handshake)' {
+        $script:src | Should -Match '& cmd /c "powershell [^\r\n]*< ""\$RequestFile"" 2>&1"'
+        @($script:lines | Where-Object { $_ -match '\$Request \| & cmd' -and -not $_.TrimStart().StartsWith('#') }) | Should -Be @()
     }
 
     It 'the converted file parses cleanly under the running engine' {
