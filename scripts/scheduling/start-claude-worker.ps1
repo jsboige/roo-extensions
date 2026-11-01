@@ -1235,6 +1235,9 @@ function Mark-TaskAsComplete {
         [string]$PrUrl = $null,
         [bool]$Success = $false,
         [array]$DeliveredArtifacts = @(),
+        # False when the worktree was gone before reconciliation (Test-WorktreeUsable):
+        # a success then cannot be reported as a measured no-change run.
+        [bool]$DeliveryReconciled = $true,
         # B17 (#4131) : identité lecteur du worker pour le mark-read PG — même
         # forme bare-machine que la lecture (Get-RooSyncInboxMessages), pour
         # écrire la MÊME per-reader state qui servait le [TASK].
@@ -1322,6 +1325,17 @@ function Mark-TaskAsComplete {
                         # #3944: never claim "no code changes" when submodule work was preserved on a rescue branch.
                         $Body = "[RESULT] $MachineId`: PASS — completed, but submodule work was PRESERVED on a rescue branch — review required, do not redispatch"
                         $HoldLock = $true
+                    } elseif ($Success -and $DeliveredArtifacts.Count -gt 0) {
+                        # An agent that opened and merged its own PRs leaves $PrUrl empty: the
+                        # reconciled artifacts ARE the delivery, never "no code changes" (01/11, #2609 run).
+                        $Delivered = @($DeliveredArtifacts | ForEach-Object {
+                            if ($_.Type -eq 'pull_request') { "PR #$($_.Number) $($_.Url)" } else { "remote branch $($_.Ref)" }
+                        } | Select-Object -Unique) -join ', '
+                        $Body = "[RESULT] $MachineId`: PASS — delivered: $Delivered"
+                    } elseif ($Success -and -not $DeliveryReconciled) {
+                        # The worktree was de-registered before the report: nothing was measured,
+                        # so "no code changes" would be an unmeasured claim (01/11, #2609 run).
+                        $Body = "[RESULT] $MachineId`: PASS — completed; delivery NOT reconciled (worktree de-registered before the report) — read the run's own report, do not read this as 'no code changes'"
                     } elseif ($Success) {
                         $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
                     } elseif ($PrUrl -or $DeliveredArtifacts.Count -gt 0) {
@@ -4649,6 +4663,34 @@ function Get-DeliveredArtifacts {
     return @($Artifacts)
 }
 
+function Test-WorktreeUsable {
+    <#
+    .SYNOPSIS
+    True only when $WorktreePath still exists AND is its own git toplevel.
+    An agent can de-register its worktree itself (01/11, #2609 run): the folder stays,
+    but `git -C` inside it climbs to the main checkout and answers in its name, so every
+    worktree check then measures the wrong repository.
+    #>
+    param([string]$WorktreePath)
+
+    if (-not $WorktreePath -or -not (Test-Path -LiteralPath $WorktreePath)) { return $false }
+    # A trailing backslash before the closing quote reads as an escaped quote (`\"`) once
+    # cmd hands the line to git: the argument breaks and git fails. Strip it first.
+    $Target = $WorktreePath.TrimEnd('\', '/')
+    if (-not $Target) { return $false }
+    try {
+        # stderr discarded at the cmd.exe layer (#3731): PS sees strings only, under any EAP.
+        $Top = [string]((& cmd /c "git -C ""$Target"" rev-parse --show-toplevel 2>nul") | Select-Object -First 1)
+        if ($LASTEXITCODE -ne 0 -or -not $Top) { return $false }
+        $Sep = [IO.Path]::DirectorySeparatorChar
+        $Norm = { param($p) [IO.Path]::GetFullPath(($p.Trim() -replace '[\\/]', $Sep)).TrimEnd($Sep) }
+        return [string]::Equals((& $Norm $Top), (& $Norm $WorktreePath), [StringComparison]::OrdinalIgnoreCase)
+    }
+    catch {
+        return $false
+    }
+}
+
 function Test-CommitHashExists {
     <#
     .SYNOPSIS
@@ -4688,7 +4730,10 @@ function Report-Results {
     Write-Log "Rapport des résultats au coordinateur..."
 
     # #1489: Get REAL commit hashes to prevent ghost reports
-    $RealHashes = if ($WorktreePath -and (Test-Path $WorktreePath)) {
+    # Test-WorktreeUsable, not Test-Path: a de-registered worktree folder answers for the
+    # main checkout, so its "real hashes" and the ghost check below would measure it instead.
+    $WorktreeUsable = Test-WorktreeUsable -WorktreePath $WorktreePath
+    $RealHashes = if ($WorktreeUsable) {
         Get-RealCommitHashes -WorktreePath $WorktreePath
     } else {
         $null
@@ -4705,6 +4750,9 @@ function Report-Results {
 
     # #1489: Detect if agent claimed commits but none exist (ghost hashes)
     $GhostHashWarning = ""
+    if ($WorktreePath -and -not $WorktreeUsable) {
+        $GhostHashWarning = "`n`n**Ghost-hash check skipped:** the worktree ``$WorktreePath`` was no longer its own git toplevel at report time (de-registered during the run) — claimed commits are NOT verified here, which is not a proof they are absent."
+    }
     if ($RealHashes -and $Result.success) {
         # Case-sensitive + boundary guards: git SHAs are lowercase hex, so -CaseSensitive
         # rejects uppercase hex in Windows error codes (e.g. 0x800710E0). The lookbehind
@@ -5605,7 +5653,7 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
 
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
     # Pass PR URL and success status for accountability (#1213)
-    Mark-TaskAsComplete -Task $Task -PrUrl $PrUrl -Success $Result.success -DeliveredArtifacts $DeliveredArtifacts
+    Mark-TaskAsComplete -Task $Task -PrUrl $PrUrl -Success $Result.success -DeliveredArtifacts $DeliveredArtifacts -DeliveryReconciled (Test-WorktreeUsable -WorktreePath $WorktreePath)
 
     # 8. Cleanup worktree SEULEMENT après push+PR confirmés
     # Si PR créée avec succès, on peut supprimer le worktree (branch existe sur origin)
