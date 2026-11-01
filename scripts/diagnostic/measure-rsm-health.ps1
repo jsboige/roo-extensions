@@ -102,13 +102,19 @@ function Get-RsmLogMetrics {
         Counts events, not log lines (see .DESCRIPTION). Returns an object with
         CloudOnly, ConnectionTimeouts, PgLatencies and LogFiles. A missing log file is
         not an error: it means no RSM activity was logged today.
+
+        -Since trims events older than the given local timestamp. It exists because the
+        host binds its log FILE at process start, not at midnight (see
+        Get-DefaultRsmLogPaths): right after the day rolls over the file handed to us
+        also holds the previous day, whose events must not land in this day's rate.
     #>
-    param([string[]]$Files)
+    param([string[]]$Files, [datetime]$Since = [datetime]::MinValue)
 
     $cloudOnly = 0
     $connTimeouts = 0
     $latencies = New-Object System.Collections.Generic.List[double]
     $seen = 0
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
 
     foreach ($file in @($Files)) {
         if (-not $file -or -not (Test-Path -LiteralPath $file)) { continue }
@@ -116,6 +122,16 @@ function Get-RsmLogMetrics {
         foreach ($line in (Get-Content -LiteralPath $file -ErrorAction SilentlyContinue)) {
             # Event headers start with the timestamp bracket; JSON detail lines are indented.
             if ($line -notmatch '^\[') { continue }
+            if ($Since -gt [datetime]::MinValue) {
+                $stamp = [regex]::Match($line, '^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]')
+                # An unparseable header is COUNTED, not dropped: hiding an event is the
+                # failure this whole grain removes, and the counts here are dominated by
+                # well-formed headers anyway.
+                if ($stamp.Success) {
+                    $ts = [datetime]::ParseExact($stamp.Groups[1].Value, 'yyyy-MM-dd HH:mm:ss', $inv)
+                    if ($ts -lt $Since) { continue }
+                }
+            }
             if ($line -match 'cloud-only\?') { $cloudOnly++ }
             if ($line -match 'connection timeout') { $connTimeouts++ }
             if ($line -match '\[dashboard-pg\] dashboard served from PG in (\d+)ms') {
@@ -326,11 +342,58 @@ function Get-RamMetrics {
 }
 
 function Get-DefaultRsmLogPaths {
-    param([string]$DayStamp)
+    param(
+        [string]$DayStamp,
+        # Test seam: the Pester suite points this at $TestDrive so no test depends on
+        # whatever the CI machine happens to have under its temp directory.
+        [string]$LogDir = (Join-Path ([System.IO.Path]::GetTempPath()) 'roo-state-manager-logs')
+    )
 
-    $logDir = Join-Path ([System.IO.Path]::GetTempPath()) 'roo-state-manager-logs'
-    $file = Join-Path $logDir ('roosync-{0}.log' -f $DayStamp)
-    return @($file)
+    $files = @(Join-Path $LogDir ('roosync-{0}.log' -f $DayStamp))
+
+    # Day boundary (#4289): the RSM host binds its log FILE when the PROCESS starts,
+    # not when the day changes. Just after local midnight the live host keeps
+    # appending to yesterday's name and today's does not exist yet -- so the
+    # instrument read nothing and printed pgSamples=0 window=1.0h verdict=OK, i.e. it
+    # looked healthy at the one moment an operator checks. Measured 2026-11-01 01:00
+    # local: roosync-20261101.log absent, roosync-20261031.log 4.28 MB and still
+    # growing, already carrying [2026-11-01 ...] events. Carry the newest existing
+    # file too; the caller trims its pre-midnight events with -Since.
+    $newest = Get-ChildItem -LiteralPath $LogDir -Filter 'roosync-*.log' -ErrorAction SilentlyContinue |
+        Sort-Object -Property LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($newest -and ($files -notcontains $newest.FullName)) { $files += $newest.FullName }
+
+    return $files
+}
+
+function Resolve-RsmLogPlan {
+    <#
+        Decides WHICH files to read and WHERE to trim, as one pure decision. This lives
+        in a function rather than inline in main for one reason: a mutant that drops the
+        trim (keeping the boundary fallback but counting 24 h of the previous day in a
+        one-hour rate) is otherwise unreachable by a test, since Pester dot-sources the
+        script and never runs its main block.
+    #>
+    param(
+        [string[]]$LogPath,
+        [string]$DayStamp,
+        [datetime]$Midnight,
+        [string]$LogDir
+    )
+
+    if ($LogPath -and $LogPath.Count -gt 0 -and $LogPath[0]) {
+        # An explicit -LogPath is a deliberate read (post-mortem on an old log): no
+        # time filter, exactly the pre-#4289 semantics.
+        return [pscustomobject]@{ Files = @($LogPath); Since = [datetime]::MinValue }
+    }
+
+    $files = if ($LogDir) {
+        @(Get-DefaultRsmLogPaths -DayStamp $DayStamp -LogDir $LogDir)
+    } else {
+        @(Get-DefaultRsmLogPaths -DayStamp $DayStamp)
+    }
+    return [pscustomobject]@{ Files = $files; Since = $Midnight }
 }
 
 # --- main -------------------------------------------------------------------
@@ -338,19 +401,17 @@ function Get-DefaultRsmLogPaths {
 # Dot-sourced by the Pester test: expose the functions, run nothing.
 if ($MyInvocation.InvocationName -ne '.') {
     try {
-        $files = @($LogPath)
-        if ($files.Count -eq 0 -or -not $files[0]) {
-            $files = Get-DefaultRsmLogPaths -DayStamp $DayStamp
-        }
-
         $now = Get-Date
         $midnight = $now.Date
         $hoursObserved = ($now - $midnight).TotalHours
         if ($hoursObserved -lt 1) { $hoursObserved = 1 }
 
+        # One decision point: which files, and where to trim. See Resolve-RsmLogPlan.
+        $plan = Resolve-RsmLogPlan -LogPath $LogPath -DayStamp $DayStamp -Midnight $midnight
+
         $report = Get-RsmHealthReport `
             -Hosts (Get-RsmHostMetrics) `
-            -LogMetrics (Get-RsmLogMetrics -Files $files) `
+            -LogMetrics (Get-RsmLogMetrics -Files $plan.Files -Since $plan.Since) `
             -RamMetrics (Get-RamMetrics) `
             -HoursObserved $hoursObserved `
             -MaxPrivateMBThreshold $MaxPrivateMBThreshold `

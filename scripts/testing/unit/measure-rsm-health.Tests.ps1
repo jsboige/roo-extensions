@@ -87,6 +87,111 @@ Describe 'Get-RsmLogMetrics -- evenements, pas lignes de log' {
     }
 }
 
+Describe 'frontiere de jour -- le log de la veille porte les evenements du jour' {
+
+    # Defaut mesure le 2026-11-01 a 01:00 locales : l hote RSM lie son FICHIER de log
+    # au demarrage du PROCESSUS, pas au changement de jour. Le fichier du 31/10
+    # (4,28 Mo, toujours en croissance) portait deja des evenements [2026-11-01 ...],
+    # et l instrument cherchait roosync-20261101.log, absent. Resultat :
+    # pgSamples=0 window=1.0h verdict=OK -- l instrument se declarait sain sans avoir
+    # rien lu, chaque nuit, a deux jours de la bascule PG.
+    #
+    # Deux mutants sont tues ici :
+    #   A. retirer le repli sur le fichier le plus recent -> test 1 (plus rien lu) ;
+    #   B. le garder SANS le filtre -Since -> test 2 (24 h de la veille comptees dans
+    #      un taux horaire, le chiffre devient faux dans l autre sens).
+
+    It 'resout le fichier de la veille quand celui du jour n existe pas encore' {
+        $dir = Join-Path $TestDrive 'logs-boundary'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        $yesterday = Join-Path $dir 'roosync-20261031.log'
+        New-RsmHealthFixtureLog -Path $yesterday -Lines @(
+            '[2026-11-01 00:01:08] [INFO] [dashboard-pg] dashboard served from PG in 22ms (global, 12 messages)'
+        )
+
+        $files = @(Get-DefaultRsmLogPaths -DayStamp '20261101' -LogDir $dir)
+
+        # Le nom du jour reste en tete (contrat inchange) et le fichier vivant suit.
+        $files[0] | Should -Match 'roosync-20261101\.log$'
+        ($files -join ';') | Should -Match 'roosync-20261031\.log'
+        # Sans le repli, l instrument ne lisait aucun fichier : c est le mutant A.
+        $metrics = Get-RsmLogMetrics -Files $files -Since ([datetime]'2026-11-01 00:00:00')
+        $metrics.LogFiles | Should -Be 1
+        $metrics.PgLatencies.Count | Should -Be 1
+    }
+
+    It 'tronque les evenements d avant minuit (mutant B : 24 h dans un taux horaire)' {
+        $log = Join-Path $TestDrive 'boundary-trim.log'
+        New-RsmHealthFixtureLog -Path $log -Lines @(
+            '[2026-10-31 09:00:00] [WARN] Inbox file read timed out (cloud-only?): vieux.md',
+            '[2026-10-31 23:59:59] [WARN] [pg-cold-pool-resume] [pg-resume] connection timeout (cold pool)',
+            '[2026-11-01 00:00:30] [WARN] Inbox file read timed out (cloud-only?): recent.md',
+            '[2026-11-01 00:02:00] [INFO] [dashboard-pg] dashboard served from PG in 41ms (global, 12 messages)'
+        )
+        $since = [datetime]'2026-11-01 00:00:00'
+
+        $trimmed = Get-RsmLogMetrics -Files @($log) -Since $since
+
+        # Seul l evenement de 00:00:30 passe le filtre ; le timeout de 23:59:59 et le
+        # cloud-only de 09:00 restent dehors malgre leur presence dans le fichier.
+        $trimmed.CloudOnly | Should -Be 1
+        $trimmed.ConnectionTimeouts | Should -Be 0
+        $trimmed.PgLatencies.Count | Should -Be 1
+
+        # Sans -Since, le comportement d avant ce grain est preserve a l identique
+        # (lecture explicite d un vieux fichier pour un post-mortem).
+        $unfiltered = Get-RsmLogMetrics -Files @($log)
+        $unfiltered.CloudOnly | Should -Be 2
+        $unfiltered.ConnectionTimeouts | Should -Be 1
+    }
+
+    It 'ne duplique pas le fichier quand le log du jour EST le plus recent' {
+        $dir = Join-Path $TestDrive 'logs-same'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261101.log') -Lines @(
+            '[2026-11-01 00:05:00] [INFO] [dashboard-pg] dashboard served from PG in 9ms (global, 1 messages)'
+        )
+
+        $files = @(Get-DefaultRsmLogPaths -DayStamp '20261101' -LogDir $dir)
+
+        # Une seule entree : deux fois le meme chemin doublerait chaque evenement.
+        $files.Count | Should -Be 1
+    }
+
+    It 'la decision fichiers+troncature est une valeur, pas une ligne de bloc principal' {
+        # Mutant B (le repli est garde MAIS la troncature disparait) n etait tuable par
+        # aucun test : Pester dot-source le script, donc le bloc principal ne tourne
+        # jamais et un -Since retire la restait invisible. La decision devient une
+        # fonction pure, resolvable ici, et le cablage est asserte plus bas.
+        $dir = Join-Path $TestDrive 'logs-plan'
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        New-RsmHealthFixtureLog -Path (Join-Path $dir 'roosync-20261031.log') -Lines @(
+            '[2026-11-01 00:01:08] [INFO] [dashboard-pg] dashboard served from PG in 22ms (global, 12 messages)'
+        )
+        $midnight = [datetime]'2026-11-01 00:00:00'
+
+        $plan = Resolve-RsmLogPlan -DayStamp '20261101' -Midnight $midnight -LogDir $dir
+
+        ($plan.Files -join ';') | Should -Match 'roosync-20261031\.log'
+        $plan.Since | Should -Be $midnight
+
+        # Un -LogPath explicite reste une lecture deliberee : aucune troncature.
+        $explicit = Resolve-RsmLogPlan -LogPath @('C:\somewhere\old.log') -DayStamp '20261101' -Midnight $midnight
+        $explicit.Since | Should -Be ([datetime]::MinValue)
+        @($explicit.Files).Count | Should -Be 1
+    }
+
+    It 'le bloc principal passe bien la troncature a l agregateur (cablage)' {
+        # Meme idiome que l assertion stdout de cette suite : ce qui ne peut pas etre
+        # execute en processus est lu dans le code, commentaires retires.
+        $instrument = Get-Content (Join-Path $projectRoot 'scripts/diagnostic/measure-rsm-health.ps1') -Raw
+        $code = (@(($instrument -split "`n") | Where-Object { $_ -notmatch '^\s*#' }) -join "`n")
+
+        $code | Should -Match 'Resolve-RsmLogPlan -LogPath \$LogPath -DayStamp \$DayStamp -Midnight \$midnight'
+        $code | Should -Match 'Get-RsmLogMetrics -Files \$plan\.Files -Since \$plan\.Since'
+    }
+}
+
 Describe 'Get-RsmHealthReport -- mediane et seuils' {
 
     It 'rend la MEDIANE, pas la moyenne (un p99 ne fait pas un siege malade)' {
