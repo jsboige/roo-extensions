@@ -27,6 +27,10 @@ So Copilot should consume that MCP instead of inventing parallel connectors.
 
 ## 3. Connector V3 Target
 
+> **2026-11-02:** this section is the March *target model*, kept as history. The normative
+> as-implemented contract now lives in [`connector-v3-spec.md`](connector-v3-spec.md)
+> (deliverable 1 of #622). §9 and §10 below remain the operative rollout/rollback references.
+
 Define a V3 connector model shared across Roo, Claude, Copilot:
 
 - `identity`: machine + agent + workspace
