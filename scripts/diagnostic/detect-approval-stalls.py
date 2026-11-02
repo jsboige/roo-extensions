@@ -106,12 +106,14 @@ def now_utc():
 
 
 def scan_session(path, tools):
-    """Parse one session JSONL. Returns (dangling, last_ts, last_parent_ts, stats).
+    """Parse one session JSONL. Returns (dangling, last_ts, last_parent_ts, stats, last_cwd).
 
     dangling: list of unterminated shell tool_use records at EOF, in emission
     order (uuid-deduped against resume copies, same rule as scan-approval-waits).
     last_parent_ts: timestamp of the last non-sidechain record -- the parent
     session's own watermark, used to retire orphaned sidechain waits (abandoned).
+    last_cwd: the last root-level ``cwd`` seen -- where the session worked, i.e.
+    the lane whose dashboard a stall note must reach (#4243 volet 3 routing).
     """
     tools_lower = {t.lower() for t in tools}
     pending = {}
@@ -119,6 +121,7 @@ def scan_session(path, tools):
     seen_uuids = set()
     last_ts = None
     last_parent_ts = None
+    last_cwd = None
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
             stats["lines"] += 1
@@ -128,6 +131,8 @@ def scan_session(path, tools):
                 continue
             if not isinstance(entry, dict):
                 continue
+            if entry.get("cwd"):
+                last_cwd = entry["cwd"]
             if entry.get("timestamp"):
                 last_ts = entry["timestamp"]  # tracked on every record: the tail lag
                 if not entry.get("isSidechain"):
@@ -165,7 +170,7 @@ def scan_session(path, tools):
                     }
                 elif btype == "tool_result" and block.get("tool_use_id"):
                     pending.pop(block["tool_use_id"], None)
-    return list(pending.values()), last_ts, last_parent_ts, stats
+    return list(pending.values()), last_ts, last_parent_ts, stats, last_cwd
 
 
 def adjudicate_state(record, session_id, hook_index):
@@ -445,12 +450,17 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
             continue
         active += 1
         try:
-            dangling, _last_ts, last_parent_ts, _stats = scan_session(path, tools)
+            dangling, _last_ts, last_parent_ts, _stats, last_cwd = scan_session(path, tools)
         except OSError as exc:
             print(f"WARNING: unreadable {path}: {exc}", file=sys.stderr)
             continue
         session_id = path.stem
         project = path.parent.name
+        # The transcript's last cwd names the workspace the session worked in;
+        # its basename is the dashboard name (same convention as RSM workspace
+        # auto-detection). None when the transcript never carried a cwd -- the
+        # note then falls back to the detector's own workspace.
+        workspace = os.path.basename(os.path.normpath(last_cwd)) if last_cwd else None
         for record in dangling:
             started = parse_ts(record["ts"])
             if started is None:
@@ -473,6 +483,7 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
             stalls.append({
                 "session": session_id,
                 "project": project,
+                "workspace": workspace,
                 "since": record["ts"],
                 "age_min": round(age_s / 60, 1),
                 "tool": record["tool"],
@@ -534,7 +545,11 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
 # The detector's product is stdout + exit code; a scheduler watching them needs
 # nothing else. What was missing (volet 3) is a signal that reaches the FLEET:
 # a frozen lane sits silent, so the detector itself must raise the flag on the
-# lane's dashboard. Transport = the bots' canonical path (mcp-chain-watchdog
+# lane's dashboard -- the DASHboard OF THE STALLED SESSION'S WORKSPACE (its
+# transcript cwd), never the detector's own, and at most once per day per
+# unchanged stall set (the 15-min id bucket re-posted the same note every tick;
+# measured on po-2024: CoursIA stalls re-noted hourly to roo-extensions).
+# Transport = the bots' canonical path (mcp-chain-watchdog
 # Publish-FleetNote): HTTP JSON-RPC against the mcp-proxy, initialize ->
 # notifications/initialized -> tools/call roosync_dashboard append. Best-effort
 # ONLY -- a signaling failure never changes the exit code (the detection result
@@ -551,15 +566,18 @@ def _host():
 
 
 def build_note_id(stalls, now=None):
-    """Idempotency key (#3276 doctrine): host + content digest + 15-min bucket.
+    """Idempotency key (#3276 doctrine): host + content digest + 24-h bucket.
 
-    A scheduler ticking inside one incident converges to ONE note per bucket
+    A scheduler ticking inside one incident converges to ONE note per DAY
     instead of one per tick -- an append whose messageId already exists is
     skipped server-side (deduplicated: true). The digest covers the stall set,
-    so a NEW stall (or a gone one) produces a fresh id and a fresh note.
+    so a NEW stall (or a gone one) produces a fresh id and a fresh note. The
+    next calendar day rolls the bucket, which IS the at-most-24-h reminder: the
+    unchanged set re-notes once per day, never once per tick (the 15-min bucket
+    measured on po-2024 re-posted the same note hourly -- #4243 volet 3).
     """
     now = now or time.time()
-    bucket = int(now // 900)
+    bucket = int(now // 86400)
     payload = "|".join(f"{s['session']}:{s['since']}" for s in stalls)
     digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
     return f"stall-detector-{_host()}-{digest}-{bucket}"
@@ -674,12 +692,31 @@ def maybe_publish_dashboard_note(totals, stalls, workspace, url, bearer,
     `executing` is a transcript lag and `abandoned` a dead sidechain -- neither
     is something a human or a coordinator could still answer, so neither earns
     a note. Returns None when there is nothing to signal (no request made).
+
+    Routing (#4243 volet 3): a workspace note lands on the dashboard of the
+    workspace the stalled SESSION worked in (its transcript cwd), not on the
+    detector's own -- the frozen lane reads its own dashboard, and po-2024
+    re-posted CoursIA stalls to roo-extensions all day. Stalls whose transcript
+    carried no cwd fall back to `workspace`. One append per target dashboard,
+    each with its own digest-derived id (a set that changes on one dashboard
+    must not be silenced by the dedup of another). Non-workspace dash types
+    (machine/global) keep the single shared note.
     """
     waiting = [s for s in stalls if s["state"] == "waiting-suspected"]
     if not waiting:
         return None
-    return publish_dashboard_note(waiting, workspace, url, bearer, dash_type=dash_type,
-                                  timeout=timeout, now=now)
+    if dash_type != "workspace":
+        return publish_dashboard_note(waiting, workspace, url, bearer,
+                                      dash_type=dash_type, timeout=timeout, now=now)
+    groups = {}
+    for s in waiting:
+        groups.setdefault(s.get("workspace") or workspace, []).append(s)
+    published = False
+    for target in sorted(groups):
+        if publish_dashboard_note(groups[target], target, url, bearer,
+                                  dash_type=dash_type, timeout=timeout, now=now):
+            published = True
+    return published
 
 
 # --- selftest ---------------------------------------------------------------
@@ -1101,7 +1138,9 @@ def main():
                         default="workspace",
                         help="dashboard the signal lands on (default: workspace)")
     parser.add_argument("--dashboard-workspace", default="roo-extensions", metavar="NAME",
-                        help="workspace dashboard name (default: roo-extensions)")
+                        help="fallback workspace dashboard for stalls whose "
+                             "transcript carries no cwd -- stalls route to "
+                             "their own session's workspace (#4243 volet 3)")
     parser.add_argument("--dashboard-timeout", type=float, default=10.0, metavar="SECONDS",
                         help="per-request timeout of the dashboard signal (default: 10); "
                              "a scheduled tick can afford more -- on the proxied path a "
