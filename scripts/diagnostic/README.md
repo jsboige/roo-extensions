@@ -352,3 +352,27 @@ powershell -ExecutionPolicy Bypass -File scripts\diagnostic\log-commit-charge.ps
 ```
 
 Tests Pester : `scripts/testing/unit/log-commit-charge.Tests.ps1` (13 tests — contrat statique toutes plateformes + micro-run live Windows avec l'identité sémantique à 2 % de tolérance).
+
+## Scan des dashboards par noms connus (#4434)
+
+### `scan-dashboards-known-names.ps1`
+
+Inventorie les fichiers dashboard du store partagé **par noms connus, jamais par
+énumération** — pour les sièges où DriveFS gèle l'énumération (>25 min mesuré)
+alors qu'un `Get-Item` sur un nom connu rend en <1 s (mesure #4488, 02/11).
+
+La liste des noms légaux vient du **miroir PG** (`roosync_dashboard
+action:"list"` → `.dashboards[].key` + `.lastModified`), pas du répertoire :
+sauvegarder la sortie dans `keys.json` (`[{"key":"workspace-X","lm":"…Z"}]`).
+
+*   **Bornes :** aucun `Get-ChildItem` ; budget total (`-BudgetSec`, défaut
+    240 s) qui rend le résultat partiel ; comptage des sondes lentes (>3 s).
+*   **Fourches DriveFS :** sonde ` (N).md` (N ≤ `-ForkDepth`, défaut 5) pour
+    les clés écrites dans les `-HotDays` derniers jours uniquement — les
+    collisions same-second laissent des fourches `(N)` (mémoire flotte).
+*   **Sortie :** une ligne par clé (taille, mtime UTC, latence sonde) + un
+    résumé JSON (probes/found/missing/forks/slow/elapsed).
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scan-dashboards-known-names.ps1 -KeysFile keys.json
+```
