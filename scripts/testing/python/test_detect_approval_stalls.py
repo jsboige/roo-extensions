@@ -259,6 +259,22 @@ class StallNoteIdAndRouting(unittest.TestCase):
                              "the stall must carry its session's workspace, "
                              "parsed from the transcript cwd")
 
+    def test_cli_reports_stall_workspace_from_posix_cwd(self):
+        # #4243 review: the workspace split must be host-independent. A POSIX
+        # cwd must yield its final segment wherever the detector runs, so the
+        # Windows-path case above (red under os.path.basename on the ubuntu
+        # CI) never stands alone as the only guard.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            ts = _stalled_session(root, session="posixcase",
+                                  cwd="/opt/data/workspace/CoursIA")
+            table = "11@" + f"{ts.timestamp() - 7200:.0f}"
+            proc = _run(root, state, table)
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            stall = json.loads(proc.stdout)["stalls"][0]
+            self.assertEqual(stall["workspace"], "CoursIA")
+
     def test_cli_stall_without_cwd_keeps_null_workspace(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = os.path.join(tmp, "projects")

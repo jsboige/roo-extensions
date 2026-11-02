@@ -457,10 +457,12 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
         session_id = path.stem
         project = path.parent.name
         # The transcript's last cwd names the workspace the session worked in;
-        # its basename is the dashboard name (same convention as RSM workspace
-        # auto-detection). None when the transcript never carried a cwd -- the
-        # note then falls back to the detector's own workspace.
-        workspace = os.path.basename(os.path.normpath(last_cwd)) if last_cwd else None
+        # its final path segment is the dashboard name (same convention as RSM
+        # workspace auto-detection). None when the transcript never carried a
+        # cwd -- the note then falls back to the detector's own workspace.
+        # Host-independent split: os.path.basename treats a Windows cwd as one
+        # segment under POSIX, which broke the ubuntu CI (#4243 review).
+        workspace = (last_cwd.replace("\\", "/").rstrip("/").split("/")[-1]) if last_cwd else None
         for record in dangling:
             started = parse_ts(record["ts"])
             if started is None:
