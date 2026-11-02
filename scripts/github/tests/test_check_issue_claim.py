@@ -656,6 +656,33 @@ class TestMain(unittest.TestCase):
                 rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 1)
 
+    def test_foreign_block_does_not_print_unowned_hint(self):
+        # #4481 (02/11) : un claim étranger qui parse vers une lane est un
+        # état SAIN -- le hint "unowned marker" affiché aussi sur ce chemin a
+        # été lu par le coordinateur comme un marqueur à réparer. Il ne doit
+        # s'afficher que pour la sentinelle <UNOWNED>.
+        issue = self._issue([comment("[CLAIMED] myia-po-2025 -- on it", T0)])
+        out = io.StringIO()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                with contextlib.redirect_stdout(out):
+                    rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 1)
+        self.assertIn("BLOCKED", out.getvalue())
+        self.assertNotIn("Repair hint (unowned marker)", out.getvalue())
+
+    def test_unowned_block_prints_repair_hint(self):
+        # Un marqueur sans lane (sentinelle <UNOWNED>) garde son hint de
+        # réparation -- c'est le seul cas où le geste s'applique.
+        issue = self._issue([comment("[CLAIMED] -- fixing the thing", T0)])
+        out = io.StringIO()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                with contextlib.redirect_stdout(out):
+                    rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 1)
+        self.assertIn("Repair hint (unowned marker)", out.getvalue())
+
     def test_clear_exit_0(self):
         issue = self._issue([])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
