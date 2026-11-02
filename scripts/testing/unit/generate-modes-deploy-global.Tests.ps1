@@ -155,4 +155,50 @@ Describe "generate-modes.js --deploy-global <Name> (#595)" -ForEach $script:Targ
             ($script:content -match "Would deploy to global \(dry run\)") | Should -Be $true
         }
     }
+
+    Context "Defaut de sortie derive du format + garde drapeau inconnu (#4334 fix)" {
+        # Dispatch ai01-queue-20261102c item 2 (+ amend1). Le defaut de sortie
+        # etait fige sur l'artefact JSON versionne : la recette du relais
+        # (--deploy-global --format yaml, sans --output) y ecrivait du YAML,
+        # laissant la garde mode-role-definition-prefix 6/6 ROUGE sur un faux
+        # negatif ("Primitive JSON non valide") et un checkout sale sur chaque
+        # siege (mesure po-2025 02/11). Couche STATIQUE -- la preuve
+        # comportementale (sha256 inchanges, exit 2) vit dans
+        # modes-deploy-mcp-nonregression.Tests.ps1, qui execute le vrai node.
+
+        It "le defaut yaml ecrit l'artefact YAML versionne, pas le .roomodes JSON" {
+            ($script:content -match "DEFAULT_OUTPUT_JSON\s*=") | Should -Be $true
+            ($script:content -match "DEFAULT_OUTPUT_YAML\s*=") | Should -Be $true
+            # L'ancien defaut monolithique doit avoir disparu.
+            ($script:content -match "DEFAULT_OUTPUT\s*=") | Should -Be $false
+            # La resolution lit le format : yaml -> artefact YAML, json -> JSON.
+            ($script:content -match "args\.output\s*=\s*\(args\.format\s*===\s*'yaml'\)\s*\?\s*DEFAULT_OUTPUT_YAML\s*:\s*DEFAULT_OUTPUT_JSON") | Should -Be $true
+        }
+
+        It "args.output part de null et se resout APRES la boucle de parsing" {
+            # La resolution post-boucle seule garantit que l'ordre des flags
+            # (--format yaml avant ou apres --output) ne change pas le defaut.
+            ($script:content -match "output:\s*null") | Should -Be $true
+            ($script:content -match "if\s*\(args\.output\s*===\s*null\)") | Should -Be $true
+        }
+
+        It "drapeau inconnu -> message + exit 2" {
+            # Amend1 : un drapeau inconnu tombait silencieusement a travers le
+            # parsing ET la generation s'executait quand meme (mesure web1
+            # c.741). La garde vit dans parseArgs, donc AVANT toute ecriture.
+            ($script:content -match "ERROR: unknown flag: ") | Should -Be $true
+            ($script:content -match "unknown flag[\s\S]{0,150}process\.exit\(2\)") | Should -Be $true
+        }
+
+        It "flag a valeur sans valeur -> exit 2 (meme famille de chute silencieuse)" {
+            ($script:content -match "expects a value\.") | Should -Be $true
+            ($script:content -match "expects a value[\s\S]{0,150}process\.exit\(2\)") | Should -Be $true
+        }
+
+        It "--help imprime l'usage et sort (exit 0) sans ecrire" {
+            ($script:content -match "process\.argv\[i\]\s*===\s*'--help'") | Should -Be $true
+            ($script:content -match "'--help'[\s\S]{0,200}process\.exit\(0\)") | Should -Be $true
+            ($script:content -match "function printUsage") | Should -Be $true
+        }
+    }
 }
