@@ -179,6 +179,10 @@ on:
       # path must re-trigger the job that runs it (same rule as the two
       # entries above).
       - 'scripts/diagnostic/probe-qdrant-ingress.py'
+      # #4334 (NanoClaw on #4496): test_measure_mode_prompt_prefix.py in
+      # scripts/testing/python/ guards the format sniffing of this instrument;
+      # a change to the instrument alone must re-run it (same rule as above).
+      - 'scripts/diagnostic/measure-mode-prompt-prefix.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
@@ -639,6 +643,10 @@ jobs:
         shell: bash
         run: |
           python3 -m unittest discover -s scripts/github/tests
+          # #4334: the YAML cases of test_measure_mode_prompt_prefix.py are
+          # skipUnless(yaml) -- installed here, never assumed from the image,
+          # or a runner change would skip them silently with the step still green.
+          python3 -m pip install --quiet pyyaml
           python3 -m unittest discover -s scripts/testing/python
           # #4161 follow-up: the zoo-profile suite is PYTEST-style (plain test_
           # functions + asserts), so `unittest discover` collects NOTHING from it --
