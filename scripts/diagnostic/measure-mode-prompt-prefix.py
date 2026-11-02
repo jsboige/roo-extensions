@@ -65,7 +65,9 @@ def measure(path):
     roles = [m.get("roleDefinition", "") for m in modes]
     instr = [m.get("customInstructions", "") for m in modes]
     # Proxy, not a real prompt: the fixed middle sits between the two in
-    # production. Reported because every relay cell quotes it.
+    # production. Reported because every relay cell quotes it. Upper bound:
+    # the middle differs across modes (`groups` do, po-2023 on #4496), so
+    # the customInstructions bytes rarely reach the real shared prefix.
     composed = [r + "\n\n" + c for r, c in zip(roles, instr)]
     return {
         "file": str(path),
@@ -89,7 +91,7 @@ def render(report):
         f'  roleDefinition length          : {total} bytes',
         f'  roleDefinition all identical   : {report["role_definition_all_identical"]}',
         f'  customInstructions LCP         : {report["custom_instructions_lcp_bytes"]} bytes',
-        f'  composed LCP (proxy)           : {report["composed_lcp_bytes"]} bytes',
+        f'  composed LCP (upper bound)     : {report["composed_lcp_bytes"]} bytes',
     ]
     if report["role_definition_all_identical"]:
         lines.append(
