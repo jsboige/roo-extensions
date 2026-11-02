@@ -728,8 +728,13 @@ def main(argv=None) -> int:
         print(f"BLOCKED: active claim by {lane} ({age:.1f}h) -- {line}")
     if blocking:
         print("Another lane holds an active claim -- do not start, pick elsewhere.")
-        print("Repair hint (unowned marker): re-post ONE comment with only "
-              "'[CLAIMED] <machine[:workspace]> -- ...' on its first line.")
+        # The hint addresses the <UNOWNED> sentinel only. A foreign claim that
+        # parses to a lane is healthy state; printed on that path too, the hint
+        # read as "this marker needs repair" by a coordinator (#4481, 02/11)
+        # and dispatched a repair task for a well-formed claim.
+        if any(str(lane).startswith("<UNOWNED") for lane, _, _ in blocking):
+            print("Repair hint (unowned marker): re-post ONE comment with only "
+                  "'[CLAIMED] <machine[:workspace]> -- ...' on its first line.")
         return 1
 
     active = [l for l, e in state.items() if e["state"] == "active"]
