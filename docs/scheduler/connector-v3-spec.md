@@ -36,9 +36,9 @@ bearer: 401. The daemon binds loopback only and fails closed without `ROOSYNC_HT
 |---|---|---|
 | Inter-machine inbox | `roosync_messages` — PG-primary channel, fail-closed under PG outage (no silent GDrive fan-out) | lived through the #4131 outage, c.88–91 |
 | Command channel | dashboard `workspace`, read `section:"all"` (never `status` alone) | #2306 |
-| Local fallback | `.claude/local/INTERCOM-{MACHINE}.md` — DEPRECATED, last resort | `intercom-protocol.md` |
+| Local fallback | `.claude/local/INTERCOM-{MACHINE}.md` — DEPRECATED, last resort | `.claude/rules/intercom-protocol.md` |
 | Copilot interactive | reads the same MCP surface (`configure-copilot-mcp.ps1` injects `roo-state-manager` into `%APPDATA%\Code\User\mcp.json`, idempotent, preserves existing entries) | `scripts/copilot/configure-copilot-mcp.ps1` |
-| Copilot scheduled | the dispatcher reads **local state + the `copilot-target` pool**, not the inbox; it posts no routine issue comments (`IssueNumber 0` default) | `setup-copilot-dispatcher.ps1` |
+| Copilot scheduled | the dispatcher reads **local state + the `copilot-target` pool**, not the inbox; it posts no routine issue comments (`IssueNumber 0` default) | `scripts/scheduling/setup-copilot-dispatcher.ps1` |
 
 Reading the inbox is the **first effective action** of every executor cycle ([INBOX-GATE, #3554]) —
 the enumeration goes through the MCP, never a raw scan of `messages/inbox` on GDrive.
@@ -72,7 +72,7 @@ running since AC0 success 2026-11-02 01:16Z).
 |---|---|---|
 | Claude Code | session cron (`CronCreate`, arbitrage 2026-08-18 — schtask `Claude-Executor-Cron` **interdite**) | workers `claude -p` (fresh process per task) |
 | Roo | VS Code extension session | scheduler extension (win-cli MCP fork; no `command` group on any mode, #1482) |
-| Copilot | VS Code / Copilot CLI | schtask `Copilot-Dispatcher` → `start-copilot-dispatcher.ps1`, Phase C fallback `gh copilot -p` with the **prompt passed via file** and a short argv (AC0 constraint: argv > 32 767 chars kills the spawn; AC0 passed 02/11 01:16Z) |
+| Copilot | VS Code / Copilot CLI | schtask `Copilot-Dispatcher` → `scripts/scheduling/start-copilot-dispatcher.ps1`, Phase C fallback `gh copilot -p` with the **prompt passed via file** and a short argv (AC0 constraint: argv > 32 767 chars kills the spawn; AC0 passed 02/11 01:16Z) |
 
 Cadences are **decided by the user, per lane, and asymmetric by design** (executors 4h at `:41`,
 coordinator 12h at `:23`; Copilot dispatcher currently PT12H — measured 02/11). Never "realign"
@@ -97,7 +97,7 @@ one lane onto another's cadence.
 | Dashboard `[REPLY]` + `mentions:[{messageId}]` | answering an `[ASK]`/`[PROPOSAL]`/`[REQUEST]` — the mention is what notifies the sender | #1956 |
 | DM `roosync_messages` | decisions/urgency, point-to-point | DMs defer to the single rendez-vous point |
 | Cross-workspace escalation | one post at the **superior** level (dashboard `global`, `machine` if seat-specific) + `crossPost`, naming who carries what and where the follow-up lives | arbitration 2026-09-06 |
-| Dispatcher escalation | after `MaxConsecutiveBlocked` (default 2) blocked runs → `claude-worker-haiku` (low) / `claude-worker-sonnet` (balanced); rate-limited (`MinEscalationIntervalMinutes` 180, `MaxEscalationsPerDay` 3) | `start-copilot-dispatcher.ps1` |
+| Dispatcher escalation | after `MaxConsecutiveBlocked` (default 2) blocked runs → `claude-worker-haiku` (low) / `claude-worker-sonnet` (balanced); rate-limited (`MinEscalationIntervalMinutes` 180, `MaxEscalationsPerDay` 3) | `scripts/scheduling/start-copilot-dispatcher.ps1` |
 
 The handoff **payload** is a convention (tagged markdown + mentions), not a JSON schema — see §8.
 
@@ -129,5 +129,5 @@ repo. Budget state lives beside the dispatcher state, not in git.
   checklist, §10 rollback plan — operative, not duplicated here)
 - Claim locus: [`docs/harness/adr/017-issue-claim-locus.md`](../harness/adr/017-issue-claim-locus.md)
 - Claim discipline (identity, two repos, pre-delivery): [`.claude/rules/agent-claim-discipline.md`](../../.claude/rules/agent-claim-discipline.md)
-- Identity gate & HTTP transport: PR jsboige/jsboige-mcp-servers#1578 (merged `eb216a1f`)
+- Identity gate & HTTP transport: PR jsboige/jsboige-mcp-servers#1578 (merged `ee5d7a8c`; `eb216a1f` is its head, not the merge commit)
 - Pilot evidence: #622 comments 2026-11-02 (AC0 tir 01:16Z, budget measurement 14:26Z)
