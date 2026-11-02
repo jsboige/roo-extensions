@@ -26,19 +26,32 @@ def _iso(dt):
     return dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
 
-def _stalled_session(root, session="dead001", age_hours=3.0):
+def _stalled_session(root, session="dead001", age_hours=3.0, cwd=None):
     """One session whose transcript ends on an unanswered shell tool_use."""
     ts = datetime.now(timezone.utc) - timedelta(hours=age_hours)
     record = {"type": "assistant", "uuid": "a1", "timestamp": _iso(ts),
               "message": {"role": "assistant", "content": [
                   {"type": "tool_use", "id": "t1", "name": "Bash",
                    "input": {"command": "git status --short"}}]}}
+    if cwd:
+        record["cwd"] = cwd
     project = os.path.join(root, "proj-a")
     os.makedirs(project, exist_ok=True)
     path = os.path.join(project, session + ".jsonl")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(json.dumps(record) + "\n")
     return ts
+
+
+def _load_module():
+    """Import the detector by path -- same contract the wrapper pins for
+    scan-approval-waits helpers; safe here: everything lives under functions
+    and the CLI is guarded by __main__."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("detect_approval_stalls", _SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def _run(root, state_dir, live_processes):
@@ -162,6 +175,116 @@ class DetectApprovalStallsSelftest(unittest.TestCase):
             self.assertEqual(payload["totals"]["waiting"], 1, payload)
             self.assertEqual(payload["totals"]["abandoned_process"], 0, payload)
             self.assertIn("STALL_DETECTOR_LIVE_PROCESSES", proc.stderr)
+
+
+class StallNoteIdAndRouting(unittest.TestCase):
+    """#4243 volet 3 fix: daily id bucket + routing to the stalled session's
+    workspace. Measured regression this pins: the 15-min bucket re-posted the
+    same note on every tick (po-2024: CoursIA stalls re-noted hourly to the
+    roo-extensions dashboard all day)."""
+
+    def setUp(self):
+        self.mod = _load_module()
+
+    def test_note_id_stable_within_a_day(self):
+        stalls = [{"session": "s1", "since": "2026-11-02T10:00:00.000Z"}]
+        t0 = 1_800_000_000  # fixed epoch: 2027-01-15, well inside no DST on UTC
+        self.assertEqual(self.mod.build_note_id(stalls, now=t0),
+                         self.mod.build_note_id(stalls, now=t0 + 3600),
+                         "same set, same day: one id (server-side dedup per tick)")
+
+    def test_note_id_rolls_over_next_day(self):
+        stalls = [{"session": "s1", "since": "2026-11-02T10:00:00.000Z"}]
+        t0 = 1_800_000_000
+        self.assertNotEqual(self.mod.build_note_id(stalls, now=t0),
+                            self.mod.build_note_id(stalls, now=t0 + 90_000),
+                            "next day: a new id -- the at-most-24h reminder")
+
+    def test_note_id_tracks_the_stall_set(self):
+        t0 = 1_800_000_000
+        one = [{"session": "s1", "since": "2026-11-02T10:00:00.000Z"}]
+        two = one + [{"session": "s2", "since": "2026-11-02T11:00:00.000Z"}]
+        self.assertNotEqual(self.mod.build_note_id(one, now=t0),
+                            self.mod.build_note_id(two, now=t0),
+                            "a new stall must earn a fresh note immediately")
+
+    def test_note_routes_to_each_session_workspace(self):
+        mod = self.mod
+        calls = []
+        stalls = [
+            {"state": "waiting-suspected", "session": "a", "workspace": "CoursIA"},
+            {"state": "waiting-suspected", "session": "b", "workspace": None},
+            {"state": "waiting-suspected", "session": "c", "workspace": "roo-extensions"},
+        ]
+        real_publish = mod.publish_dashboard_note
+
+        def fake_publish(group, target, *_a, **_k):
+            calls.append((target, sorted(s["session"] for s in group)))
+            return True
+        mod.publish_dashboard_note = fake_publish
+        try:
+            self.assertTrue(mod.maybe_publish_dashboard_note(
+                {"waiting": 3}, stalls, "roo-extensions", "http://x", "tok"))
+        finally:
+            mod.publish_dashboard_note = real_publish
+        # No-cwd stall falls back to the detector's workspace; one append per
+        # target dashboard, in a deterministic (sorted) order.
+        self.assertEqual(calls, [("CoursIA", ["a"]),
+                                 ("roo-extensions", ["b", "c"])])
+
+    def test_note_routing_failure_of_all_targets_is_false(self):
+        mod = self.mod
+        stalls = [{"state": "waiting-suspected", "session": "a", "workspace": "CoursIA"}]
+        real_publish = mod.publish_dashboard_note
+        mod.publish_dashboard_note = lambda *_a, **_k: False
+        try:
+            self.assertFalse(mod.maybe_publish_dashboard_note(
+                {"waiting": 1}, stalls, "roo-extensions", "http://x", "tok"))
+        finally:
+            mod.publish_dashboard_note = real_publish
+
+    def test_cli_reports_stall_workspace_from_transcript_cwd(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            ts = _stalled_session(root, session="wscase",
+                                  cwd="D:\\Dev\\CoursIA")
+            table = "11@" + f"{ts.timestamp() - 7200:.0f}"
+            proc = _run(root, state, table)
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["totals"]["waiting"], 1)
+            stall = payload["stalls"][0]
+            self.assertEqual(stall["workspace"], "CoursIA",
+                             "the stall must carry its session's workspace, "
+                             "parsed from the transcript cwd")
+
+    def test_cli_reports_stall_workspace_from_posix_cwd(self):
+        # #4243 review: the workspace split must be host-independent. A POSIX
+        # cwd must yield its final segment wherever the detector runs, so the
+        # Windows-path case above (red under os.path.basename on the ubuntu
+        # CI) never stands alone as the only guard.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            ts = _stalled_session(root, session="posixcase",
+                                  cwd="/opt/data/workspace/CoursIA")
+            table = "11@" + f"{ts.timestamp() - 7200:.0f}"
+            proc = _run(root, state, table)
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            stall = json.loads(proc.stdout)["stalls"][0]
+            self.assertEqual(stall["workspace"], "CoursIA")
+
+    def test_cli_stall_without_cwd_keeps_null_workspace(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            ts = _stalled_session(root, session="nocwd")
+            table = "11@" + f"{ts.timestamp() - 7200:.0f}"
+            proc = _run(root, state, table)
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            stall = json.loads(proc.stdout)["stalls"][0]
+            self.assertIsNone(stall["workspace"])
 
 
 if __name__ == "__main__":
