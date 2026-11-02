@@ -5,7 +5,8 @@
  * Reads:  roo-config/modes/modes-config.json (data)
  *         roo-config/modes/templates/commons/mode-instructions.md (template)
  *         roo-config/model-configs.json (optional, for --profile)
- * Writes: roo-config/modes/generated/simple-complex.roomodes
+ * Writes: roo-config/modes/generated/simple-complex.roomodes (json)
+ *         roo-config/modes/generated/simple-complex.yaml (yaml, #4334)
  *
  * The level ladder is declared in modes-config.json levels[] (#4115): the generator
  * iterates that ordered declaration — one mode per family x level. Each level entry
@@ -14,7 +15,8 @@
  * instruction escalates beyond the ladder, e.g. Claude CLI).
  *
  * Options:
- *   --output <path>      Output file path (default: simple-complex.roomodes)
+ *   --output <path>      Output file path (default: simple-complex.roomodes, or
+ *                        simple-complex.yaml when --format yaml is given, #4334)
  *   --config <path>      modes-config.json path (default: roo-config/modes/modes-config.json;
  *                        used for N-level dry-runs that must not touch the repo config)
  *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode;
@@ -31,6 +33,7 @@
  *   --dry-run            Report what WOULD be written and write NOTHING at all:
  *                        no output file, no .roomodes copy, no global copy, and
  *                        no directory creation (#4334).
+ *   --help, -h           Print this usage and exit without writing anything (#4334)
  */
 const fs = require('fs');
 const path = require('path');
@@ -38,7 +41,15 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const CONFIG_PATH = path.join(ROOT, 'roo-config', 'modes', 'modes-config.json');
 const TEMPLATE_PATH = path.join(ROOT, 'roo-config', 'modes', 'templates', 'commons', 'mode-instructions.md');
-const DEFAULT_OUTPUT = path.join(ROOT, 'roo-config', 'modes', 'generated', 'simple-complex.roomodes');
+// #4334: the default output is DERIVED from --format (resolved in parseArgs).
+// A bare `--format yaml` used to write YAML into the TRACKED JSON artefact
+// below -- the relay deploy recipe (--deploy-global --format yaml) then left
+// every checkout dirty and the mode-role-definition-prefix guard 6/6 red with
+// a FALSE negative ("Primitive JSON non valide : customModes", measured
+// po-2025 02/11). The YAML default is the tracked YAML artefact, the same file
+// Deploy-Modes.ps1 regenerates on a real global deploy.
+const DEFAULT_OUTPUT_JSON = path.join(ROOT, 'roo-config', 'modes', 'generated', 'simple-complex.roomodes');
+const DEFAULT_OUTPUT_YAML = path.join(ROOT, 'roo-config', 'modes', 'generated', 'simple-complex.yaml');
 const DEFAULT_MODEL_CONFIGS = path.join(ROOT, 'roo-config', 'model-configs.json');
 
 // --- Template Engine ---
@@ -154,9 +165,27 @@ function jsonToYaml(obj) {
 
 // --- CLI Argument Parsing ---
 
+function printUsage() {
+  console.log('Usage: node generate-modes.js [options]');
+  console.log('');
+  console.log('Options:');
+  console.log('  --output <path>      Output file path (default: simple-complex.roomodes, or');
+  console.log('                       simple-complex.yaml when --format yaml)');
+  console.log('  --config <path>      modes-config.json path (default: roo-config/modes/modes-config.json)');
+  console.log('  --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode)');
+  console.log('  --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)');
+  console.log('  --deploy             Also copy to .roomodes at project root');
+  console.log('  --deploy-global      Also copy to the Roo/Zoo global custom_modes.yaml');
+  console.log('  --global-path <path> Explicit target file for --deploy-global');
+  console.log('  --target-extension <auto|roo|zoo> Extension whose globalStorage receives --deploy-global');
+  console.log('  --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.');
+  console.log('  --dry-run            Report what WOULD be written and write NOTHING at all');
+  console.log('  --help, -h           Print this usage and exit');
+}
+
 function parseArgs() {
   var args = {
-    output: DEFAULT_OUTPUT,
+    output: null, // explicit --output wins; resolved from --format after the loop (#4334)
     config: CONFIG_PATH,
     profile: null,
     modelConfigs: DEFAULT_MODEL_CONFIGS,
@@ -168,7 +197,22 @@ function parseArgs() {
     dryRun: false
   };
 
+  // #4334: flags that consume a value. A value flag left as the LAST argument
+  // used to fall through its `i + 1 < argv.length` condition and be silently
+  // ignored -- same silent-fall-through class as unknown flags (web1 c.741
+  // measured that a typo'd flag still ran a full generation).
+  var VALUE_FLAGS = ['--output', '--config', '--profile', '--model-configs', '--global-path', '--target-extension', '--format'];
+
   for (var i = 2; i < process.argv.length; i++) {
+    if (process.argv[i] === '--help' || process.argv[i] === '-h') {
+      printUsage();
+      process.exit(0);
+    }
+    if (VALUE_FLAGS.indexOf(process.argv[i]) !== -1 && i + 1 >= process.argv.length) {
+      console.error('ERROR: ' + process.argv[i] + ' expects a value.');
+      printUsage();
+      process.exit(2);
+    }
     if (process.argv[i] === '--output' && i + 1 < process.argv.length) {
       args.output = process.argv[++i];
     } else if (process.argv[i] === '--config' && i + 1 < process.argv.length) {
@@ -193,6 +237,14 @@ function parseArgs() {
       }
     } else if (process.argv[i] === '--dry-run') {
       args.dryRun = true;
+    } else {
+      // #4334 (amend1, dispatch ai01-queue-20261102c item 2): an unknown flag
+      // used to fall through SILENTLY and the generation still ran (measured
+      // web1 c.741: a typo'd flag deployed for real). Refuse instead: message,
+      // usage, exit 2, nothing written.
+      console.error('ERROR: unknown flag: ' + process.argv[i]);
+      printUsage();
+      process.exit(2);
     }
   }
 
@@ -201,6 +253,14 @@ function parseArgs() {
   if (args.deployGlobal && args.format !== 'yaml') {
     console.error('ERROR: --deploy-global requires --format yaml (Roo 3.51.1+ global custom_modes.yaml is YAML).');
     process.exit(1);
+  }
+
+  // #4334: resolve the default output FROM the format, after the loop -- flag
+  // order cannot matter (the format is already validated in-loop, so it is
+  // final here). This is the fix for `--deploy-global --format yaml` (relay
+  // recipe) writing YAML into the tracked JSON artefact.
+  if (args.output === null) {
+    args.output = (args.format === 'yaml') ? DEFAULT_OUTPUT_YAML : DEFAULT_OUTPUT_JSON;
   }
 
   // #595 phase 3: validated after the loop too, so flag order does not matter.

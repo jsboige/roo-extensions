@@ -637,10 +637,12 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
         # --global-path short-circuits the extension resolution, so no extension
         # fixture is needed and no host globalStorage is ever probed.
         #
-        # UNRESOLVED LIMITATION (NanoClaw review on #4432, NAMED, NOT FIXED HERE):
-        # an unknown flag is still silently ignored by parseArgs. --dry-run is now
-        # parsed, but the wider class "any unrecognised flag is dropped without
-        # error" stays open -- coordinator decision, deliberately not expanded here.
+        # RESOLVED (#4334 fix, dispatch ai01-queue-20261102c item 2 + amend1 --
+        # the coordinator decision the NanoClaw review on #4432 was waiting for):
+        # an unknown flag now exits 2 with the usage and writes NOTHING, --help
+        # prints the usage and exits, and the yaml default output no longer
+        # targets the tracked JSON artefact. Behavioural proof: the Context
+        # right after this one.
 
         BeforeEach {
             # Fresh disposable targets per test. The parents are deliberately ABSENT,
@@ -737,6 +739,123 @@ Describe 'Deploy-Modes modes-MCP non-regression' {
             (Test-Path -LiteralPath $witnessOut) | Should -BeTrue -Because 'the unguarded write did not happen -- the behavioural layer would be blind to it'
             # And the log still claims nothing was written: that is the original defect.
             $r.Output | Should -Match 'DRY RUN -- nothing was written'
+        }
+    }
+
+    Context 'generate-modes.js default output + unknown-flag guards (#4334 fix)' {
+
+        # Dispatch ai01-queue-20261102c item 2: `--format yaml` without --output
+        # used to write YAML into the TRACKED JSON artefact
+        # (roo-config/modes/generated/simple-complex.roomodes) -- the relay
+        # deploy recipe (--deploy-global --format yaml) left every checkout
+        # dirty and the mode-role-definition-prefix guard 6/6 red with a FALSE
+        # negative ("Primitive JSON non valide : customModes", measured po-2025
+        # 02/11). The default output is now derived from the format. Amend1:
+        # unknown flags exit 2 without writing; --help prints the usage.
+        # Static pinning lives in generate-modes-deploy-global.Tests.ps1; the
+        # five tests below assert the FILESYSTEM through the real node CLI.
+
+        BeforeEach {
+            # The derived-default yaml target must not exist before each test --
+            # earlier tests in this suite may have regenerated it.
+            $script:TrackedYaml = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'modes' (Join-Path 'generated' 'simple-complex.yaml')))
+            if (Test-Path -LiteralPath $script:TrackedYaml) { Remove-Item -LiteralPath $script:TrackedYaml -Force }
+        }
+
+        It 'format yaml without --output leaves the tracked JSON artefact intact' {
+            $roomodes = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'modes' (Join-Path 'generated' 'simple-complex.roomodes')))
+            $before = (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash
+
+            $r = Invoke-GenerateModes @('--format', 'yaml')
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash | Should -Be $before -Because 'the default yaml output overwrote the tracked JSON artefact (the #4334 trap)'
+            (Test-Path -LiteralPath $script:TrackedYaml) | Should -BeTrue -Because 'the derived yaml default did not materialise'
+            ([regex]::Matches((Get-Content -LiteralPath $script:TrackedYaml -Raw), '(?m)^\s*- slug:')).Count | Should -Be $script:ExpectedModeCount
+        }
+
+        It 'unknown flag exits 2 and writes nothing anywhere in the sandbox' {
+            $before = Get-FullTreeSnapshot -Root $script:Sandbox
+
+            $r = Invoke-GenerateModes @('--definitely-not-a-flag')
+
+            $r.ExitCode | Should -Be 2 -Because "generate-modes output was: $($r.Output)"
+            $r.Output | Should -Match 'unknown flag'
+            $after = Get-FullTreeSnapshot -Root $script:Sandbox
+            @($after.Files.Keys | Sort-Object) | Should -Be @($before.Files.Keys | Sort-Object) -Because 'the rejected invocation wrote a file'
+            @($after.Dirs | Sort-Object) | Should -Be @($before.Dirs | Sort-Object) -Because 'the rejected invocation created a directory'
+            foreach ($path in $before.Files.Keys) {
+                $after.Files[$path] | Should -Be $before.Files[$path] -Because "the rejected invocation modified: $path"
+            }
+        }
+
+        It 'help prints the usage and writes nothing' {
+            $before = Get-FullTreeSnapshot -Root $script:Sandbox
+
+            $r = Invoke-GenerateModes @('--help')
+
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            $r.Output | Should -Match 'Usage: node generate-modes\.js'
+            $r.Output | Should -Match '--deploy-global'
+            $after = Get-FullTreeSnapshot -Root $script:Sandbox
+            @($after.Files.Keys | Sort-Object) | Should -Be @($before.Files.Keys | Sort-Object) -Because '--help wrote a file'
+            @($after.Dirs | Sort-Object) | Should -Be @($before.Dirs | Sort-Object) -Because '--help created a directory'
+        }
+
+        It 'mutation witness: reverting the derived default IS detected' {
+            # Test-du-test (dispatch): mutate the sandbox copy so the yaml
+            # default resolves back to the JSON artefact (the OLD defect), run
+            # the same invocation as the first test -- the .roomodes hash MUST
+            # change, proving the behavioural layer fails on this regression.
+            # HERMETICITY: the mutant DOES write YAML into the sandbox .roomodes
+            # (that is the point) -- restore BOTH the script and the artefact in
+            # finally, or the global-deploy DryRun tests below parse the YAML
+            # and die on the very defect this suite pins (measured po-2025).
+            $scriptPath = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'scripts' 'generate-modes.js'))
+            $originalBytes = [System.IO.File]::ReadAllBytes($scriptPath)
+            $original = [System.Text.Encoding]::UTF8.GetString($originalBytes)
+            $mutated = $original -replace [regex]::Escape("args.output = (args.format === 'yaml') ? DEFAULT_OUTPUT_YAML : DEFAULT_OUTPUT_JSON;"), 'args.output = DEFAULT_OUTPUT_JSON;'
+            $mutated | Should -Not -Be $original -Because 'the mutation did not apply -- the witness would pass without detecting anything'
+            $roomodes = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'modes' (Join-Path 'generated' 'simple-complex.roomodes')))
+            $roomodesBytes = [System.IO.File]::ReadAllBytes($roomodes)
+            $before = (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash
+            try {
+                [System.IO.File]::WriteAllText($scriptPath, $mutated, (New-Object System.Text.UTF8Encoding($false)))
+                $r = Invoke-GenerateModes @('--format', 'yaml')
+                # Read the damage BEFORE the finally restores the artefact --
+                # the restore must not erase what the witness exists to observe
+                # (unlike the dry-run witness above, the signal here is a HASH,
+                # and a restored hash is indistinguishable from no damage).
+                $mutantHash = (Get-FileHash -LiteralPath $roomodes -Algorithm SHA256).Hash
+            } finally {
+                # Byte-exact restore of BOTH the script and the artefact: the
+                # next test must see a pristine sandbox.
+                [System.IO.File]::WriteAllBytes($scriptPath, $originalBytes)
+                [System.IO.File]::WriteAllBytes($roomodes, $roomodesBytes)
+            }
+            $r.ExitCode | Should -Be 0 -Because "generate-modes output was: $($r.Output)"
+            $mutantHash | Should -Not -Be $before -Because 'the mutant wrote YAML into the JSON artefact and the behavioural layer did not see it'
+        }
+
+        It 'mutation witness: removing the unknown-flag refusal IS detected' {
+            # Test-du-test (dispatch amend1): neutralise the exit-2 refusal (the
+            # mutant exits 0, the old silent behaviour) -- the unknown-flag test
+            # above must be able to FAIL on it.
+            $scriptPath = Join-Path $script:Sandbox (Join-Path 'roo-config' (Join-Path 'scripts' 'generate-modes.js'))
+            $originalBytes = [System.IO.File]::ReadAllBytes($scriptPath)
+            $original = [System.Text.Encoding]::UTF8.GetString($originalBytes)
+            $mutated = $original -replace "unknown flag: ' \+ process\.argv\[i\]\);\s*printUsage\(\);\s*process\.exit\(2\)", "unknown flag: ' + process.argv[i]);`n      printUsage();`n      process.exit(0)"
+            $mutated | Should -Not -Be $original -Because 'the mutation did not apply -- the witness would pass without detecting anything'
+            try {
+                [System.IO.File]::WriteAllText($scriptPath, $mutated, (New-Object System.Text.UTF8Encoding($false)))
+                $r = Invoke-GenerateModes @('--definitely-not-a-flag')
+            } finally {
+                [System.IO.File]::WriteAllBytes($scriptPath, $originalBytes)
+            }
+            # The MUTANT runs the refusal branch with exit 0: the guard test's
+            # ExitCode assertion (2) would fail on this mutant. Witness passes.
+            $r.ExitCode | Should -Be 0 -Because 'the neutralised guard did not exit 0 -- the witness premise is wrong'
+            $r.Output | Should -Match 'unknown flag'
         }
     }
 
