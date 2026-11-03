@@ -259,6 +259,27 @@ class StallNoteIdAndRouting(unittest.TestCase):
                              "the stall must carry its session's workspace, "
                              "parsed from the transcript cwd")
 
+    def test_workspace_from_cwd_uses_the_main_checkout_for_worktrees(self):
+        # #4243 volet 3: PR work happens in worktrees (that is the doctrine),
+        # so the common cwd carries a .claude/worktrees/<name> tail. Verbatim
+        # last-segment would route the note to a dashboard nobody reads.
+        mod = self.mod
+        self.assertEqual(
+            mod._workspace_from_cwd(r"D:\dev\roo-extensions\.claude\worktrees\wt-4243-note"),
+            "roo-extensions")
+        self.assertEqual(
+            mod._workspace_from_cwd("/home/jesse/ws/.claude/worktrees/fix-x"),
+            "ws")
+        self.assertEqual(
+            mod._workspace_from_cwd(r"D:\dev\roo-extensions\.claude\worktrees\wt-x\scripts"),
+            "roo-extensions")
+        # Non-worktree paths keep their final segment, both separators.
+        self.assertEqual(mod._workspace_from_cwd(r"D:\Dev\CoursIA"), "CoursIA")
+        self.assertEqual(mod._workspace_from_cwd("/opt/data/workspace/CoursIA"), "CoursIA")
+        self.assertEqual(mod._workspace_from_cwd("D:\\"), "D:")
+        self.assertIsNone(mod._workspace_from_cwd(None))
+        self.assertIsNone(mod._workspace_from_cwd(""))
+
     def test_cli_reports_stall_workspace_from_posix_cwd(self):
         # #4243 review: the workspace split must be host-independent. A POSIX
         # cwd must yield its final segment wherever the detector runs, so the

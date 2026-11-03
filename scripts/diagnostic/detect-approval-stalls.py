@@ -460,9 +460,7 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
         # its final path segment is the dashboard name (same convention as RSM
         # workspace auto-detection). None when the transcript never carried a
         # cwd -- the note then falls back to the detector's own workspace.
-        # Host-independent split: os.path.basename treats a Windows cwd as one
-        # segment under POSIX, which broke the ubuntu CI (#4243 review).
-        workspace = (last_cwd.replace("\\", "/").rstrip("/").split("/")[-1]) if last_cwd else None
+        workspace = _workspace_from_cwd(last_cwd)
         for record in dangling:
             started = parse_ts(record["ts"])
             if started is None:
@@ -565,6 +563,35 @@ NOTE_STALL_LINES = 5
 
 def _host():
     return os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME") or "unknown-host"
+
+
+WORKTREE_MARKER = "/.claude/worktrees/"
+
+
+def _workspace_from_cwd(cwd):
+    """Dashboard workspace carried by a session cwd (#4243 volet 3).
+
+    Two normalizations, both learned the hard way:
+
+    - **Worktrees are not workspaces** (#4122): a session working in
+      ``<repo>/.claude/worktrees/<name>`` belongs to ``<repo>``'s workspace.
+      Taking the final segment verbatim would route the note to a dashboard
+      named after the worktree, which nobody reads -- and PR work happens in
+      worktrees, so that is the common case, not the corner case.
+    - **Host-independent split**: ``os.path.basename`` treats a Windows cwd as
+      a single segment under POSIX, which broke the ubuntu CI (#4501 review).
+
+    ``None`` when the transcript never carried a cwd -- the note then falls
+    back to the detector's own workspace.
+    """
+    if not cwd:
+        return None
+    norm = cwd.replace("\\", "/").rstrip("/")
+    idx = norm.find(WORKTREE_MARKER)
+    if idx != -1:
+        norm = norm[:idx]
+    tail = norm.split("/")[-1]
+    return tail or None
 
 
 def build_note_id(stalls, now=None):
