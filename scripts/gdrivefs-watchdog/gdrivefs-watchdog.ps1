@@ -97,6 +97,26 @@
     this run as eligible for the early-exit guard when the fast-poll window has
     expired (disarms the companion task, exits before any probe).
 
+.PARAMETER ConfirmKillProbeSeconds
+    #4508 — seconds allowed to the SECOND, longer mount probe that must confirm
+    a C1 failure before a LIVE instance is killed. A single 5 s stat timeout
+    under the nightly maintenance load means busy, not wedged (03/11: the kill
+    turned a slow minute into a 20-minute outage). A confirm probe that
+    recovers logs 'busy-recovered' and kills nothing. Default 30.
+    KILL-SWITCH: 0 restores the pre-#4508 single-probe kill.
+
+.PARAMETER SkipWriteVerify
+    #4508 — KILL-SWITCH restoring the pre-#4508 event semantics: 'repaired'
+    (event 1000) is emitted the moment Start-Process returns, without the deep
+    sentinel write. Default OFF: repaired requires a verified write (event 1000),
+    and the intermediate states carry distinct events (1001 relaunch-issued,
+    1002 write-pending).
+
+.PARAMETER WriteProbeDir
+    #4508 — deep folder on the mount where the sentinel write/read/delete runs.
+    Default: <ROOSYNC_SHARED_PATH>\gdrivefs-watchdog (fleet canonical env),
+    falling back to <MountPath>\gdrivefs-watchdog-writeprobe.
+
 .EXAMPLE
     .\gdrivefs-watchdog.ps1
     .\gdrivefs-watchdog.ps1 -Mode dry-run
@@ -123,18 +143,30 @@ param(
     [ValidateRange(1, 120)]
     [int]$FastPollWindowMinutes = 10,
     [string]$FastPollTaskName = 'GDriveFS-Watchdog-FastPoll',
-    [switch]$FastPoll
+    [switch]$FastPoll,
+    [ValidateRange(0, 300)]
+    [int]$ConfirmKillProbeSeconds = 30,
+    [switch]$SkipWriteVerify,
+    [string]$WriteProbeDir = ''
 )
 
 $ErrorActionPreference = 'Continue'
 $script:repairs = @()
 $script:alerts  = @()
+# #4508 states: relaunch-issued (process restart requested, write verdict
+# pending) and write-pending (mount serves stat/enum but refused the deep
+# sentinel write) are distinct from repaired -- see the summary section.
+$script:relaunchIssued = $false
+$script:writePending   = $null
 
 # ---------- paths ----------
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 # Repo root = two levels above scripts/gdrivefs-watchdog/.
 $repoRoot  = Split-Path (Split-Path $scriptDir -Parent) -Parent
 if (-not $LogDir) { $LogDir = Join-Path $repoRoot 'outputs\gdrivefs-watchdog' }
+
+# ---------- #4508 lib: kill confirmation + write-verified repair ----------
+. (Join-Path $scriptDir 'gdrivefs-watchdog.lib.ps1')
 
 if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
@@ -167,6 +199,22 @@ if ($MountPath.Contains('"')) {
     if ([string]::IsNullOrWhiteSpace($MountPath)) { $MountPath = 'G:\' }
     elseif ($MountPath -match '^[A-Za-z]:$') { $MountPath += '\' }
     Write-Log 'WARN' "MountPath argv-corrupted (embedded quote) — sanitized '$rawMountArg' -> '$MountPath'. The task action should double its trailing backslash (installer >= #3690 does)."
+}
+
+# ---------- write-probe folder (#4508) ----------
+# Deep BY CONSTRUCTION: the sentinel must exercise the write path that stays
+# refused 15-20 min after a relaunch while the mount root already serves
+# stat/enum (measured 03/11: C1 green at 03:18:28, deep write refused at
+# 03:23:05). The RooSync shared-state tree is several levels below the mount
+# root -- exactly that depth. ROOSYNC_SHARED_PATH is the fleet canonical env
+# (RSM config + scripts/common); without it, a probe dir directly under the
+# mount is the fallback (shallow, but still a real write).
+if (-not $WriteProbeDir) {
+    if ($env:ROOSYNC_SHARED_PATH) {
+        $WriteProbeDir = Join-Path $env:ROOSYNC_SHARED_PATH 'gdrivefs-watchdog'
+    } else {
+        $WriteProbeDir = Join-Path $MountPath 'gdrivefs-watchdog-writeprobe'
+    }
 }
 
 # ---------- event log ----------
@@ -270,6 +318,7 @@ function Read-WatchdogState {
             last_github_alert_at          = $null
             consecutive_cooldown_skips    = 0
             fast_poll_until               = $null
+            write_verified_at             = $null
         }
     }
     try {
@@ -283,6 +332,7 @@ function Read-WatchdogState {
             last_github_alert_at          = $obj.last_github_alert_at
             consecutive_cooldown_skips    = [int]$obj.consecutive_cooldown_skips
             fast_poll_until               = $obj.fast_poll_until
+            write_verified_at             = $obj.write_verified_at
         }
     } catch {
         Write-Log 'WARN' "Could not parse state file ($stateFile) — starting fresh. ($($_.Exception.Message))"
@@ -294,6 +344,7 @@ function Read-WatchdogState {
             last_github_alert_at          = $null
             consecutive_cooldown_skips    = 0
             fast_poll_until               = $null
+            write_verified_at             = $null
         }
     }
 }
@@ -552,7 +603,16 @@ function Invoke-RelaunchGDriveFS {
     Write-Log 'WARN' "Relaunching GoogleDriveFS.exe (user context, --startup_mode)"
     try {
         Start-Process -FilePath $BinaryPath -ArgumentList '--startup_mode' -ErrorAction Stop
-        $script:repairs += 'gdrivefs-relaunch'
+        # #4508: Start-Process returning proves NOTHING about the disk. The
+        # 03/11 log shows 'repaired' at 03:04:38 while the very next line said
+        # the G: drive did not exist yet. Default: relaunch-issued only; the
+        # repaired verdict arrives with the write probe (this run if the mount
+        # is already live, otherwise the first healthy poll after). The
+        # -SkipWriteVerify kill-switch restores the pre-#4508 semantics.
+        $script:relaunchIssued = $true
+        if ($SkipWriteVerify) {
+            $script:repairs += 'gdrivefs-relaunch'
+        }
         # Mount init takes far longer than a bounded probe on slow hosts (measured
         # ~11-20 min on ai-01, 2026-09-05, #3466). We do NOT wait for it here: the
         # caller defers the verdict to the startup-grace window (StartupGraceSeconds),
@@ -611,9 +671,26 @@ if (-not $binary -or -not (Test-Path $binary)) {
         # C1: positive mount liveness probe (only if process is alive)
         $mountProbe = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
         if (-not $mountProbe.Live) {
-            $needsRelaunch = $true
-            $reason        = "hung: $($mountProbe.Reason)"
-            Write-Log 'FAIL' "GoogleDriveFS.exe alive but mount '$MountPath' is unresponsive ($($mountProbe.Reason)) — triggering relaunch"
+            # #4508: a LIVE instance is never killed on a single failed probe.
+            # Under the nightly maintenance load (Defender, Chkdsk
+            # ProactiveScan, StorageSense, NGEN — 02:55-02:58 on 03/11) a 5 s
+            # stat timeout means BUSY, not wedged: the kill that followed at
+            # 03:04:33 turned a slow minute into a 20-minute outage. A second,
+            # LONGER probe in the same poll must confirm before any kill
+            # decision; a probe that recovers is logged and left alone.
+            # ConfirmKillProbeSeconds 0 = kill-switch restoring the pre-#4508
+            # single-probe kill (the lib short-circuits before the probe).
+            $confirm = Confirm-C1Failure -InitialReason $mountProbe.Reason -ConfirmSeconds $ConfirmKillProbeSeconds -RunProbe {
+                param($Seconds)
+                Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $Seconds
+            }
+            if (-not $confirm.Confirmed) {
+                Write-Log 'OK' "C1 failed once ($($mountProbe.Reason)) but the confirm probe recovered ($($confirm.Reason)) — mount busy, not wedged. No kill, no relaunch."
+            } else {
+                $needsRelaunch = $true
+                $reason        = "hung-confirmed: $($confirm.Reason)"
+                Write-Log 'FAIL' "GoogleDriveFS.exe alive but mount '$MountPath' unresponsive, CONFIRMED by a second probe ($($confirm.Reason)) — triggering relaunch"
+            }
         } else {
             Write-Log 'OK' "GoogleDriveFS.exe healthy (C1 verdict: $($mountProbe.Reason), mount=$MountPath)"
         }
@@ -701,6 +778,9 @@ if (-not $binary -or -not (Test-Path $binary)) {
                 }
 
                 $state.last_relaunch_attempt = (Get-Date).ToString('o')
+                # #4508: a new relaunch invalidates any prior write verdict --
+                # the first healthy poll after it must re-run the sentinel.
+                $state.write_verified_at     = $null
                 if ($Mode -ne 'dry-run') { Save-WatchdogState -State $state }
 
                 Invoke-RelaunchGDriveFS -BinaryPath $binary
@@ -715,6 +795,27 @@ if (-not $binary -or -not (Test-Path $binary)) {
                 }
                 if ($after.Alive -and $afterProbe.Live) {
                     Write-Log 'OK' "GoogleDriveFS.exe recovered after relaunch (pids=$($after.Pids), C1=$($afterProbe.Reason))"
+                    # #4508: process back + C1 live is NOT "disk usable" — the
+                    # 03/11 relaunch had stat+enum green at 03:18:28 while deep
+                    # writes stayed refused until at least 03:23:05. The
+                    # repaired verdict requires the sentinel write; otherwise
+                    # this poll carries write-pending and the next healthy poll
+                    # re-verifies (see the healthy branch).
+                    if (-not $SkipWriteVerify) {
+                        $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir
+                        $verdict = Get-RepairEventVerdict -ProcessAlive $after.Alive -C1Live $afterProbe.Live -WriteResult $wp
+                        if ($verdict -eq 'repaired') {
+                            Write-Log 'OK' "Deep write verified (sentinel under $WriteProbeDir) — repaired is earned."
+                            $script:repairs += 'gdrivefs-relaunch (write-verified)'
+                            if ($Mode -ne 'dry-run') {
+                                $state.write_verified_at = (Get-Date).ToString('o')
+                                Save-WatchdogState -State $state
+                            }
+                        } else {
+                            Write-Log 'WARN' "Mount serves stat/enum but the deep write was refused ($($wp.Detail)) — repaired withheld: write-pending."
+                            $script:writePending = $wp.Detail
+                        }
+                    }
                     # C2: success → reset failure counter
                     if ($Mode -ne 'dry-run') {
                         $state.consecutive_relaunch_failures = 0
@@ -736,6 +837,38 @@ if (-not $binary -or -not (Test-Path $binary)) {
             }
         }
     } else {
+        # #4508: a healthy poll with an UNVERIFIED write verdict from a prior
+        # relaunch re-runs the sentinel. This is the path that closes the
+        # 15-20 min post-relaunch window on the real fleet: the relaunch run
+        # emitted write-pending, and the first poll where the deep write
+        # succeeds finally emits repaired. write_verified_at >=
+        # last_relaunch_attempt marks the verdict as already earned (old state
+        # files lack the field: $null = never verified = verify now).
+        if (-not $SkipWriteVerify -and $state.last_relaunch_attempt) {
+            $writeVerified = $false
+            if ($state.write_verified_at) {
+                try {
+                    $vAt = [datetime]::Parse([string]$state.write_verified_at)
+                    $rAt = [datetime]::Parse([string]$state.last_relaunch_attempt)
+                    $writeVerified = ($vAt -ge $rAt)
+                } catch { $writeVerified = $false }
+            }
+            if (-not $writeVerified) {
+                $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir
+                $verdict = Get-RepairEventVerdict -ProcessAlive $true -C1Live $true -WriteResult $wp
+                if ($verdict -eq 'repaired') {
+                    Write-Log 'OK' "Deep write verified on follow-up poll (sentinel under $WriteProbeDir) — repaired is earned."
+                    $script:repairs += 'gdrivefs-relaunch (write-verified)'
+                    if ($Mode -ne 'dry-run') {
+                        $state.write_verified_at = (Get-Date).ToString('o')
+                        Save-WatchdogState -State $state
+                    }
+                } else {
+                    Write-Log 'WARN' "Relaunch outstanding: mount healthy but the deep write is still refused ($($wp.Detail)) — write-pending."
+                    $script:writePending = $wp.Detail
+                }
+            }
+        }
         # C2: alive + healthy → reset failure counter (catch-up recovery).
         # Also fires when only #3678 fields are set (skips pending / fast-poll
         # window still open), so a hand-repaired host closes its own window.
@@ -755,6 +888,21 @@ if (-not $binary -or -not (Test-Path $binary)) {
 }
 
 # ---------- summary + event log ----------
+# #4508: three DISTINCT states, three distinct events, so a consumer can tell
+# "process back" from "disk usable" from "process back, disk NOT usable":
+#   1001 relaunch-issued  — Start-Process returned; write verdict pending
+#   1002 write-pending    — mount serves stat/enum but refused the deep write
+#   1000 repaired         — deep sentinel write verified (or -SkipWriteVerify)
+if ($script:relaunchIssued) {
+    $msg = "GDriveFS watchdog: relaunch-issued — process restart requested, write verdict pending (write probe dir: $WriteProbeDir)"
+    Write-Log 'INFO' $msg
+    Write-WatchdogEvent -EventId 1001 -EntryType Information -Message $msg
+}
+if ($script:writePending) {
+    $msg = "GDriveFS watchdog: write-pending — mount serves stat/enum but a deep write was refused ($($script:writePending))"
+    Write-Log 'WARN' $msg
+    Write-WatchdogEvent -EventId 1002 -EntryType Warning -Message $msg
+}
 if ($script:repairs.Count -gt 0) {
     $summary = "GDriveFS watchdog repaired: $($script:repairs -join ', ')"
     Write-Log 'INFO' $summary

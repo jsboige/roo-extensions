@@ -97,7 +97,8 @@ State file `<LogDir>/watchdog-state.json` tracks:
   "cooldown_until": "2026-07-25T...",
   "last_github_alert_at": "2026-09-16T...",
   "consecutive_cooldown_skips": 0,
-  "fast_poll_until": "2026-09-16T..."
+  "fast_poll_until": "2026-09-16T...",
+  "write_verified_at": null
 }
 ```
 
@@ -199,6 +200,45 @@ invocation **disarms the task and exits before any probe**. Even if a disarm
 ever fails, the cost is one cheap no-op invocation per minute, not a full poll —
 nominal cost stays zero (this is proposal option (b): dynamic arm/disarm, not
 two permanent triggers).
+
+### Kill confirmation and write-verified repair (#4508)
+
+Two defects measured on ai-01 the night of 03/11 (watchdog log + NanoClaw
+report on `machine-myia-ai-01`):
+
+1. **A single failed probe killed a live instance.** At 03:04:30 one 5 s stat
+   timeout on a healthy DriveFS (pids 22556,23148) triggered the kill at
+   03:04:33 — during Windows automatic maintenance (Defender, Chkdsk
+   ProactiveScan, StorageSense, NGEN, 02:55-02:58). A busy mount is not a
+   wedged one: the kill turned a slow minute into a 20-minute outage.
+2. **`repaired` was emitted before the disk was usable.** Event 1000 fired at
+   03:04:38 while the log's next line said `G:` did not exist yet; C1 went
+   green at 03:18:28, and a **deep write was still refused at 03:23:05**.
+
+Behaviour now (default):
+
+- **No kill on one probe.** A C1 failure on a live instance is confirmed by a
+  second, longer probe (`ConfirmKillProbeSeconds`, default `30`). A probe that
+  recovers logs `busy-recovered` and kills nothing.
+- **`repaired` requires a write.** After a relaunch, the verdict comes from
+  `Invoke-MountWriteProbe`: a sentinel is written, read back and deleted in
+  `WriteProbeDir` (default `<ROOSYNC_SHARED_PATH>\gdrivefs-watchdog`, a deep
+  folder on the mount). Three distinct events:
+
+  | Event | Meaning |
+  |-------|---------|
+  | 1001 `relaunch-issued` | `Start-Process` returned — process restart requested, write verdict pending |
+  | 1002 `write-pending` | Process and C1 back, but the deep write was refused |
+  | 1000 `repaired` | Deep write verified (or `-SkipWriteVerify`) |
+
+  A relaunch whose first healthy poll still refuses the write re-verifies on
+  every following healthy poll (`write_verified_at` vs `last_relaunch_attempt`
+  in the state file) until the write succeeds.
+
+Kill-switches (restore the pre-#4508 behaviour): `-ConfirmKillProbeSeconds 0`
+(kill on the first failed probe) and `-SkipWriteVerify` (`repaired` at
+`Start-Process` time). The decisions live in `gdrivefs-watchdog.lib.ps1`
+(injectable probes, Pester-tested under `scripts/testing/unit/`).
 
 ### Status of the #2875 workaround — permanent (production control)
 
@@ -314,6 +354,9 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | `FastPollWindowMinutes` (body) | `10` | #3678 — minutes of 1-min fast polling after a C2 escalation. |
 | `FastPollTaskName` (body) | `GDriveFS-Watchdog-FastPoll` | #3678 — companion task name (must match the installer's). |
 | `FastPoll` (body) | — | #3678 — switch set by the companion task invocation; enables the early-exit guard outside the window. |
+| `ConfirmKillProbeSeconds` (body) | `30` | #4508 — seconds for the second, longer probe that must confirm a C1 failure before a LIVE instance is killed. `0` restores the single-probe kill (kill-switch). |
+| `SkipWriteVerify` (body) | — | #4508 — kill-switch restoring `repaired` at `Start-Process` time, without the deep sentinel write. |
+| `WriteProbeDir` (body) | `<ROOSYNC_SHARED_PATH>\gdrivefs-watchdog` | #4508 — deep folder on the mount for the write/read/delete sentinel. |
 | `RepeatMinutes` (installer) | `15` | Poll cadence. |
 | `StartupDelayMinutes` (installer) | `2` | Delay after boot (let GDrive settle). |
 | `FastPollRepeatMinutes` (installer) | `1` | #3678 — companion task repeat interval. |
