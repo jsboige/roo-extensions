@@ -12,6 +12,7 @@ tool for real.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,6 +42,28 @@ def _stalled_session(root, session="dead001", age_hours=3.0, cwd=None):
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(json.dumps(record) + "\n")
     return ts
+
+
+def _git_worktree_pair(tmp, repo="mainrepo", wt="wt-sibling"):
+    """A real repo plus a linked worktree sitting OUTSIDE it (#4506 review).
+
+    The sibling position is the point: the in-repo ``.claude/worktrees``
+    marker cannot see a worktree placed anywhere on disk, only git can.
+    """
+    main = os.path.join(tmp, repo)
+    os.makedirs(main)
+
+    def git(*args):
+        proc = subprocess.run(["git", "-C", main, *args],
+                              capture_output=True, text=True, timeout=60)
+        assert proc.returncode == 0, f"git {args}: {proc.stderr}"
+
+    git("init", "-q")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
+        "--allow-empty", "-m", "x")
+    worktree = os.path.join(tmp, wt)
+    git("worktree", "add", "-q", "--detach", worktree)
+    return main, worktree
 
 
 def _load_module():
@@ -279,6 +302,55 @@ class StallNoteIdAndRouting(unittest.TestCase):
         self.assertEqual(mod._workspace_from_cwd("D:\\"), "D:")
         self.assertIsNone(mod._workspace_from_cwd(None))
         self.assertIsNone(mod._workspace_from_cwd(""))
+
+    def test_workspace_from_cwd_resolves_sibling_worktrees_via_git(self):
+        # #4506 review: D:/Dev/wt-ms-4131-d -> wt-ms-4131-d was the SAME defect
+        # -- a linked worktree can sit anywhere on disk and the in-repo marker
+        # cannot see it. The git common dir is the position-independent answer.
+        if shutil.which("git") is None:
+            self.skipTest("git unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            _main, worktree = _git_worktree_pair(tmp)
+            mod = self.mod
+            self.assertEqual(mod._workspace_from_cwd(worktree), "mainrepo")
+            subdir = os.path.join(worktree, "scripts")
+            os.makedirs(subdir)  # the real case is a LIVE subdir, git must see it
+            self.assertEqual(mod._workspace_from_cwd(subdir), "mainrepo")
+            # A live path outside any repository keeps its final segment: git
+            # says nothing, the fallbacks must not invent a workspace.
+            self.assertEqual(mod._workspace_from_cwd(tmp),
+                             os.path.basename(tmp))
+
+    def test_workspace_from_cwd_marker_comparison_is_case_insensitive(self):
+        # #4506 review: real paths carry .Claude/Worktrees (case drift on
+        # Windows). The fold must still recognize the marker.
+        self.assertEqual(
+            self.mod._workspace_from_cwd(
+                "D:/dev/roo-extensions/.Claude/Worktrees/wt-x"),
+            "roo-extensions")
+
+    def test_cli_stall_inside_worktree_targets_main_checkout_workspace(self):
+        # #4506 review: pin the WIRING, not the helper -- an independent pass
+        # that reverted only the call site (workspace = ...) left the suite
+        # green because every other case calls _workspace_from_cwd directly.
+        # This one goes through the CLI: the transcript's cwd is a real linked
+        # worktree OUTSIDE the repo, and the stall's workspace -- the exact
+        # routing input of the published note -- must be the main checkout.
+        # Red when the call site takes the final segment verbatim.
+        if shutil.which("git") is None:
+            self.skipTest("git unavailable")
+        with tempfile.TemporaryDirectory() as tmp:
+            _main, worktree = _git_worktree_pair(tmp)
+            root = os.path.join(tmp, "projects")
+            state = os.path.join(tmp, "state")
+            ts = _stalled_session(root, session="wtcase", cwd=worktree)
+            table = "11@" + f"{ts.timestamp() - 7200:.0f}"
+            proc = _run(root, state, table)
+            self.assertEqual(proc.returncode, 2, proc.stdout + proc.stderr)
+            stall = json.loads(proc.stdout)["stalls"][0]
+            self.assertEqual(stall["workspace"], "mainrepo",
+                             "a stall in a linked worktree must route its "
+                             "note to the main checkout's workspace")
 
     def test_cli_reports_stall_workspace_from_posix_cwd(self):
         # #4243 review: the workspace split must be host-independent. A POSIX

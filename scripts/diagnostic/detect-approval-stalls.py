@@ -456,10 +456,10 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
             continue
         session_id = path.stem
         project = path.parent.name
-        # The transcript's last cwd names the workspace the session worked in;
-        # its final path segment is the dashboard name (same convention as RSM
-        # workspace auto-detection). None when the transcript never carried a
-        # cwd -- the note then falls back to the detector's own workspace.
+        # The transcript's last cwd names the workspace the session worked in
+        # (git common dir -> worktree marker -> final segment: see
+        # _workspace_from_cwd). None when the transcript never carried a cwd
+        # -- the note then falls back to the detector's own workspace.
         workspace = _workspace_from_cwd(last_cwd)
         for record in dangling:
             started = parse_ts(record["ts"])
@@ -568,26 +568,61 @@ def _host():
 WORKTREE_MARKER = "/.claude/worktrees/"
 
 
+def _git_main_checkout_name(cwd):
+    """Main checkout directory name for a cwd inside a git repository (#4122).
+
+    A linked worktree can sit ANYWHERE on disk -- ``D:/Dev/wt-ms-4131-d``,
+    ``C:/dev/mcpsint-4149-argv`` (both real this week) -- so the in-repo
+    ``.claude/worktrees/`` marker cannot see it. The git common dir always
+    points back to the main checkout, wherever the worktree lives, and inside
+    the main checkout itself it IS that checkout's .git -- so one call covers
+    both. ``None`` when cwd is not inside a repository (or git is unusable);
+    the caller then falls through to cheaper heuristics.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", cwd, "rev-parse", "--path-format=absolute",
+             "--git-common-dir"],
+            capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0:
+        return None
+    segments = proc.stdout.strip().replace("\\", "/").rstrip("/").split("/")
+    if segments[-1] == ".git":
+        segments = segments[:-1]
+    return (segments[-1] or None) if segments else None
+
+
 def _workspace_from_cwd(cwd):
     """Dashboard workspace carried by a session cwd (#4243 volet 3).
 
-    Two normalizations, both learned the hard way:
+    Resolution order, each step learned the hard way:
 
-    - **Worktrees are not workspaces** (#4122): a session working in
-      ``<repo>/.claude/worktrees/<name>`` belongs to ``<repo>``'s workspace.
-      Taking the final segment verbatim would route the note to a dashboard
-      named after the worktree, which nobody reads -- and PR work happens in
-      worktrees, so that is the common case, not the corner case.
-    - **Host-independent split**: ``os.path.basename`` treats a Windows cwd as
-      a single segment under POSIX, which broke the ubuntu CI (#4501 review).
+    1. **Live path -> git common dir**: a worktree is not a workspace (#4122).
+       PR work happens in worktrees, and a linked worktree may sit anywhere on
+       disk, so asking git for the main checkout is the only form that covers
+       them all. The subprocess runs only for the cwd of a STALLED session
+       (rare), with a 10-s timeout; any failure falls through.
+    2. **Path gone (worktree removed) -> marker fold**, case-insensitively:
+       ``<repo>/.claude/worktrees/<name>`` belongs to ``<repo>``'s workspace.
+       The comparison is lowered because real paths carry ``.Claude/Worktrees``
+       (measured #4506 review).
+    3. **Last segment** as today, host-independent: ``os.path.basename``
+       treats a Windows cwd as one segment under POSIX, which broke the
+       ubuntu CI (#4501 review).
 
     ``None`` when the transcript never carried a cwd -- the note then falls
     back to the detector's own workspace.
     """
     if not cwd:
         return None
+    if os.path.isdir(cwd):
+        git_name = _git_main_checkout_name(cwd)
+        if git_name:
+            return git_name
     norm = cwd.replace("\\", "/").rstrip("/")
-    idx = norm.find(WORKTREE_MARKER)
+    idx = norm.lower().find(WORKTREE_MARKER)
     if idx != -1:
         norm = norm[:idx]
     tail = norm.split("/")[-1]
