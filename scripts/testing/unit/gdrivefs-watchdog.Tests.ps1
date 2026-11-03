@@ -178,6 +178,20 @@ Describe 'gdrivefs-watchdog.ps1 wiring (#4508)' {
         $script:mainText | Should -Match '\[switch\]\$SkipWriteVerify'
     }
 
+    It 'the harness-dot-sourced sanitation span is Linux-CI safe: no Join-Path on $MountPath' {
+        # test-gdrivefs-watchdog.ps1 dot-sources this span per case with
+        # drive-letter MountPath fixtures, and the CI scheduling-harness job
+        # runs on ubuntu: Join-Path validates the drive letter there
+        # ("Cannot find drive 'G'") while being drive-blind on Windows. The
+        # WriteProbeDir fallback must stay a lexical join.
+        $span = [regex]::Match(
+            $script:mainText,
+            '(?s)# ---------- MountPath sanitation.*?(?=\r?\n# ---------- event log)'
+        )
+        $span.Success | Should -BeTrue
+        $span.Value | Should -Not -Match 'Join-Path \$MountPath'
+    }
+
     It 'the legacy bare "repaired at Start-Process" append exists ONLY under the SkipWriteVerify kill-switch' {
         # Exactly one bare append, and it sits inside the legacy branch: the
         # default path must never emit repaired without the write verdict.

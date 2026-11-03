@@ -209,11 +209,15 @@ if ($MountPath.Contains('"')) {
 # root -- exactly that depth. ROOSYNC_SHARED_PATH is the fleet canonical env
 # (RSM config + scripts/common); without it, a probe dir directly under the
 # mount is the fallback (shallow, but still a real write).
+# The MountPath fallback must stay a LEXICAL join: this section is dot-sourced
+# by test-gdrivefs-watchdog.ps1 with drive-letter fixtures, and Join-Path
+# validates the drive on pwsh/Linux ("Cannot find drive 'G'") while being
+# drive-blind on Windows -- the CI scheduling-harness job runs on ubuntu.
 if (-not $WriteProbeDir) {
     if ($env:ROOSYNC_SHARED_PATH) {
         $WriteProbeDir = Join-Path $env:ROOSYNC_SHARED_PATH 'gdrivefs-watchdog'
     } else {
-        $WriteProbeDir = Join-Path $MountPath 'gdrivefs-watchdog-writeprobe'
+        $WriteProbeDir = "$($MountPath -replace '[\\/]+$', '')\gdrivefs-watchdog-writeprobe"
     }
 }
 
