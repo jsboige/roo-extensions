@@ -1,0 +1,110 @@
+# Environnement dégradé — escalade immédiate, sonnerie à 2 cycles
+
+**Version :** 1.0.0 · **Issue :** #4517 · **MAJ :** 2026-11-03
+**Source canonique :** ce fichier. Déployé flotte (tous workspaces) par
+`.claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules`.
+
+---
+
+## Incident fondateur (po-2025 `CoursIA`, 01 → 03/11/2026)
+
+Pendant deux jours, une lane a contourné un MCP qu'elle croyait mort
+(`jupyter-papermill`) et a présenté son travail comme normal. Le 03/11, la sonde
+de siège rend **6 LIVE, 0 DEAD** ; `jupyter-papermill` répondait en **1,18 s**
+avec ses 25 outils. **Le serveur n'était pas cassé : la lane ne l'avait jamais
+vérifié.**
+
+Verbatim user (2026-11-03) :
+
+> « Attention c'est un manquement grave au stop&repair obligatoire. Vous ne devez
+> pas travailler avec des environnements dégradés, tu aurais dû escalader
+> immédiatement et réclamer réparation en instruisant les autres agents de me
+> prévenir si je n'arrivais pas dans les temps entre 2 cycles. Pas de workaround
+> consacré. »
+
+La règle « réparer, jamais contourner » existait déjà. Elle n'a pas mordu parce
+que **rien ne bornait le temps** qu'une lane peut passer dans un environnement
+dégradé **en silence** : « escalader » restait une intention portée par la
+mémoire de l'agent qui l'avait posée.
+
+---
+
+## La règle
+
+1. **Escalade immédiate.** Un environnement dégradé — MCP absent ou muet, kernel
+   manquant, service indisponible, sonde incapable de mesurer — s'escalade
+   **avant** toute tentative de contournement. « Le temps de voir » n'est pas un
+   état : c'est déjà le contournement.
+
+2. **L'échéance est dérivée, jamais déclarée.** Le post `[DEGRADED]` sur le
+   dashboard `workspace` suffit ; le mécanisme calcule l'échéance
+   (`posté + 2 cycles`). Un agent sous pression n'a rien à calculer, et rien à
+   se rappeler.
+
+3. **Les autres agents sont instruits explicitement.** Toute lane qui exécute
+   l'organe (voir ci-dessous) pendant son cycle voit l'échéance et **alerte le
+   user** quand elle est dépassée. L'instruction vit dans le mécanisme, pas dans
+   le post de la lane défaillante.
+
+4. **Aucun workaround ne se consacre.** Une sortie produite pendant la panne ne
+   se rapporte pas comme un résultat normal : elle se rapporte **dégradée, avec
+   la panne**. C'est la règle SOTA/Stop&Repair appliquée au cas « mon outil est
+   absent », et pas seulement « l'outil a produit moins bien ».
+
+5. **Seul `[REPAIRED]` ferme une escalade.** Un `[DONE]` ne la ferme pas — sinon
+   le cycle normal consacre précisément la sortie dégradée que le mandat
+   interdit. Le `[REPAIRED]` doit venir de la **même lane** ; le `[REPAIRED]`
+   d'une autre lane ne ferme rien.
+
+`[DEGRADED]` ≠ `[BLOCKED]` : bloqué = j'attends quelqu'un d'autre ; dégradé =
+**mon** environnement est cassé et je ne produis plus de résultat normal.
+
+---
+
+## L'organe : `scripts/diagnostic/check-degraded-escalations.py`
+
+```bash
+python scripts/diagnostic/check-degraded-escalations.py                # lit $ROOSYNC_SHARED_PATH/dashboards
+python scripts/diagnostic/check-degraded-escalations.py --json
+python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le dashboard global
+python scripts/diagnostic/check-degraded-escalations.py --selftest
+```
+
+| Exit | Sens | Ce que fait l'automate |
+|---|---|---|
+| `0` | aucune escalade `[DEGRADED]` dans la fenêtre lue | rien |
+| `3` | escalade(s) ouverte(s), échéance non dépassée | rien — mais ce n'est **pas** « tout va bien » |
+| `2` | au moins une échéance dépassée sans `[REPAIRED]` | **sonner le user** |
+| `1` | erreur d'instrument, ou `--ring` demandé et non parti | réparer l'instrument, ne pas conclure |
+
+Défauts : **2 cycles × 4 h** = 8 h, la cadence des crons flotte (`41 */4`).
+`--cycles` / `--cycle-hours` les remplacent là où la cadence diffère.
+
+`--ring` poste un `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard `global`,
+avec une clé d'idempotence **quotidienne** : le même lot sonne **une fois par
+jour**, jamais une fois par tick, et re-sonne chaque jour tant que rien n'est
+réparé. Le transport est celui de `detect-approval-stalls.py` (`append_dashboard`,
+importé, pas recopié). Un `--ring` qui échoue sort **1** : une sonnerie qui n'est
+pas partie ne se présente jamais comme un succès.
+
+---
+
+## Plafond dit explicitement
+
+- **L'organe ne voit que les escalades postées.** Une lane qui n'escalade pas
+  reste invisible — c'est pourquoi le point 1 n'est pas négociable, et pourquoi
+  la sonde de siège (`check-mcp-seats.py`, PR #4518) existe : elle rend la
+  dégradation visible sans attendre la bonne volonté de la lane.
+- **La sonnerie ne dépend d'aucune horloge partagée** ; elle dépend de la lane
+  qui exécute l'organe pendant son cycle. Câbler l'organe dans le pré-vol
+  (`/continue`, `/coordinate`) est une décision du coordinateur, hors du
+  périmètre de #4517.
+- **« 2 cycles » est une convention**, pas une mesure de la difficulté de
+  réparation : elle borne le silence, elle ne juge pas le travail.
+
+---
+
+**Voir aussi :** [`escalation-protocol.md`](escalation-protocol.md) (escalade de
+**capacité**, 5 niveaux — axe différent) · [`deny-fallback-probe.md`](deny-fallback-probe.md)
+(le repli deny qui n'existe pas) · [`tool-availability.md`](../../.claude/rules/tool-availability.md)
+(STOP & REPAIR).

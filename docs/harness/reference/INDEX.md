@@ -10,6 +10,7 @@
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
 | **Feedback/Friction** | Signaler via Dashboard `[FRICTION]` + RooSync. Canonique = `.claude/rules/friction-protocol.md` (slim) | `feedback-process.md`, `friction-protocol-detailed.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
+| **Environnement dégradé (#4517)** | Escalade **immédiate** (pas de workaround), échéance `posté + 2 cycles` dérivée par le mécanisme, `[REPAIRED]` seul ferme (un `[DONE]` non), sonnerie `ASK-USER` sur le global. Organe `check-degraded-escalations.py`, exit 0/3/2/1 ; plafond : ne voit que les escalades **postées** | `degraded-escalation.md` |
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |
 | **sk-agent usage (volet D #4085)** | Quel agent pour quoi, transports stdio vs conteneur `:8100` (agents disque = stdio seulement), routage modèles LAN/public (23/42 agents hub = morts hors LAN), limites mesurées (attachments, `ok:true`, budgets mini) | `sk-agent-usage-guide.md` |

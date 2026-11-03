@@ -662,13 +662,17 @@ def build_note_content(stalls, workspace):
     return "\n".join(lines)
 
 
-def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace",
-                           timeout=10.0, now=None):
-    """Append the stall note to the lane dashboard. Returns True on success.
+def append_dashboard(arguments, url, bearer, timeout=10.0, client="stall-detector"):
+    """One `roosync_dashboard` append over the bots' JSON-RPC path. True on success.
 
-    Only the CALLER decides what is worth a note (waiting stalls); this
-    function is a dumb transport. Any failure -> False + stderr warning, never
-    an exception: signaling is telemetry, not the product.
+    Generic transport, deliberately argument-agnostic: the CALLER decides what
+    is worth a note and what goes in `arguments`; this function only moves the
+    bytes. Shared with check-degraded-escalations.py (#4517) so the fleet keeps
+    ONE dashboard transport instead of two that drift apart -- same reason
+    check-mcp-seats.py imports handshake() rather than copying it.
+
+    Any failure -> False + stderr warning, never an exception: signaling is
+    telemetry, not the product (the detection result and its exit code stand).
 
     The tools/call response body IS read: an MCP tool result can carry
     `result.isError: true` (rejected append, server-side error) behind an HTTP
@@ -677,20 +681,10 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
     fail the note (some transports answer SSE or empty on accepted calls), but
     an explicit isError does.
     """
-    arguments = {
-        "action": "append",
-        "type": dash_type,
-        "tags": ["WARN", "stall-detector"],
-        "content": build_note_content(stalls, workspace),
-        "messageId": build_note_id(stalls, now=now),
-    }
-    if dash_type == "workspace":
-        arguments["workspace"] = workspace
-
     init_body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "initialize",
                             "params": {"protocolVersion": "2024-11-05",
                                        "capabilities": {},
-                                       "clientInfo": {"name": "stall-detector",
+                                       "clientInfo": {"name": client,
                                                       "version": "1.1"}}}).encode()
     call_body = json.dumps({"jsonrpc": "2.0", "id": 3, "method": "tools/call",
                             "params": {"name": "roosync_dashboard",
@@ -745,8 +739,27 @@ def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace"
         # HTTPException: a body cut mid-read (IncompleteRead) on a slow proxy
         # must stay a warning, not a traceback that replaces the exit code.
         print(f"WARNING: dashboard note NOT posted ({exc}) -- signal is "
-              f"best-effort, detection result above stands", file=sys.stderr)
+              f"best-effort, the caller's own verdict stands", file=sys.stderr)
         return False
+
+
+def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace",
+                           timeout=10.0, now=None):
+    """Append the stall note to the lane dashboard. Returns True on success.
+
+    Only the CALLER decides what is worth a note (waiting stalls); the
+    transport itself lives in append_dashboard().
+    """
+    arguments = {
+        "action": "append",
+        "type": dash_type,
+        "tags": ["WARN", "stall-detector"],
+        "content": build_note_content(stalls, workspace),
+        "messageId": build_note_id(stalls, now=now),
+    }
+    if dash_type == "workspace":
+        arguments["workspace"] = workspace
+    return append_dashboard(arguments, url, bearer, timeout=timeout)
 
 
 def maybe_publish_dashboard_note(totals, stalls, workspace, url, bearer,
