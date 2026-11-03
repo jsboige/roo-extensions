@@ -31,6 +31,15 @@
     Kill-switchs (parametres du script principal, style existant) :
       -ConfirmKillProbeSeconds 0  -> kill sur le premier probe echoue (legacy)
       -SkipWriteVerify            -> repaired des Start-Process (legacy)
+      -WriteProbeTimeoutSeconds 0 -> sonde d'ecriture inline, sans borne (legacy)
+
+    Follow-up ai-01 (03/11, meme #4508) :
+      - Invoke-MountWriteProbe tourne dans un runner BORNE (pattern job) ;
+        une ecriture bloquee meurt a TimeoutSeconds, pas au 5-min
+        ExecutionTimeLimit de la tache, et la sentinelle ne fuit jamais
+        (try/finally).
+      - Test-WritePendingEscalation : apres N polls write-pending consecutifs,
+        le verdict "disque inutilisable" atteint le canal survivant GitHub.
 
     PS 5.1 compatible : pas de ternaire, pas de ?., ASCII uniquement.
 #>
@@ -74,30 +83,95 @@ function Invoke-MountWriteProbe {
     # Rend @{ WriteOk = bool; Detail = string } ; ne leve jamais.
     # $Probe (optionnel) remplace l'implementation complete pour les tests
     # (runners CI ubuntu : aucun montage reel n'existe la-bas).
+    #
+    # Follow-up #4508 (ai-01, 03/11) : le worker tourne dans un runner BORNE
+    # -- par defaut le pattern job de Invoke-BoundedMountProbe (Start-Job ->
+    # Wait-Job -Timeout -> finally Stop-Job/Remove-Job). Une ecriture bloquee
+    # mourait avant au ExecutionTimeLimit de 5 min de la tache, et IgnoreNew
+    # sautait les polls suivants ; elle meurt maintenant a TimeoutSeconds.
+    # TimeoutSeconds <= 0 = kill-switch legacy : worker inline, sans borne.
+    # $RunBounded (optionnel) remplace le runner pour les tests unitaires --
+    # les mocks Pester ne traversent pas la frontiere du job. Il recoit
+    # (Worker, Folder, Timeout) et rend @{ TimedOut; Result }.
     param(
         [string]$FolderPath,
-        [scriptblock]$Probe
+        [int]$TimeoutSeconds = 45,
+        [scriptblock]$Probe,
+        [scriptblock]$RunBounded
     )
     if ($Probe) {
         return (& $Probe $FolderPath)
     }
-    try {
-        if (-not (Test-Path -LiteralPath $FolderPath)) {
-            New-Item -ItemType Directory -Path $FolderPath -Force -ErrorAction Stop | Out-Null
+    $worker = {
+        param($Folder)
+        $sentinelPath = $null
+        try {
+            if (-not (Test-Path -LiteralPath $Folder)) {
+                New-Item -ItemType Directory -Path $Folder -Force -ErrorAction Stop | Out-Null
+            }
+            $name = 'sentinel-{0}.tmp' -f ([guid]::NewGuid().ToString('N'))
+            $sentinelPath = Join-Path $Folder $name
+            $payload = 'gdrivefs-watchdog-write-probe'
+            Set-Content -LiteralPath $sentinelPath -Value $payload -Encoding Ascii -ErrorAction Stop
+            $readBack = Get-Content -LiteralPath $sentinelPath -ErrorAction Stop
+            if ("$readBack" -ne $payload) {
+                return @{ WriteOk = $false; Detail = 'readback-mismatch' }
+            }
+            return @{ WriteOk = $true; Detail = 'write+read+delete-ok' }
+        } catch {
+            return @{ WriteOk = $false; Detail = [string]$_.Exception.Message }
+        } finally {
+            # #4508 follow-up item 2 : la sentinelle ne fuit JAMAIS, meme si
+            # la relecture echoue apres l'ecriture (le catch rendrait sans
+            # passer par le Remove-Item du chemin heureux).
+            if ($sentinelPath) {
+                Remove-Item -LiteralPath $sentinelPath -Force -ErrorAction SilentlyContinue
+            }
         }
-        $name = 'sentinel-{0}.tmp' -f ([guid]::NewGuid().ToString('N'))
-        $path = Join-Path $FolderPath $name
-        $payload = 'gdrivefs-watchdog-write-probe'
-        Set-Content -LiteralPath $path -Value $payload -Encoding Ascii -ErrorAction Stop
-        $readBack = Get-Content -LiteralPath $path -ErrorAction Stop
-        Remove-Item -LiteralPath $path -Force -ErrorAction Stop
-        if ("$readBack" -ne $payload) {
-            return @{ WriteOk = $false; Detail = 'readback-mismatch' }
-        }
-        return @{ WriteOk = $true; Detail = 'write+read+delete-ok' }
-    } catch {
-        return @{ WriteOk = $false; Detail = $_.Exception.Message }
     }
+    if ($TimeoutSeconds -le 0) {
+        return (& $worker $FolderPath)
+    }
+    if (-not $RunBounded) {
+        $RunBounded = {
+            param($W, $Folder, $Timeout)
+            $job = Start-Job -ScriptBlock $W -ArgumentList $Folder
+            $timedOut = $true
+            $result  = $null
+            try {
+                $done = Wait-Job -Job $job -Timeout $Timeout
+                if ($done) {
+                    $timedOut = $false
+                    $result = Receive-Job -Job $job -ErrorAction SilentlyContinue
+                }
+            } finally {
+                Stop-Job -Job $job -ErrorAction SilentlyContinue
+                Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+            }
+            return @{ TimedOut = $timedOut; Result = $result }
+        }
+    }
+    $bounded = & $RunBounded $worker $FolderPath $TimeoutSeconds
+    if ($bounded -and $bounded.TimedOut) {
+        return @{ WriteOk = $false; TimedOut = $true; Detail = "write-probe-timeout-${TimeoutSeconds}s" }
+    }
+    if ($bounded -and $bounded.Result) {
+        return $bounded.Result
+    }
+    return @{ WriteOk = $false; Detail = 'bounded-runner-returned-nothing' }
+}
+
+function Test-WritePendingEscalation {
+    # #4508 follow-up item 3 : un write-pending re-emis a chaque poll sans
+    # compteur ni canal survivant est une boucle muette -- "disque inutilisable"
+    # doit ATTEINDRE le canal apres N polls consecutifs. Seuil <= 0 =
+    # kill-switch (jamais d'escalade).
+    param(
+        [int]$Consecutive,
+        [int]$Threshold
+    )
+    if ($Threshold -le 0) { return $false }
+    return ($Consecutive -ge $Threshold)
 }
 
 function Get-RepairEventVerdict {
