@@ -67,7 +67,7 @@ Async subagent delegation extension for Pi. **Note:** this is a third-party exte
 | Coordination | Dashboard workspace + RooSync messages + `ROO_FLEET_ROSTER` partitioning | Intercom bridge (local subagents only) |
 | State persistence | SQLite + Qdrant + GDrive | Session history with fork/clone |
 | Context management | Auto-compaction (200k/90% universal) | `pi-vcc` (algorithmic, zero-LLM), `pi-context-prune` (recoverable) |
-| Scheduler | schtasks + `start-claude-worker.ps1` + cron 2h | `pi-multiloop` (manual loop) |
+| Scheduler | schtasks (whitelisted headless launchers only) + `start-claude-worker.ps1` + session-only `CronCreate` cadence (never a `*WorkerCron` schtask, #4081) | `pi-multiloop` (manual loop) |
 
 **Architectural verdict:** Our stack and Pi optimize for **different scales**. Pi is a polished single-machine coding harness; our value proposition is fleet coordination across 6 physical machines. They are not substitutes at the architecture level.
 
