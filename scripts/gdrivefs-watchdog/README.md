@@ -240,6 +240,32 @@ Kill-switches (restore the pre-#4508 behaviour): `-ConfirmKillProbeSeconds 0`
 `Start-Process` time). The decisions live in `gdrivefs-watchdog.lib.ps1`
 (injectable probes, Pester-tested under `scripts/testing/unit/`).
 
+Follow-up hardening (ai-01 review, same day):
+
+- **The write probe is bounded** (`WriteProbeTimeoutSeconds`, default `45`): the
+  sentinel worker runs under the `Invoke-BoundedMountProbe` job pattern
+  (`Start-Job` → `Wait-Job -Timeout` → `finally` stop/remove). A blocked write
+  used to die at the task's 5-min `ExecutionTimeLimit`, with `IgnoreNew`
+  skipping every poll meanwhile; it now dies at the bound and reports
+  `write-probe-timeout-<N>s`. The sentinel cannot leak: the worker deletes it in
+  a `finally` even when the read-back throws. `0` restores the unbounded inline
+  probe (kill-switch).
+- **`write-pending` escalates.** The 1002 event alone is a silent loop — local
+  sinks are dead during the very outage it reports. After
+  `WritePendingEscalationPolls` consecutive refused polls (default `3`), the
+  "disk unusable" verdict reaches the survivor channel (`Send-GitHubAlert`,
+  reason `write-pending-escalation`, sharing the `AlertMinIntervalHours`
+  cooldown). The counter resets on the next relaunch and on `repaired`. `0`
+  disables the escalation (kill-switch).
+- **`dry-run` emits no events at all.** A real event 1000 was measured in the
+  Application log during a dry-run pass; `Write-WatchdogEvent` now returns
+  before touching the event log in that mode.
+- **Both probe-dir joins are lexical.** `Join-Path` on a drive path throws on
+  pwsh/Linux (`Cannot find drive`) and on PS 5.1 when the drive is missing
+  (`DriveNotFoundException`, measured with `Join-Path 'Q:\Mon Drive\x' 'y'`); the
+  harness dot-sources the sanitation span on ubuntu CI, so both the env branch
+  and the `MountPath` fallback build the path lexically.
+
 ### Status of the #2875 workaround — permanent (production control)
 
 Original framing called this watchdog an interim fix pending a root-cause
@@ -357,6 +383,8 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | `ConfirmKillProbeSeconds` (body) | `30` | #4508 — seconds for the second, longer probe that must confirm a C1 failure before a LIVE instance is killed. `0` restores the single-probe kill (kill-switch). |
 | `SkipWriteVerify` (body) | — | #4508 — kill-switch restoring `repaired` at `Start-Process` time, without the deep sentinel write. |
 | `WriteProbeDir` (body) | `<ROOSYNC_SHARED_PATH>\gdrivefs-watchdog` | #4508 — deep folder on the mount for the write/read/delete sentinel. |
+| `WriteProbeTimeoutSeconds` (body) | `45` | #4508 — bound for the sentinel write probe (job pattern, as `Invoke-BoundedMountProbe`). `0` restores the unbounded inline probe (kill-switch). |
+| `WritePendingEscalationPolls` (body) | `3` | #4508 — consecutive refused write polls before `write-pending` escalates to the survivor channel. `0` disables the escalation (kill-switch). |
 | `RepeatMinutes` (installer) | `15` | Poll cadence. |
 | `StartupDelayMinutes` (installer) | `2` | Delay after boot (let GDrive settle). |
 | `FastPollRepeatMinutes` (installer) | `1` | #3678 — companion task repeat interval. |

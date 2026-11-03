@@ -147,7 +147,13 @@ param(
     [ValidateRange(0, 300)]
     [int]$ConfirmKillProbeSeconds = 30,
     [switch]$SkipWriteVerify,
-    [string]$WriteProbeDir = ''
+    [string]$WriteProbeDir = '',
+    # #4508 follow-up (ai-01, 03/11): bound the deep-write probe and let a
+    # persistent write-pending reach the survivor channel.
+    [ValidateRange(0, 300)]
+    [int]$WriteProbeTimeoutSeconds = 45,
+    [ValidateRange(0, 50)]
+    [int]$WritePendingEscalationPolls = 3
 )
 
 $ErrorActionPreference = 'Continue'
@@ -209,13 +215,15 @@ if ($MountPath.Contains('"')) {
 # root -- exactly that depth. ROOSYNC_SHARED_PATH is the fleet canonical env
 # (RSM config + scripts/common); without it, a probe dir directly under the
 # mount is the fallback (shallow, but still a real write).
-# The MountPath fallback must stay a LEXICAL join: this section is dot-sourced
-# by test-gdrivefs-watchdog.ps1 with drive-letter fixtures, and Join-Path
-# validates the drive on pwsh/Linux ("Cannot find drive 'G'") while being
-# drive-blind on Windows -- the CI scheduling-harness job runs on ubuntu.
+# BOTH joins must stay LEXICAL: this section is dot-sourced by
+# test-gdrivefs-watchdog.ps1 with drive-letter fixtures, and Join-Path
+# validates the drive on pwsh/Linux ("Cannot find drive 'G'") -- on PS 5.1
+# it throws DriveNotFoundException on a missing drive (measured ai-01 03/11:
+# Join-Path 'Q:\Mon Drive\x' 'y') -- and the CI scheduling-harness job runs
+# on ubuntu.
 if (-not $WriteProbeDir) {
     if ($env:ROOSYNC_SHARED_PATH) {
-        $WriteProbeDir = Join-Path $env:ROOSYNC_SHARED_PATH 'gdrivefs-watchdog'
+        $WriteProbeDir = "$($env:ROOSYNC_SHARED_PATH -replace '[\\/]+$', '')\gdrivefs-watchdog"
     } else {
         $WriteProbeDir = "$($MountPath -replace '[\\/]+$', '')\gdrivefs-watchdog-writeprobe"
     }
@@ -224,6 +232,10 @@ if (-not $WriteProbeDir) {
 # ---------- event log ----------
 function Write-WatchdogEvent {
     param([int]$EventId, [string]$EntryType, [string]$Message)
+    # #4508 follow-up item 4 (ai-01, 03/11): dry-run is a REHEARSAL -- a real
+    # event 1000 was measured in the Application log at 13:07:04 during a
+    # dry-run pass. No event of any id leaves a dry-run.
+    if ($Mode -eq 'dry-run') { return }
     try {
         $src = 'GDriveFS-Watchdog'
         if (-not [System.Diagnostics.EventLog]::SourceExists($src)) {
@@ -321,6 +333,7 @@ function Read-WatchdogState {
             cooldown_until                = $null
             last_github_alert_at          = $null
             consecutive_cooldown_skips    = 0
+            consecutive_write_pending     = 0
             fast_poll_until               = $null
             write_verified_at             = $null
         }
@@ -335,6 +348,7 @@ function Read-WatchdogState {
             cooldown_until                = $obj.cooldown_until
             last_github_alert_at          = $obj.last_github_alert_at
             consecutive_cooldown_skips    = [int]$obj.consecutive_cooldown_skips
+            consecutive_write_pending     = [int]$obj.consecutive_write_pending
             fast_poll_until               = $obj.fast_poll_until
             write_verified_at             = $obj.write_verified_at
         }
@@ -347,6 +361,7 @@ function Read-WatchdogState {
             cooldown_until                = $null
             last_github_alert_at          = $null
             consecutive_cooldown_skips    = 0
+            consecutive_write_pending     = 0
             fast_poll_until               = $null
             write_verified_at             = $null
         }
@@ -784,7 +799,9 @@ if (-not $binary -or -not (Test-Path $binary)) {
                 $state.last_relaunch_attempt = (Get-Date).ToString('o')
                 # #4508: a new relaunch invalidates any prior write verdict --
                 # the first healthy poll after it must re-run the sentinel.
+                # The write-pending counter also restarts from this relaunch.
                 $state.write_verified_at     = $null
+                $state.consecutive_write_pending = 0
                 if ($Mode -ne 'dry-run') { Save-WatchdogState -State $state }
 
                 Invoke-RelaunchGDriveFS -BinaryPath $binary
@@ -806,18 +823,38 @@ if (-not $binary -or -not (Test-Path $binary)) {
                     # this poll carries write-pending and the next healthy poll
                     # re-verifies (see the healthy branch).
                     if (-not $SkipWriteVerify) {
-                        $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir
+                        $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir -TimeoutSeconds $WriteProbeTimeoutSeconds
                         $verdict = Get-RepairEventVerdict -ProcessAlive $after.Alive -C1Live $afterProbe.Live -WriteResult $wp
                         if ($verdict -eq 'repaired') {
                             Write-Log 'OK' "Deep write verified (sentinel under $WriteProbeDir) — repaired is earned."
                             $script:repairs += 'gdrivefs-relaunch (write-verified)'
                             if ($Mode -ne 'dry-run') {
                                 $state.write_verified_at = (Get-Date).ToString('o')
+                                $state.consecutive_write_pending = 0
                                 Save-WatchdogState -State $state
                             }
                         } else {
                             Write-Log 'WARN' "Mount serves stat/enum but the deep write was refused ($($wp.Detail)) — repaired withheld: write-pending."
                             $script:writePending = $wp.Detail
+                            # #4508 follow-up item 3: write-pending re-emitted
+                            # every poll with no counter and no surviving
+                            # channel is a silent loop -- after N consecutive
+                            # refused polls the "disk unusable" verdict must
+                            # REACH the channel. The GitHub alert survives the
+                            # dead G: mount (#3678) and shares its cooldown.
+                            # The C2 success-reset right below persists this.
+                            if ($Mode -ne 'dry-run') {
+                                $state.consecutive_write_pending = [int]$state.consecutive_write_pending + 1
+                                if (Test-WritePendingEscalation -Consecutive $state.consecutive_write_pending -Threshold $WritePendingEscalationPolls) {
+                                    $ghWp = Send-GitHubAlert -Reason 'write-pending-escalation' -Detail "consecutive_write_pending=$($state.consecutive_write_pending); last_detail=$($wp.Detail); write_probe_dir=$WriteProbeDir" -Repo $AlertGitHubRepo -MinIntervalHours $AlertMinIntervalHours -LastAlertAt $state.last_github_alert_at -Now (Get-Date)
+                                    if ($ghWp.Sent) {
+                                        Write-Log 'ALERT' "write-pending escalation sent ($($ghWp.IssueUrl))"
+                                        $state.last_github_alert_at = $ghWp.NewLastAlertAt
+                                    } elseif ($ghWp.SkipReason -notlike 'alert-cooldown*') {
+                                        Write-Log 'WARN' "write-pending escalation NOT sent: $($ghWp.SkipReason)"
+                                    }
+                                }
+                            }
                         }
                     }
                     # C2: success → reset failure counter
@@ -858,18 +895,36 @@ if (-not $binary -or -not (Test-Path $binary)) {
                 } catch { $writeVerified = $false }
             }
             if (-not $writeVerified) {
-                $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir
+                $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir -TimeoutSeconds $WriteProbeTimeoutSeconds
                 $verdict = Get-RepairEventVerdict -ProcessAlive $true -C1Live $true -WriteResult $wp
                 if ($verdict -eq 'repaired') {
                     Write-Log 'OK' "Deep write verified on follow-up poll (sentinel under $WriteProbeDir) — repaired is earned."
                     $script:repairs += 'gdrivefs-relaunch (write-verified)'
                     if ($Mode -ne 'dry-run') {
                         $state.write_verified_at = (Get-Date).ToString('o')
+                        $state.consecutive_write_pending = 0
                         Save-WatchdogState -State $state
                     }
                 } else {
                     Write-Log 'WARN' "Relaunch outstanding: mount healthy but the deep write is still refused ($($wp.Detail)) — write-pending."
                     $script:writePending = $wp.Detail
+                    # #4508 follow-up item 3: same escalation as the
+                    # post-relaunch branch -- and here nothing else would save
+                    # the state (the C2 reset below fires only when the OTHER
+                    # counters are set), so the save is EXPLICIT.
+                    if ($Mode -ne 'dry-run') {
+                        $state.consecutive_write_pending = [int]$state.consecutive_write_pending + 1
+                        if (Test-WritePendingEscalation -Consecutive $state.consecutive_write_pending -Threshold $WritePendingEscalationPolls) {
+                            $ghWp = Send-GitHubAlert -Reason 'write-pending-escalation' -Detail "consecutive_write_pending=$($state.consecutive_write_pending); last_detail=$($wp.Detail); write_probe_dir=$WriteProbeDir" -Repo $AlertGitHubRepo -MinIntervalHours $AlertMinIntervalHours -LastAlertAt $state.last_github_alert_at -Now (Get-Date)
+                            if ($ghWp.Sent) {
+                                Write-Log 'ALERT' "write-pending escalation sent ($($ghWp.IssueUrl))"
+                                $state.last_github_alert_at = $ghWp.NewLastAlertAt
+                            } elseif ($ghWp.SkipReason -notlike 'alert-cooldown*') {
+                                Write-Log 'WARN' "write-pending escalation NOT sent: $($ghWp.SkipReason)"
+                            }
+                        }
+                        Save-WatchdogState -State $state
+                    }
                 }
             }
         }
