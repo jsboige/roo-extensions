@@ -266,6 +266,15 @@ on:
     - cron: '43 2 * * *'
   workflow_dispatch:
 
+# The ubuntu-latest pool is shared with jsboige/CoursIA (03/11: our Linux jobs
+# waited ~1h30 behind CoursIA's queue). A new push to a PR supersedes the CI
+# of the previous head, so that run gives its place back instead of holding
+# the queue. push/schedule/dispatch get a group of their own (run_id): no
+# main run is ever cancelled or replaced.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   check-submodule-pointer:
     runs-on: ubuntu-latest

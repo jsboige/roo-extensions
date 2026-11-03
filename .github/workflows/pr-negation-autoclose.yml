@@ -46,6 +46,13 @@ permissions:
   pull-requests: write
   issues: read         # closingIssuesReferences reads issue state through the PR
 
+# Each body edit or push re-runs the guard, and only the latest body counts:
+# a superseded run gives its ubuntu-latest place back (pool shared with
+# jsboige/CoursIA, 03/11).
+concurrency:
+  group: pr-negation-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   guard:
     runs-on: ubuntu-latest
