@@ -316,6 +316,16 @@ Describe 'Test-WritePendingEscalation (follow-up item 3)' {
 
 Describe 'Write-WatchdogEvent dry-run guard (follow-up item 4)' {
     BeforeAll {
+        # Pester cannot mock a command that does not exist: New-EventLog /
+        # Write-EventLog are Windows-only, the unit-pester CI job runs on
+        # ubuntu (measured ai-01, #4515 run 41636629592). Declare no-op stubs
+        # when missing so the test RUNS everywhere -- no -Skip.
+        if (-not (Get-Command New-EventLog -ErrorAction SilentlyContinue)) {
+            function global:New-EventLog { param([Parameter(ValueFromRemainingArguments)]$a) }
+        }
+        if (-not (Get-Command Write-EventLog -ErrorAction SilentlyContinue)) {
+            function global:Write-EventLog { param([Parameter(ValueFromRemainingArguments)]$a) }
+        }
         $m = [regex]::Match(
             $script:mainText,
             '(?s)# ---------- event log.*?(?=\r?\n# ---------- GitHub alert)'
