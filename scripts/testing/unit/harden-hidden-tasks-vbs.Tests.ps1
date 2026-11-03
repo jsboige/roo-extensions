@@ -82,6 +82,12 @@ Describe "Get-VbsRunCommand" {
     It "An empty Execute yields null (caller reports the task instead of writing a launcher)" {
         Get-VbsRunCommand -Execute ' ' -Arguments 'x' | Should -BeNullOrEmpty
     }
+    It "Resolve-ExecutePath treats a drive-letter path as absolute on any host (CI-portable)" {
+        # IsPathRooted does not know drive letters under POSIX, but the launchers
+        # this tool generates target Windows paths whatever host builds them.
+        Resolve-ExecutePath -Execute 'C:\Program Files\PowerShell\7\pwsh.exe' |
+            Should -Be 'C:\Program Files\PowerShell\7\pwsh.exe'
+    }
 }
 
 Describe "New-HardenLauncherVbs (VBS launcher template)" {

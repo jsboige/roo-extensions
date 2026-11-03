@@ -78,6 +78,11 @@ function Resolve-ExecutePath {
     # comme HasExtension : une entree non resoluble doit rendre $null, pas tuer
     # l'appelant (Get-Command echouerait de toute facon sur cette forme).
     if ($norm.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -ge 0) { return $null }
+    # Chemin absolu Windows (lettre de lecteur) : IsPathRooted ne le reconnait PAS
+    # sous un hote POSIX alors que la cible de l'outil EST Windows -- les lanceurs
+    # generes visent des chemins Windows quel que soit l'hote qui les genere (CI
+    # ubuntu comprise). L'existence reste jugee par l'appelant (Test-Path/TestPath).
+    if ($norm -match '^[A-Za-z]:[\\/]') { return $norm }
     if ([System.IO.Path]::IsPathRooted($norm)) { return $norm }
     $cmd = Get-Command $norm -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
