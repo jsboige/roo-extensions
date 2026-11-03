@@ -73,6 +73,16 @@ function Resolve-ExecutePath {
     param([string]$Execute)
     $norm = Get-NormalizedExecutePath -Execute $Execute
     if (-not $norm) { return $null }
+    # Un caractere illegal dans un chemin (guillemet interne d'une tache citee,
+    # forme du defaut C : tete quote + args dans Execute) fait LEVER IsPathRooted
+    # comme HasExtension : une entree non resoluble doit rendre $null, pas tuer
+    # l'appelant (Get-Command echouerait de toute facon sur cette forme).
+    if ($norm.IndexOfAny([System.IO.Path]::GetInvalidPathChars()) -ge 0) { return $null }
+    # Chemin absolu Windows (lettre de lecteur) : IsPathRooted ne le reconnait PAS
+    # sous un hote POSIX alors que la cible de l'outil EST Windows -- les lanceurs
+    # generes visent des chemins Windows quel que soit l'hote qui les genere (CI
+    # ubuntu comprise). L'existence reste jugee par l'appelant (Test-Path/TestPath).
+    if ($norm -match '^[A-Za-z]:[\\/]') { return $norm }
     if ([System.IO.Path]::IsPathRooted($norm)) { return $norm }
     $cmd = Get-Command $norm -CommandType Application -ErrorAction SilentlyContinue |
         Select-Object -First 1
@@ -83,6 +93,70 @@ function Resolve-ExecutePath {
         if ($cmd) { return $cmd.Source }
     }
     return $null
+}
+
+function Get-VbsRunCommand {
+    # Defaut C (harden-hidden-tasks.ps1, mesure ai-01 26-27/10, lanes vllm/Maintenance) :
+    # une tache creee par `schtasks /tr "<commande>"` non quote stocke TOUTE la ligne
+    # dans le champ Execute. L'ancien assemblage '"{0}" {1}' -f $Execute, $Arguments
+    # fabriquait alors un token unique de bout en bout :
+    #     "C:\Program Files\PowerShell\7\pwsh.exe -NoProfile -File D:\x.ps1"
+    # CreateProcess (appele par WScript.Shell.Run) prenait la ligne ENTIERE pour le
+    # chemin de l'executable -> 0x80070002, tache morte (la garde de propagation la
+    # rend desormais VISIBLE : LastTaskResult non nul au lieu d'un succes fantome).
+    # L'executable doit etre quote SEUL, les arguments restent hors des guillemets.
+    #
+    # Regles, dans l'ordre :
+    #   1. Execute resout (chemin absolu existant, ou nom nu trouve dans le PATH)
+    #        -> '"<chemin resolu>" <arguments>'
+    #   2. Execute commence par un guillemet (deja quote par l'auteur de la tache)
+    #        -> verbatim + arguments
+    #   3. un PREFIXE d'Execute resout (chemin a espaces stocke AVEC ses args) :
+    #        on ecarte les premiers mots un a un (plus court prefixe resolu d'abord,
+    #        la meme strategie que CreateProcess) jusqu'a un candidat existant
+    #        -> '"<prefixe resolu>" <reste d'Execute> <arguments>'
+    #   4. rien ne resout
+    #        -> Execute + arguments TEL QUEL, sans guillemet ajoute : semantique
+    #           d'avant durcissement (CreateProcess essaie les prefixes), et
+    #           l'echec eventuel est desormais VISIBLE car le lanceur propage
+    #           Err.Number (voir le gabarit VBS du script principal).
+    #
+    # $TestPath est injectable pour les tests (Pester tourne sous pwsh 7 sur des
+    # runners linux : les chemins Windows n'y existent pas, la verite du systeme
+    # de fichiers n'est pas ce qui est teste ici).
+    param(
+        [string]$Execute,
+        [string]$Arguments,
+        [scriptblock]$TestPath = { param($p) Test-Path -LiteralPath $p -PathType Leaf }
+    )
+    if ([string]::IsNullOrWhiteSpace($Execute)) { return $null }
+    $exe = $Execute.Trim()
+    $args = [string]$Arguments
+    $resolved = Resolve-ExecutePath -Execute $exe
+    if ($resolved -and (& $TestPath $resolved)) {
+        if ($args) { return '"{0}" {1}' -f $resolved, $args }
+        return '"{0}"' -f $resolved
+    }
+    if ($exe.StartsWith('"')) {
+        if ($args) { return '{0} {1}' -f $exe, $args }
+        return $exe
+    }
+    $norm = Get-NormalizedExecutePath -Execute $exe
+    if ($norm -and $norm.Contains(' ')) {
+        $tokens = $norm -split ' '
+        for ($i = 1; $i -lt $tokens.Count; $i++) {
+            $candidate = ($tokens[0..($i - 1)] -join ' ')
+            $candResolved = Resolve-ExecutePath -Execute $candidate
+            if ($candResolved -and (& $TestPath $candResolved)) {
+                $rest = ($tokens[$i..($tokens.Count - 1)] -join ' ')
+                $line = '"{0}" {1}' -f $candResolved, $rest
+                if ($args) { return '{0} {1}' -f $line, $args }
+                return $line
+            }
+        }
+    }
+    if ($args) { return '{0} {1}' -f $exe, $args }
+    return $exe
 }
 
 function Test-ConsoleSubsystem {
@@ -224,10 +298,12 @@ function New-HardenLauncherVbs {
         [Parameter(Mandatory = $true)] [string]$Execute,
         [string]$Arguments = ''
     )
-    $exe = $Execute.Trim().Trim('"').Trim("'").Trim()
-    if (-not $exe) { $exe = $Execute.Trim() }
-    $origCmd = if ([string]::IsNullOrWhiteSpace($Arguments)) { '"{0}"' -f $exe }
-               else { '"{0}" {1}' -f $exe, $Arguments }
+    # L'assemblage de la ligne de commande est delegue a Get-VbsRunCommand (defaut C) :
+    # une Execute qui porte DEJA toute la ligne (`schtasks /tr` non quote) ne doit pas
+    # etre re-emballee d'un bloc, sinon CreateProcess prend la ligne entiere pour le
+    # chemin de l'executable -> 0x80070002. L'executable est quote seul.
+    $origCmd = Get-VbsRunCommand -Execute $Execute -Arguments $Arguments
+    if (-not $origCmd) { $origCmd = $Execute }
     $vbsCmdLiteral = $origCmd -replace '"', '""'
     return @"
 ' Genere par scripts/scheduling/harden-hidden-tasks.ps1 -- NE PAS EDITER A LA MAIN.
