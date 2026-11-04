@@ -31,6 +31,16 @@
     DISABLED; the watchdog body arms it on C2 escalation and disarms it at
     window expiry / recovery). Default: 1.
 
+.PARAMETER LauncherDir
+    Maintenance#75 — directory of the hidden VBS launchers (one per task).
+    Default: the roo-extensions launcher directory of harden-hidden-tasks.ps1
+    (C:\ProgramData\claude-hidden-launchers), so a later hardening pass sees
+    both tasks as already hardened.
+
+.PARAMETER NoHiddenLauncher
+    Rollback switch (Maintenance#75): register the bare pwsh action as before
+    this change. The console then flashes on every run.
+
 .EXAMPLE
     .\install-gdrivefs-watchdog-schtask.ps1 -DryRun
     .\install-gdrivefs-watchdog-schtask.ps1 -DryRun -Uninstall
@@ -51,7 +61,9 @@ param(
     [int]$FastPollRepeatMinutes = 1,
     [string]$MountPath = 'G:\',
     [ValidateRange(0, 60)]
-    [int]$MountProbeTimeoutSeconds = 5
+    [int]$MountProbeTimeoutSeconds = 5,
+    [string]$LauncherDir,
+    [switch]$NoHiddenLauncher
 )
 
 $scriptDir   = Split-Path $MyInvocation.MyCommand.Path -Parent
@@ -124,7 +136,6 @@ $escapedWatchdogPath = $watchdogPs1.Replace('"', '`"')
 # run lets the quote close and yields the literal path.
 $escapedMountPath = $MountPath.Replace('"', '`"') -replace '(\\+)$', '$1$1'
 $actionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds"
-$action = New-ScheduledTaskAction -Execute $pwshPath -Argument $actionArguments
 
 # Self-healing triggers, mirroring install-dashboard-listener-schtask.ps1 (#2431).
 # - AtLogOn: covers the normal interactive-session start (matches the old HKCU Run).
@@ -170,10 +181,44 @@ $settings = New-ScheduledTaskSettingsSet `
 # printed "Installed" and exited 0 on a trigger that never landed. Null
 # Duration = indefinite repetition (same path as setup-scheduler.ps1, #967).
 $fastActionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds -FastPoll"
-$fastAction = New-ScheduledTaskAction -Execute $pwshPath -Argument $fastActionArguments
 $fastTrigRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $FastPollRepeatMinutes)
 $fastTrigRepeat.Repetition.Duration = $null
 $fastTrigRepeat.Repetition.StopAtDurationEnd = $false
+
+# ---------- hidden launcher (Maintenance#75) ----------
+# An Interactive-principal task whose action is pwsh.exe opens a console in the
+# user's session, and -WindowStyle Hidden only applies AFTER conhost is shown:
+# one flash per run (every $RepeatMinutes min, at each logon and boot, and every
+# minute while the fast poll is armed), stealing keyboard focus. Routing through
+# wscript.exe + a VBS calling Run(cmd, 0, True) passes SW_HIDE at CreateProcess
+# time, so no console is ever shown. The VBS comes from the generator of
+# harden-hidden-tasks.ps1 (New-HardenLauncherVbs: quoting, Err.Number
+# propagation) at the path that tool uses, so a later hardening pass sees both
+# tasks as already hardened. Before this, every reinstall undid the hardening.
+if ($NoHiddenLauncher) {
+    $action = New-ScheduledTaskAction -Execute $pwshPath -Argument $actionArguments
+    $fastAction = New-ScheduledTaskAction -Execute $pwshPath -Argument $fastActionArguments
+    $actionDisplay = "$pwshPath $actionArguments   [-NoHiddenLauncher: console flash on every run]"
+    $fastActionDisplay = "$pwshPath $fastActionArguments   [-NoHiddenLauncher: console flash on every run]"
+} else {
+    $hardenLib = Join-Path (Join-Path (Split-Path $scriptDir -Parent) 'scheduling') 'harden-hidden-tasks.lib.ps1'
+    if (-not (Test-Path -LiteralPath $hardenLib)) {
+        Write-Host "ERROR (Maintenance#75): launcher generator not found: $hardenLib. Nothing registered. -NoHiddenLauncher installs the bare pwsh action instead (console flash on every run)."
+        exit 1
+    }
+    . $hardenLib
+    if (-not $LauncherDir) { $LauncherDir = $script:LaneLauncherDir['roo-extensions'] }
+    $launcherPath = Join-Path $LauncherDir "$taskName.vbs"
+    $fastLauncherPath = Join-Path $LauncherDir "$fastTaskName.vbs"
+    $launcherVbs = New-HardenLauncherVbs -TaskName $taskName -Execute $pwshPath -Arguments $actionArguments
+    $fastLauncherVbs = New-HardenLauncherVbs -TaskName $fastTaskName -Execute $pwshPath -Arguments $fastActionArguments
+    $launcherArguments = '//B //Nologo "{0}"' -f $launcherPath
+    $fastLauncherArguments = '//B //Nologo "{0}"' -f $fastLauncherPath
+    $action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument $launcherArguments
+    $fastAction = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument $fastLauncherArguments
+    $actionDisplay = "wscript.exe $launcherArguments   [hidden launcher -> $pwshPath $actionArguments]"
+    $fastActionDisplay = "wscript.exe $fastLauncherArguments   [hidden launcher -> $pwshPath $fastActionArguments]"
+}
 
 $taskDescription = "GDriveFS silent-exit watchdog #2875 — relaunch GoogleDriveFS.exe (user context) when absent, every $RepeatMinutes min"
 $fastDescription = "GDriveFS watchdog fast-poll #3678 — 1-min companion task, armed by the watchdog body on C2 escalation for a short window; stays disabled otherwise"
@@ -188,18 +233,21 @@ if ($DryRun) {
             Write-Host "  [unregister] none ('$t' not present)"
         }
     }
+    if (-not $NoHiddenLauncher) {
+        Write-Host "  [write] hidden launchers (UTF-8, no BOM) under '$LauncherDir': $launcherPath ; $fastLauncherPath"
+    }
     Write-Host "  [register] $taskName"
-    Write-Host "    Action : $pwshPath $actionArguments"
+    Write-Host "    Action : $actionDisplay"
     Write-Host "    Trigger: AtLogOn; AtStartup +${StartupDelayMinutes}m; once-in-1m then repeat every ${RepeatMinutes}m (MultipleInstances IgnoreNew)"
     Write-Host "    Principal: $env:USERNAME (RunLevel Highest, LogonType Interactive)"
     Write-Host "    Settings: ExecutionTimeLimit 5m | RestartCount 3 (1m) | StartWhenAvailable | allow on batteries"
     Write-Host "    Description: $taskDescription"
     Write-Host "  [register] $fastTaskName, then [disable] (armed by the body on C2 escalation only)"
-    Write-Host "    Action : $pwshPath $fastActionArguments"
+    Write-Host "    Action : $fastActionDisplay"
     Write-Host "    Trigger: once-in-1m then repeat every ${FastPollRepeatMinutes}m, indefinite duration"
     Write-Host "    Description: $fastDescription"
     Write-Host ""
-    Write-Host "DRY-RUN — nothing registered/unregistered/disabled. Re-run without -DryRun from an elevated PowerShell to apply."
+    Write-Host "DRY-RUN — nothing written/registered/unregistered/disabled. Re-run without -DryRun from an elevated PowerShell to apply."
     exit 0
 }
 
@@ -255,6 +303,22 @@ function Assert-RegisteredRepetition {
     }
 }
 
+# Launchers are written BEFORE the old tasks are removed: a write failure leaves
+# the schedule untouched instead of half-replaced (Maintenance#75).
+if (-not $NoHiddenLauncher) {
+    try {
+        if (-not (Test-Path -LiteralPath $LauncherDir)) {
+            New-Item -ItemType Directory -Path $LauncherDir -Force -ErrorAction Stop | Out-Null
+        }
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText($launcherPath, $launcherVbs, $utf8NoBom)
+        [System.IO.File]::WriteAllText($fastLauncherPath, $fastLauncherVbs, $utf8NoBom)
+    } catch {
+        Write-Host "ERROR (Maintenance#75): cannot write the hidden launchers under '$LauncherDir': $($_.Exception.Message). Nothing registered or removed."
+        exit 1
+    }
+}
+
 # Remove old tasks if they exist (idempotent reinstall).
 foreach ($t in @($taskName, $fastTaskName)) {
     $existing = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
@@ -287,6 +351,7 @@ Assert-RegisteredRepetition -Name $fastTaskName -ExpectedMinutes $FastPollRepeat
 Write-Host "Installed scheduled task: $taskName"
 Write-Host "  Triggers: AtLogOn + AtStartup(+${StartupDelayMinutes}m) + repeat every ${RepeatMinutes}m | Principal: $env:USERNAME (Highest, Interactive)"
 Write-Host "  ExecutionTimeLimit: 5 min | MultipleInstances: IgnoreNew"
+Write-Host "  Action: $actionDisplay"
 Write-Host "  C1 positive probe: mount=$MountPath, timeout=${MountProbeTimeoutSeconds}s"
 Write-Host "  Body: $watchdogPs1"
 Write-Host "Installed companion task (DISABLED until the body arms it): $fastTaskName"

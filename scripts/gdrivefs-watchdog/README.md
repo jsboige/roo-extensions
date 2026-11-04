@@ -325,6 +325,12 @@ This installs a task `GDriveFS-Watchdog` that:
 - Triggers: `AtLogOn` + `AtStartup`(+2m) + repeat every 15 min
 - `ExecutionTimeLimit` 5 min, `MultipleInstances IgnoreNew`
 - Restarts on failure (3× / 1 min)
+- Action: `wscript.exe //B //Nologo "C:\ProgramData\claude-hidden-launchers\GDriveFS-Watchdog.vbs"`,
+  a hidden launcher that runs the pwsh body with no console window (Maintenance#75).
+  `-WindowStyle Hidden` alone still flashes a console on every run. The VBS is
+  written by the installer with the generator of `harden-hidden-tasks.ps1`
+  (`-LauncherDir` overrides the directory; `-NoHiddenLauncher` restores the bare
+  pwsh action as a rollback).
 
 …plus the companion task `GDriveFS-Watchdog-FastPoll` (1-min repeat,
 **registered disabled** — the body arms/disarms it, see *Fast-poll window*).
