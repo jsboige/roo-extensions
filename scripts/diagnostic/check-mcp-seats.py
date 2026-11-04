@@ -46,6 +46,12 @@ Ce que cet organe ne peut pas faire : mesurer un siege distant. Depuis un siege,
 on ne prouve la presence que LOCALEMENT ; pour les autres postes, la seule
 lecture disponible est declarative (RooSync `compare_config --granularity mcp`,
 `audit-stale-mcp-disables.py`). Ce plafond se dit, il ne se maquille pas.
+
+Plafond de resolution (review po-2024) : un DEAD dit « ce `command` n'a pas
+demarre avec le PATH de CETTE sonde », pas « ce serveur est casse ». Une entree
+en chemin relatif au workspace, ou resolue par un PATH de shell interactif,
+peut sortir DEAD alors qu'elle fonctionne dans l'hote MCP. Lire un DEAD comme
+une panne de mauvaise foi serait une faute de lecture, pas une mesure.
 """
 
 import argparse
