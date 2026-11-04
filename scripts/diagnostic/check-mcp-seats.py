@@ -40,7 +40,10 @@ Sortie (revue ai-01 04/11 — l'automate qui lit `$?` ne lit pas le docstring) :
      serveur declare : un nom introuvable n'est pas un siege sain, c'est une
      mesure qui n'a pas eu lieu (review ai-01 04/11).
 
-Precedence : erreur de lecture (1/2) > non-mesure (3) > verdict de presence.
+Precedence : erreur de lecture (1) et absence MESUREE (2) > nom non trouve
+(3) > sain (0). Une erreur de lecture n'est jamais un 0 ; et quand un `DEAD`
+est mesure, il sort 2 meme si une autre surface etait illisible -- l'automate
+doit voir l'absence avant la cecite de l'instrument.
 `STALE-DISABLE` sort 0 (une desactivation perimee n'est pas un serveur mort)
 mais reste affiche comme « a purger ».
 

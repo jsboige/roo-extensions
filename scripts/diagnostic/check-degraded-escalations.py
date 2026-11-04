@@ -101,6 +101,21 @@ def parse_ts(text):
     return stamp.astimezone(timezone.utc)
 
 
+def tags_from_text(text):
+    """Tags portes par une ligne `[tags: ...]` du CORPS, en minuscules.
+
+    Une seule definition, partagee par les deux chemins de lecture (miroir et
+    store JSON). C'est l'invariant qui compte, et il est structurel : le MEME
+    corps doit rendre les MEMES tags quelle que soit la surface qui l'a servi.
+    Deux motifs divergents rouvriraient exactement le trou de SHOULD-2 -- une
+    forme declaree sur un chemin et muette sur l'autre (review ai-01 04/11).
+    """
+    match = TAGS_RE.search(text or "")
+    if not match:
+        return set()
+    return {t.strip().lower() for t in match.group("tags").split(",") if t.strip()}
+
+
 def parse_entries(text):
     """Decoupe un dashboard en messages intercom, dans l'ordre du fichier.
 
@@ -126,9 +141,7 @@ def parse_entries(text):
 
     for entry in entries:
         entry["body"] = "\n".join(entry.pop("lines"))
-        tags = TAGS_RE.search(entry["body"])
-        entry["tags"] = ({t.strip().lower() for t in tags.group("tags").split(",") if t.strip()}
-                         if tags else set())
+        entry["tags"] = tags_from_text(entry["body"])
     return entries
 
 
@@ -331,38 +344,70 @@ def entries_from_store_json(text):
     deja tronque a `intercomLimit` par le serveur (`dashboard.ts:7573`), donc
     la fenetre lue est celle que la couverture verifie. On lit la source.
 
-    Rend None si le texte n'est pas une enveloppe exploitable : l'appelant
-    retombe alors sur le parse markdown (hote ancien, ou `format` ignore) --
-    une sonde ne suppose pas que son interlocuteur a la version qu'elle lit.
+    Review ai-01 04/11 (SHOULD-2) : le champ `tags` NE SUFFIT PAS. `append`
+    ne derive pas les tags du contenu (`dashboard.ts:8194`), or `README.md:226`
+    documente la declaration « par la ligne `[tags: ... DEGRADED ...]` » ecrite
+    DANS le corps. Servie par le store, cette forme n'a donc aucun tag dans son
+    champ : avant ce correctif elle declarait par le chemin markdown et se
+    taisait par le chemin JSON -- une declaration qui produit le silence, dans
+    la famille meme que ce module existe pour fermer. Les tags du corps sont
+    donc UNIS a ceux du champ, par la fonction qui sert aussi le miroir : le
+    meme corps doit rendre le meme verdict sur les deux surfaces.
+
+    Rend None si le texte n'est pas du JSON du tout (hote ancien, `format`
+    ignore) : la, et seulement la, le repli markdown est legitime -- une sonde
+    ne suppose pas que son interlocuteur a la version qu'elle lit.
+
+    Review ai-01 04/11 (SHOULD-1) : toute autre forme levee est une ERREUR
+    D'INSTRUMENT, pas un repli. Une enveloppe `{"success": false}` est ce que
+    rend `handleRead` quand le store est inaccessible (`dashboard.ts:7542`),
+    quand le dashboard n'existe pas (`:7573`) ou quand la section est invalide
+    (`:7602`) -- sans `isError`. La traiter comme « pas du JSON » la faisait
+    relire en markdown, qui n'y trouve aucune entree : exit 0, « aucune
+    escalade », sur une lecture qui n'a jamais eu lieu.
     """
     try:
         payload = json.loads(text)
     except (TypeError, ValueError):
-        return None
-    if not isinstance(payload, dict) or payload.get("success") is False:
-        return None
+        return None  # pas du JSON : hote ancien, le repli markdown est du
+    if not isinstance(payload, dict):
+        raise ValueError("enveloppe JSON sans objet racine")
+    if payload.get("success") is False:
+        detail = payload.get("error") or "sans motif"
+        raise ValueError(f"enveloppe en echec ({detail})")
     data = payload.get("data")
     intercom = data.get("intercom") if isinstance(data, dict) else None
     messages = intercom.get("messages") if isinstance(intercom, dict) else None
     if not isinstance(messages, list):
-        return None
+        raise ValueError("enveloppe sans data.intercom.messages[]")
     entries = []
     for message in messages:
         if not isinstance(message, dict):
-            return None
+            raise ValueError("message store non objet")
         author = message.get("author") or {}
         machine = author.get("machineId") or ""
         workspace = author.get("workspace") or ""
         lane = "|".join(part for part in (machine, workspace) if part)
         raw_tags = message.get("tags") or []
         if not isinstance(raw_tags, list):
-            return None
+            raise ValueError("champ tags non liste")
+        stamp = message.get("timestamp")
+        if not isinstance(stamp, str) or not stamp:
+            # Un horodatage non-chaine levait un AttributeError qui echappait
+            # au `except ValueError` de l'appelant (review ai-01 04/11, NIT) :
+            # il sortait en trace, sans le message d'erreur d'instrument.
+            raise ValueError(f"horodatage absent ou non-chaine ({stamp!r})")
+        content = message.get("content") or ""
+        if not isinstance(content, str):
+            raise ValueError("corps de message non-chaine")
         entries.append({
-            "ts": parse_ts(message.get("timestamp") or ""),
+            "ts": parse_ts(stamp),
             "lane": lane,
-            "body": message.get("content") or "",
-            "tags": {t.strip().lower() for t in raw_tags
-                     if isinstance(t, str) and t.strip()},
+            "body": content,
+            # Union : le champ (API canonique) ET le corps (forme documentee).
+            "tags": ({t.strip().lower() for t in raw_tags
+                      if isinstance(t, str) and t.strip()}
+                     | tags_from_text(content)),
         })
     return entries
 

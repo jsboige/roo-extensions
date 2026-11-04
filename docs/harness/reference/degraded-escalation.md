@@ -104,8 +104,15 @@ mais **aucune ligne `[tags: …]`**. Une lane qui déclarait par l'API canonique
 `append(tags=["DEGRADED"])`, corps en prose — restait donc invisible : `tags=[]`,
 exit `0`, silence. Or c'est la forme que le harnais documente. L'organe demande
 maintenant `format: json` et lit `data.intercom.messages[].tags` (déjà tronqué à
-`intercomLimit` côté serveur), c'est-à-dire **la source, pas son rendu**. Repli
-markdown conservé si l'enveloppe n'est pas exploitable (hôte ancien). Cas
+`intercomLimit` côté serveur), c'est-à-dire **la source, pas son rendu**. Les tags
+du **corps** sont unis à ceux du champ : `append` ne dérive pas les tags du
+contenu, donc la déclaration « par la ligne `[tags: … DEGRADED …]` » documentée
+dans `scripts/diagnostic/README.md` n'a aucun tag dans son champ et se taisait sur
+ce chemin (review ai-01 04/11, SHOULD-2). Le repli markdown est réservé au
+**non-JSON** (hôte ancien, `format` ignoré) : une enveloppe JSON qui n'est pas une
+réponse exploitable — `success: false` (store inaccessible, dashboard absent,
+section invalide) ou structure inattendue — est une **erreur d'instrument**
+(exit `1`), jamais un dashboard propre lu comme du markdown (SHOULD-1). Cas
 symétrique côté miroir : la sérialisation place `[msg: id]` **avant** le corps,
 donc une déclaration en premier token n'était jamais vue non plus — les lignes de
 métadonnées de tête sont désormais neutralisées avant le test du premier token.

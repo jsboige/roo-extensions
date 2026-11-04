@@ -283,7 +283,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     # --- Review Hermes 04/11 : bornes de la lecture store ----------------
 
-    def fake_store(self, dashboards, keys=None, structured=None):
+    def fake_store(self, dashboards, keys=None, structured=None, raw=None):
         """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
         (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
         les arguments `read` dans self.reads pour les assertions par-cle.
@@ -292,6 +292,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         `format: json`, comme le vrai store (#4517, review ai-01 04/11). Un
         dashboard present dans `dashboards` seulement est servi en markdown,
         ce qui exerce aussi le repli.
+
+        `raw` = {id: texte} : servi TEL QUEL pour `format: json`, pour exercer
+        une enveloppe en echec (`success: false`) ou une forme inattendue --
+        le serveur reel les rend sans `isError` (review ai-01 04/11, SHOULD-1).
         """
         if keys is None:
             keys = list(dashboards)
@@ -305,7 +309,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 self.reads.append(arguments)
                 ident = (arguments.get("workspace") or arguments.get("machine")
                          or "global")
-                if structured is not None and arguments.get("format") == "json":
+                if raw is not None and arguments.get("format") == "json" \
+                        and ident in raw:
+                    body = raw[ident]
+                elif structured is not None and arguments.get("format") == "json":
                     body = json.dumps({
                         "success": True, "action": "read",
                         "data": {"intercom": {"messages": structured.get(ident, [])}},
@@ -418,6 +425,62 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             self.message("2026-11-03T00:30:00.000Z",
                          content="mcp muet, je regarde")]})
         self.assertEqual(self.run_store_main(), 0)
+
+    def test_store_json_body_tags_line_still_declares(self):
+        # Review ai-01 04/11 (SHOULD-2) : `scripts/diagnostic/README.md:226`
+        # documente la declaration « par la ligne `[tags: ... DEGRADED ...]` »
+        # ecrite DANS le corps. `append` ne derive pas les tags du contenu
+        # (`dashboard.ts:8194`), donc cette forme n'a AUCUN tag dans son champ.
+        # Avant ce correctif elle declarait par le miroir et se taisait par le
+        # JSON -- une declaration qui produit le silence, sur le chemin devenu
+        # le defaut. Corps repris mot pour mot de la review.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=[],
+                         content="[tags: DEGRADED]\n\nmcp muet, je regarde")]})
+        self.assertEqual(self.run_store_main(), 2)
+
+    def test_store_json_body_tags_line_with_other_tag_stays_clean(self):
+        # Temoin NEGATIF de SHOULD-2 : lire aussi les tags du corps ne doit pas
+        # transformer toute ligne `[tags: ...]` en escalade.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=[],
+                         content="[tags: DONE]\n\nrien de casse")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_store_json_repaired_line_in_body_closes(self):
+        # L'union vaut aussi pour la reparation : sans elle, la forme
+        # documentee n'aurait regagne que la moitie de son sens -- elle
+        # ouvrirait sans jamais pouvoir fermer.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"]),
+            self.message("2026-11-03T02:00:00.000Z", tags=[],
+                         content="[tags: REPAIRED]\n\ntout est revenu")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_store_json_failed_envelope_is_an_instrument_error(self):
+        # Review ai-01 04/11 (SHOULD-1) : `handleRead` rend `{success:false}`
+        # SANS `isError` quand le store est inaccessible (`dashboard.ts:7542`),
+        # le dashboard absent (`:7573`) ou la section invalide (`:7602`). Ce
+        # n'est pas du markdown : exit 0 ferait dire « aucune escalade » a une
+        # lecture qui n'a jamais eu lieu.
+        self.fake_store({}, keys=["workspace-y"], raw={
+            "y": json.dumps({"success": False, "error": "store inaccessible"})})
+        self.assertEqual(self.run_store_main(), 1)
+
+    def test_store_json_malformed_envelope_is_an_instrument_error(self):
+        # Meme famille, forme inattendue : `data` sans `intercom` n'est pas une
+        # reponse exploitable, donc pas un dashboard propre non plus.
+        self.fake_store({}, keys=["workspace-y"], raw={
+            "y": json.dumps({"success": True, "data": {}})})
+        self.assertEqual(self.run_store_main(), 1)
+
+    def test_store_json_bad_timestamp_is_an_instrument_error(self):
+        # Review ai-01 04/11 (NIT) : un horodatage non-chaine levait un
+        # AttributeError HORS du `except ValueError` de l'appelant -- une trace
+        # au lieu du message d'erreur d'instrument.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            dict(self.message("2026-11-03T00:30:00.000Z"), timestamp=17)]})
+        self.assertEqual(self.run_store_main(), 1)
 
     def test_store_asks_for_the_json_source(self):
         # La source, pas son rendu : sans `format: json` le store repond le
