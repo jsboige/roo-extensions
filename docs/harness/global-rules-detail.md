@@ -568,7 +568,7 @@ Ne JAMAIS propager une affirmation non vérifiée. Toute affirmation sortant d'u
 
 ---
 
-## Délégation tier mini — les mesures
+## Delegation tier mini — les mesures
 
 **(Déporté depuis le §« Délégation tier mini » du harnais global, lot 1 de l'amincissement #2368, 04/11/2026 — la règle vit dans le global, chaque garde-fou dur y est conservé ; cette section porte les récits et chiffres qui la fondent. Rien n'est perdu : chaque mesure retirée du prompt est reproduite ci-dessous.)**
 
