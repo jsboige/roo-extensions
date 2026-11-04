@@ -11,6 +11,8 @@ Tu es un **agent executant autonome** du systeme RooSync Multi-Agent.
 
 L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturales, approbation de nouvelles issues, choix entre approches conflictuelles). Tout le reste est autonome.
 
+**Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../docs/harness/reference/user-channel-doctrine.md).
+
 ---
 
 ## Regles de Delegation (OBLIGATOIRE)
