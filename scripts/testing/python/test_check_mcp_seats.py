@@ -117,6 +117,37 @@ class SeatContract(unittest.TestCase):
         )
         self.assertEqual(self.run_main(), 2)
 
+    # --- `--server` : un nom introuvable n'est pas un siege sain ---------
+
+    def test_unknown_server_is_three_not_zero(self):
+        # Review ai-01 04/11 (SHOULD) : `--server <mal orthographie>` rendait
+        # LIVE=0 DEAD=0 en exit 0 -- indistinguable d'un siege sans serveur.
+        self.install(
+            workspace_servers={"live-one": {"command": "node", "args": []}},
+            user_config={},
+            handshake=lambda entry, timeout: (True, "18 outil(s)"),
+        )
+        self.assertEqual(self.run_main("--server", "live-one-typo"), 3)
+
+    def test_a_named_declared_server_still_measures(self):
+        # Temoin positif : restreindre a un serveur DECLARE mesure pour de bon.
+        self.install(
+            workspace_servers={"live-one": {"command": "node", "args": []}},
+            user_config={},
+            handshake=lambda entry, timeout: (True, "18 outil(s)"),
+        )
+        self.assertEqual(self.run_main("--server", "live-one"), 0)
+
+    def test_unknown_server_does_not_mask_a_dead_one(self):
+        # Un nom introuvable ne doit pas absorber un DEAD reellement mesure.
+        self.install(
+            workspace_servers={"dead-one": {"command": "node", "args": []}},
+            user_config={},
+            handshake=lambda entry, timeout: (False, "initialize: eof"),
+        )
+        self.assertEqual(self.run_main("--server", "dead-one",
+                                       "--server", "nope"), 2)
+
     # --- comportement documente, epingle --------------------------------
 
     def test_a_stale_disable_is_zero_but_still_reported(self):
