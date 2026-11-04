@@ -259,6 +259,8 @@ Le registre couvre les questions **de l'agent vers le user**. Quand c'est **le u
 | `NotebookEdit` | MCP `jupyter-papermill` (qui exécute en outre) |
 | bundledSkills | skills du projet et de l'utilisateur uniquement |
 | remote control, connecteurs ClaudeAI | MCP locaux |
+| `Artifact` / `ArtifactComments` / `ArtifactData` (GO user 04/11, Q74 claudish) | aucun besoin mesuré. Pour une page ponctuelle, retirer le deny localement le temps de la faire. Mesure claudish : ~10 k tokens de définition, 1 appel en 14 j sur ai-01 |
+| `Workflow` (même GO) | sous-agents `Agent` ou MCP `sk-agent`. Mesure claudish : ~6 k tokens de définition, 1 appel en 14 j |
 
 Ce n'est plus une préférence contournable : c'est une **impossibilité** outillage.
 
