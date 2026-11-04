@@ -91,7 +91,7 @@ Async subagent delegation extension for Pi. **Note:** this is a third-party exte
 1. **Multi-machine fleet coordination** — 6 machines, RooSync GDrive sync, heartbeat, dashboard workspace. Pi is single-machine.
 2. **Cross-machine task dispatching** — hash-based partitioning (`ROO_FLEET_ROSTER`, `task-partition.ts`), claim discipline, anti-double-claim
 3. **MCP ecosystem** — `roo-state-manager` (15 tools) for coordination, semantic search, conversation indexing across the fleet
-4. **Scheduler integration** — schtasks + worker scripts + cron 2h for autonomous cycles (vs `pi-multiloop` manual loop)
+4. **Scheduler integration** — session-only `CronCreate` cadence (4h, executors) + whitelisted headless launchers, never a `*WorkerCron` schtask (#4081), for autonomous cycles (vs `pi-multiloop` manual loop)
 5. **Agent claim discipline** — verified claims, `git cat-file -e`, SHA verification, pre-claim anti-overlap (`agent-claim-discipline.md`)
 6. **CI/CD pipeline** — `check-submodule-pointer`, `validate-before-push.ps1`, PR mandatory rules, tier-gate
 7. **Durability** — dashboard-listener self-healing wrapper + in-loop heartbeat (#2431); the 2026-06-13 2h cluster crash (po-2023 disk full → wsl/docker/claudish down) left all 5 listeners alive, proving the design
@@ -164,7 +164,7 @@ Ranked by impact/effort ratio:
 ## 10. Context
 
 - Current stack: RooSync v2.3 + Claude Code + Roo Code + roo-state-manager (15 MCP tools) + 6-machine fleet
-- Executor cycles: 2h cadence (`CronCreate`), auto-stop after 3 IDLE (#2185), wake routing via `[WAKE-CLAUDE]`
+- Executor cycles: 4h cadence (`CronCreate`, unified by the 15-17/08 mandates), auto-stop after 3 IDLE (#2185), wake routing via `[WAKE-CLAUDE]`
 - Compaction: 200k/90% universal threshold (`context-window.md`), auto-condensation at 92% dashboard
 - Post-crash note (2026-06-13): the 2h cluster crash (po-2023 disk full) left all 5 dashboard-listeners alive — corroborates §5.7 (our durability design works)
 
