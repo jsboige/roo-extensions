@@ -25,8 +25,22 @@ Verdicts par serveur :
   DISABLED  present dans `disabledMcpServers` du siege (l'intention est explicite)
   UNKNOWN   `--no-handshake` : declaration lue, presence non mesuree
 
-Sortie : 0 = tous LIVE/DISABLED, 2 = au moins un DEAD, 1 = erreur d'instrument.
-Le mode `--no-handshake` rend 0 meme sur DEAD (rien n'a ete mesure).
+Sortie (revue ai-01 04/11 — l'automate qui lit `$?` ne lit pas le docstring) :
+
+  0  mesure reelle, tous LIVE/DISABLED (aucune erreur de lecture)
+  2  au moins un DEAD — une absence MESUREE se signale, meme si une autre
+     surface a echoue a se lire
+  1  erreur d'instrument : au moins une surface n'a pas pu etre lue. JAMAIS 0
+     dans ce cas — un tally partiel n'est pas un siege sain (un
+     `~/.claude.json` corrompu porte `disabledMcpServers` ET la majorite des
+     declarations)
+  3  rien n'a ete mesure (`--no-handshake`) : declaration lue, presence non
+     sondee — sain mais chemin non exerce (forme maison de
+     `mcp-chain-slowcall-probe`)
+
+Precedence : erreur de lecture (1/2) > non-mesure (3) > verdict de presence.
+`STALE-DISABLE` sort 0 (une desactivation perimee n'est pas un serveur mort)
+mais reste affiche comme « a purger ».
 
 Ce que cet organe ne peut pas faire : mesurer un siege distant. Depuis un siege,
 on ne prouve la presence que LOCALEMENT ; pour les autres postes, la seule
@@ -145,7 +159,7 @@ def collect(workspace, user_config, errors):
     return servers, disabled
 
 
-def probe(servers, disabled, timeout, do_handshake, workspace):
+def probe(servers, timeout, do_handshake, workspace):
     handshake = _load_handshake() if do_handshake else None
     records = []
     for name in sorted(servers):
@@ -174,7 +188,7 @@ def probe(servers, disabled, timeout, do_handshake, workspace):
     return records
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Presence reelle des MCP sur un siege (handshake stdio)."
     )
@@ -187,7 +201,7 @@ def main():
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--server", action="append", default=None,
                         help="restreint la sonde a ce serveur (repetable)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     workspace = str(Path(args.workspace).resolve())
     errors = []
@@ -198,7 +212,7 @@ def main():
         wanted = set(args.server)
         servers = {k: v for k, v in servers.items() if k in wanted}
 
-    records = probe(servers, disabled, args.timeout, not args.no_handshake, workspace)
+    records = probe(servers, args.timeout, not args.no_handshake, workspace)
 
     stale = [r["server"] for r in records if r["verdict"] == "STALE-DISABLE"]
     dead = [r["server"] for r in records if r["verdict"] == "DEAD"]
@@ -232,10 +246,13 @@ def main():
             for err in errors:
                 print(f"  - {err}")
 
-    if errors and not records:
-        return 1
+    # Precedence du contrat (revue ai-01 04/11) : une erreur de lecture n'est
+    # JAMAIS un 0, et un DEAD mesure prime sur elle -- l'automate doit voir
+    # l'absence meme quand une autre surface etait illisible.
+    if errors:
+        return 2 if dead else 1
     if args.no_handshake:
-        return 0
+        return 3
     return 2 if dead else 0
 
 
