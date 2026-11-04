@@ -23,14 +23,24 @@ Codes de sortie (un automate peut lire le code seul) :
     0   aucune escalade `[DEGRADED]` dans la fenetre lue
     3   escalade(s) ouverte(s), aucune echeance depassee  (mecanisme exerce, rien a sonner)
     2   au moins une echeance depassee sans `[REPAIRED]`  -> SONNERIE DUE
-    1   erreur d'instrument (dashboards illisibles, ou --ring demande et non poste)
+    1   erreur d'instrument (dashboards illisibles, miroir gele, ou --ring
+        demande et non poste) ; AUSSI la mesure DEGRADEE : miroir lu comme
+        source alors que PG etait configure (review #4519 point c)
+
+Sources, dans l'ordre (review #4519 point c) :
+    1. --dashboard-file    rejeu d'un fichier precis (forensic) — pas de plafond
+    2. STORE PG            meme transport que la sonnerie (MCP_PROXY_BEARER),
+                           fenetre des 30 dernieres entrees par dashboard
+    3. miroir G:           repli seulement ; si PG etait configure, la mesure est
+                           DEGRADEE (sortie 1) ; plafond de fraicheur : la plus
+                           recente entree doit dater de moins d'un cycle
 
 Usage :
-    python check-degraded-escalations.py                       # lit $ROOSYNC_SHARED_PATH/dashboards
+    python check-degraded-escalations.py                       # lit le store ( bearer requis )
     python check-degraded-escalations.py --cycles 2 --cycle-hours 4
     python check-degraded-escalations.py --json
     python check-degraded-escalations.py --ring                # poste ASK-USER sur le dashboard global
-    python check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu hors G:
+    python check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu hors store
     python check-degraded-escalations.py --selftest
 
 Plafond dit explicitement : l'organe ne voit que les escalades **postees**. Une
@@ -65,6 +75,13 @@ TAGS_RE = re.compile(r"^\[tags:\s*(?P<tags>[^\]]*)\]\s*$", re.M)
 # Frontiere de mot obligatoire : `[DEGRADED-FIXED]` n'est pas `[DEGRADED]`.
 DEGRADED_RE = re.compile(r"\[DEGRADED\](?![A-Za-z0-9_-])")
 REPAIRED_RE = re.compile(r"\[REPAIRED\](?![A-Za-z0-9_-])")
+# Les deux tokens, pour l'assainissement du texte de la sonnerie (review
+# #4519 point b : la sonnerie ne doit porter AUCUN token de declaration --
+# sinon son propre post se lit comme la reparation de l'escalade qu'elle sonne).
+DECLARATION_TOKEN_RE = re.compile(r"\[(DEGRADED|REPAIRED)\](?![A-Za-z0-9_-])")
+# Tag porte par la sonnerie elle-meme (tags ASK-USER + DEGRADED-ESCALATION) :
+# une entree qui le porte n'est jamais une declaration ni une reparation.
+RING_TAG = "degraded-escalation"
 
 
 def parse_ts(text):
@@ -107,12 +124,31 @@ def parse_entries(text):
     return entries
 
 
+def is_declaration(entry, token_name, token_re):
+    """Une DECLARATION, jamais une mention (review #4519 point a).
+
+    Deux formes acceptees, toutes deux deliberées :
+      - la ligne `[tags: ... token_name ...]` que les posts de production
+        portent (TAGS_RE la parse deja) ;
+      - le token en PREMIER token du corps (`[DEGRADED] mcp muet`).
+    Un post qui CITE le token en plein prose -- la review qui le cite, le
+    `[DONE]` qui l'explique -- n'est pas une declaration : detecter la mention
+    ouvrait des escalades fantomes qui sonnaient le user pour rien (deux posts
+    reels du 03/11, fixtures du selftest).
+    """
+    if RING_TAG in entry["tags"]:
+        return False  # notre propre sonnerie n'est ni declaration ni reparation
+    if token_name in entry["tags"]:
+        return True
+    return bool(token_re.match(entry["body"].lstrip()))
+
+
 def is_degraded(entry):
-    return "degraded" in entry["tags"] or bool(DEGRADED_RE.search(entry["body"]))
+    return is_declaration(entry, "degraded", DEGRADED_RE)
 
 
 def is_repaired(entry):
-    return "repaired" in entry["tags"] or bool(REPAIRED_RE.search(entry["body"]))
+    return is_declaration(entry, "repaired", REPAIRED_RE)
 
 
 def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
@@ -180,14 +216,118 @@ def default_dashboard_files(dashboard_dir):
                   if " (" not in p.name and p.name != "mcp-dashboard.md")
 
 
+# Chargeur du store, injectable pour les tests (aucun reseau en CI) :
+# un test qui substitue cette globale voit le repli miroir sans lever un client.
+_store_loader = None
+
+
+def type_from_key(key):
+    """global | machine | workspace — la cle du dashboard porte son type."""
+    if key == "global":
+        return "global"
+    if key.startswith("machine-"):
+        return "machine"
+    return "workspace"
+
+
+def tool_result_text(result):
+    """Texte du contenu d'un resultat MCP, ou None si inutilisable."""
+    if not isinstance(result, dict):
+        return None
+    content = result.get("content")
+    if isinstance(content, list) and content and isinstance(content[0], dict):
+        return content[0].get("text")
+    return None
+
+
+def store_keys_from_listing(result):
+    """Cles de dashboards depuis un `action: list`, ou None (fail-closed :
+    une liste illisible ne se sert jamais comme « zero dashboard »)."""
+    text = tool_result_text(result)
+    if text is None:
+        return None
+    try:
+        payload = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or payload.get("success") is False:
+        return None
+    dashboards = payload.get("dashboards")
+    if not isinstance(dashboards, list):
+        return None
+    keys = [d.get("key") for d in dashboards
+            if isinstance(d, dict) and d.get("key")]
+    return keys or None
+
+
+def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=30):
+    """Dashboards servis par le STORE (PG), meme transport que la sonnerie
+    (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
+    gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
+
+    Rend (entries, errors) — la meme signature que load_entries — ou None si
+    le store est injoignable en entree (list illisible) : l'appelant decide
+    alors du repli miroir, qui DEGRADE le verdict quand PG etait configure.
+
+    Fenetre : les `intercom_limit` dernieres entrees PAR dashboard. La fenetre
+    d'echeance etant de 2 cycles (8 h par defaut), 30 entrees couvrent tout
+    dashboard de la flotte sur cette duree ; une escalade archivee par
+    condensation AVANT son echeance reste le plafond connu (non bloquant,
+    review NanoClaw 03/11) — le store a au moins le merite de ne pas geler.
+    """
+    call = _load_transport()
+    keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
+                                        timeout=timeout))
+    if keys is None:
+        return None
+    entries = []
+    errors = []
+    for key in keys:
+        result = call({"action": "read", "type": type_from_key(key),
+                       "section": "intercom", "intercomLimit": intercom_limit},
+                      url, bearer, timeout=timeout)
+        text = tool_result_text(result)
+        if text is None:
+            errors.append(f"{key}: lecture store sans contenu")
+            continue
+        entries.extend(parse_entries(text))
+    return entries, errors
+
+
+def mirror_is_stale(entries, now, cycle_hours=DEFAULT_CYCLE_HOURS):
+    """Vrai si la plus recente entree lue depasse un cycle (review #4519
+    point c, plancher alternatif) : un miroir gele n'est pas une erreur de
+    lecture, c'est pire — il repond un faux « rien a signaler » sur des
+    donnees mortes. Un ensemble sans AUCUNE entree est stale par construction.
+    """
+    if not entries:
+        return True
+    newest = max(entry["ts"] for entry in entries)
+    return now - newest > timedelta(hours=cycle_hours)
+
+
+def strip_declaration_tokens(text):
+    """Remplace tout token de declaration par son mot (review #4519 point b).
+
+    Applique au texte de la sonnerie : un `[REPAIRED]` ou `[DEGRADED]` litteral
+    dans le post de sonnerie serait lu par le prochain run comme la reparation
+    de l'escalade qu'il sonne -- la sonnerie fermerait sa propre alarme.
+    """
+    return DECLARATION_TOKEN_RE.sub(
+        lambda m: "degradation" if m.group(1) == "DEGRADED" else "reparation",
+        text)
+
+
 def build_ring_content(overdue):
     lines = [f"[ASK-USER][DEGRADED-ESCALATION] {len(overdue)} escalade(s) "
              f"d'environnement degrade non reparee(s) dans les delais."]
     for item in overdue:
-        lines.append(f"- {item['lane']} — degrade depuis {item['posted']}, "
-                     f"echeance {item['deadline']} depassee : {item['excerpt'][:120]}")
+        lines.append(strip_declaration_tokens(
+            f"- {item['lane']} — degrade depuis {item['posted']}, "
+            f"echeance {item['deadline']} depassee : {item['excerpt'][:120]}"))
     lines.append("Le mecanisme porte l'echeance, pas la memoire de la lane : "
-                 "un `[REPAIRED]` de la lane ferme l'escalade, un `[DONE]` non.")
+                 "une declaration de reparation par la lane ferme l'escalade ; "
+                 "un bilan de cycle ne ferme rien.")
     return "\n".join(lines)
 
 
@@ -205,16 +345,18 @@ def build_ring_id(overdue, now=None):
 
 
 def _load_transport():
-    """append_dashboard() depuis detect-approval-stalls.py — un seul transport
-    de dashboard pour la flotte (meme motif que check-mcp-seats.py qui importe
-    handshake() au lieu d'en ecrire un second). Importlib : le nom de fichier
+    """call_dashboard_tool() depuis detect-approval-stalls.py — un seul
+    transport de dashboard pour la flotte, pour LIRE le store comme pour
+    POSTER la sonnerie (review #4519 point c : la lecture prend le meme
+    chemin que l'ecriture, jamais un second client). Meme motif que
+    check-mcp-seats.py qui importe handshake(). Importlib : le nom de fichier
     porte un tiret, il n'est pas importable comme module."""
     here = Path(__file__).resolve().parent
     spec = importlib.util.spec_from_file_location(
         "detect_approval_stalls", here / "detect-approval-stalls.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.append_dashboard
+    return module.call_dashboard_tool
 
 
 def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
@@ -226,7 +368,7 @@ def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
         "messageId": build_ring_id(overdue, now=now),
     }
     return _load_transport()(arguments, url, bearer, timeout=timeout,
-                             client="degraded-escalations")
+                             client="degraded-escalations") is not None
 
 
 def verdict(escalations):
@@ -298,6 +440,43 @@ def selftest():
 
 [DEGRADED-FIXED] une forme voisine ne doit pas compter
 """,
+            # Review #4519 point a — les deux posts REELS du 03/11 qui citaient
+            # le tag en pleine prose : aucun des deux n'est une declaration.
+            # Ce sont eux qui produisaient les escalades fantomes.
+            "mention-done.md": """### [2026-11-03T02:00:00.000Z] myia-ai-01|roo-extensions
+[tags: DONE]
+
+[DONE] c.57 termine. Rappel : la lane po-2026 a poste `[DEGRADED]` mcp muet
+sur son dashboard, l'echeance court.
+""",
+            "mention-review.md": """### [2026-11-03T02:30:00.000Z] myia-po-2026|nanoclaw
+[tags: REPLY]
+
+Review rendue : le tag `[DEGRADED]` du post de 16:53 est bien une escalade,
+l'organe doit la compter.
+""",
+            # Point a, temoin positif : la ligne [tags:] SEULE declare, meme
+            # sans token ouvrant le corps (forme de production des posts tagges).
+            "declaration-tags.md": """### [2026-11-03T10:00:00.000Z] myia-g|ws
+[tags: DEGRADED]
+
+environnement degrade : jupyter-papermill muet depuis le preflight
+""",
+            # Point b — la sonnerie elle-meme (tags ASK-USER + DEGRADED-ESCALATION,
+            # texte portant deliberement des tokens litteraux comme les anciennes
+            # sonneries en contenaient) ne ferme PAS l'escalade de sa lane et
+            # n'en OUVRE pas une nouvelle.
+            "self-ring.md": """### [2026-11-02T22:00:00.000Z] myia-h|ws
+[tags: DEGRADED]
+
+[DEGRADED] sk-agent absent
+
+### [2026-11-03T08:30:00.000Z] myia-h|ws
+[tags: ASK-USER, DEGRADED-ESCALATION]
+
+[ASK-USER][DEGRADED-ESCALATION] 1 escalade(s) non reparee(s). une declaration
+[REPAIRED] par la lane fermerait l'escalade. Extrait : sk-agent absent.
+""",
         }
         for name, text in cases.items():
             (root / name).write_text(text, encoding="utf-8")
@@ -316,6 +495,23 @@ def selftest():
         # Le point du mandat : un [DONE] ne consacre pas une sortie degradee.
         assert evaluate("done-is-not-repair.md")[0] == 2, evaluate("done-is-not-repair.md")
         assert evaluate("word-boundary.md")[0] == 0, evaluate("word-boundary.md")
+        # Review #4519 point a — les deux posts reels qui citaient le tag en
+        # prose : PAS des declarations, PAS d'escalade fantome.
+        assert evaluate("mention-done.md")[0] == 0, evaluate("mention-done.md")
+        assert evaluate("mention-review.md")[0] == 0, evaluate("mention-review.md")
+        # Point a, temoin positif : la ligne [tags:] seule declare.
+        assert evaluate("declaration-tags.md")[0] == 3, evaluate("declaration-tags.md")
+        # Point b — la sonnerie de sa propre lane ne ferme pas son alarme
+        # (tokens litteraux dans le corps + tag DEGRADED-ESCALATION) et n'en
+        # ouvre pas une nouvelle : exactement UNE escalade, toujours due.
+        self_ring = collect_escalations(load_entries([root / "self-ring.md"])[0], now)
+        assert len(self_ring) == 1 and self_ring[0]["status"] == "overdue", self_ring
+        # Point b — le texte de la sonnerie ne porte AUCUN token de declaration,
+        # meme quand l'extrait de l'escalade en cite (mention en pleine prose).
+        noisy = collect_escalations(load_entries([root / "self-ring.md"])[0], now)
+        noisy[0]["excerpt"] = "escalade `[DEGRADED]` citee puis `[REPAIRED]` en prose"
+        assert not DECLARATION_TOKEN_RE.search(build_ring_content(noisy)), \
+            build_ring_content(noisy)
 
         # L'echeance est derivee du poste, pas declaree par l'agent.
         entries, _ = load_entries([root / "overdue.md"])
@@ -336,7 +532,10 @@ def selftest():
 
     print("selftest OK: [DEGRADED] ouvert/depasse/repare, [DONE] ne ferme rien, "
           "forme voisine ignoree, echeance derivee du poste, erreur d'instrument "
-          "non confondue avec 'rien a signaler', idempotence quotidienne.")
+          "non confondue avec 'rien a signaler', idempotence quotidienne, "
+          "mentions en prose ignorees (posts reels du 03/11), declaration par "
+          "[tags:] seule, sonnerie sans effet sur sa propre alarme et sans "
+          "token de declaration.")
 
 
 def main(argv=None):
@@ -373,25 +572,62 @@ def main(argv=None):
         selftest()
         return 0
 
+    now = parse_ts(args.now) if args.now else datetime.now(timezone.utc)
+
+    # Chaine de sources (review #4519 point c) : rejeu explicite -> fichiers ;
+    # sinon STORE PG via le meme transport que la sonnerie ; sinon repli miroir
+    # G:, qui DEGRADE la mesure quand PG etait configure (les dashboards sont
+    # servis par PG depuis le cut #4131 — un G: gele repond un faux « tout va
+    # bien » confiant sur des donnees mortes).
+    source = "replay"
+    degraded_source = False
     if args.dashboard_file:
         paths = [Path(p) for p in args.dashboard_file]
+        entries, errors = load_entries(paths)
     else:
-        shared = Path(os.environ.get("ROOSYNC_SHARED_PATH") or DEFAULT_SHARED)
-        paths = default_dashboard_files(shared / "dashboards")
+        loader = _store_loader or load_entries_from_store
+        store = (loader(args.ring_url, args.ring_bearer, timeout=args.ring_timeout)
+                 if args.ring_bearer else None)
+        if store is not None:
+            source = "store"
+            paths = []
+            entries, errors = store
+        else:
+            if args.ring_bearer:
+                print("WARNING: store PG injoignable — repli miroir G:, la mesure "
+                      "est DEGRADEE (sortie 1 quoi qu'il lise)", file=sys.stderr)
+            source = "mirror"
+            degraded_source = bool(args.ring_bearer)
+            if args.dashboard_dir:
+                dash_dir = Path(args.dashboard_dir)
+            else:
+                dash_dir = (Path(os.environ.get("ROOSYNC_SHARED_PATH") or DEFAULT_SHARED)
+                            / "dashboards")
+            paths = default_dashboard_files(dash_dir)
+            entries, errors = load_entries(paths)
 
-    entries, errors = load_entries(paths)
     for err in errors:
         print(f"WARNING: dashboard illisible — {err}", file=sys.stderr)
 
-    now = parse_ts(args.now) if args.now else datetime.now(timezone.utc)
     escalations = collect_escalations(entries, now, cycles=args.cycles,
                                       cycle_hours=args.cycle_hours)
     code, reason = verdict(escalations)
     report(escalations, code, reason, args.json)
 
-    if not paths:
+    if source == "mirror" and not paths:
         print("ERROR: aucun dashboard a lire — « rien a signaler » serait un mensonge "
               "sur une mesure absente", file=sys.stderr)
+        return 1
+
+    # Plafond de fraicheur du miroir : la plus recente entree doit dater de
+    # moins d'un cycle. Un miroir gele ne renvoie pas une erreur de lecture —
+    # il repond un « rien a signaler » sur des donnees mortes, ce qui est pire.
+    # Pas de sonnerie sur des donnees mortes : faux positif garanti.
+    if (source == "mirror"
+            and mirror_is_stale(entries, now, cycle_hours=args.cycle_hours)):
+        print("ERROR: miroir gele — entree la plus recente plus vieille qu'un cycle ; "
+              "mesure non fiable, aucune sonnerie sur des donnees mortes",
+              file=sys.stderr)
         return 1
 
     if code == 2 and args.ring:
@@ -414,6 +650,15 @@ def main(argv=None):
         # mais l'instrument ne peut pas annoncer un 0 ou un 2 confiant.
         print(f"ERROR: {len(errors)} dashboard(s) illisible(s) sur {len(paths)} — "
               f"mesure partielle, codes 0/2/3 non fiables", file=sys.stderr)
+        return 1
+
+    if degraded_source:
+        # Meme logique act-then-degrade : ce que le miroir a dit est rapporte
+        # (et sonne) ci-dessus, mais la mesure est incomplete — le store PG
+        # etait configure et n'a pas repondu (review #4519 point c).
+        print("ERROR: source = miroir G: alors que PG est configure (store "
+              "injoignable) — mesure incomplete, codes 0/2/3 non fiables",
+              file=sys.stderr)
         return 1
 
     return code

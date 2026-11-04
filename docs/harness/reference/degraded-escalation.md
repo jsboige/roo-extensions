@@ -64,9 +64,10 @@ mémoire de l'agent qui l'avait posée.
 ## L'organe : `scripts/diagnostic/check-degraded-escalations.py`
 
 ```bash
-python scripts/diagnostic/check-degraded-escalations.py                # lit $ROOSYNC_SHARED_PATH/dashboards
+python scripts/diagnostic/check-degraded-escalations.py                # lit le store PG (bearer requis)
 python scripts/diagnostic/check-degraded-escalations.py --json
 python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le dashboard global
+python scripts/diagnostic/check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu forensic
 python scripts/diagnostic/check-degraded-escalations.py --selftest
 ```
 
@@ -75,16 +76,37 @@ python scripts/diagnostic/check-degraded-escalations.py --selftest
 | `0` | aucune escalade `[DEGRADED]` dans la fenêtre lue | rien |
 | `3` | escalade(s) ouverte(s), échéance non dépassée | rien — mais ce n'est **pas** « tout va bien » |
 | `2` | au moins une échéance dépassée sans `[REPAIRED]` | **sonner le user** |
-| `1` | erreur d'instrument, ou `--ring` demandé et non parti | réparer l'instrument, ne pas conclure |
+| `1` | erreur d'instrument (illisible, miroir gelé, **mesure dégradée**), ou `--ring` demandé et non parti | réparer l'instrument, ne pas conclure |
 
 Défauts : **2 cycles × 4 h** = 8 h, la cadence des crons flotte (`41 */4`).
 `--cycles` / `--cycle-hours` les remplacent là où la cadence diffère.
 
+**Déclaration ≠ mention** (review #4519) : une escalade est **déclarée** par la
+ligne `[tags: … DEGRADED …]` ou par le token en **premier token du corps**.
+Un post qui **cite** le tag en pleine prose — la review qui le commente, le
+`[DONE]` qui l'explique — n'ouvre rien : les deux posts réels du 03/11 qui
+citaient le tag produisaient des escalades fantômes qui sonnaient le user pour
+rien. Même discipline pour `[REPAIRED]` : seule une déclaration de la même lane
+ferme.
+
+**Sources, dans l'ordre** (review #4519) : `--dashboard-file` = rejeu forensic
+(sans plafond) → sinon le **store PG**, via le même transport que la sonnerie
+(fenêtre des 30 dernières entrées par dashboard) → sinon repli **miroir G:**,
+qui **dégrade** la mesure : si PG était configuré, l'organe agit sur ce que le
+miroir a dit (rapport + sonnerie) puis sort **1** — jamais un `0` confiant sur
+une source de repli. Plafond de fraîcheur du miroir : la plus récente entrée
+doit dater de moins d'un cycle, sinon `1` sans sonnerie (un G: gelé depuis le
+cut #4131 répond un faux « rien à signaler » sur des données mortes).
+
 `--ring` poste un `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard `global`,
 avec une clé d'idempotence **quotidienne** : le même lot sonne **une fois par
 jour**, jamais une fois par tick, et re-sonne chaque jour tant que rien n'est
-réparé. Le transport est celui de `detect-approval-stalls.py` (`append_dashboard`,
-importé, pas recopié). Un `--ring` qui échoue sort **1** : une sonnerie qui n'est
+réparé. Le texte de la sonnerie ne porte **aucun token de declaration**
+(`[DEGRADED]`/`[REPAIRED]` remplacés par leur mot) et son entrée porte le tag
+`DEGRADED-ESCALATION` : la sonnerie ne peut ni fermer sa propre alarme ni en
+ouvrir une nouvelle. Le transport est celui de `detect-approval-stalls.py`
+(`call_dashboard_tool`, importé, pas recopié — le même pour LIRE le store et
+POSTER la sonnerie). Un `--ring` qui échoue sort **1** : une sonnerie qui n'est
 pas partie ne se présente jamais comme un succès.
 
 ---

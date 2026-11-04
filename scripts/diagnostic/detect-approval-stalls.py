@@ -662,8 +662,11 @@ def build_note_content(stalls, workspace):
     return "\n".join(lines)
 
 
-def append_dashboard(arguments, url, bearer, timeout=10.0, client="stall-detector"):
-    """One `roosync_dashboard` append over the bots' JSON-RPC path. True on success.
+def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-detector"):
+    """One `roosync_dashboard` tools/call over the bots' JSON-RPC path.
+
+    Returns the JSON-RPC result dict (the MCP tool result -- `content` list
+    included), or None on any failure. The bool append wrapper lives below.
 
     Generic transport, deliberately argument-agnostic: the CALLER decides what
     is worth a note and what goes in `arguments`; this function only moves the
@@ -731,16 +734,28 @@ def append_dashboard(arguments, url, bearer, timeout=10.0, client="stall-detecto
         _call_headers, call_raw = post(call_body, extra)
         result = result_payload(call_raw)
         if result is not None and result.get("isError"):
-            print(f"WARNING: dashboard append rejected server-side (isError) -- "
-                  f"note NOT confirmed: {str(result)[:200]}", file=sys.stderr)
-            return False
-        return True
+            print(f"WARNING: dashboard call rejected server-side (isError) -- "
+                  f"result NOT usable: {str(result)[:200]}", file=sys.stderr)
+            return None
+        return result
     except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
         # HTTPException: a body cut mid-read (IncompleteRead) on a slow proxy
         # must stay a warning, not a traceback that replaces the exit code.
-        print(f"WARNING: dashboard note NOT posted ({exc}) -- signal is "
+        print(f"WARNING: dashboard call NOT completed ({exc}) -- signal is "
               f"best-effort, the caller's own verdict stands", file=sys.stderr)
-        return False
+        return None
+
+
+def append_dashboard(arguments, url, bearer, timeout=10.0, client="stall-detector"):
+    """One `roosync_dashboard` append. True on success.
+
+    Thin bool wrapper over call_dashboard_tool -- append callers only need to
+    know the note landed. Shared with check-degraded-escalations.py (#4517) so
+    the fleet keeps ONE dashboard transport instead of two that drift apart --
+    same reason check-mcp-seats.py imports handshake() rather than copying it.
+    """
+    return call_dashboard_tool(arguments, url, bearer, timeout=timeout,
+                               client=client) is not None
 
 
 def publish_dashboard_note(stalls, workspace, url, bearer, dash_type="workspace",

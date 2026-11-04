@@ -223,9 +223,11 @@ Sonnerie de l'escalade **environnement dégradé** (#4517, mandat user 03/11 —
 
 Les dashboards sont lus (`## Intercom`), les escalades `[DEGRADED]` repérées, et pour chacune l'échéance est **dérivée du post** (`posté + 2 cycles`, défaut 2 × 4 h = la cadence `41 */4`) :
 
-- **Fermeture** : seule une entrée `[REPAIRED]` de la **même lane**, postérieure, ferme l'escalade. Un `[DONE]` ne ferme rien — c'est la « sortie dégradée consacrée » que le mandat interdit.
-- **Exit codes** : `0` aucune escalade / `3` ouverte(s) dans les délais (le chemin est exercé, rien à sonner) / `2` échéance dépassée → **sonner le user** / `1` erreur d'instrument (dashboard illisible, ou `--ring` demandé et non parti).
-- **`--ring`** poste `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard **global** ; clé d'idempotence **quotidienne** (même lot = une sonnerie par jour, re-sonne chaque jour tant que rien n'est réparé). Transport **importé** de `detect-approval-stalls.py` (`append_dashboard`, importlib) — pas de second organe.
+- **Déclaration ≠ mention** (review #4519) : une escalade est déclarée par la ligne `[tags: … DEGRADED …]` ou le token en premier token du corps — jamais par une citation en pleine prose (review, `[DONE]` explicatif) : les posts réels du 03/11 qui citaient le tag produisaient des escalades fantômes.
+- **Fermeture** : seule une **déclaration** `[REPAIRED]` de la **même lane**, postérieure, ferme l'escalade. Un `[DONE]` ne ferme rien — c'est la « sortie dégradée consacrée » que le mandat interdit.
+- **Sources** (review #4519) : `--dashboard-file` = rejeu forensic → sinon **store PG** (même transport que la sonnerie, 30 dernières entrées par dashboard) → sinon repli **miroir G:**, qui **dégrade** la mesure (sortie `1` si PG était configuré) ; plafond de fraîcheur : plus récente entrée < 1 cycle, sinon `1` sans sonnerie.
+- **Exit codes** : `0` aucune escalade / `3` ouverte(s) dans les délais (le chemin est exercé, rien à sonner) / `2` échéance dépassée → **sonner le user** / `1` erreur d'instrument (dashboard illisible, miroir gelé, mesure dégradée, ou `--ring` demandé et non parti).
+- **`--ring`** poste `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard **global** ; clé d'idempotence **quotidienne** (même lot = une sonnerie par jour, re-sonne chaque jour tant que rien n'est réparé). Le texte ne porte **aucun token de déclaration** et l'entrée porte le tag `DEGRADED-ESCALATION` : la sonnerie ne ferme pas sa propre alarme. Transport **importé** de `detect-approval-stalls.py` (`call_dashboard_tool`, importlib) — le même pour lire le store et poster.
 - **Plafond dit** : l'organe ne voit que les escalades **postées** ; une lane qui n'escalade pas reste invisible — d'où la sonde de siège `check-mcp-seats.py` (#4518) qui mesure la présence réelle des MCP.
 
 ```bash

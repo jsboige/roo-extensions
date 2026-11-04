@@ -150,6 +150,136 @@ class EscalationContract(unittest.TestCase):
         # Le transport vit dans detect-approval-stalls.py : un seul organe.
         self.assertTrue(callable(cde._load_transport()))
 
+    # --- Review #4519 point a : declaration != mention --------------------
+
+    def test_a_done_that_quotes_the_tag_in_prose_is_zero(self):
+        # Post REEL du 03/11 (ai-01, [DONE] 16:53Z) : le tag est CITÉ en prose
+        # — l'ancien detecteur en faisait une escalade fantome.
+        path = self.dashboard("mention-done.md", """### [2026-11-03T00:00:00.000Z] myia-ai-01|roo-extensions
+[tags: DONE]
+
+[DONE] c.57 termine. Rappel : la lane po-2026 a poste `[DEGRADED]` mcp muet
+sur son dashboard, l'echeance court.
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_a_review_that_quotes_the_tag_in_prose_is_zero(self):
+        # Post REEL du 03/11 (NanoClaw, review 17:20Z) : meme citation, meme
+        # non-escalade.
+        path = self.dashboard("mention-review.md", """### [2026-11-03T00:00:00.000Z] myia-po-2026|nanoclaw
+[tags: REPLY]
+
+Review rendue : le tag `[DEGRADED]` du post de 16:53 est bien une escalade,
+l'organe doit la compter.
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_a_tags_line_alone_declares(self):
+        # Temoin positif du point a : la ligne [tags: DEGRADED] des posts de
+        # production declare, meme sans token ouvrant le corps.
+        path = self.dashboard("tags-declares.md", """### [2026-11-03T08:00:00.000Z] a|ws
+[tags: DEGRADED]
+
+environnement degrade : jupyter-papermill muet depuis le preflight
+""")
+        self.assertEqual(self.run_main(path), 3)
+
+    # --- Review #4519 point b : la sonnerie ne ferme pas son alarme -------
+
+    def test_self_ring_does_not_close_its_own_alarm(self):
+        # Escalade overdue + le post de sonnerie de la MEME lane (tags
+        # ASK-USER/DEGRADED-ESCALATION, tokens litteraux dans le corps comme
+        # les anciennes sonneries en contenaient) : toujours SONNERIE DUE, et
+        # exactement UNE escalade — le ring n'en ouvre pas une seconde.
+        path = self.dashboard("self-ring.md", """### [2026-11-03T00:00:00.000Z] a|ws
+[tags: DEGRADED]
+
+[DEGRADED] sk-agent absent
+
+### [2026-11-03T08:30:00.000Z] a|ws
+[tags: ASK-USER, DEGRADED-ESCALATION]
+
+[ASK-USER][DEGRADED-ESCALATION] 1 escalade(s) non reparee(s). une declaration
+[REPAIRED] par la lane fermerait l'escalade. Extrait : sk-agent absent.
+""")
+        self.assertEqual(self.run_main(path), 2)
+        entries, _ = cde.load_entries([path])
+        escalations = cde.collect_escalations(entries, cde.parse_ts(NOW))
+        self.assertEqual(len(escalations), 1)
+        self.assertEqual(escalations[0]["status"], "overdue")
+
+    def test_ring_content_carries_no_declaration_token(self):
+        # L'extrait peut citer les tokens en prose ; le texte poste ne doit
+        # porter AUCUN token litteral, sinon le prochain run lit la sonnerie
+        # comme une reparation.
+        item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z",
+                "deadline": "2026-11-03T08:00:00Z", "status": "overdue",
+                "repaired_at": None,
+                "excerpt": "escalade `[DEGRADED]` citee puis `[REPAIRED]` en prose"}
+        content = cde.build_ring_content([item])
+        self.assertIsNone(cde.DECLARATION_TOKEN_RE.search(content), content)
+
+    # --- Review #4519 point c : store PG primaire, miroir degrade ---------
+
+    def run_mirror_main(self, dashboard_dir, extra=()):
+        return cde.main(["--dashboard-dir", str(dashboard_dir), "--now", NOW,
+                         *extra])
+
+    def test_mirror_source_degrades_exit_when_pg_is_configured(self):
+        # Store configure (bearer) mais injoignable (loader -> None) : le
+        # miroir est lu, son verdict rapporte — mais la mesure est INCOMPLETE,
+        # jamais un 0 confiant.
+        self.root.joinpath("dashboards").mkdir()
+        self.dashboard("dashboards/clean.md", """### [2026-11-03T08:30:00.000Z] a|ws
+[tags: DONE]
+
+[DONE] rien de degrade
+""")
+        original = cde._store_loader
+        cde._store_loader = lambda *a, **k: None
+        self.addCleanup(setattr, cde, "_store_loader", original)
+        code = self.run_mirror_main(self.root / "dashboards",
+                                    extra=["--ring-bearer", "test-bearer"])
+        self.assertEqual(code, 1)
+
+    def test_stale_mirror_is_an_instrument_error(self):
+        # Miroir frais d'aucune valeur : plus recente entree plus vieille qu'un
+        # cycle (G: gele, cut #4131) -> erreur d'instrument, pas un 0.
+        self.root.joinpath("dashboards").mkdir()
+        self.dashboard("dashboards/old.md", """### [2026-11-03T03:00:00.000Z] a|ws
+[tags: DONE]
+
+[DONE] rien de degrade
+""")
+        code = self.run_mirror_main(self.root / "dashboards",
+                                    extra=["--ring-bearer", ""])
+        self.assertEqual(code, 1)
+
+    def test_replay_file_has_no_freshness_ceiling(self):
+        # --dashboard-file = rejeu forensic : des donnees vieilles restent
+        # lisibles, le plafond ne s'applique qu'au miroir.
+        path = self.dashboard("old-replay.md", """### [2026-11-02T03:00:00.000Z] a|ws
+[tags: DONE]
+
+[DONE] rien de degrade
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_store_keys_are_parsed_fail_closed(self):
+        # Un listing illisible ne se sert jamais comme « zero dashboard » :
+        # fail-closed vers None (repli miroir), jamais vers une liste vide.
+        self.assertIsNone(cde.store_keys_from_listing(None))
+        self.assertIsNone(cde.store_keys_from_listing({"content": []}))
+        self.assertIsNone(cde.store_keys_from_listing(
+            {"content": [{"type": "text", "text": "not json"}]}))
+        keys = cde.store_keys_from_listing(
+            {"content": [{"type": "text", "text":
+                          '{"success": true, "dashboards": [{"key": "global"}, '
+                          '{"key": "machine-x"}, {"key": "workspace-y"}]}'}]})
+        self.assertEqual(keys, ["global", "machine-x", "workspace-y"])
+        self.assertEqual([cde.type_from_key(k) for k in keys],
+                         ["global", "machine", "workspace"])
+
     def test_ring_id_is_stable_within_a_day(self):
         item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
         self.assertEqual(cde.build_ring_id([item], now=1750000000),
