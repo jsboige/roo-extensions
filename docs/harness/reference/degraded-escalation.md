@@ -91,12 +91,24 @@ ferme.
 
 **Sources, dans l'ordre** (review #4519) : `--dashboard-file` = rejeu forensic
 (sans plafond) → sinon le **store PG**, via le même transport que la sonnerie
-(fenêtre des 30 dernières entrées par dashboard) → sinon repli **miroir G:**,
+(fenêtre des 200 dernières entrées par dashboard) → sinon repli **miroir G:**,
 qui **dégrade** la mesure : si PG était configuré, l'organe agit sur ce que le
 miroir a dit (rapport + sonnerie) puis sort **1** — jamais un `0` confiant sur
 une source de repli. Plafond de fraîcheur du miroir : la plus récente entrée
 doit dater de moins d'un cycle, sinon `1` sans sonnerie (un G: gelé depuis le
 cut #4131 répond un faux « rien à signaler » sur des données mortes).
+
+**Le store est lu en JSON, pas en markdown** (review ai-01 04/11, MUST) : le
+`read` markdown passe par `buildMarkdownOutput`, qui émet l'en-tête et le corps
+mais **aucune ligne `[tags: …]`**. Une lane qui déclarait par l'API canonique —
+`append(tags=["DEGRADED"])`, corps en prose — restait donc invisible : `tags=[]`,
+exit `0`, silence. Or c'est la forme que le harnais documente. L'organe demande
+maintenant `format: json` et lit `data.intercom.messages[].tags` (déjà tronqué à
+`intercomLimit` côté serveur), c'est-à-dire **la source, pas son rendu**. Repli
+markdown conservé si l'enveloppe n'est pas exploitable (hôte ancien). Cas
+symétrique côté miroir : la sérialisation place `[msg: id]` **avant** le corps,
+donc une déclaration en premier token n'était jamais vue non plus — les lignes de
+métadonnées de tête sont désormais neutralisées avant le test du premier token.
 
 `--ring` poste un `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard `global`,
 avec une clé d'idempotence **quotidienne** : le même lot sonne **une fois par

@@ -30,7 +30,7 @@ Codes de sortie (un automate peut lire le code seul) :
 Sources, dans l'ordre (review #4519 point c) :
     1. --dashboard-file    rejeu d'un fichier precis (forensic) — pas de plafond
     2. STORE PG            meme transport que la sonnerie (MCP_PROXY_BEARER),
-                           fenetre des 30 dernieres entrees par dashboard
+                           fenetre des 200 dernieres entrees par dashboard
     3. miroir G:           repli seulement ; si PG etait configure, la mesure est
                            DEGRADEE (sortie 1) ; plafond de fraicheur : la plus
                            recente entree doit dater de moins d'un cycle
@@ -71,7 +71,15 @@ DEFAULT_CYCLE_HOURS = 4.0
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
 # peut pas matcher.
 ENTRY_RE = re.compile(r"^### \[(?P<ts>\d{4}-\d{2}-\d{2}T[^\]]+)\] (?P<lane>\S+)\s*$", re.M)
-TAGS_RE = re.compile(r"^\[tags:\s*(?P<tags>[^\]]*)\]\s*$", re.M)
+# Ligne `[tags: ...]` : ancree en debut de ligne, la fin n'est PAS exigee
+# (review ai-01 04/11 — `\s*$` laissait passer une ligne suivie d'un
+# commentaire ou d'un espace, et le tag disparaissait en silence).
+TAGS_RE = re.compile(r"^\[tags:\s*(?P<tags>[^\]]*)\]", re.M)
+# Metadonnees de tete qu'un dashboard serialise place AVANT le corps
+# (`[msg: id]`, `[reply-to: ...]`, `[ack: ...]`, `[tags: ...]`).
+META_LINE_RE = re.compile(r"^\[(?:msg|reply-to|ack|tags):[^\]]*\]$")
+# Entete « proche » : seuls les crochets HORODATES comptent (review ai-01 04/11).
+NEAR_HEADER_RE = re.compile(r"^\s{0,3}#{1,6}\s*\[\d{4}-\d{2}-\d{2}T[^\]\n]*\]\s*\S+\s*$")
 # Frontiere de mot obligatoire : `[DEGRADED-FIXED]` n'est pas `[DEGRADED]`.
 DEGRADED_RE = re.compile(r"\[DEGRADED\](?![A-Za-z0-9_-])")
 REPAIRED_RE = re.compile(r"\[REPAIRED\](?![A-Za-z0-9_-])")
@@ -124,13 +132,32 @@ def parse_entries(text):
     return entries
 
 
+def declaration_text(body):
+    """Corps prive des lignes de metadonnees de tete et des lignes vides.
+
+    Le miroir serialise `[msg: id]` AVANT le corps (`dashboard.ts:2899`) : sans
+    ce depouillement, une declaration posee en premier token (`[DEGRADED] mcp
+    muet`) n'etait jamais vue par le chemin miroir (review ai-01 04/11, cas
+    symetrique du MUST — meme cause, deux surfaces).
+    """
+    lines = body.splitlines()
+    index = 0
+    while index < len(lines):
+        stripped = lines[index].strip()
+        if stripped and not META_LINE_RE.match(stripped):
+            break
+        index += 1
+    return "\n".join(lines[index:])
+
+
 def is_declaration(entry, token_name, token_re):
     """Une DECLARATION, jamais une mention (review #4519 point a).
 
     Deux formes acceptees, toutes deux deliberées :
       - la ligne `[tags: ... token_name ...]` que les posts de production
         portent (TAGS_RE la parse deja) ;
-      - le token en PREMIER token du corps (`[DEGRADED] mcp muet`).
+      - le token en PREMIER token du corps (`[DEGRADED] mcp muet`) — premier
+        token du corps UTILE, metadonnees de tete exclues.
     Un post qui CITE le token en plein prose -- la review qui le cite, le
     `[DONE]` qui l'explique -- n'est pas une declaration : detecter la mention
     ouvrait des escalades fantomes qui sonnaient le user pour rien (deux posts
@@ -140,7 +167,7 @@ def is_declaration(entry, token_name, token_re):
         return False  # notre propre sonnerie n'est ni declaration ni reparation
     if token_name in entry["tags"]:
         return True
-    return bool(token_re.match(entry["body"].lstrip()))
+    return bool(token_re.match(declaration_text(entry["body"]).lstrip()))
 
 
 def is_degraded(entry):
@@ -235,9 +262,15 @@ def read_arguments_for_key(key, intercom_limit):
     trouve en implementant les reserves) : un `read` type=workspace sans
     `workspace` renvoie le dashboard DU SIEGE, pas celui de la cle — N
     dashboards workspace auraient lu N fois le meme, dupliquant chaque
-    escalade. La cle porte l'id : `workspace-<id>` / `machine-<id>`."""
+    escalade. La cle porte l'id : `workspace-<id>` / `machine-<id>`.
+
+    `format: json` (review ai-01 04/11, MUST) : le markdown derive par
+    `buildMarkdownOutput` ne porte pas les tags, donc une declaration faite
+    par l'API canonique disparaissait. Le JSON porte `tags` — on demande la
+    source, pas son rendu.
+    """
     arguments = {"action": "read", "section": "intercom",
-                 "intercomLimit": intercom_limit}
+                 "intercomLimit": intercom_limit, "format": "json"}
     if key == "global":
         arguments["type"] = "global"
     elif key.startswith("machine-"):
@@ -259,15 +292,79 @@ def unrecognized_headers(text):
     d'un client au format derive est aujourd'hui silencieusement invisible --
     ni entree, ni erreur. Une ligne proche mais non reconnue est signalee :
     le contrat « un dashboard illisible n'est pas un dashboard propre »
-    couvre le parse autant que l'IO."""
-    # Forme visee : un entete dont le crochet porte un HORODATAGE. Le motif
-    # large attrapait `## [WAKE-CLAUDE] myia-po-2023`, forme legitime du
-    # dashboard (wake-claude-routing.md autorise le tag en header markdown) --
-    # chaque dashboard portant un WAKE serait signale (review ai-01 04/11).
-    near = re.compile(
-        r"^\s{0,3}#{1,6}\s*\[\d{4}-\d{2}-\d{2}T[^\]\n]*\]\s*\S+\s*$")
-    return [line.strip() for line in text.splitlines()
-            if near.match(line) and not ENTRY_RE.match(line)]
+    couvre le parse autant que l'IO.
+
+    Deux limites, mesurees :
+      - le motif ne vise qu'un crochet HORODATE : le motif large attrapait
+        `## [WAKE-CLAUDE] myia-po-2023`, forme legitime du dashboard
+        (wake-claude-routing.md autorise le tag en header markdown) -- chaque
+        dashboard portant un WAKE aurait ete signale (review ai-01 04/11) ;
+      - un bloc de code cloture n'est pas un entete : un exemple de format
+        cite dans une review ou une doc etait compte comme entree invisible
+        (review ai-01 04/11, note non bloquante).
+    """
+    hits = []
+    fenced = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
+        if NEAR_HEADER_RE.match(line) and not ENTRY_RE.match(line):
+            hits.append(line.strip())
+    return hits
+
+
+def entries_from_store_json(text):
+    """Entrees depuis l'enveloppe JSON d'un `read` store, ou None.
+
+    Review ai-01 04/11 (MUST) : le `read` PG en markdown passe par
+    `buildMarkdownOutput` (`dashboard.ts:7380`), qui emet l'entete et le corps
+    mais **aucune ligne `[tags: ...]`**. Une lane qui declare par l'API
+    canonique -- `append(tags=["DEGRADED"])`, corps en prose -- etait donc
+    invisible : `tags=[]`, `is_degraded=False`, exit 0, silence. Or c'est la
+    forme que le harnais documente ; l'organe lisait le RENDU en croyant lire
+    la source.
+
+    Le JSON porte `data.intercom.messages[].tags` (`dashboard-schemas.ts:61`),
+    deja tronque a `intercomLimit` par le serveur (`dashboard.ts:7573`), donc
+    la fenetre lue est celle que la couverture verifie. On lit la source.
+
+    Rend None si le texte n'est pas une enveloppe exploitable : l'appelant
+    retombe alors sur le parse markdown (hote ancien, ou `format` ignore) --
+    une sonde ne suppose pas que son interlocuteur a la version qu'elle lit.
+    """
+    try:
+        payload = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or payload.get("success") is False:
+        return None
+    data = payload.get("data")
+    intercom = data.get("intercom") if isinstance(data, dict) else None
+    messages = intercom.get("messages") if isinstance(intercom, dict) else None
+    if not isinstance(messages, list):
+        return None
+    entries = []
+    for message in messages:
+        if not isinstance(message, dict):
+            return None
+        author = message.get("author") or {}
+        machine = author.get("machineId") or ""
+        workspace = author.get("workspace") or ""
+        lane = "|".join(part for part in (machine, workspace) if part)
+        raw_tags = message.get("tags") or []
+        if not isinstance(raw_tags, list):
+            return None
+        entries.append({
+            "ts": parse_ts(message.get("timestamp") or ""),
+            "lane": lane,
+            "body": message.get("content") or "",
+            "tags": {t.strip().lower() for t in raw_tags
+                     if isinstance(t, str) and t.strip()},
+        })
+    return entries
 
 
 def tool_result_text(result):
@@ -339,15 +436,27 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
         if text is None:
             errors.append(f"{key}: lecture store sans contenu")
             continue
-        suspicious = unrecognized_headers(text)
-        if suspicious:
-            # Review Hermes 04/11, reserve 2 : proche-match d'entete = entree
-            # potentiellement invisible. Le dashboard reste lu (act-then-
-            # degrade), mais la mesure ne peut pas rendre un 0/2 confiant.
-            errors.append(f"{key}: {len(suspicious)} entete(s) proche(s) non "
-                          f"reconnu(s) — entrees potentiellement invisibles "
-                          f"(ex: {suspicious[0][:80]})")
-        dash_entries = parse_entries(text)
+        try:
+            structured = entries_from_store_json(text)
+        except ValueError as exc:
+            # Enveloppe JSON mais entree inexploitable (horodatage absent ou
+            # malforme) : on ne retombe PAS sur le parse markdown -- il lirait
+            # du JSON comme du markdown et rendrait un dashboard « propre ».
+            errors.append(f"{key}: enveloppe store inexploitable ({exc})")
+            continue
+        if structured is not None:
+            dash_entries = structured
+        else:
+            suspicious = unrecognized_headers(text)
+            if suspicious:
+                # Review Hermes 04/11, reserve 2 : proche-match d'entete =
+                # entree potentiellement invisible. Le dashboard reste lu
+                # (act-then-degrade), mais la mesure ne peut pas rendre un 0/2
+                # confiant.
+                errors.append(f"{key}: {len(suspicious)} entete(s) proche(s) "
+                              f"non reconnu(s) — entrees potentiellement "
+                              f"invisibles (ex: {suspicious[0][:80]})")
+            dash_entries = parse_entries(text)
         entries.extend(dash_entries)
         # Seule une lecture TRONQUEE peut cacher une entree anterieure : un
         # dashboard calme ou fraichement condense a moins de `intercom_limit`

@@ -283,10 +283,16 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     # --- Review Hermes 04/11 : bornes de la lecture store ----------------
 
-    def fake_store(self, dashboards, keys=None):
+    def fake_store(self, dashboards, keys=None, structured=None):
         """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
         (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
-        les arguments `read` dans self.reads pour les assertions par-cle."""
+        les arguments `read` dans self.reads pour les assertions par-cle.
+
+        `structured` = {id: [messages]} : servi quand l'appelant demande
+        `format: json`, comme le vrai store (#4517, review ai-01 04/11). Un
+        dashboard present dans `dashboards` seulement est servi en markdown,
+        ce qui exerce aussi le repli.
+        """
         if keys is None:
             keys = list(dashboards)
         self.reads = []
@@ -299,7 +305,13 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 self.reads.append(arguments)
                 ident = (arguments.get("workspace") or arguments.get("machine")
                          or "global")
-                body = dashboards.get(ident, "")
+                if structured is not None and arguments.get("format") == "json":
+                    body = json.dumps({
+                        "success": True, "action": "read",
+                        "data": {"intercom": {"messages": structured.get(ident, [])}},
+                    })
+                else:
+                    body = dashboards.get(ident, "")
             else:
                 return None
             return {"content": [{"type": "text", "text": body}]}
@@ -307,6 +319,13 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         original = cde._load_transport
         cde._load_transport = lambda: call
         self.addCleanup(setattr, cde, "_load_transport", original)
+
+    def message(self, ts, tags=None, content="rien de degrade",
+                lane=("a", "ws")):
+        """Un message STORE tel que le sert `data.intercom.messages[]`."""
+        return {"id": f"m-{ts}", "timestamp": ts,
+                "author": {"machineId": lane[0], "workspace": lane[1]},
+                "content": content, "tags": list(tags or [])}
 
     def run_store_main(self):
         return cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
@@ -374,6 +393,61 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.fake_store({"y": self.entry("2026-11-03T00:30:00.000Z")})
         code = self.run_store_main()
         self.assertEqual(code, 0)
+
+    # --- Review ai-01 04/11 (MUST) : la declaration par l'API est vue ------
+
+    def test_store_json_tags_declaration_is_flagged(self):
+        # Critere de fermeture du MUST : un `append(tags=["DEGRADED"])`, corps
+        # en prose, relu par le chemin store PAR DEFAUT, doit sonner. Avant,
+        # le `read` markdown ne portait aucune ligne `[tags: ...]` -- exit 0,
+        # silence, pour la forme que le harnais documente.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]})
+        self.assertEqual(self.run_store_main(), 2)
+
+    def test_store_json_repaired_tag_closes(self):
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"]),
+            self.message("2026-11-03T02:00:00.000Z", tags=["REPAIRED"])]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_store_json_prose_without_tags_stays_clean(self):
+        # Temoin NEGATIF : la meme prose sans le tag n'est pas une escalade.
+        # Sans lui, « reparer le MUST » pourrait se satisfaire de tout sonner.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z",
+                         content="mcp muet, je regarde")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_store_asks_for_the_json_source(self):
+        # La source, pas son rendu : sans `format: json` le store repond le
+        # markdown derive, qui ne porte pas les tags.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": []})
+        self.run_store_main()
+        self.assertTrue(self.reads)
+        self.assertTrue(all(r.get("format") == "json" for r in self.reads))
+
+    # --- Cas symetrique : miroir, corps precede de metadonnees ------------
+
+    def test_first_token_after_meta_lines_is_seen(self):
+        # Le miroir serialise `[msg: id]` AVANT le corps (dashboard.ts:2899) :
+        # une declaration en premier token n'etait jamais vue par ce chemin.
+        body = ("### [2026-11-03T00:30:00.000Z] a|ws\n"
+                "[msg: m-1]\n[reply-to: m-0]\n\n[DEGRADED] mcp muet\n")
+        entries = cde.parse_entries(body)
+        self.assertTrue(cde.is_degraded(entries[0]))
+
+    def test_tags_line_with_trailing_text_is_parsed(self):
+        body = "### [2026-11-03T00:30:00.000Z] a|ws\n[tags: DEGRADED] (relu)\n"
+        entries = cde.parse_entries(body)
+        self.assertIn("degraded", entries[0]["tags"])
+
+    def test_header_inside_fence_is_not_flagged(self):
+        # Un exemple de format cite dans un bloc de code n'est pas une entree
+        # invisible (revue ai-01 04/11, note non bloquante).
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "```\n#### [2026-11-03T00:31:00.000Z] ghost|ws\n```\n")
+        self.assertEqual(cde.unrecognized_headers(text), [])
 
     def test_ring_id_is_stable_within_a_day(self):
         item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
