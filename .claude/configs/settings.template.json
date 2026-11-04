@@ -35,7 +35,11 @@
       "ExitPlanMode",
       "DesignSync",
       "NotebookEdit",
-      "AskUserQuestion"
+      "AskUserQuestion",
+      "Artifact",
+      "ArtifactComments",
+      "ArtifactData",
+      "Workflow"
     ],
     "mode": "auto-approve"
   },
