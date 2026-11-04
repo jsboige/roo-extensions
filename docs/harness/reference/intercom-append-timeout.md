@@ -19,8 +19,10 @@ l'append incrémental est *« the authoritative state — no message loss »*.
 que le message et sa ligne de store sont persistés, et la condensation tourne **détachée**, sous le
 verrou condense que l'append vient d'acquérir (verrou relâché par la passe elle-même). La réponse
 porte alors `condensationDeferred: true`. Une passe **réussie** est visible dans le journal de
-l'hôte et dans le `lastCondensedAt` de la lecture suivante ; une passe **échouée** n'est visible
-que dans le journal de l'hôte (`lastCondensedAt` ne bouge pas). Deux franchissements pendant une passe en vol ne lancent
+l'hôte et dans le `lastCondensedAt` de la lecture suivante. Depuis #4536, l'issue de la dernière
+passe terminée (ok / fork suspecté / GDrive dégradé / erreur, diagnostic complet) est en outre
+**retenue par clé** et rendue par la lecture/append suivants (`condensationLastOutcome`) ; le warn
+d'échec porte le diag complet. Deux franchissements pendant une passe en vol ne lancent
 pas deux passes : le second voit `lock-held`. Si l'hôte meurt en cours de passe, rien n'a été écrit,
 le verrou expire par son TTL et le prochain franchissement refait une passe. `CONDENSE_DETACHED=0`
 rétablit le chemin synchrone historique.
