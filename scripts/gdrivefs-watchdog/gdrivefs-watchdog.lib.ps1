@@ -174,6 +174,70 @@ function Test-WritePendingEscalation {
     return ($Consecutive -ge $Threshold)
 }
 
+function ConvertTo-WatchdogUtcOffset {
+    # #4508 follow-up : normalise un horodatage du state JSON en DateTimeOffset
+    # UTC. La charge utile de l'etat depend de l'hote qui lit le fichier :
+    #   - Windows PowerShell 5.1 : les chaines restent des chaines (ISO 'o',
+    #     offset conserve -- c'est ce que posent les branches d'ecriture avec
+    #     (Get-Date).ToString('o')) ;
+    #   - pwsh 7 (l'hote que resout install-gdrivefs-watchdog-schtask.ps1 via
+    #     Get-Command pwsh) : ConvertFrom-Json AUTO-PARSE les dates ISO et perd
+    #     l'offset ([datetime] converti en heure locale du siege).
+    # Accepte donc : chaine ISO avec offset ; chaine sans offset (= heure
+    # LOCALE, semantique de l'ancien [datetime]::Parse) ; [datetime] deja
+    # auto-parse (Kind Local/Unspecified -> traite comme local, Utc -> direct).
+    # Retourne $null si inconvertible -- l'appelant decide (fail-closed).
+    param($Value)
+    try {
+        if ($null -eq $Value) { return $null }
+        if ($Value -is [datetime]) {
+            if ($Value.Kind -eq [DateTimeKind]::Utc) { return [DateTimeOffset]$Value }
+            $local = [datetime]::SpecifyKind($Value, [DateTimeKind]::Local)
+            return [DateTimeOffset]$local.ToUniversalTime()
+        }
+        if ($Value -is [DateTimeOffset]) { return $Value.ToUniversalTime() }
+        $s = [string]$Value
+        if ([string]::IsNullOrWhiteSpace($s)) { return $null }
+        $dto = [DateTimeOffset]::MinValue
+        if ([DateTimeOffset]::TryParse($s, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$dto)) {
+            return $dto.ToUniversalTime()
+        }
+        # Repli culture courante : une valeur ecrite au format du siege
+        # (stringify d'un [datetime] auto-parse par un garde inline ancien).
+        if ([DateTimeOffset]::TryParse($s, [ref]$dto)) { return $dto.ToUniversalTime() }
+        return $null
+    } catch {
+        return $null
+    }
+}
+
+function Test-WriteVerdictCurrent {
+    # #4508 follow-up : le verdict "repaired (write-verified)" est gagne UNE
+    # fois par relance, pas un par poll. Sur un poll sain avec une relance
+    # encore non verifiee, ce predicat decide s'il faut re-poser la sentinelle :
+    #   $true  -> write_verified_at >= last_relaunch_attempt, verdict deja
+    #             gagne, ne PAS re-sonder ;
+    #   $false -> jamais verifie / verdict perime / valeur illisible ->
+    #             re-sonder maintenant.
+    # L'ancien garde inline comparait des wall-clocks locaux apres un
+    # [string] + [datetime]::Parse : sous pwsh 7 (dates auto-parsees, offset
+    # perdu) un ecart de fuseau ou une culture non round-trip-safe faisait
+    # soit deraper le verdict, soit lever -> catch -> re-probe a CHAQUE poll
+    # (rapport po-2025 31/10 : une ligne "repaired" par poll de 15 min).
+    # Comparaison en instants UTC via ConvertTo-WatchdogUtcOffset ; tout
+    # echec retombe sur $false, fail-closed comme l'ancien catch.
+    param(
+        $WriteVerifiedAt,
+        $LastRelaunchAttempt
+    )
+    if (-not $WriteVerifiedAt)    { return $false }   # vieil etat : jamais verifie
+    if (-not $LastRelaunchAttempt) { return $false }
+    $verified = ConvertTo-WatchdogUtcOffset -Value $WriteVerifiedAt
+    $attempt  = ConvertTo-WatchdogUtcOffset -Value $LastRelaunchAttempt
+    if ($null -eq $verified -or $null -eq $attempt) { return $false }
+    return ($verified -ge $attempt)
+}
+
 function Get-RepairEventVerdict {
     # Verdict d'evenement pour un cycle post-relance :
     #   'repaired'      -> processus vivant, C1 vivant, ecriture profonde OK

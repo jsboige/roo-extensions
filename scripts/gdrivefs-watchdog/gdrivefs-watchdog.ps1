@@ -884,16 +884,13 @@ if (-not $binary -or -not (Test-Path $binary)) {
         # emitted write-pending, and the first poll where the deep write
         # succeeds finally emits repaired. write_verified_at >=
         # last_relaunch_attempt marks the verdict as already earned (old state
-        # files lack the field: $null = never verified = verify now).
+        # files lack the field: $null = never verified = verify now). The
+        # comparison itself lives in Test-WriteVerdictCurrent (lib): the
+        # state file's dates are auto-parsed and offset-stripped under pwsh 7
+        # (the host install-gdrivefs-watchdog-schtask.ps1 resolves), so the
+        # verdict must compare UTC instants, not wall clocks.
         if (-not $SkipWriteVerify -and $state.last_relaunch_attempt) {
-            $writeVerified = $false
-            if ($state.write_verified_at) {
-                try {
-                    $vAt = [datetime]::Parse([string]$state.write_verified_at)
-                    $rAt = [datetime]::Parse([string]$state.last_relaunch_attempt)
-                    $writeVerified = ($vAt -ge $rAt)
-                } catch { $writeVerified = $false }
-            }
+            $writeVerified = Test-WriteVerdictCurrent -WriteVerifiedAt $state.write_verified_at -LastRelaunchAttempt $state.last_relaunch_attempt
             if (-not $writeVerified) {
                 $wp = Invoke-MountWriteProbe -FolderPath $WriteProbeDir -TimeoutSeconds $WriteProbeTimeoutSeconds
                 $verdict = Get-RepairEventVerdict -ProcessAlive $true -C1Live $true -WriteResult $wp
