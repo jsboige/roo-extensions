@@ -18,6 +18,9 @@
 #     base fusionnee, pas base de coupe — #4543 a ajoute ~202 o de pointeurs Q20 dans le meme
 #     fichier APRES la coupe (verifie par po-2028, c.6633632807). La coupe elle-meme reste
 #     27174 -> 25915 ; relever le plafond ici evite que le test rougisse sur le commit de merge.
+#   2026-11-04, lot 2 (#2368) : agent-claim-discipline 6860 -> 6305 (deduplication — identite/depot
+#     deja relocalises verbatim en claudish#445, la rule ne garde que les lignes dures ; nouveau
+#     deport du recit #4221 dans la doc detaillee) ; regles 61879 -> 61324, 22 fichiers.
 #
 # Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
 # scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux.
@@ -47,11 +50,11 @@ Describe "Rules footprint budget (#2368)" {
         $bytes | Should -BeLessOrEqual 26117
     }
 
-    It "rules dir <= 61879 octets normalises (baseline du 04/11, intacte au lot 1)" {
+    It "rules dir <= 61324 octets normalises (lot 2 coupe, agent-claim-discipline 6860 a 6305)" {
         $rulesDir = Join-Path $projectRoot ".claude/rules"
         $rules = Get-ChildItem -Path $rulesDir -Filter *.md -File
         $total = ($rules | ForEach-Object { Get-NormalizedByteCount -Path $_.FullName } | Measure-Object -Sum).Sum
-        $total | Should -BeLessOrEqual 61879
+        $total | Should -BeLessOrEqual 61324
     }
 
     It "rules dir compte 22 fichiers (chaque fichier auto-charge paie son contexte)" {

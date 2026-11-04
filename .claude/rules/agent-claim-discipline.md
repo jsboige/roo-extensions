@@ -1,7 +1,7 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 2.4.0 (Pre-Delivery #4 — claim relu avant d'écrire dans un worktree, #4221 ; 2.3.0 slim, claudish#445)
-**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue), #4114 (identité lane), #4221 (worktree)
+**Version:** 3.0.0 (lot 2 campagne #2368 — déduplication : identité/dépôt déjà relocalisés verbatim en claudish#445, la règle ne porte plus que les lignes dures ; 2.4.0 #4221)
+**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), #3676 (locus issue), #4114 (identité lane), #4221 (worktree) — mesure word-boundary T#80 05/09
 
 ---
 
@@ -20,15 +20,15 @@
        --jq '.[] | select(.title | test("#NNN([^0-9]|$)"))'
    done
    ```
-   — une PR dans l'un des deux = **STOP**. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, pas de `\b` — fragilisé par les couches de quoting bash→gh) : `--search` est flou et `#109` matche `#1091` — sans frontiere, une issue est skippee a tort (mesures : doc détaillée).
+   — une PR dans l'un des deux = **STOP**. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, jamais `\b`) : `--search` est flou et `#109` matche `#1091` (mesures : doc détaillée §Frontière de mot).
 2. **Verifier et poser le verrou SUR L'ISSUE** (locus canon depuis v2.0, ADR 017) :
    ```bash
    python scripts/github/check_issue_claim.py NNN                 # exit 1 = une AUTRE lane tient un claim actif
    python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
    ```
    Le check precede l'**edition**, pas le push. Pas de timestamp dans le corps : le `createdAt` serveur fait foi. Claim sans machine identifiable = fail-closed (bloque). Péremption `--stale-threshold` (défaut 24 h) : un claim étranger périmé avertit sans bloquer, mais le nouveau claimant pose quand même son `[CLAIMED]`.
-   **Identité de claim = lane `machine:workspace` (#4114)** : COMPUTERNAME + basename du toplevel git — un **worktree lié résout vers le toplevel du checkout principal** (le `.git` fichier se résout en common-dir ; un worktree est un lieu de travail, pas un workspace — #4122), `--workspace` surcharge le suffixe, `--agent` remplace l'id entier. Même machine + workspace différent = claim **étranger** (deux lanes partagent une machine, seul le workspace les distingue) ; un claim legacy machine-seul vu d'une lane de sa machine = **étranger fail-closed** (`LEGACY_CLAIM`). **La levée doit porter la même identité que la pose** — un verrou legacy machine-seul ne se lève PAS avec la lane par défaut (`--release` refusé) : `--agent <machine>`, ou laisser la péremption 24 h le libérer.
-   **Depot (#3768) :** `--repo` n'a plus de defaut fige. Absent, le guard classe le numero dans les **deux** depots : un seul le porte → resolu ; les deux → **`AMBIGUOUS`, exit 3**, desambiguisation exigee ; **un seul depot injoignable → exit 2**, il refuse au lieu de resoudre vers celui qui a repondu. Il ne devine jamais, **y compris quand la mesure echoue** : un mauvais choix **pose le verrou sur l'autre depot** et laisse le vrai grain libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien rendu » n'est jamais « il n'y a rien ».
+   **Identité de claim = lane `machine:workspace` (#4114)** : worktree lié → toplevel du checkout principal (#4122) ; `--workspace` surcharge le suffixe, `--agent` remplace l'id entier. Même machine + workspace différent = claim **étranger** ; claim legacy machine-seul vu de sa machine = **étranger fail-closed** (`LEGACY_CLAIM`) ; **la levée porte la MÊME identité que la pose** (verrou legacy : `--agent <machine>`, ou péremption 24 h). Texte intégral et motifs : doc détaillée §Gardes identité.
+   **Depot (#3768) :** sans `--repo`, le guard classe le numero dans les **deux** depots — un seul le porte → resolu ; les deux → **`AMBIGUOUS`, exit 3** ; **un depot injoignable → exit 2**, jamais de resolution vers celui qui a repondu (un 403 de limite ≠ 404). Texte intégral : doc détaillée §Dépôt.
 3. **Narration dashboard (bienvenue, non autoritaire)** : `roosync_dashboard(action: "append", tags: ["CLAIMED"], content: "#NNN — myia-poXXXX commencing work")` — le récit de cycle reste sur le dashboard ; le **registre de verrous** est le commentaire d'issue.
 4. **Tie-break (HARD)** : un claim-issue **prime sur un claim-dashboard, même antérieur** — un seul locus fait foi (incident CoursIA #10169).
 5. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` **sur l'issue** (createdAt serveur) prime.
@@ -42,8 +42,8 @@ La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le 
 
 1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
 2. Une PR concurrente est-elle apparue depuis ? Un claim-issue concurrent a-t-il ete pose depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
-3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler. **La lecture au depart n'est pas une lecture a la livraison** (incident fondateur #1025/#1026 : doc detaillee).
-4. **Ecrire dans un worktree existant (#4221) : relire d'abord le claim de l'issue qu'il porte** — le claim protege l'issue, pas l'arbre de travail. Avant tout Edit/Write/commit dans un worktree que tu n'as pas cree dans ce tour (reprise, compaction, `wt-*`/`mcpint-*` trouve sur disque) : `check_issue_claim.py NNN` sur l'issue que son nom porte ; claim d'une autre lane = ne pas ecrire, `[ASK]` ; claim de ta lane absent de ton contexte (tour courant ou resume de compaction) = celui d'une session jumelle, meme traitement (3 collisions en 24 h le 15/10, mesures dans #4221).
+3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler. **La lecture au depart n'est pas une lecture a la livraison** (incident fondateur #1025/#1026 : doc détaillée).
+4. **Ecrire dans un worktree existant (#4221) : relire d'abord le claim de l'issue qu'il porte** — le claim protege l'issue, pas l'arbre de travail. Avant tout Edit/Write/commit dans un worktree que tu n'as pas cree dans ce tour (reprise, compaction, `wt-*`/`mcpint-*` trouve sur disque) : `check_issue_claim.py NNN` sur l'issue que son nom porte ; claim d'une autre lane = ne pas ecrire, `[ASK]` ; claim de ta lane absent de ton contexte (tour courant ou resume de compaction) = celui d'une session jumelle, meme traitement (3 collisions en 24 h : doc détaillée #4221).
 
 ## Discipline requise — Pour l'agent qui rapporte
 
