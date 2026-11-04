@@ -35,6 +35,7 @@ metadata:
 Executer une session de travail autonome sur les machines executantes (myia-po-2023, myia-po-2024, myia-po-2025, myia-po-2026, myia-web1).
 
 **Canal de coordination PRINCIPAL :** Dashboard workspace (`roosync_dashboard`).
+**Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../../docs/harness/reference/user-channel-doctrine.md).
 **Pas de fichier d'etat local.** La progression est rapportee via le dashboard workspace, pas via un fichier local.
 
 ---
