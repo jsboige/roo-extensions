@@ -599,9 +599,11 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | Canal | Usage | Fréquence |
 |-------|-------|-----------|
 | **Dashboard workspace** | Coordination cross-machine (PRINCIPAL) | Chaque tour de sync |
-| **RooSync `roosync_messages`** | Inter-machine (fallback/urgences) | Au besoin |
+| **RooSync `roosync_messages`** | Inter-machine, durable (« les emails », niveau 2) | Au besoin |
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
+
+**Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../docs/harness/reference/user-channel-doctrine.md).
 
 ### Wakeup Cycle Cadence (coordinateur ai-01 **à 12h** ; exécuteurs **à 4h** depuis 2026-09-15)
 

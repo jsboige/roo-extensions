@@ -10,6 +10,7 @@
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
 | **Feedback/Friction** | Signaler via Dashboard `[FRICTION]` + RooSync. Canonique = `.claude/rules/friction-protocol.md` (slim) | `feedback-process.md`, `friction-protocol-detailed.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
+| **Canaux de communication (doctrine user, 04/11)** | Échelle des **6 niveaux**, du plus instantané au plus contraignant : messages CC (« whatsapp ») → RooSync (« emails ») → dashboards → issues git (**si critique : réécrire le body**) → docs + règles du harnais → CI (« passage obligatoire »). On ne monte d'un niveau que si le précédent a échoué | `user-channel-doctrine.md` |
 | **Environnement dégradé (#4517)** | Escalade **immédiate** (pas de workaround), échéance `posté + 2 cycles` dérivée par le mécanisme, `[REPAIRED]` seul ferme (un `[DONE]` non), sonnerie `ASK-USER` sur le global. Organe `check-degraded-escalations.py`, exit 0/3/2/1 ; plafond : ne voit que les escalades **postées** | `degraded-escalation.md` |
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |

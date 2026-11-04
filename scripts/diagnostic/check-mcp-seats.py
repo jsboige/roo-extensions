@@ -36,9 +36,14 @@ Sortie (revue ai-01 04/11 — l'automate qui lit `$?` ne lit pas le docstring) :
      declarations)
   3  rien n'a ete mesure (`--no-handshake`) : declaration lue, presence non
      sondee — sain mais chemin non exerce (forme maison de
-     `mcp-chain-slowcall-probe`)
+     `mcp-chain-slowcall-probe`). AUSSI `--server <nom>` ne nommant aucun
+     serveur declare : un nom introuvable n'est pas un siege sain, c'est une
+     mesure qui n'a pas eu lieu (review ai-01 04/11).
 
-Precedence : erreur de lecture (1/2) > non-mesure (3) > verdict de presence.
+Precedence : erreur de lecture (1) et absence MESUREE (2) > nom non trouve
+(3) > sain (0). Une erreur de lecture n'est jamais un 0 ; et quand un `DEAD`
+est mesure, il sort 2 meme si une autre surface etait illisible -- l'automate
+doit voir l'absence avant la cecite de l'instrument.
 `STALE-DISABLE` sort 0 (une desactivation perimee n'est pas un serveur mort)
 mais reste affiche comme « a purger ».
 
@@ -214,9 +219,10 @@ def main(argv=None):
     user_config = load_json_or_none(user_config_path(), errors)
 
     servers, disabled = collect(workspace, user_config, errors)
-    if args.server:
-        wanted = set(args.server)
-        servers = {k: v for k, v in servers.items() if k in wanted}
+    requested = set(args.server) if args.server else set()
+    unmatched = sorted(requested - set(servers))
+    if requested:
+        servers = {k: v for k, v in servers.items() if k in requested}
 
     records = probe(servers, args.timeout, not args.no_handshake, workspace)
 
@@ -231,6 +237,8 @@ def main(argv=None):
             "handshake": not args.no_handshake,
             "records": records,
             "live": live, "dead": dead, "disabled": off, "stale_disables": stale,
+            "disabled_declared": disabled,
+            "requested_unmatched": unmatched,
             "errors": errors,
         }, ensure_ascii=False, indent=2))
     else:
@@ -247,6 +255,15 @@ def main(argv=None):
         print(f"LIVE={len(live)} DEAD={len(dead)} DISABLED={len(off)} STALE-DISABLE={len(stale)}")
         if stale:
             print(f"desactivations perimees (a purger) : {', '.join(stale)}")
+        if unmatched:
+            # Review ai-01 04/11 (SHOULD) : `--server` mal orthographie rendait
+            # LIVE=0 DEAD=0 en exit 0 -- un nom introuvable est indistinguable
+            # d'un siege sans serveur, et l'automate lisait « tout va bien ».
+            # La distinction utile pour l'operateur : jamais declare, ou declare
+            # mais desactive -- deux situations, deux gestes.
+            print(f"servers demandes introuvables : {', '.join(unmatched)}")
+            for name in unmatched:
+                print(f"  - {name} : declare nulle part")
         if errors:
             print(f"erreurs de lecture : {len(errors)}")
             for err in errors:
@@ -259,7 +276,11 @@ def main(argv=None):
         return 2 if dead else 1
     if args.no_handshake:
         return 3
-    return 2 if dead else 0
+    if dead:
+        return 2  # une absence MESUREE prime sur un nom non trouve
+    if unmatched:
+        return 3  # rien de demande n'a ete mesure : ce n'est pas un « tout va bien »
+    return 0
 
 
 if __name__ == "__main__":
