@@ -11,7 +11,7 @@
 |---|---|
 | Files | 22 |
 | Bytes (LF-normalisés) | 61879 (~15 470 tokens estimés) |
-| Source harnais global `.claude/configs/user-global-claude.md` | 25915 (~6 480 tokens estimés) — **27174 avant le lot 1** |
+| Source harnais global `.claude/configs/user-global-claude.md` | 26117 (~6 530 tokens estimés) — **27174 avant le lot 1** ; coupe du lot 1 = 25915, puis +202 o de pointeurs Q20 (#4543) fusionnés par update-branch |
 
 Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig.ps1 -Target claude-md`) : ces octets sont payés à **chaque** conversation de chaque machine. Le détail déporté vit dans `docs/harness/` (on-demand, non auto-chargé).
 
@@ -52,7 +52,9 @@ Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig
 
 | Lot | Date | Surface | Avant | Après | PR |
 |---|---|---|---:|---:|---|
-| 1 | 2026-11-04 | `user-global-claude.md` §Délégation tier mini | 27174 | 25915 | (cette PR) |
+| 1 | 2026-11-04 | `user-global-claude.md` §Délégation tier mini | 27174 | 25915 | #4546 |
+
+Update-branch 04/11 (observation po-2028, c.6633632807) : la base main a avancé après la coupe — #4543 ajoute ~202 o de pointeurs Q20 dans le même fichier. Mesure fusionnée : **26117** ; plafond du test relevé 25915 → 26117 dans la même PR (justification : base fusionnée, pas base de coupe). La coupe du lot reste 27174 → 25915.
 
 Méthode (#445) : déport du détail vers `docs/harness/` + ligne de renvoi, un lot = une PR, mesure avant/après dans le corps, plafond abaissé dans le test en même temps.
 

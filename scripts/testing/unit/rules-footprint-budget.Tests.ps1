@@ -12,8 +12,12 @@
 # contenu. Le snapshot humain vit dans docs/harness/reference/rules-footprint.md
 # (régénéré par scripts/audit-rules-footprint.ps1, octets bruts).
 #
-# Relevés de plafonds (normalisés) :
-#   2026-11-04, lot 1 (#2368) : global 27174 -> 25915 ; règles 22 fichiers / 61879 (intactes)
+# Releves de plafonds (normalises) :
+#   2026-11-04, lot 1 (#2368) : global 27174 -> 25915 ; regles 22 fichiers / 61879 (intactes)
+#   2026-11-04, lot 1 update-branch : plafond global releve 25915 -> 26117. Justification :
+#     base fusionnee, pas base de coupe — #4543 a ajoute ~202 o de pointeurs Q20 dans le meme
+#     fichier APRES la coupe (verifie par po-2028, c.6633632807). La coupe elle-meme reste
+#     27174 -> 25915 ; relever le plafond ici evite que le test rougisse sur le commit de merge.
 #
 # Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
 # scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux.
@@ -38,9 +42,9 @@ BeforeAll {
 
 Describe "Rules footprint budget (#2368)" {
 
-    It "user-global-claude.md <= 25915 octets normalises (plafond pose au lot 1)" {
+    It "user-global-claude.md <= 26117 octets normalises (lot 1 coupe a 25915 ; plafond releve a la valeur fusionnee post update-branch)" {
         $bytes = Get-NormalizedByteCount -Path (Join-Path $projectRoot ".claude/configs/user-global-claude.md")
-        $bytes | Should -BeLessOrEqual 25915
+        $bytes | Should -BeLessOrEqual 26117
     }
 
     It "rules dir <= 61879 octets normalises (baseline du 04/11, intacte au lot 1)" {
