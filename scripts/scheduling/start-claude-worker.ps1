@@ -4739,6 +4739,33 @@ function Test-CommitHashExists {
     }
 }
 
+function Get-ClaimedCommitHashTokens {
+    <#
+    .SYNOPSIS
+    Commit-hash claim candidates in an agent's output (#1489), digests excluded (#4524).
+    .DESCRIPTION
+    Same matcher that used to live inline in Report-Results, extracted to be testable.
+    A bare lowercase 8-hex token (or a full 40-char SHA) is a claim candidate UNLESS the
+    surrounding text says it is a digest quoted as evidence (#4524, incident #4334:
+    « identical settings.json sha256 (`261e2567…`) » was a proof of NON-writing, and the
+    detector turned it into a ghost-commit accusation):
+      - preceded on the same line, within 20 characters, by sha256 / sha-256 / md5 /
+        digest, any case (the (?i:) scope also covers Get-FileHash's « SHA256 » label);
+      - directly followed by the typographic ellipsis (U+2026), the explicit truncation
+        marker of a longer digest. ASCII "..." is deliberately NOT excluded: a real claim
+        followed by "..." (« commits abc12345... and more ») must stay detected.
+    .NOTES
+    The keyword lookbehind uses .NET variable-length lookbehind; '.' does not cross a
+    newline, so a keyword on the previous line does not exempt the token. The hex part
+    stays case-sensitive (lowercase only, like git SHAs), unlike the keyword scope.
+    #>
+    param([string]$Output)
+
+    if (-not $Output) { return @() }
+    $Pattern = '(?<![0-9a-fx-])(?<!\b(?i:sha-?256|md5|digest).{0,20})[0-9a-f]{8}(?:[0-9a-f]{32})?(?![0-9a-f…-])'
+    [regex]::Matches($Output, $Pattern) | ForEach-Object { $_.Value } | Select-Object -Unique
+}
+
 function Report-Results {
     param($Task, $Result, [string]$FinalMode, [string]$WorktreePath = $null, [array]$DeliveredArtifacts = @())
 
@@ -4782,7 +4809,9 @@ function Report-Results {
         # the first segment is dash-adjacent by construction, SHAs in claims are not.
         # Accepted trade: a SHA glued to a dash on either side (abc12345-suffix) is no
         # longer detected — not a claim pattern workers produce.
-        $claimedHashes = $Result.output | Select-String -Pattern "(?<![0-9a-fx-])[0-9a-f]{8}(?:[0-9a-f]{32})?(?![0-9a-f-])" -CaseSensitive | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+        # Digest quotes are not claims either (#4524): a sha256/md5/digest label on the
+        # same line within 20 chars, or a token cut with '…', is evidence, not a commit.
+        $claimedHashes = @(Get-ClaimedCommitHashTokens -Output $Result.output)
         if ($claimedHashes) {
             $invalidHashes = @()
             foreach ($claimedHash in $claimedHashes) {
