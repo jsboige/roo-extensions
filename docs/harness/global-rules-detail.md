@@ -568,6 +568,46 @@ Ne JAMAIS propager une affirmation non vérifiée. Toute affirmation sortant d'u
 
 ---
 
+## Délégation tier mini — les mesures
+
+**(Déporté depuis le §« Délégation tier mini » du harnais global, lot 1 de l'amincissement #2368, 04/11/2026 — la règle vit dans le global, chaque garde-fou dur y est conservé ; cette section porte les récits et chiffres qui la fondent. Rien n'est perdu : chaque mesure retirée du prompt est reproduite ci-dessous.)**
+
+### Provenance du protocole
+
+- 20 mesures, 25-29/10 ; protocole et mesures : `jsboige/vllm` PR #230 → `myia_vllm/docs/frognano-fanout-delegation.md`, mergée le 29/10 22:10:38Z — `main` porte le doc complet, 51 482 o vérifiés le 31/10.
+
+### Rappel par type de corpus
+
+- Rappel **98,6-100 % sur logs réguliers uniquement** — **non garanti sur corpus hétérogène** : 69 % au retry sur markdown hétérogène, 50 % de rappel fichier sur un sweep docs.
+
+### Pourquoi le vérificateur compare à la SOURCE
+
+- Mesuré 29/10 : quand le vérificateur relit le prompt au lieu de la source, un défaut de l'appelant se lit comme une fidélité du producteur.
+
+### Directeur au-dessus du producteur (03/11, vllm#348)
+
+- 1 corpus de 22 lignes, 1 passe, oracle grep = 14 : directeur cloud preset `critic` **14/14 exact, 0 bruit** (premier 14/14 du siège sur ce corpus) ; FrogNano seul 13/14 ; critique-persona sur FrogNano **7 fabrications/10 lignes**.
+- Un tier supérieur a résolu le corpus en **pure relecture, sans exécuter un outil** — l'outillage du directeur n'est donc pas une condition nécessaire (aucun bras « directeur de même tier outillé » n'a été mesuré).
+
+### Oracle obligatoire sur critère sémantique
+
+- Le seul cas où grep est *structurellement* incapable (regrouper des lignes par type de message) a rendu **5 groupes** là où le masque numérique en produisait 11, dont **une sur-fusion** (RAM basse + RAM CRITIQUE : deux gabarits, deux seuils, deux escalades) — attrapée uniquement parce que le mot de sévérité était littéral ; sans oracle (partition recomptée contre le corpus) la même erreur passe invisible.
+
+### Seuils sur valeur de champ
+
+- « Les lignes où `free=` fait trois chiffres » : 1/4 de rappel et 19 faux positifs.
+
+### Étiquetage de champ structurel
+
+- Préfixer chaque ligne par son `machine=` : 30/30 exact, seau « absent » compris.
+
+### Interdits — mesures fondatrices
+
+- Comptage/agrégation : échecs dès 6 lignes ; le mot `DONE` sous-compte.
+- `agent:"frognano-4b"` = nom de modèle, pas d'agent : fallback silencieux vers swift ai-01 (mesuré 26/10).
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)
