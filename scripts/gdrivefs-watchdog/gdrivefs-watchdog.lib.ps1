@@ -256,3 +256,28 @@ function Get-RepairEventVerdict {
     if ($WriteResult -and $WriteResult.WriteOk) { return 'repaired' }
     return 'write-pending'
 }
+
+function Test-RelaunchCycleFailed {
+    # #4508 sibling (ai-01, 04/11 18:23Z) : le jugement "le cycle de relance
+    # a echoue" (A0.2, #3466) lisait last_relaunch_attempt SANS la garde
+    # -is [datetime] que portent tous les autres lecteurs de dates d'etat.
+    # Sous pwsh 7 le champ arrive en [datetime] auto-parse (offset perdu) ;
+    # [string] + [datetime]::Parse est un round-trip de culture qui peut
+    # jeter sur un siege non-en-US -- le catch annulait alors le verdict a
+    # CHAQUE poll : consecutive_relaunch_failures ne montait jamais, donc
+    # ni cooldown, ni fast-poll, ni alerte survivante (fail-open : le
+    # watchdog ratait ses propres escalades).
+    # Le predicat normalise par ConvertTo-WatchdogUtcOffset (#4547) : toute
+    # charge lisible devient un instant UTC et la duree se mesure en
+    # instants ; illisible -> $null -> verdict differe (meme semantique que
+    # l'ancien catch), jamais de throw.
+    param(
+        $LastRelaunchAttempt,
+        [DateTimeOffset]$Now,
+        [int]$GraceSeconds
+    )
+    if (-not $LastRelaunchAttempt) { return $false }
+    $attemptAt = ConvertTo-WatchdogUtcOffset -Value $LastRelaunchAttempt
+    if ($null -eq $attemptAt)    { return $false }
+    return (($Now - $attemptAt).TotalSeconds -ge $GraceSeconds)
+}
