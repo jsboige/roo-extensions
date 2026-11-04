@@ -15,9 +15,10 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-sch
 
 **Auto-condensation préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
-**Un `append` qui expire n'est PAS un message perdu.** L'ecriture precede la condensation
-(`WRITE-FIRST` puis `await condenseIntercom`) : au-dela de 92 %, le meme appel paie en plus une passe
-LLM entiere. Mesure directe ai-01 (01/09) : **45,3 s** au total, dont **1,9 s d'ecriture** et
+**Un `append` qui expire n'est PAS un message perdu.** L'ecriture precede la condensation.
+Depuis #4527 (04/11), au-dela de 92 % la passe tourne **detachee** : l'appel repond des que le
+message est persiste. En `CONDENSE_DETACHED=0` (`WRITE-FIRST` puis `await condenseIntercom`), le
+meme appel paie en plus une passe LLM entiere. Mesure directe ai-01 (01/09) : **45,3 s** au total, dont **1,9 s d'ecriture** et
 **42,3 s de condensation** (le seul appel LLM `## Status` = 99,4 % de ces 42 s) -- contre **605 ms**
 pour le meme appel repasse sous le seuil 10 min plus tard, soit **~75x**. po-2024 rapporte un
 timeout client a 180 s (non reverifie ici). Le message est deja sur disque.

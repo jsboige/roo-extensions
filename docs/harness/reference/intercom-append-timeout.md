@@ -18,14 +18,15 @@ l'append incrémental est *« the authoritative state — no message loss »*.
 **Depuis #4527 (04/11/2026), la passe ne retient plus l'appelant** : l'append rend sa réponse dès
 que le message et sa ligne de store sont persistés, et la condensation tourne **détachée**, sous le
 verrou condense que l'append vient d'acquérir (verrou relâché par la passe elle-même). La réponse
-porte alors `condensationDeferred: true` ; l'issue de la passe va au journal de l'hôte et au
-`lastCondensedAt` de la lecture suivante. Deux franchissements pendant une passe en vol ne lancent
+porte alors `condensationDeferred: true`. Une passe **réussie** est visible dans le journal de
+l'hôte et dans le `lastCondensedAt` de la lecture suivante ; une passe **échouée** n'est visible
+que dans le journal de l'hôte (`lastCondensedAt` ne bouge pas). Deux franchissements pendant une passe en vol ne lancent
 pas deux passes : le second voit `lock-held`. Si l'hôte meurt en cours de passe, rien n'a été écrit,
 le verrou expire par son TTL et le prochain franchissement refait une passe. `CONDENSE_DETACHED=0`
 rétablit le chemin synchrone historique.
 
 Sous 92 %, un `append` coûte quelques ms. Au-dessus, la passe est payée en plus — mais **par la
-passe**, plus par l'appelant. Les mesures ci-dessous décrivent le régime antérieur, qui reste ce
+passe**, plus du tout par l'appelant. Les mesures ci-dessous décrivent le régime antérieur, qui reste ce
 que l'on observe en `CONDENSE_DETACHED=0`.
 
 ## Les mesures

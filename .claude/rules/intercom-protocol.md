@@ -45,7 +45,7 @@ Une ligne de blocage heritee survit aux condensations — le resume LLM regenere
 2. **Relire** (`action: "read"`, `section: "intercom"`) : **seule la relecture tranche.**
 3. Re-poster **seulement** si la relecture ne trouve pas le message ; ne rapporter une panne que dans ce cas.
 
-Au-dela de 92 %, le meme appel paie en plus une passe de condensation LLM entiere (facteur **~75x** mesure ; un seul agent paie a la fois, #2818/#2464) — c'est une **marge, pas un bug**. **Mesures completes, mecanisme WRITE-FIRST, A/B :** [`intercom-append-timeout.md`](../../docs/harness/reference/intercom-append-timeout.md)
+Au-dela de 92 %, depuis #4527 (04/11), la passe de condensation tourne **detachee** : l'appel repond des que le message est persiste. En `CONDENSE_DETACHED=0`, le meme appel paie en plus une passe LLM entiere (facteur **~75x** mesure ; un seul agent paie a la fois, #2818/#2464) — c'est une **marge, pas un bug**. **Mesures completes, mecanisme WRITE-FIRST, A/B :** [`intercom-append-timeout.md`](../../docs/harness/reference/intercom-append-timeout.md)
 
 ### Fichier INTERCOM local (DEPRECATED)
 
