@@ -1,48 +1,68 @@
 # .claude/rules/ Footprint Snapshot
 
-**Generated:** 2026-05-19T00:00Z (post-ventilation cleanup)
-**Script:** `scripts/audit-rules-footprint.ps1`
-**Issues:** #1606 (baseline), 2026-05-19 ventilation (this snapshot)
+**Generated:** 2026-11-04 (lot 1 campagne d'amincissement #2368)
+**Script:** `scripts/audit-rules-footprint.ps1` (octets bruts, lecture seule)
+**Plafonds gardés par test :** `scripts/testing/unit/rules-footprint-budget.Tests.ps1` (octets LF-normalisés — c'est le test, pas ce snapshot, qui fait foi en CI)
+**Issues:** #1606 (baseline), #2368 (campagne d'amincissement, décision ai-01 04/11 12:50Z — porteur po-2025, vérificateur po-2028)
 
-## Totals
+## Totals (2026-11-04)
 
 | Metric | Value |
 |---|---|
-| Files | 18 |
-| Bytes | 37043 (36.17 KB) |
-| Estimated tokens | ~9261 |
+| Files | 22 |
+| Bytes (LF-normalisés) | 61879 (~15 470 tokens estimés) |
+| Source harnais global `.claude/configs/user-global-claude.md` | 26117 (~6 530 tokens estimés) — **27174 avant le lot 1** ; coupe du lot 1 = 25915, puis +202 o de pointeurs Q20 (#4543) fusionnés par update-branch |
 
-## Per-file breakdown (largest first)
+Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig.ps1 -Target claude-md`) : ces octets sont payés à **chaque** conversation de chaque machine. Le détail déporté vit dans `docs/harness/` (on-demand, non auto-chargé).
 
-| File | KB | Lines |
-|------|---:|------:|
-| sddd-grounding.md | 4.66 | 85 |
-| submod-pointer-safety.md | 4.34 | 53 |
-| pr-mandatory.md | 3.32 | 51 |
-| mcp-diagnosis.md | 2.82 | 23 |
-| issue-creation.md | 2.52 | 60 |
-| agent-claim-discipline.md | 2.09 | 27 |
-| no-deletion-without-proof.md | 1.83 | 27 |
-| context-window.md | 1.77 | 30 |
-| issue-closure.md | 1.67 | 35 |
-| tool-availability.md | 1.60 | 27 |
-| skepticism-protocol.md | 1.50 | 25 |
-| security.md | 1.47 | 27 |
-| ci-guardrails.md | 1.42 | 37 |
-| validation.md | 1.29 | 24 |
-| intercom-protocol.md | 1.23 | 28 |
-| file-writing.md | 1.11 | 21 |
-| shell-fallback.md | 0.78 | 17 |
-| friction-protocol.md | 0.76 | 17 |
+## Per-file breakdown (2026-11-04, largest first)
+
+| File | Bytes | 
+|------|------:|
+| agent-claim-discipline.md | 6860 |
+| worktree-lifecycle.md | 4270 |
+| pr-mandatory.md | 4159 |
+| submod-pointer-safety.md | 3726 |
+| intercom-protocol.md | 3697 |
+| ci-guardrails.md | 3560 |
+| no-deletion-without-proof.md | 3541 |
+| tool-availability.md | 3527 |
+| context-window.md | 3342 |
+| sddd-grounding.md | 2922 |
+| mcp-diagnosis.md | 2885 |
+| issue-closure.md | 2844 |
+| plans-progress-usage.md | 2739 |
+| wake-claude-routing.md | 2435 |
+| harnais-tightening.md | 1836 |
+| degraded-escalation.md | 1754 |
+| security.md | 1705 |
+| skepticism-protocol.md | 1540 |
+| shell-fallback.md | 1494 |
+| validation.md | 1320 |
+| issue-creation.md | 935 |
+| friction-protocol.md | 788 |
 
 ## Notes
 
 - Token estimate assumes ~4 chars/token (rough English/French mix). Real counts vary by tokenizer (GPT ≠ Claude ≠ GLM).
 - Rules are auto-loaded on every Claude Code conversation start — every KB here is paid as context on every agent spawn.
+- Octets LF-normalisés (CRLF→LF) : la mesure ne dépend pas de la configuration line-ending du checkout.
 
-## Cleanup 2026-05-19 — Ventilation vers docs/harness/
+## Campagne #2368 — journal des lots
 
-Reduction nette : **23 fichiers / ~57 KB → 18 fichiers / 36.17 KB (-36 %)**.
+| Lot | Date | Surface | Avant | Après | PR |
+|---|---|---|---:|---:|---|
+| 1 | 2026-11-04 | `user-global-claude.md` §Délégation tier mini | 27174 | 25915 | #4546 |
+
+Update-branch 04/11 (observation po-2028, c.6633632807) : la base main a avancé après la coupe — #4543 ajoute ~202 o de pointeurs Q20 dans le même fichier. Mesure fusionnée : **26117** ; plafond du test relevé 25915 → 26117 dans la même PR (justification : base fusionnée, pas base de coupe). La coupe du lot reste 27174 → 25915.
+
+Méthode (#445) : déport du détail vers `docs/harness/` + ligne de renvoi, un lot = une PR, mesure avant/après dans le corps, plafond abaissé dans le test en même temps.
+
+## Historique
+
+### Cleanup 2026-05-19 — Ventilation vers docs/harness/
+
+Réduction nette : **23 fichiers / ~57 KB → 18 fichiers / 36.17 KB (-36 %)**.
 
 5 fichiers déplacés (descriptif/référence, pas règles de comportement) :
 - `meta-analyst.md` → `docs/harness/coordinator-specific/meta-analyst-rule.md` (loaded par `start-meta-audit.ps1`, contenu déjà inliné dans le prompt)
