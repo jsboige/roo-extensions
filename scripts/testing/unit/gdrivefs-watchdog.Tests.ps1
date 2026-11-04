@@ -383,3 +383,87 @@ Describe 'escalation wiring (follow-up item 3 + item 1 params)' {
         ([regex]::Matches($script:mainText, 'consecutive_write_pending = 0')).Count | Should -Be 3
     }
 }
+
+# ============================================================================
+# po-204 follow-up suite (04/11, #4508): the verdict-currency guard
+# (write_verified_at >= last_relaunch_attempt) was inline in the poll loop
+# and untested. Under pwsh 7 -- the host install-gdrivefs-watchdog-schtask.ps1
+# resolves via Get-Command pwsh -- ConvertFrom-Json auto-parses the state
+# file's ISO dates and DROPS the offset, so the inline [string] +
+# [datetime]::Parse wall-clock compare could misjudge the verdict or throw,
+# and the catch silently re-ran the sentinel probe at EVERY poll: po-2025
+# reported one "repaired: gdrivefs-relaunch (write-verified)" line per 15-min
+# poll on 31/10. Extraction: Test-WriteVerdictCurrent +
+# ConvertTo-WatchdogUtcOffset in the lib, UTC-instant comparison, fail-closed.
+# Red on 57fa0dc4 for every item below (the functions do not exist there).
+# ============================================================================
+
+Describe 'Test-WriteVerdictCurrent (follow-up: one earned verdict per relaunch)' {
+
+    It 'verified AFTER the attempt (ISO o strings, same offset) -> verdict current, no re-probe' {
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31T07:41:12.0000000+01:00' -LastRelaunchAttempt '2026-10-31T06:33:50.0000000+01:00' | Should -BeTrue
+    }
+
+    It 'verified BEFORE the attempt (same relaunch re-armed since) -> stale verdict, re-probe' {
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31T06:00:00.0000000+01:00' -LastRelaunchAttempt '2026-10-31T06:33:50.0000000+01:00' | Should -BeFalse
+    }
+
+    It 'a null write_verified_at (old state file, field absent) means NEVER verified -> re-probe' {
+        Test-WriteVerdictCurrent -WriteVerifiedAt $null -LastRelaunchAttempt '2026-10-31T06:33:50.0000000+01:00' | Should -BeFalse
+    }
+
+    It 'crossed offsets: 11:41+05:00 (06:41Z) vs 07:10Z -> compare INSTANTS, the wall clock lies' {
+        # Seat-independent discriminator: naive text/wall-clock comparison
+        # reads 11:41 > 07:10 and answers True (wrong) on ANY seat; the UTC
+        # instant comparison answers False. This is the shape the inline guard
+        # got wrong once pwsh 7 hands it offset-stripped datetimes.
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31T11:41:12.0000000+05:00' -LastRelaunchAttempt '2026-10-31T07:10:00.0000000+00:00' | Should -BeFalse
+    }
+
+    It 'crossed offsets, the other direction: 07:10Z vs 11:41+05:00 (06:41Z) -> verified is the later instant' {
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31T07:10:00.0000000+00:00' -LastRelaunchAttempt '2026-10-31T11:41:12.0000000+05:00' | Should -BeTrue
+    }
+
+    It 'auto-parsed [datetime] values (pwsh 7 payload, offset already stripped to seat-local) still order by instant' {
+        # pwsh 7 ConvertFrom-Json turns the state file's ISO strings into
+        # [datetime] (Kind Local, offset lost) before the guard sees them.
+        # Build both sides as .LocalDateTime of FIXED instants: whatever the
+        # seat offset, the same conversion applies to both, ordering holds.
+        $vDto = [DateTimeOffset]::new([datetime]'2026-10-31T07:41:12', [TimeSpan]::FromHours(1))   # 06:41:12Z
+        $aDto = [DateTimeOffset]::new([datetime]'2026-10-31T07:40:00', [TimeSpan]::FromHours(1))   # 06:40:00Z
+        Test-WriteVerdictCurrent -WriteVerifiedAt $vDto.LocalDateTime -LastRelaunchAttempt $aDto.LocalDateTime | Should -BeTrue
+        Test-WriteVerdictCurrent -WriteVerifiedAt $aDto.LocalDateTime -LastRelaunchAttempt $vDto.LocalDateTime | Should -BeFalse
+    }
+
+    It 'offset-less strings keep the legacy LOCAL semantics of [datetime]::Parse' {
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31 07:41:12' -LastRelaunchAttempt '2026-10-31 06:33:50' | Should -BeTrue
+        Test-WriteVerdictCurrent -WriteVerifiedAt '2026-10-31 06:00:00' -LastRelaunchAttempt '2026-10-31 06:33:50' | Should -BeFalse
+    }
+
+    It 'an unparseable value fails CLOSED (re-probe) and never throws' {
+        { Test-WriteVerdictCurrent -WriteVerifiedAt 'not-a-date' -LastRelaunchAttempt '2026-10-31T06:33:50.0000000+01:00' } | Should -Not -Throw
+        Test-WriteVerdictCurrent -WriteVerifiedAt 'not-a-date' -LastRelaunchAttempt '2026-10-31T06:33:50.0000000+01:00' | Should -BeFalse
+    }
+}
+
+Describe 'verdict-currency guard wiring (follow-up)' {
+
+    It 'the poll loop routes through Test-WriteVerdictCurrent' {
+        $script:mainText | Should -Match 'Test-WriteVerdictCurrent'
+    }
+
+    It 'no inline parse chain on write_verified_at survives (negative witness)' {
+        # A reintroduced inline guard must redden this line -- presence-only
+        # assertions do not forbid reintroduction. Scoped to the write-verdict
+        # field: five other [datetime]::Parse call sites exist on other state
+        # fields (alert cooldown, fast-poll window, relaunch cooldown) and are
+        # untouched by this change.
+        $script:mainText | Should -Not -Match '\[datetime\]::Parse\(\[string\]\$state\.write_verified_at\)'
+    }
+
+    It 'the lib carries the two new decision functions' {
+        $libText = Get-Content -LiteralPath $script:libPath -Raw
+        $libText | Should -Match 'function Test-WriteVerdictCurrent'
+        $libText | Should -Match 'function ConvertTo-WatchdogUtcOffset'
+    }
+}
