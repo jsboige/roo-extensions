@@ -755,13 +755,12 @@ if (-not $binary -or -not (Test-Path $binary)) {
                 # window, never a 90s constant. If the prior relaunch's grace already
                 # elapsed and the instance is still missing/hung, THIS cycle failed —
                 # count it (C2). Otherwise the verdict is deferred below.
-                $cycleFailed = $false
-                if ($state.last_relaunch_attempt) {
-                    try { $lastAt = [datetime]::Parse([string]$state.last_relaunch_attempt) } catch { $lastAt = $null }
-                    if ($lastAt -and ((Get-Date) - $lastAt).TotalSeconds -ge $StartupGraceSeconds) {
-                        $cycleFailed = $true
-                    }
-                }
+                # #4508 sibling (ai-01): the verdict reads the state date through
+                # Test-RelaunchCycleFailed (lib) -- the old inline parse had no
+                # -is [datetime] guard and its culture round-trip could throw
+                # under pwsh 7 on a non-en-US seat, silently freezing the
+                # failure counter (fail-open: no cooldown, no fast-poll).
+                $cycleFailed = Test-RelaunchCycleFailed -LastRelaunchAttempt $state.last_relaunch_attempt -Now ([DateTimeOffset]::UtcNow) -GraceSeconds $StartupGraceSeconds
                 if ($Mode -ne 'dry-run' -and $cycleFailed) {
                     $state.consecutive_relaunch_failures = $state.consecutive_relaunch_failures + 1
                     if ($state.consecutive_relaunch_failures -ge $MaxConsecutiveFailures) {

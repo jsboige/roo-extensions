@@ -467,3 +467,67 @@ Describe 'verdict-currency guard wiring (follow-up)' {
         $libText | Should -Match 'function ConvertTo-WatchdogUtcOffset'
     }
 }
+
+# ============================================================================
+# po-204 sibling suite (04/11, #4508, dispatched by ai-01 18:23Z): the
+# cycle-failure verdict (A0.2, #3466) at gdrivefs-watchdog.ps1:760 read
+# last_relaunch_attempt WITHOUT the -is [datetime] guard every other
+# state-date reader carries. Under pwsh 7 the schtask host hands the poll an
+# auto-parsed [datetime] (offset dropped); [string] + [datetime]::Parse is a
+# culture round-trip that can throw on a non-en-US seat, and the catch nulled
+# the verdict at EVERY poll -- consecutive_relaunch_failures never rose:
+# no cooldown, no fast-poll window, no survivor alert (fail-open: the
+# watchdog missed its own escalations). Extraction: Test-RelaunchCycleFailed
+# in the lib, normalizing through ConvertTo-WatchdogUtcOffset (#4547).
+# Red on 7b349766 for every item below (the function does not exist there).
+# ============================================================================
+
+Describe 'Test-RelaunchCycleFailed (#4508 sibling: the failure counter must survive pwsh 7 payloads)' {
+
+    It 'attempt older than the grace window -> cycle FAILED (counter must rise)' {
+        Test-RelaunchCycleFailed -LastRelaunchAttempt ([DateTimeOffset]::UtcNow.AddSeconds(-600)) -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeTrue
+    }
+
+    It 'attempt younger than the grace window -> deferred (grace still running)' {
+        Test-RelaunchCycleFailed -LastRelaunchAttempt ([DateTimeOffset]::UtcNow.AddSeconds(-100)) -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeFalse
+    }
+
+    It 'a null attempt (first ever poll) defers, never fails' {
+        Test-RelaunchCycleFailed -LastRelaunchAttempt $null -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeFalse
+    }
+
+    It 'a pwsh 7 payload ([datetime], offset stripped to seat-local) past grace -> FAILED on any seat' {
+        # The exact payload the schtask host hands the poll under pwsh 7.
+        # The old chain stringify->Parse could throw on a non-en-US seat and
+        # defer forever; the predicate reads the datetime payload directly.
+        $payload = ([DateTimeOffset]::UtcNow.AddSeconds(-600)).LocalDateTime
+        Test-RelaunchCycleFailed -LastRelaunchAttempt $payload -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeTrue
+    }
+
+    It 'an ISO o string with offset (5.1 payload) past grace -> FAILED' {
+        Test-RelaunchCycleFailed -LastRelaunchAttempt ([DateTimeOffset]::UtcNow.AddSeconds(-600)).ToString('o') -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeTrue
+    }
+
+    It 'an unparseable payload defers (same as the old catch), never throws' {
+        { Test-RelaunchCycleFailed -LastRelaunchAttempt 'not-a-date' -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 } | Should -Not -Throw
+        Test-RelaunchCycleFailed -LastRelaunchAttempt 'not-a-date' -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeFalse
+    }
+}
+
+Describe 'cycle-failure wiring (#4508 sibling)' {
+
+    It 'the A0.2 branch routes through Test-RelaunchCycleFailed' {
+        $script:mainText | Should -Match 'Test-RelaunchCycleFailed -LastRelaunchAttempt \$state\.last_relaunch_attempt'
+    }
+
+    It 'no unguarded inline parse of the state field survives (negative witness)' {
+        # Scoped to the state field: the guarded site in Test-IsInStartupGrace
+        # parses a function PARAMETER and keeps its -is [datetime] guard -- it
+        # is correct in both host regimes and stays as is.
+        $script:mainText | Should -Not -Match '\[datetime\]::Parse\(\[string\]\$state\.last_relaunch_attempt\)'
+    }
+
+    It 'the lib carries the function' {
+        (Get-Content -LiteralPath $script:libPath -Raw) | Should -Match 'function Test-RelaunchCycleFailed'
+    }
+}
