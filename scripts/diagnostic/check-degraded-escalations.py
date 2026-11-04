@@ -230,6 +230,41 @@ def type_from_key(key):
     return "workspace"
 
 
+def read_arguments_for_key(key, intercom_limit):
+    """Arguments `read` pour la cle — AVEC l'identifiant (review Hermes 04/11,
+    trouve en implementant les reserves) : un `read` type=workspace sans
+    `workspace` renvoie le dashboard DU SIEGE, pas celui de la cle — N
+    dashboards workspace auraient lu N fois le meme, dupliquant chaque
+    escalade. La cle porte l'id : `workspace-<id>` / `machine-<id>`."""
+    arguments = {"action": "read", "section": "intercom",
+                 "intercomLimit": intercom_limit}
+    if key == "global":
+        arguments["type"] = "global"
+    elif key.startswith("machine-"):
+        arguments["type"] = "machine"
+        arguments["machine"] = key[len("machine-"):]
+    elif key.startswith("workspace-"):
+        arguments["type"] = "workspace"
+        arguments["workspace"] = key[len("workspace-"):]
+    else:
+        # Cle sans prefix connu : traitee comme workspace nu, id = cle entiere.
+        arguments["type"] = "workspace"
+        arguments["workspace"] = key
+    return arguments
+
+
+def unrecognized_headers(text):
+    """Lignes qui RESSEMBLENT a un entete intercom sans matcher ENTRY_RE
+    (review Hermes 04/11, reserve 2) : un `#### [ts] lane` ou un `### [x] y`
+    d'un client au format derive est aujourd'hui silencieusement invisible --
+    ni entree, ni erreur. Une ligne proche mais non reconnue est signalee :
+    le contrat « un dashboard illisible n'est pas un dashboard propre »
+    couvre le parse autant que l'IO."""
+    near = re.compile(r"^\s{0,3}#{1,6}\s*\[[^\]\n]*\]\s*\S+\s*$")
+    return [line.strip() for line in text.splitlines()
+            if near.match(line) and not ENTRY_RE.match(line)]
+
+
 def tool_result_text(result):
     """Texte du contenu d'un resultat MCP, ou None si inutilisable."""
     if not isinstance(result, dict):
@@ -260,7 +295,8 @@ def store_keys_from_listing(result):
     return keys or None
 
 
-def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=30):
+def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
+                            now=None, window_hours=None):
     """Dashboards servis par le STORE (PG), meme transport que la sonnerie
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
     gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
@@ -269,11 +305,18 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=30):
     le store est injoignable en entree (list illisible) : l'appelant decide
     alors du repli miroir, qui DEGRADE le verdict quand PG etait configure.
 
-    Fenetre : les `intercom_limit` dernieres entrees PAR dashboard. La fenetre
-    d'echeance etant de 2 cycles (8 h par defaut), 30 entrees couvrent tout
-    dashboard de la flotte sur cette duree ; une escalade archivee par
-    condensation AVANT son echeance reste le plafond connu (non bloquant,
-    review NanoClaw 03/11) — le store a au moins le merite de ne pas geler.
+    Fenetre : les `intercom_limit` dernieres entrees PAR dashboard, et la
+    couverture est VERIFIEE, pas supposee (review Hermes 04/11, reserve 1) :
+    si `now` et `window_hours` sont donnes et que la plus ancienne entree lue
+    d'un dashboard est PLUS RECENTE que le debut de fenetre, le dashboard
+    rend une erreur — une escalade anterieure serait invisible, et le silence
+    est exactement ce que l'organe existe pour rompre. Defaut 200 : mesure
+    Hermes 04/11 (debits reels/nuit : CoursIA 12,85/h, cluster 7,25/h,
+    roo-extensions 3,9/h) -> 200 entrees couvrent > 8 h partout ; la verif
+    de couverture rend la constante auto-prouvee, pas crue sur parole.
+    Une escalade archivee par condensation AVANT son echeance reste le
+    plafond connu (review NanoClaw 03/11) — le store a au moins le merite
+    de ne pas geler.
     """
     call = _load_transport()
     keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
@@ -282,15 +325,34 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=30):
         return None
     entries = []
     errors = []
+    window_start = (now - timedelta(hours=window_hours)
+                    if now is not None and window_hours else None)
     for key in keys:
-        result = call({"action": "read", "type": type_from_key(key),
-                       "section": "intercom", "intercomLimit": intercom_limit},
+        result = call(read_arguments_for_key(key, intercom_limit),
                       url, bearer, timeout=timeout)
         text = tool_result_text(result)
         if text is None:
             errors.append(f"{key}: lecture store sans contenu")
             continue
-        entries.extend(parse_entries(text))
+        suspicious = unrecognized_headers(text)
+        if suspicious:
+            # Review Hermes 04/11, reserve 2 : proche-match d'entete = entree
+            # potentiellement invisible. Le dashboard reste lu (act-then-
+            # degrade), mais la mesure ne peut pas rendre un 0/2 confiant.
+            errors.append(f"{key}: {len(suspicious)} entete(s) proche(s) non "
+                          f"reconnu(s) — entrees potentiellement invisibles "
+                          f"(ex: {suspicious[0][:80]})")
+        dash_entries = parse_entries(text)
+        entries.extend(dash_entries)
+        if window_start is not None and dash_entries:
+            oldest = min(e["ts"] for e in dash_entries)
+            if oldest > window_start:
+                errors.append(
+                    f"{key}: fenetre non couverte — plus ancienne entree lue "
+                    f"{oldest.isoformat()} > debut de fenetre "
+                    f"{window_start.isoformat()} (intercom_limit="
+                    f"{intercom_limit}) ; une escalade anterieure serait "
+                    f"invisible")
     return entries, errors
 
 
@@ -586,7 +648,9 @@ def main(argv=None):
         entries, errors = load_entries(paths)
     else:
         loader = _store_loader or load_entries_from_store
-        store = (loader(args.ring_url, args.ring_bearer, timeout=args.ring_timeout)
+        store = (loader(args.ring_url, args.ring_bearer,
+                        timeout=args.ring_timeout, now=now,
+                        window_hours=args.cycles * args.cycle_hours)
                  if args.ring_bearer else None)
         if store is not None:
             source = "store"

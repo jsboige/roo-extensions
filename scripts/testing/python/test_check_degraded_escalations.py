@@ -12,6 +12,7 @@ scripts/testing/python` tourne en CI sur ubuntu.
 """
 
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -279,6 +280,79 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(keys, ["global", "machine-x", "workspace-y"])
         self.assertEqual([cde.type_from_key(k) for k in keys],
                          ["global", "machine", "workspace"])
+
+    # --- Review Hermes 04/11 : bornes de la lecture store ----------------
+
+    def fake_store(self, dashboards, keys=None):
+        """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
+        (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
+        les arguments `read` dans self.reads pour les assertions par-cle."""
+        if keys is None:
+            keys = list(dashboards)
+        self.reads = []
+
+        def call(arguments, url, bearer, timeout=10.0, client="x"):
+            if arguments.get("action") == "list":
+                body = json.dumps({"success": True,
+                                   "dashboards": [{"key": k} for k in keys]})
+            elif arguments.get("action") == "read":
+                self.reads.append(arguments)
+                ident = (arguments.get("workspace") or arguments.get("machine")
+                         or "global")
+                body = dashboards.get(ident, "")
+            else:
+                return None
+            return {"content": [{"type": "text", "text": body}]}
+
+        original = cde._load_transport
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", original)
+
+    def run_store_main(self):
+        return cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+
+    def entry(self, ts, lane="a|ws", body="[DONE] rien de degrade"):
+        return f"### [{ts}] {lane}\n\n{body}\n"
+
+    def test_store_read_addresses_each_dashboard_by_id(self):
+        # Reserve Hermes (trouvee en implementant) : un read type=workspace
+        # SANS `workspace` renvoie le dashboard du siege — N dashboards
+        # workspace lisaient N fois le meme. Chaque cle doit porter son id.
+        self.fake_store({
+            "global": self.entry("2026-11-03T00:30:00.000Z", "g|ws"),
+            "myia-x": self.entry("2026-11-03T00:40:00.000Z", "m|ws"),
+            "y": self.entry("2026-11-03T00:50:00.000Z", "w|ws"),
+        }, keys=["global", "machine-myia-x", "workspace-y"])
+        code = self.run_store_main()
+        self.assertEqual(code, 0)
+        by_type = {(r.get("type"), r.get("machine"), r.get("workspace"))
+                   for r in self.reads}
+        self.assertIn(("global", None, None), by_type)
+        self.assertIn(("machine", "myia-x", None), by_type)
+        self.assertIn(("workspace", None, "y"), by_type)
+
+    def test_store_window_not_covered_fails_closed(self):
+        # Reserve Hermes 1 : 30 (desormais 200) dernieres entrees ne couvrent
+        # pas forcement la fenetre d'echeance. Plus ancienne entree lue PLUS
+        # RECENTE que le debut de fenetre -> erreur d'instrument, jamais un 0.
+        self.fake_store({"y": self.entry("2026-11-03T08:30:00.000Z")})
+        code = self.run_store_main()  # fenetre 8 h avant NOW=09:00Z -> 01:00Z
+        self.assertEqual(code, 1)
+
+    def test_unrecognized_header_is_surfaced_not_silent(self):
+        # Reserve Hermes 2 : un entree au format derive (#### au lieu de ###)
+        # etait invisible — ni entree, ni erreur. Elle est desormais signalee.
+        self.fake_store({"y": self.entry("2026-11-03T00:30:00.000Z")
+                         + "#### [2026-11-03T00:31:00.000Z] ghost|ws\n"})
+        code = self.run_store_main()
+        self.assertEqual(code, 1)
+
+    def test_store_clean_covered_dashboard_is_zero(self):
+        # Temoin positif : store lu, fenetre couverte (entree plus vieille que
+        # le debut de fenetre), contenu propre -> 0 par le chemin store.
+        self.fake_store({"y": self.entry("2026-11-03T00:30:00.000Z")})
+        code = self.run_store_main()
+        self.assertEqual(code, 0)
 
     def test_ring_id_is_stable_within_a_day(self):
         item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
