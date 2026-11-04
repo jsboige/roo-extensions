@@ -332,12 +332,24 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertIn(("workspace", None, "y"), by_type)
 
     def test_store_window_not_covered_fails_closed(self):
-        # Reserve Hermes 1 : 30 (desormais 200) dernieres entrees ne couvrent
-        # pas forcement la fenetre d'echeance. Plus ancienne entree lue PLUS
-        # RECENTE que le debut de fenetre -> erreur d'instrument, jamais un 0.
-        self.fake_store({"y": self.entry("2026-11-03T08:30:00.000Z")})
-        code = self.run_store_main()  # fenetre 8 h avant NOW=09:00Z -> 01:00Z
+        # Review ai-01 04/11 : la garde ne vaut que pour une lecture TRONQUEE.
+        # `intercom_limit` entrees lues, toutes posterieures au debut de
+        # fenetre (01:00Z) -> la plus ancienne a pu etre coupee -> exit 1.
+        crowded = "".join(
+            self.entry(f"2026-11-03T0{8 - i // 60}:{i % 60:02d}:00.000Z")
+            for i in range(200))
+        self.fake_store({"y": crowded})
+        code = self.run_store_main()
         self.assertEqual(code, 1)
+
+    def test_sparse_dashboard_is_covered_not_flagged(self):
+        # Le faux positif reproche par la review : 4 entrees recentes sur un
+        # dashboard calme — rien n'a ete tronque, la mesure est complete -> 0.
+        sparse = "".join(self.entry(f"2026-11-03T0{h}:30:00.000Z")
+                         for h in (5, 6, 7, 8))
+        self.fake_store({"y": sparse})
+        code = self.run_store_main()
+        self.assertEqual(code, 0)
 
     def test_unrecognized_header_is_surfaced_not_silent(self):
         # Reserve Hermes 2 : un entree au format derive (#### au lieu de ###)
@@ -346,6 +358,15 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                          + "#### [2026-11-03T00:31:00.000Z] ghost|ws\n"})
         code = self.run_store_main()
         self.assertEqual(code, 1)
+
+    def test_wake_claude_header_is_not_flagged(self):
+        # Review ai-01 04/11 : `## [WAKE-CLAUDE] myia-po-2023` est une forme
+        # LEGITIME du dashboard (wake-claude-routing.md) — pas un entete
+        # d'entree derive. Le motif ne vise que les crochets horodates.
+        self.fake_store({"y": self.entry("2026-11-03T00:30:00.000Z")
+                         + "## [WAKE-CLAUDE] myia-po-2023\n"})
+        code = self.run_store_main()
+        self.assertEqual(code, 0)
 
     def test_store_clean_covered_dashboard_is_zero(self):
         # Temoin positif : store lu, fenetre couverte (entree plus vieille que

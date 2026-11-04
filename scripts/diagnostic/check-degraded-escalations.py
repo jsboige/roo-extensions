@@ -260,7 +260,12 @@ def unrecognized_headers(text):
     ni entree, ni erreur. Une ligne proche mais non reconnue est signalee :
     le contrat « un dashboard illisible n'est pas un dashboard propre »
     couvre le parse autant que l'IO."""
-    near = re.compile(r"^\s{0,3}#{1,6}\s*\[[^\]\n]*\]\s*\S+\s*$")
+    # Forme visee : un entete dont le crochet porte un HORODATAGE. Le motif
+    # large attrapait `## [WAKE-CLAUDE] myia-po-2023`, forme legitime du
+    # dashboard (wake-claude-routing.md autorise le tag en header markdown) --
+    # chaque dashboard portant un WAKE serait signale (review ai-01 04/11).
+    near = re.compile(
+        r"^\s{0,3}#{1,6}\s*\[\d{4}-\d{2}-\d{2}T[^\]\n]*\]\s*\S+\s*$")
     return [line.strip() for line in text.splitlines()
             if near.match(line) and not ENTRY_RE.match(line)]
 
@@ -344,7 +349,12 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                           f"(ex: {suspicious[0][:80]})")
         dash_entries = parse_entries(text)
         entries.extend(dash_entries)
-        if window_start is not None and dash_entries:
+        # Seule une lecture TRONQUEE peut cacher une entree anterieure : un
+        # dashboard calme ou fraichement condense a moins de `intercom_limit`
+        # entrees est entierement couvert (review ai-01 04/11 — la garde nue
+        # sonnait sur du contenu normal).
+        if (window_start is not None
+                and len(dash_entries) >= intercom_limit):
             oldest = min(e["ts"] for e in dash_entries)
             if oldest > window_start:
                 errors.append(
@@ -375,9 +385,10 @@ def strip_declaration_tokens(text):
     dans le post de sonnerie serait lu par le prochain run comme la reparation
     de l'escalade qu'il sonne -- la sonnerie fermerait sa propre alarme.
     """
-    return DECLARATION_TOKEN_RE.sub(
-        lambda m: "degradation" if m.group(1) == "DEGRADED" else "reparation",
-        text)
+    # Le token est rendu adosse, pas traduit : « un `REPAIRED` de la lane »
+    # reste lisible et ne peut pas deriver en « un reparation » (accord casse,
+    # NIT review ai-01 04/11) — le mot est un token anglais, pas un nom francais.
+    return DECLARATION_TOKEN_RE.sub(lambda m: f"`{m.group(1)}`", text)
 
 
 def build_ring_content(overdue):
@@ -388,8 +399,8 @@ def build_ring_content(overdue):
             f"- {item['lane']} — degrade depuis {item['posted']}, "
             f"echeance {item['deadline']} depassee : {item['excerpt'][:120]}"))
     lines.append("Le mecanisme porte l'echeance, pas la memoire de la lane : "
-                 "une declaration de reparation par la lane ferme l'escalade ; "
-                 "un bilan de cycle ne ferme rien.")
+                 "un `REPAIRED` de la lane ferme l'escalade ; un bilan de "
+                 "cycle ne ferme rien.")
     return "\n".join(lines)
 
 
