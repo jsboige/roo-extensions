@@ -217,6 +217,27 @@ python scripts/diagnostic/check-deny-fallback.py --selftest
 
 Détail complet (câblage canonique `jupyter-papermill`, intégration pré-vol, conduite sur finding) : [`docs/harness/reference/deny-fallback-probe.md`](../../docs/harness/reference/deny-fallback-probe.md).
 
+### `check-degraded-escalations.py`
+
+Sonnerie de l'escalade **environnement dégradé** (#4517, mandat user 03/11 — incident po-2025/CoursIA : un MCP cru mort contourné deux jours durant, alors qu'il répondait en 1,18 s). La règle « réparer, jamais contourner » existait, mais rien ne bornait le temps qu'une lane peut passer en panne **en silence**.
+
+Les dashboards sont lus (`## Intercom`), les escalades `[DEGRADED]` repérées, et pour chacune l'échéance est **dérivée du post** (`posté + 2 cycles`, défaut 2 × 4 h = la cadence `41 */4`) :
+
+- **Déclaration ≠ mention** (review #4519) : une escalade est déclarée par la ligne `[tags: … DEGRADED …]` ou le token en premier token du corps — jamais par une citation en pleine prose (review, `[DONE]` explicatif) : les posts réels du 03/11 qui citaient le tag produisaient des escalades fantômes.
+- **Fermeture** : seule une **déclaration** `[REPAIRED]` de la **même lane**, postérieure, ferme l'escalade. Un `[DONE]` ne ferme rien — c'est la « sortie dégradée consacrée » que le mandat interdit.
+- **Sources** (review #4519) : `--dashboard-file` = rejeu forensic → sinon **store PG** (même transport que la sonnerie, 30 dernières entrées par dashboard) → sinon repli **miroir G:**, qui **dégrade** la mesure (sortie `1` si PG était configuré) ; plafond de fraîcheur : plus récente entrée < 1 cycle, sinon `1` sans sonnerie.
+- **Exit codes** : `0` aucune escalade / `3` ouverte(s) dans les délais (le chemin est exercé, rien à sonner) / `2` échéance dépassée → **sonner le user** / `1` erreur d'instrument (dashboard illisible, miroir gelé, mesure dégradée, ou `--ring` demandé et non parti).
+- **`--ring`** poste `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard **global** ; clé d'idempotence **quotidienne** (même lot = une sonnerie par jour, re-sonne chaque jour tant que rien n'est réparé). Le texte ne porte **aucun token de déclaration** et l'entrée porte le tag `DEGRADED-ESCALATION` : la sonnerie ne ferme pas sa propre alarme. Transport **importé** de `detect-approval-stalls.py` (`call_dashboard_tool`, importlib) — le même pour lire le store et poster.
+- **Plafond dit** : l'organe ne voit que les escalades **postées** ; une lane qui n'escalade pas reste invisible — d'où la sonde de siège `check-mcp-seats.py` (#4518) qui mesure la présence réelle des MCP.
+
+```bash
+python scripts/diagnostic/check-degraded-escalations.py            # 0/3/2/1
+python scripts/diagnostic/check-degraded-escalations.py --json
+python scripts/diagnostic/check-degraded-escalations.py --selftest
+```
+
+Règle normative : [`.claude/rules/degraded-escalation.md`](../../.claude/rules/degraded-escalation.md) (source canonique `.claude/configs/rules/`) · Détail et mesures : [`docs/harness/reference/degraded-escalation.md`](../../docs/harness/reference/degraded-escalation.md).
+
 ### `probe-hermes-liveness.py`
 
 Sonde **lecture seule** du « statut de liveness menteur » des crons Hermes (#4247, action #3 — « re-mesurer la proportion de faux `ok` »). Le champ `last_status` de `~/.hermes/cron/jobs.json` est un champ **dernier-écrivain, sans lien avec le fire courant** ; le ledger `executions.db` porte, lui, l'état **par fire** (`claimed`/`running`/`completed`/`failed`/`unknown`, ce dernier écrit par le reaper). Une sonde qui ne lit que `last_status` peut donc voir `ok` — l'estampille d'un run antérieur — pendant qu'un fire est bloqué, sans aucune contradiction visible dans ce champ.

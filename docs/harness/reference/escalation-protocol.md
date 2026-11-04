@@ -204,6 +204,7 @@ Quand vous escaladez (sous-agent ou utilisateur), documentez toujours :
 ## Références
 
 - Issue #842 : Création de ce document
+- Issue #4517 : **axe distinct** — l'escalade d'**environnement dégradé** (MCP absent/muet, kernel manquant, service indisponible) n'est pas une escalade de capacité : voir [`degraded-escalation.md`](degraded-escalation.md). Ce document-ci monte en **moyens** ; celui-là borne le **temps** passé dans une panne, avec une échéance à 2 cycles et une sonnerie vers le user.
 - Roo equivalent : `docs/roosync/ESCALATION_MECHANISM.md` (mécanisme Roo 3 couches)
 - [`docs/harness/reference/delegation.md`](delegation.md) : Règles de délégation aux sub-agents
 - [`docs/harness/reference/sddd-conversational-grounding.md`](sddd-conversational-grounding.md) : Protocole SDDD multi-pass
