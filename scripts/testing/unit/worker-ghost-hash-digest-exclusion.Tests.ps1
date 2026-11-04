@@ -1,4 +1,4 @@
-# Unit tests - a quoted digest is not a commit claim (#4524, #1489)
+﻿# Unit tests - a quoted digest is not a commit claim (#4524, #1489)
 #
 # Run of 2026-11-03 (#4334, po-2024 worker): the report carried
 # "⚠️ WARNING: Ghost commit hashes detected ... 261e2567" over an output that claimed
