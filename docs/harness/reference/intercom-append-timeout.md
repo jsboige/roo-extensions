@@ -9,15 +9,24 @@ absent). Ce document porte les mesures qui la justifient — on le lit quand on 
 
 ---
 
-## Le mécanisme : WRITE-FIRST, puis condensation attendue
+## Le mécanisme : WRITE-FIRST, puis condensation détachée
 
 `handleAppend` écrit d'abord (`// === WRITE-FIRST: persist message to disk immediately ===`),
-*puis* déclenche la condensation si le dashboard dépasse 92 % — et il l'**attend**
-(`await condenseIntercom`, `dashboard.ts`). Le commentaire du code le dit : l'append incrémental
-est *« the authoritative state — no message loss »*.
+*puis* déclenche la condensation si le dashboard dépasse 92 %. Le commentaire du code le dit :
+l'append incrémental est *« the authoritative state — no message loss »*.
 
-Sous 92 %, un `append` coûte quelques ms. À partir de 92 %, le **même appel** paie en plus une
-passe de condensation LLM entière.
+**Depuis #4527 (04/11/2026), la passe ne retient plus l'appelant** : l'append rend sa réponse dès
+que le message et sa ligne de store sont persistés, et la condensation tourne **détachée**, sous le
+verrou condense que l'append vient d'acquérir (verrou relâché par la passe elle-même). La réponse
+porte alors `condensationDeferred: true` ; l'issue de la passe va au journal de l'hôte et au
+`lastCondensedAt` de la lecture suivante. Deux franchissements pendant une passe en vol ne lancent
+pas deux passes : le second voit `lock-held`. Si l'hôte meurt en cours de passe, rien n'a été écrit,
+le verrou expire par son TTL et le prochain franchissement refait une passe. `CONDENSE_DETACHED=0`
+rétablit le chemin synchrone historique.
+
+Sous 92 %, un `append` coûte quelques ms. Au-dessus, la passe est payée en plus — mais **par la
+passe**, plus par l'appelant. Les mesures ci-dessous décrivent le régime antérieur, qui reste ce
+que l'on observe en `CONDENSE_DETACHED=0`.
 
 ## Les mesures
 
@@ -47,9 +56,11 @@ Un seul agent paie : verrou inter-processus (#2818) + skip sur hash (#2464). Les
 passent en quelques ms pendant ce temps. D'où un symptôme **intermittent et irreproductible** alors
 que le mécanisme est parfaitement **déterministe**.
 
-C'est une **marge**, pas un bug. Rien à corriger : l'auto-condensation préemptive à 92 % gère
-l'espace, et l'action `condense` a été retirée du schéma précisément parce qu'aucune intervention
-manuelle n'est nécessaire.
+C'est une **marge**, pas un bug — vrai pour le **coût** de la passe, et c'était l'argument juste
+tant que ce coût était payé par l'appelant. #4527 a retiré cette conséquence-là, pas le coût.
+L'auto-condensation préemptive à 92 % gère l'espace, et l'action `condense` a été retirée du schéma
+précisément parce qu'aucune intervention manuelle n'est nécessaire. Un avis de remplissage
+(`[WARN]`, `DASHBOARD_FILL_WARN_PCT`, défaut 85 %) signale le franchissement **avant** les 92 %.
 
 ---
 
