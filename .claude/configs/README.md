@@ -50,6 +50,15 @@ Semantique du deploiement (`Deploy-GlobalConfig.ps1 -Target settings`) :
 - **`permissions.deny` = liste ENSURE** : les entrees canon absentes sont
   AJOUTEES ; un deny local extra (ex. `ScheduleWakeup` sur po-2025) n'est jamais
   supprime.
+- **Outils coupes a la source (05/11)** : `enableArtifact: false` et
+  `disableWorkflows: true` en plus du deny. Le deny refuse l'appel, mais
+  claudish a mesure les schemas Artifact/Workflow encore envoyes sur 335 des
+  385 requetes d'ai-01 (04-05/11). Les deux cles sont documentees comme
+  interrupteurs a sens unique (aucun fichier ne les rallume). Effet a mesurer
+  par claudish apres redemarrage des sessions.
+- **`CLAUDE_CODE_SUBAGENT_MODEL` = `sonnet` (05/11)** : decision user du 05/11
+  de ne plus utiliser Swift comme sous-agent, preco claudish (tenancier des
+  modeles) = `sonnet`.
 - **Surete** : backup horodate avant ecriture, UTF-8 sans BOM, re-parse
   systematique apres ecriture (un settings.json casse casse toutes les sessions
   de la machine). Les deux interpreteurs (5.1 et 7) valides.
