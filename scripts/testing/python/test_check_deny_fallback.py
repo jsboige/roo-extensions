@@ -9,7 +9,9 @@ probe reads the REAL ~/.claude/settings.json of whoever runs it — a live
 finding on a deny seat (po-2024 today) would make CI red for an environment
 reason, not a code reason. The selftest itself performs a REAL stdio
 handshake against an in-process fake MCP server: it covers ok / flag-inert /
-missing-config / spec-form-deny / disabled-seat / inert / deaf.
+missing-config / spec-form-deny / disabled-seat (exact key and another spelling
+of the path) / foreign project entry ignored (#4481) / local scope under another
+spelling / inert / deaf / other-deny.
 """
 
 import json
