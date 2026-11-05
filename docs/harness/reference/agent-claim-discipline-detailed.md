@@ -61,6 +61,8 @@ Distinguer :
 
 **Repli quota (#3899)** : le guard bascule automatiquement sa lecture en **REST** (budget separe) quand l'appel GraphQL meurt sur une erreur de limite **reconnue explicitement** (`rate limit`) ; toute autre erreur (reseau, auth, 5xx) reste fail-closed exit 2. **L'ecriture suit la meme regle depuis #4155** : `--claim` et `--release` postent par `gh issue comment` (GraphQL), puis par `POST repos/<repo>/issues/<n>/comments` (REST) sur la meme erreur reconnue ; si REST est limite aussi, exit 2 — jamais de succes annonce sans verrou pose. Un double post est sans effet : meme marqueur, meme lane, le dernier marqueur par lane fait foi. Si les deux budgets sont epuises, le contournement manuel reste `gh api repos/<repo>/issues/<n>` et `.../comments` a la main, ou attendre le reset (~1 h). (Le mecanisme etant automatique, il n'a pas de ligne dans la rule — #2368.)
 
+**Worktrees trouvés sur disque (#4221, 15/10 — relocalisé lot 2 #2368)** : 3 collisions en 24 h — des lanes réutilisant un worktree `wt-*`/`mcpint-*` existant (reprise post-compaction, worktree trouvé sur disque) sans relire le claim de l'issue que son nom porte. **Le claim protège l'issue, pas l'arbre de travail** : avant tout Edit/Write/commit dans un worktree que tu n'as pas créé dans ce tour, re-checker `check_issue_claim.py NNN` sur l'issue que son nom porte — claim d'une autre lane = ne pas écrire, `[ASK]` ; claim de ta lane absent de ton contexte (tour courant ou résumé de compaction) = celui d'une session jumelle, même traitement.
+
 ## Gardes identité et dépôt — texte intégral (relocalisé de la rule, claudish#445)
 
 **Identité de claim = lane `machine:workspace` (#4114).** Par défaut l'identité est COMPUTERNAME +
