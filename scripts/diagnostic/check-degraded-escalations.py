@@ -320,22 +320,35 @@ def unrecognized_headers(text):
         seul toggle laissait les blocs ~~~ scans (faux positif) et un ```
         cite DANS un bloc ~~~ desynchronisait le suivi -- tout ce qui
         suivait etait laisse en « dans le bloc » (faux negatif).
+      - une cloture plus COURTE que son ouverture n'en est pas une : apres
+        #4556, la seule comparaison de caractere fermait un bloc ``` sur une
+        ligne d'un ou deux backticks (donc sur du contenu legitime, une
+        citation d'inline code par exemple). Tout ce qui suivait etait
+        rescanne : un en-tete cite APRES cette fausse cloture produisait un
+        faux positif, seul sens d'erreur possible ici (jamais un faux exit 0).
+        CommonMark exige une cloture d'au moins la longueur de l'ouverture ;
+        la longueur est donc memorisee a l'ouverture (grain #4517, ai-01
+        05/11, spec c.6651348721).
     """
     hits = []
     fence = None  # caractere du bloc ouvert ('`' ou '~') ; None = hors bloc
+    open_len = 0  # longueur du bloc ouvert : une cloture plus courte est du contenu
     for line in text.splitlines():
         stripped = line.strip()
         if fence is None:
             if stripped.startswith("```"):
                 fence = "`"
+                open_len = len(stripped) - len(stripped.lstrip("`"))
                 continue
             if stripped.startswith("~~~"):
                 fence = "~"
+                open_len = len(stripped) - len(stripped.lstrip("~"))
                 continue
             if NEAR_HEADER_RE.match(line) and not ENTRY_RE.match(line):
                 hits.append(line.strip())
-        elif stripped and set(stripped) == {fence}:
-            fence = None  # cloture : meme caractere que l'ouverture, seul
+        elif (stripped and set(stripped) == {fence}
+                and len(stripped) >= open_len):
+            fence = None  # cloture : meme caractere, seul, au moins aussi longue
     return hits
 
 
