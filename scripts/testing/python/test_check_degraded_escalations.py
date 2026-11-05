@@ -539,6 +539,38 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(cde.unrecognized_headers(text),
                          ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
 
+    def test_short_backtick_line_does_not_close_a_triple_fence(self):
+        # Grain #4517 (spec c.6651348721) : apres #4556, une ligne d'UN seul
+        # backtick fermait un bloc ``` -- donc du CONTENU legitime (une
+        # citation d'inline code) cloturait le bloc. Ce qui suivait etait
+        # rescanne, et un en-tete cite produisait un faux positif. CommonMark :
+        # la cloture doit etre au moins aussi longue que l'ouverture.
+        # Tueur : sur main, `cite` est signale et `ghost` ne l'est pas.
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "```\n`\n#### [2026-11-03T00:31:00.000Z] cite|ws\n```\n"
+                "#### [2026-11-03T00:32:00.000Z] ghost|ws\n")
+        self.assertEqual(cde.unrecognized_headers(text),
+                         ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
+
+    def test_short_tilde_line_does_not_close_a_longer_tilde_fence(self):
+        # Meme regle pour ~~~ : une ouverture de 4 tildes n'est pas fermee par
+        # une ligne de 3. Le defaut n'etait pas propre au backtick.
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "~~~~\n~~~\n#### [2026-11-03T00:31:00.000Z] cite|ws\n~~~~\n"
+                "#### [2026-11-03T00:32:00.000Z] ghost|ws\n")
+        self.assertEqual(cde.unrecognized_headers(text),
+                         ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
+
+    def test_longer_closing_fence_still_closes(self):
+        # Temoin de non-regression : le sens « plus longue » reste accepte,
+        # sinon le correctif rendrait les blocs insortables et ferait
+        # disparaitre de vrais en-tetes (faux negatif).
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "```\n#### [2026-11-03T00:31:00.000Z] cite|ws\n`````\n"
+                "#### [2026-11-03T00:32:00.000Z] ghost|ws\n")
+        self.assertEqual(cde.unrecognized_headers(text),
+                         ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
+
     def test_ring_id_is_stable_within_a_day(self):
         item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
         self.assertEqual(cde.build_ring_id([item], now=1750000000),
