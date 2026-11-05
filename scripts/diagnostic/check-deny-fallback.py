@@ -143,7 +143,9 @@ def _project_key(path):
     """Forme de comparaison d'une cle projects : separateurs, casse, slash final.
 
     Explicite plutot que os.path.normcase, qui ne convertit rien hors Windows
-    (le selftest tourne aussi sous Linux en CI).
+    (le selftest tourne aussi sous Linux en CI). Le repli de casse est
+    voulu pour les sieges Windows de la flotte ; sur un systeme de fichiers
+    sensible a la casse il est plus permissif que l'hote (review #4566).
     """
     return str(path).replace("\\", "/").rstrip("/").lower()
 

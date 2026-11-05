@@ -92,7 +92,7 @@ python <roo-extensions>/scripts/diagnostic/check-deny-fallback.py --workspace <w
 
 | Suite | Ce qu'elle garde | Job CI |
 |---|---|---|
-| `--selftest` (dans le script) | 7 scénarios avec handshake réel contre un fake serveur MCP : ok / drapeau-ignoré / sans-config / deny-forme-spec / disabled-seat / inert / serveur-mort | via wrapper |
+| `--selftest` (dans le script) | 11 scénarios avec handshake réel contre un fake serveur MCP : ok / drapeau-ignoré / sans-config / deny-forme-spec / disabled-seat / disabled-seat-autre-graphie / entrée-étrangère-ignorée / scope-local-autre-graphie / inert / serveur-mort / autre-deny | via wrapper |
 | `scripts/testing/python/test_check_deny_fallback.py` | selftest passe + surface CLI | statique (`unittest discover`) |
 | `scripts/testing/unit/executor-preflight-deny-fallback.Tests.ps1` | câblage pré-vol : invocation `--workspace`, contrat exit 2, WARN jamais bloquant, relay skill+command | unit-pester |
 

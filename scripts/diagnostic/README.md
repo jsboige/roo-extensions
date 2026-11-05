@@ -211,7 +211,7 @@ Sonde **deny-sans-repli** au démarrage (#4340, mandat user 24/10 — incident p
 # Sonder un siege (le deny actif EST le signal d'opt-in de la verification)
 python scripts/diagnostic/check-deny-fallback.py --workspace <chemin>
 
-# Fixtures synthetiques + handshake reel contre un fake serveur MCP (7 scenarios)
+# Fixtures synthetiques + handshake reel contre un fake serveur MCP (11 scenarios)
 python scripts/diagnostic/check-deny-fallback.py --selftest
 ```
 
