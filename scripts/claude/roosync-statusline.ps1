@@ -115,48 +115,84 @@ $activeStage = ''
 $inboxUrgent = 0
 
 $dashboardsDir = Join-Path $sharedPath 'dashboards'
-$wsDashboard = Get-ChildItem $dashboardsDir -Filter 'workspace-roo-extensions.md' -ErrorAction SilentlyContinue |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
-if ($wsDashboard) {
-    try {
-        $wsContent = [System.IO.File]::ReadAllText($wsDashboard.FullName, [System.Text.UTF8Encoding]::new($false))
-
-        # Extract active claims from intercom messages (last 50KB for performance)
-        $recentContent = if ($wsContent.Length -gt 51200) {
-            $wsContent.Substring($wsContent.Length - 51200)
-        } else { $wsContent }
-
-        $claimMatches = [regex]::Matches($recentContent, '\[#?(\d+)\][^\n]*CLAIMED|CLAIMED[^\n]*\[#?(\d+)\]|#(\d+)[^\n]*CLAIMED')
-        $claimIssues = @{}
-        foreach ($m in $claimMatches) {
-            foreach ($g in $m.Groups) {
-                if ($g.Value -match '^\d+$' -and $g.Value -ne '0') {
-                    $claimIssues[$g.Value] = $true
-                }
-            }
-        }
-        $claimsCount = $claimIssues.Count
-        $claimsList = $claimIssues.Keys | Sort-Object
-
-        # Extract active team stage from recent [PROGRESS] or [CLAIMED] messages
-        $progressMatches = [regex]::Matches($recentContent, '\[PROGRESS\][^\n]*team-(\w+)')
-        if ($progressMatches.Count -gt 0) {
-            $activeStage = "team-$($progressMatches[$progressMatches.Count - 1].Groups[1].Value)"
-        } else {
-            # Fallback: extract issue number from [CLAIMED]
-            $claimedMatch = [regex]::Match($recentContent, '\[CLAIMED\][^\n]*#(\d+)')
-            if ($claimedMatch.Success) {
-                $activeStage = "#$($claimedMatch.Groups[1].Value)"
-            }
-        }
-
-        # Count urgent inbox messages
-        $inboxUrgent = ([regex]::Matches($recentContent, '\[URGENT\]')).Count
-
-    } catch {
-        # Dashboard parsing is optional
+# #4131 G-DASH — journal PG d'abord. Le markdown n'est plus écrit à chaque
+# append : c'est un export périodique produit par la réconciliation, donc son
+# contenu peut être en retard sur les claims réels. Le journal PG est la
+# surface live ; le fichier reste le repli (fail-open : node, submodule ou PG
+# absent -> on relit le markdown exactement comme avant).
+$recentContent = $null
+$pgActivity = $null
+try {
+    $rsmRoot = if (-not [string]::IsNullOrEmpty($env:RSM_SERVER_ROOT)) { $env:RSM_SERVER_ROOT } else {
+        [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\mcps\internal\servers\roo-state-manager'))
     }
+    $rsmCli = Join-Path $rsmRoot 'scripts\rsm-dashboard-intercom.mjs'
+    if (Test-Path $rsmCli) {
+        # Une seule invocation : messages + fenêtre d'activité (--recent-keys),
+        # mesuré 279 ms sur po-204 — un second spawn node+PG par rendu serait
+        # payé à chaque rafraîchissement de la barre de statut.
+        $json = & node $rsmCli --workspace 'roo-extensions' --recent-keys 24 2>$null
+        if ($LASTEXITCODE -eq 0 -and $json) {
+            $pg = ($json -join "`n") | ConvertFrom-Json
+            if ($pg.mode -eq 'messages') {
+                $recentContent = (@($pg.messages | ForEach-Object { [string]$_.content }) -join "`n")
+                if ($null -ne $pg.recentKeys) { $pgActivity = [int]$pg.recentKeys.count }
+            }
+        }
+    }
+} catch {
+    $recentContent = $null
+    $pgActivity = $null
+}
+
+if (-not $recentContent) {
+    # Repli fichier (chemin d'origine, inchangé).
+    $wsDashboard = Get-ChildItem $dashboardsDir -Filter 'workspace-roo-extensions.md' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+    if ($wsDashboard) {
+        try {
+            $wsContent = [System.IO.File]::ReadAllText($wsDashboard.FullName, [System.Text.UTF8Encoding]::new($false))
+
+            # Extract active claims from intercom messages (last 50KB for performance)
+            $recentContent = if ($wsContent.Length -gt 51200) {
+                $wsContent.Substring($wsContent.Length - 51200)
+            } else { $wsContent }
+        } catch {
+            # Dashboard parsing is optional
+            $recentContent = $null
+        }
+    }
+}
+
+if ($recentContent) {
+    $claimMatches = [regex]::Matches($recentContent, '\[#?(\d+)\][^\n]*CLAIMED|CLAIMED[^\n]*\[#?(\d+)\]|#(\d+)[^\n]*CLAIMED')
+    $claimIssues = @{}
+    foreach ($m in $claimMatches) {
+        foreach ($g in $m.Groups) {
+            if ($g.Value -match '^\d+$' -and $g.Value -ne '0') {
+                $claimIssues[$g.Value] = $true
+            }
+        }
+    }
+    $claimsCount = $claimIssues.Count
+    $claimsList = $claimIssues.Keys | Sort-Object
+
+    # Extract active team stage from recent [PROGRESS] or [CLAIMED] messages
+    $progressMatches = [regex]::Matches($recentContent, '\[PROGRESS\][^\n]*team-(\w+)')
+    if ($progressMatches.Count -gt 0) {
+        $activeStage = "team-$($progressMatches[$progressMatches.Count - 1].Groups[1].Value)"
+    } else {
+        # Fallback: extract issue number from [CLAIMED]
+        $claimedMatch = [regex]::Match($recentContent, '\[CLAIMED\][^\n]*#(\d+)')
+        if ($claimedMatch.Success) {
+            $activeStage = "#$($claimedMatch.Groups[1].Value)"
+        }
+    }
+
+    # Count urgent inbox messages
+    $inboxUrgent = ([regex]::Matches($recentContent, '\[URGENT\]')).Count
 }
 
 # --- Determine overall status ---
@@ -220,11 +256,17 @@ switch ($Preset) {
             $parts += "Stage: $activeStage"
         }
 
-        # Dashboard count (last 24h)
-        $cutoff = (Get-Date).AddHours(-24)
-        $dashFiles = Get-ChildItem $dashboardsDir -Filter '*.md' -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '^machine-|^global|^workspace' -and $_.LastWriteTime -gt $cutoff }
-        $parts += "$(@($dashFiles).Count) dash"
+        # #4131 G-DASH — activité = dashboards ayant reçu un message vivant dans
+        # la fenêtre (journal PG). Un mtime ne dit plus « ce dashboard a servi »
+        # mais « un export périodique l'a touché ». Repli fichier inchangé.
+        if ($null -ne $pgActivity) {
+            $parts += "$pgActivity dash"
+        } else {
+            $cutoff = (Get-Date).AddHours(-24)
+            $dashFiles = Get-ChildItem $dashboardsDir -Filter '*.md' -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match '^machine-|^global|^workspace' -and $_.LastWriteTime -gt $cutoff }
+            $parts += "$(@($dashFiles).Count) dash"
+        }
 
         if ($branch) { $parts += $branch }
 
