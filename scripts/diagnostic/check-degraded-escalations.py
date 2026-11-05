@@ -314,18 +314,28 @@ def unrecognized_headers(text):
         dashboard portant un WAKE aurait ete signale (review ai-01 04/11) ;
       - un bloc de code cloture n'est pas un entete : un exemple de format
         cite dans une review ou une doc etait compte comme entree invisible
-        (review ai-01 04/11, note non bloquante).
+        (review ai-01 04/11, note non bloquante). Les DEUX caracteres de
+        cloture existent en Markdown (``` et ~~~) et un bloc ne se clot que
+        par son caractere OUVRANT, seul sur la ligne (CommonMark) : suivre un
+        seul toggle laissait les blocs ~~~ scans (faux positif) et un ```
+        cite DANS un bloc ~~~ desynchronisait le suivi -- tout ce qui
+        suivait etait laisse en « dans le bloc » (faux negatif).
     """
     hits = []
-    fenced = False
+    fence = None  # caractere du bloc ouvert ('`' ou '~') ; None = hors bloc
     for line in text.splitlines():
-        if line.lstrip().startswith("```"):
-            fenced = not fenced
-            continue
-        if fenced:
-            continue
-        if NEAR_HEADER_RE.match(line) and not ENTRY_RE.match(line):
-            hits.append(line.strip())
+        stripped = line.strip()
+        if fence is None:
+            if stripped.startswith("```"):
+                fence = "`"
+                continue
+            if stripped.startswith("~~~"):
+                fence = "~"
+                continue
+            if NEAR_HEADER_RE.match(line) and not ENTRY_RE.match(line):
+                hits.append(line.strip())
+        elif stripped and set(stripped) == {fence}:
+            fence = None  # cloture : meme caractere que l'ouverture, seul
     return hits
 
 

@@ -512,6 +512,33 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 "```\n#### [2026-11-03T00:31:00.000Z] ghost|ws\n```\n")
         self.assertEqual(cde.unrecognized_headers(text), [])
 
+    def test_header_inside_tilde_fence_is_not_flagged(self):
+        # Le NIT reste ouvert apres #4544 : seul ``` toggle le suivi de bloc.
+        # Un exemple cite dans un bloc ~~~ etait scanne -> faux positif.
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "~~~\n#### [2026-11-03T00:31:00.000Z] ghost|ws\n~~~\n")
+        self.assertEqual(cde.unrecognized_headers(text), [])
+
+    def test_backtick_line_inside_tilde_block_does_not_desync(self):
+        # CommonMark : un bloc ~~~ ne se clot pas par ```. L'ancien toggle
+        # voyait ce ``` OUVRIR un bloc fantome -> le VRAI entete proche qui
+        # suivait etait laisse en « dans le bloc » (faux negatif). Ici :
+        # l'exemple cite reste invisible, le vrai entete est signale.
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "~~~\n```python\n#### [2026-11-03T00:31:00.000Z] cite|ws\n~~~\n"
+                "#### [2026-11-03T00:32:00.000Z] ghost|ws\n")
+        self.assertEqual(cde.unrecognized_headers(text),
+                         ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
+
+    def test_backtick_fence_still_closes_on_backtick(self):
+        # Temoin de non-regression : le chemin ``` seul reste correct, y
+        # compris avec une ligne ~~~ en contenu du bloc.
+        text = ("### [2026-11-03T00:30:00.000Z] a|ws\n\n"
+                "```\n~~~\n#### [2026-11-03T00:31:00.000Z] cite|ws\n```\n"
+                "#### [2026-11-03T00:32:00.000Z] ghost|ws\n")
+        self.assertEqual(cde.unrecognized_headers(text),
+                         ["#### [2026-11-03T00:32:00.000Z] ghost|ws"])
+
     def test_ring_id_is_stable_within_a_day(self):
         item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
         self.assertEqual(cde.build_ring_id([item], now=1750000000),
