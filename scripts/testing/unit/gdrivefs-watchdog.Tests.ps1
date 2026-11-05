@@ -480,6 +480,17 @@ Describe 'verdict-currency guard wiring (follow-up)' {
 # watchdog missed its own escalations). Extraction: Test-RelaunchCycleFailed
 # in the lib, normalizing through ConvertTo-WatchdogUtcOffset (#4547).
 # Red on 7b349766 for every item below (the function does not exist there).
+#
+# Follow-up measured for ai-01's review of #4551 (05/11): the round-trip is
+# ASYMMETRIC, not merely throw-prone. On the schtask host (pwsh 7.6.9), [string]
+# on a [datetime] emits the INVARIANT shape 11/05/2026 01:02:03 under fr-FR,
+# en-US and de-DE alike, while [datetime]::Parse honours the seat culture. The
+# day of month then decides which wrong answer the legacy chain gave:
+#   2026-11-05 (day 5)  -> fr-FR reads 11 May -> +178 d -> spurious FAILED
+#   2026-05-12 (day 12) -> fr-FR reads  5 Dec ->  -30 d -> real failure MISSED
+#   2026-11-25 (day 25) -> fr-FR throws (month 25) -> verdict deferred/frozen
+# The fr-FR block below pins all three on a fixed clock; the legacy chain gets
+# all three wrong (two by lying, one by throwing), the predicate gets all three right.
 # ============================================================================
 
 Describe 'Test-RelaunchCycleFailed (#4508 sibling: the failure counter must survive pwsh 7 payloads)' {
@@ -511,6 +522,70 @@ Describe 'Test-RelaunchCycleFailed (#4508 sibling: the failure counter must surv
     It 'an unparseable payload defers (same as the old catch), never throws' {
         { Test-RelaunchCycleFailed -LastRelaunchAttempt 'not-a-date' -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 } | Should -Not -Throw
         Test-RelaunchCycleFailed -LastRelaunchAttempt 'not-a-date' -Now ([DateTimeOffset]::UtcNow) -GraceSeconds 300 | Should -BeFalse
+    }
+}
+
+Describe 'Test-RelaunchCycleFailed under fr-FR (#4551 review: the culture decides the WRONG answer)' {
+    # -Now is a parameter, so the clock is fixed here: these tests never depend
+    # on the day they run on, and the payload day stays <= 12 where the dd/MM
+    # misread is possible at all.
+
+    BeforeAll {
+        $script:savedCulture   = [System.Threading.Thread]::CurrentThread.CurrentCulture
+        $script:savedUiCulture = [System.Threading.Thread]::CurrentThread.CurrentUICulture
+        [System.Threading.Thread]::CurrentThread.CurrentCulture   = [Globalization.CultureInfo]::new('fr-FR')
+        [System.Threading.Thread]::CurrentThread.CurrentUICulture = [Globalization.CultureInfo]::new('fr-FR')
+    }
+
+    AfterAll {
+        [System.Threading.Thread]::CurrentThread.CurrentCulture   = $script:savedCulture
+        [System.Threading.Thread]::CurrentThread.CurrentUICulture = $script:savedUiCulture
+    }
+
+    It 'pins fr-FR as the active culture (otherwise the block below proves nothing)' {
+        [System.Threading.Thread]::CurrentThread.CurrentCulture.Name | Should -Be 'fr-FR'
+    }
+
+    It 'day of month at most 12, 5 s before Now: still inside grace, so FALSE (the legacy chain said FAILED)' {
+        # 2026-11-05 stringifies to 11/05/2026 and fr-FR reads it as 11 May, i.e.
+        # +178 days in the PAST: the legacy chain reported a failed cycle five
+        # seconds after the relaunch, and the counter rose on a healthy process.
+        $attempt = [datetime]::SpecifyKind([datetime]::new(2026, 11, 5, 1, 2, 3), [DateTimeKind]::Utc)
+        $now     = [DateTimeOffset]::new(2026, 11, 5, 1, 2, 8, [TimeSpan]::Zero)
+        Test-RelaunchCycleFailed -LastRelaunchAttempt $attempt -Now $now -GraceSeconds 60 | Should -BeFalse
+    }
+
+    It 'day = 12, 600 s after the attempt: past grace, so TRUE (the legacy chain deferred)' {
+        # 2026-05-12 stringifies to 05/12/2026 and fr-FR reads it as 5 Dec, i.e.
+        # 30 days in the FUTURE: the age went negative and a REAL failure was
+        # never counted -- the watchdog missed its own escalation.
+        $attempt = [datetime]::SpecifyKind([datetime]::new(2026, 5, 12, 1, 2, 3), [DateTimeKind]::Utc)
+        $now     = [DateTimeOffset]::new(2026, 5, 12, 1, 12, 3, [TimeSpan]::Zero)
+        Test-RelaunchCycleFailed -LastRelaunchAttempt $attempt -Now $now -GraceSeconds 300 | Should -BeTrue
+    }
+
+    It 'month above 12 throws in the legacy chain: the predicate still decides, and never throws' {
+        # 2026-11-25 stringifies to 11/25/2026, which fr-FR rejects (month 25).
+        # The old catch turned that into "no verdict" at every poll, freezing
+        # consecutive_relaunch_failures at its previous value.
+        $attempt = [datetime]::SpecifyKind([datetime]::new(2026, 11, 25, 1, 2, 3), [DateTimeKind]::Utc)
+        $now     = [DateTimeOffset]::new(2026, 11, 25, 1, 12, 3, [TimeSpan]::Zero)
+        { Test-RelaunchCycleFailed -LastRelaunchAttempt $attempt -Now $now -GraceSeconds 300 } | Should -Not -Throw
+        Test-RelaunchCycleFailed -LastRelaunchAttempt $attempt -Now $now -GraceSeconds 300 | Should -BeTrue
+    }
+
+    It 'witness: under pwsh 7 the legacy round-trip does not preserve the instant (misread OR throw)' -Skip:($PSVersionTable.PSVersion.Major -lt 6) {
+        # States the premise the extraction rests on. If PowerShell ever casts
+        # [datetime] to a culture-formatted string, this test reds and says so.
+        $attempt = [datetime]::SpecifyKind([datetime]::new(2026, 11, 5, 1, 2, 3), [DateTimeKind]::Utc)
+        $preserved = $false
+        try {
+            $legacy = [datetime]::Parse([string]$attempt)
+            $preserved = ($legacy.ToUniversalTime() -eq $attempt)
+        } catch {
+            $preserved = $false
+        }
+        $preserved | Should -BeFalse
     }
 }
 

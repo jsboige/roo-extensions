@@ -261,12 +261,20 @@ function Test-RelaunchCycleFailed {
     # #4508 sibling (ai-01, 04/11 18:23Z) : le jugement "le cycle de relance
     # a echoue" (A0.2, #3466) lisait last_relaunch_attempt SANS la garde
     # -is [datetime] que portent tous les autres lecteurs de dates d'etat.
-    # Sous pwsh 7 le champ arrive en [datetime] auto-parse (offset perdu) ;
-    # [string] + [datetime]::Parse est un round-trip de culture qui peut
-    # jeter sur un siege non-en-US -- le catch annulait alors le verdict a
-    # CHAQUE poll : consecutive_relaunch_failures ne montait jamais, donc
-    # ni cooldown, ni fast-poll, ni alerte survivante (fail-open : le
-    # watchdog ratait ses propres escalades).
+    # Sous pwsh 7 le champ arrive en [datetime] auto-parse (offset perdu).
+    # Le round-trip [string] + [datetime]::Parse est ASYMETRIQUE : mesure sur
+    # l'hote schtask (pwsh 7.6.9, 05/11), [string] rend la forme INVARIANTE
+    # (11/05/2026 01:02:03) quelle que soit la culture, alors que Parse suit
+    # la culture du siege. Le jour du mois decidait donc laquelle des deux
+    # fautes on commettait -- jamais la bonne :
+    #   2026-11-05 (j=5)  -> fr-FR lit le 11 mai -> +178 j -> echec INVENTE
+    #   2026-05-12 (j=12) -> fr-FR lit le  5 dec ->  -30 j -> echec RATE
+    #   2026-11-25 (j=25) -> fr-FR jette (mois 25) -> verdict differe+gele
+    # j > 12 ne peut pas etre lu a l'envers (le mois devient invalide, Parse
+    # jette) : cette branche-la ne ment pas, elle se tait -- et le catch
+    # annulait alors le verdict a CHAQUE poll, donc consecutive_relaunch_
+    # failures ne montait jamais : ni cooldown, ni fast-poll, ni alerte
+    # survivante. Les deux autres branches mentent, dans les deux sens.
     # Le predicat normalise par ConvertTo-WatchdogUtcOffset (#4547) : toute
     # charge lisible devient un instant UTC et la duree se mesure en
     # instants ; illisible -> $null -> verdict differe (meme semantique que
