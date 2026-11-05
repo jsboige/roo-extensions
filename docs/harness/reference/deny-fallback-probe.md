@@ -38,7 +38,11 @@ La carte des replis (`DENY_FALLBACK_MAP` dans le script) démarre à une entrée
 | `FALLBACK-DEAF` | deny + config mais handshake muet/erreur/0 outil | 2 |
 | `UNRESOLVED` | settings illisible (instrument) | 1 |
 
-**Résolution du serveur** (ordre canonique) : `.mcp.json` du workspace → `projects[<ws>].mcpServers` (local) → `mcpServers` top-level (user) de `~/.claude.json`. **Deny lu** comme union des scopes settings (user `~/.claude/settings.json`, projet `.claude/settings.json`, `.claude/settings.local.json`) — deny dans n'importe quel scope = deny.
+**Résolution du serveur** (ordre canonique) : `.mcp.json` du workspace → `projects[<ws>].mcpServers` (local) → `mcpServers` top-level (user) de `~/.claude.json`.
+
+**Quelle entrée `projects[<ws>]` compte (#4481, 05/11).** La clé se retrouve **normalisée** (séparateurs, casse, slash final) : Claude Code écrit `d:/roo-extensions` là où `os.getcwd()` rend `D:\roo-extensions`. Une recherche exacte ratait son entrée réelle, si bien qu'une vraie désactivation passait inaperçue. Une entrée ne compte que si **Claude Code l'a écrite**, c'est-à-dire si elle porte au moins un de ses champs (`allowedTools`, `hasTrustDialogAccepted`, `enabledMcpjsonServers`, `disabledMcpjsonServers` : 7 clés sur 7 sur ai-01). po-2028 portait une entrée réduite à `disabledMcpServers`, posée par un script de lane le 22/10. Le serveur se chargeait pourtant (trois mesures), et la sonde annonçait `FALLBACK-DISABLED-SEAT` à tort. Une telle entrée est désormais **signalée et ignorée**, et c'est le handshake qui décide. Pour que la config dise vrai, il faut la retirer côté siège.
+
+**Deny lu** comme union des scopes settings (user `~/.claude/settings.json`, projet `.claude/settings.json`, `.claude/settings.local.json`) — deny dans n'importe quel scope = deny.
 
 **Timeout par défaut 30 s, délibéré** sur le `CONNECT_TIMEOUT` de l'hôte Claude Code : un serveur plus lent que le cutoff de l'hôte est un repli **effectivement absent**, pas un repli lent (`--timeout` pour sonder plus long).
 

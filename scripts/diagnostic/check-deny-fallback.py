@@ -19,7 +19,10 @@ canonique unique (DENY_FALLBACK_MAP ci-dessous) :
      .mcp.json est INERTE sur un siege Claude Code (drapeau VS Code/Roo,
      mesure po-2025 24/10 13:47Z) — seule l'emplacement 3
      (projects[<ws>].disabledMcpServers) desactive effectivement un
-     serveur sur ce siege.
+     serveur sur ce siege. L'entree projects[<ws>] se retrouve par cle
+     NORMALISEE (Claude Code ecrit `d:/ws`, os.getcwd() rend `D:\\ws`) et
+     ne compte que si Claude Code l'a ecrite (#4481, 05/11) : une entree
+     sans aucun champ du harnais, posee par un script, est inerte.
 
 Sorties par entree mappee :
     INERT                   outil non deny sur ce siege (le workspace decide)
@@ -70,6 +73,17 @@ DENY_FALLBACK_MAP = {
 }
 
 FINDING_STATUSES = {"missing-config", "disabled-seat", "deaf"}
+
+# Champs que Claude Code ecrit dans CHAQUE entree projects[<ws>] qu'il cree
+# (mesure ai-01 05/11, CC 2.1.283 : 7 cles sur 7 les portent). Une entree qui
+# n'en porte aucun a ete ecrite par autre chose et le harnais ne la lit pas :
+# po-2028 (#4481) portait projects["D:\\dev\\roo-extensions"] = seulement
+# disabledMcpServers, pose par un script de lane le 22/10, alors que le serveur
+# designe se charge et repond (trois mesures, c.6659165363).
+CC_PROJECT_MARKERS = (
+    "allowedTools", "hasTrustDialogAccepted",
+    "enabledMcpjsonServers", "disabledMcpjsonServers",
+)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")  # console cp1252 vs chemins UTF-8 (#4059)
@@ -125,6 +139,34 @@ def tool_is_denied(entries, tool):
     return False
 
 
+def _project_key(path):
+    """Forme de comparaison d'une cle projects : separateurs, casse, slash final.
+
+    Explicite plutot que os.path.normcase, qui ne convertit rien hors Windows
+    (le selftest tourne aussi sous Linux en CI).
+    """
+    return str(path).replace("\\", "/").rstrip("/").lower()
+
+
+def project_entries(user_config, workspace):
+    """Entrees projects[...] qui designent ce workspace : (ecrites par CC, etrangeres).
+
+    Chaque liste porte des paires (cle, entree). Une correspondance exacte
+    rate l'entree de Claude Code (`d:/ws` contre `D:\\ws`) ; une entree sans
+    aucun champ CC_PROJECT_MARKERS est etrangere (#4481).
+    """
+    wanted = _project_key(workspace)
+    managed, foreign = [], []
+    for key, entry in ((user_config or {}).get("projects") or {}).items():
+        if not isinstance(entry, dict) or _project_key(key) != wanted:
+            continue
+        if any(marker in entry for marker in CC_PROJECT_MARKERS):
+            managed.append((key, entry))
+        else:
+            foreign.append((key, entry))
+    return managed, foreign
+
+
 def resolve_server(workspace, user_config, server_name, errors):
     """Resolution dans l'ordre canonique : .mcp.json projet > local > user.
 
@@ -137,10 +179,11 @@ def resolve_server(workspace, user_config, server_name, errors):
         entry = (ws_mcp.get("mcpServers") or {}).get(server_name)
         if isinstance(entry, dict):
             return entry, ".mcp.json"
-    proj = (user_config or {}).get("projects", {}).get(str(workspace)) or {}
-    entry = (proj.get("mcpServers") or {}).get(server_name)
-    if isinstance(entry, dict):
-        return entry, f"~/.claude.json projects[{workspace}].mcpServers"
+    managed, _ = project_entries(user_config, workspace)
+    for key, proj in managed:
+        entry = (proj.get("mcpServers") or {}).get(server_name)
+        if isinstance(entry, dict):
+            return entry, f"~/.claude.json projects[{key}].mcpServers"
     entry = ((user_config or {}).get("mcpServers") or {}).get(server_name)
     if isinstance(entry, dict):
         return entry, "~/.claude.json mcpServers"
@@ -148,9 +191,15 @@ def resolve_server(workspace, user_config, server_name, errors):
 
 
 def seat_disabled_servers(user_config, workspace):
-    proj = (user_config or {}).get("projects", {}).get(str(workspace)) or {}
-    disabled = proj.get("disabledMcpServers") or []
-    return [d for d in disabled if isinstance(d, str)]
+    """(desactives par une entree CC, {serveur: cle} desactives par une entree etrangere)."""
+    managed, foreign = project_entries(user_config, workspace)
+
+    def names(entry):
+        return [d for d in (entry.get("disabledMcpServers") or []) if isinstance(d, str)]
+
+    effective = [name for _, entry in managed for name in names(entry)]
+    ignored = {name: key for key, entry in foreign for name in names(entry)}
+    return effective, ignored
 
 
 def _spawn_reader(proc, lines):
@@ -304,7 +353,7 @@ def run_check(workspace, timeout, settings_override=None, user_config_override=N
     if not isinstance(user_config, dict):
         user_config = {}
 
-    disabled_seat = seat_disabled_servers(user_config, workspace)
+    disabled_seat, disabled_foreign = seat_disabled_servers(user_config, workspace)
 
     for tool, spec in DENY_FALLBACK_MAP.items():
         server = spec["mcp_server"]
@@ -341,6 +390,12 @@ def run_check(workspace, timeout, settings_override=None, user_config_override=N
                 f"du siege — le serveur ne se chargera PAS en session"
             )
             continue
+        if server in disabled_foreign:
+            record["disable_ignored"] = (
+                f"disabledMcpServers IGNORE : projects[{disabled_foreign[server]}] ne porte "
+                f"aucun champ ecrit par Claude Code, le harnais ne la lit pas (#4481) — "
+                f"le handshake decide ; retirer l'entree cote siege pour que la config dise vrai"
+            )
 
         ok, detail = handshake(entry, timeout)
         record["status"] = "ok" if ok else "deaf"
@@ -375,6 +430,8 @@ def report(records, as_json):
             print(f"    source: {r['source']}")
         if r.get("flag_ignored"):
             print(f"    {r['flag_ignored']}")
+        if r.get("disable_ignored"):
+            print(f"    {r['disable_ignored']}")
     findings = [r for r in records if r.get("status") in FINDING_STATUSES]
     if findings:
         tools = ", ".join(f"{r['tool']} ({STATUS_LABEL[r['status']]})" for r in findings)
@@ -465,13 +522,45 @@ def selftest():
     rec, code = run_check(str(ws), 15.0, settings_override=["NotebookEdit(spec)"], user_config_override={})
     expect("C2 deny forme spec", rec, code, "missing-config")
 
-    # D. config user-scope mais disabledMcpServers du siege -> DISABLED-SEAT
+    # D. config user-scope mais disabledMcpServers d'une entree ecrite par CC -> DISABLED-SEAT
     user_cfg = {
         "mcpServers": {"jupyter-papermill": mcp_entry(fake)},
-        "projects": {str(ws): {"disabledMcpServers": ["jupyter-papermill"]}},
+        "projects": {str(ws): {"hasTrustDialogAccepted": True,
+                               "disabledMcpServers": ["jupyter-papermill"]}},
     }
     rec, code = run_check(str(ws), 15.0, settings_override=["NotebookEdit"], user_config_override=user_cfg)
     expect("D disabledMcpServers (emplacement 3)", rec, code, "disabled-seat")
+
+    # D2. meme entree CC sous une autre graphie du chemin (CC ecrit `d:/ws`, le
+    # cwd rend `D:\ws`) -> toujours DISABLED-SEAT ; l'ancienne recherche exacte la ratait.
+    other_form = str(ws).replace("\\", "/").upper() + "/"
+    if other_form == str(ws):
+        failures.append("D2: fixture degeneree, la cle alternative egale la cle exacte")
+    cfg_d2 = {
+        "mcpServers": {"jupyter-papermill": mcp_entry(fake)},
+        "projects": {other_form: {"allowedTools": [],
+                                  "disabledMcpServers": ["jupyter-papermill"]}},
+    }
+    rec, code = run_check(str(ws), 15.0, settings_override=["NotebookEdit"], user_config_override=cfg_d2)
+    expect("D2 cle CC autre graphie", rec, code, "disabled-seat")
+
+    # D3. cas po-2028 (#4481) : cle exacte mais entree etrangere (disabledMcpServers seul)
+    # -> le disable est IGNORE et signale, le handshake decide -> OK
+    cfg_d3 = {
+        "mcpServers": {"jupyter-papermill": mcp_entry(fake)},
+        "projects": {str(ws): {"disabledMcpServers": ["jupyter-papermill"]}},
+    }
+    rec, code = run_check(str(ws), 15.0, settings_override=["NotebookEdit"], user_config_override=cfg_d3)
+    expect("D3 entree etrangere ignoree (po-2028)", rec, code, "ok")
+    rec_d3 = [r for r in rec if r["tool"] == "NotebookEdit"][0]
+    if "#4481" not in (rec_d3.get("disable_ignored") or ""):
+        failures.append("D3: le disable etranger n'a pas ete signale comme ignore")
+
+    # D4. repli configure en scope local sous la cle CC d'une autre graphie -> resolu, OK
+    cfg_d4 = {"projects": {other_form: {"hasTrustDialogAccepted": True,
+                                        "mcpServers": {"jupyter-papermill": mcp_entry(fake)}}}}
+    rec, code = run_check(str(ws), 15.0, settings_override=["NotebookEdit"], user_config_override=cfg_d4)
+    expect("D4 scope local cle CC autre graphie", rec, code, "ok")
 
     # E. pas de deny -> INERT
     rec, code = run_check(str(ws), 15.0, settings_override=[], user_config_override=user_cfg)
@@ -502,7 +591,8 @@ def selftest():
         for f in failures:
             print(f"  {f}")
         return EXIT_ERROR
-    print("[SELFTEST] PASS (7 scenarios: ok/flag-ignore/missing/spec/disable-seat/inert/dead)")
+    print("[SELFTEST] PASS (11 scenarios: ok/flag-ignore/missing/spec/disable-seat/"
+          "disable-other-form/foreign-disable/local-other-form/inert/dead/other-deny)")
     return EXIT_CLEAN
 
 
