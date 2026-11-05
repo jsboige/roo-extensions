@@ -31,8 +31,12 @@ param(
 $ErrorActionPreference = 'Stop'
 # Définir OutputPath avec chemin absolu basé sur SharedStatePath si non fourni
 # CORRECTION SDDD : Utiliser SharedStatePath passé en paramètre pour RooSync
-# CORRECTION: Initialiser OutputPath pour éviter l'erreur Set-StrictMode
-$OutputPath = $null
+# #4131 G-INV : la ligne `$OutputPath = $null` qui vivait ici écrasait
+# inconditionnellement le paramètre -OutputPath (un paramètre déclaré est déjà
+# initialisé : la ligne ne protégeait de rien, StrictMode étant par ailleurs
+# désactivé). Conséquence mesurée : la sortie partait TOUJOURS vers
+# $SharedStatePath\inventories, donc sur G: — c'est ce qui empêchait de
+# produire l'inventaire localement avant de le publier PG-first.
 
 if (-not $OutputPath) {
     if (-not $SharedStatePath) {

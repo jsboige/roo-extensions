@@ -54,6 +54,13 @@ if (-not (Test-Path $SharedStatePath)) {
 $InventoriesDir = Join-Path $SharedStatePath "inventories"
 $GetInventoryScript = Join-Path $PSScriptRoot "Get-MachineInventory.ps1"
 
+# #4131 G-INV : la génération ne publie plus le fichier sur G:. Elle produit un
+# JSON LOCAL que le CLI RSM pousse dans PG (ligne `inventory:{machineId}`) ; le
+# repli miroir G: est décidé par le service lui-même, pas ici. Chemin résolu
+# depuis la racine du dépôt — ce script vit dans <repo>/scripts/inventory.
+$RepoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+$SaveInventoryScript = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\scripts\rsm-inventory-save.mjs"
+
 # Vérifier que Get-MachineInventory.ps1 existe
 if (-not (Test-Path $GetInventoryScript)) {
     Write-Error "Script Get-MachineInventory.ps1 introuvable: $GetInventoryScript"
@@ -129,20 +136,41 @@ function Invoke-InventoryGeneration {
 
     Write-Host "`n  Génération inventaire pour $MachineId..." -ForegroundColor Yellow
 
+    # #4131 G-INV — fail-closed. Sans le CLI, on n'écrit PAS sur G: en direct :
+    # le service est la seule surface de publication (PG d'abord, miroir en
+    # repli). Un repli direct recréerait l'écrivain hors RSM que le grain ferme.
+    if (-not (Test-Path $SaveInventoryScript)) {
+        Write-Host "  ❌ CLI RSM introuvable: $SaveInventoryScript" -ForegroundColor Red
+        Write-Host "     fail-closed : aucune écriture G: directe (#4131 G-INV)" -ForegroundColor Red
+        return $false
+    }
+
+    $localPath = Join-Path (Join-Path $env:TEMP "rsm-inventory") "$MachineId.json"
+
     try {
-        # Exécuter Get-MachineInventory.ps1
-        $result = & $GetInventoryScript -MachineId $MachineId -SharedStatePath $SharedStatePath
+        # Collecte LOCALE : -OutputPath seul, plus de -SharedStatePath — c'est le
+        # paramètre -OutputPath qui était mort avant #4131 (clobber ligne 35).
+        $null = & $GetInventoryScript -MachineId $MachineId -OutputPath $localPath
 
-        $inventoryPath = Join-Path $InventoriesDir "$MachineId.json"
-
-        # Valider le fichier généré
-        if ((Test-Path $inventoryPath) -and (Test-InventoryValid -InventoryPath $inventoryPath)) {
-            Write-Host "  ✅ Inventaire généré et validé: $inventoryPath" -ForegroundColor Green
-            return $true
-        } else {
-            Write-Host "  ❌ Inventaire généré mais validation échouée" -ForegroundColor Red
+        if (-not ((Test-Path $localPath) -and (Test-InventoryValid -InventoryPath $localPath))) {
+            Write-Host "  ❌ Inventaire local généré mais validation échouée: $localPath" -ForegroundColor Red
             return $false
         }
+        Write-Host "  ✅ Inventaire local validé: $localPath" -ForegroundColor Green
+
+        # Publication PG-first par le service. Son verdict JSON (pgSaved /
+        # mirrorSaved) reste dans le journal ; c'est le code de sortie qui tranche.
+        $publishOutput = & node $SaveInventoryScript --file $localPath
+        $publishExit = $LASTEXITCODE
+        $publishOutput | ForEach-Object { Write-Host "    $_" -ForegroundColor Gray }
+
+        if ($publishExit -ne 0) {
+            Write-Host "  ❌ Publication refusée (exit $publishExit) — voir la sortie ci-dessus" -ForegroundColor Red
+            return $false
+        }
+
+        Write-Host "  ✅ Inventaire publié par RSM (#4131 G-INV)" -ForegroundColor Green
+        return $true
     }
     catch {
         Write-Host "  ❌ Erreur génération: $($_.Exception.Message)" -ForegroundColor Red
