@@ -249,6 +249,31 @@ try {
         }
     }
 
+    # po-2028 crash guard (mandat user 06/11 : chaque crash -> forensic ET garde). The
+    # night of 05->06/11 this seat crashed at 07:08 (Kernel-Power 41, power loss / hard
+    # hang), auto-rebooted, and the crash went UNNOTICED until the user woke the lane:
+    # the cycle never looked at the boot state. This probe reports the most recent
+    # UNACKNOWLEDGED unclean shutdown (it survives a clean manual reboot before the
+    # next cycle — measured: crash 07:08 -> auto-boot 09:23 -> clean reboot 09:52).
+    # Same WARN-never-block posture as #3169/#4340/#4336 above: relayed as a
+    # Write-Warning, the cycle continues. The agent relays the [WARN] (forensic) then
+    # acknowledges via the probe's -Acknowledge switch; a crash never acknowledged is
+    # retried next cycle. No literal status statement is written in this branch (three
+    # neighbour tests widen their window to this file's single exit at the end and a
+    # status literal in a comment trips their "warns without blocking" guard, #4388 r2).
+    # Absent script = older checkout: skip silently, the pull above brings it.
+    $crashProbe = Join-Path $RepoRoot 'scripts/diagnostic/check-unclean-boot.ps1'
+    if (Test-Path $crashProbe) {
+        $crashOutput = @(& cmd /c "powershell.exe -NoProfile -ExecutionPolicy Bypass -File ""$crashProbe"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $crashOutput) { Write-Host $line }
+        $crashExit = $LASTEXITCODE
+        if ($crashExit -eq 2) {
+            Write-Warning '[executor-preflight][UNCLEAN-BOOT] this seat crashed before this session and it has not been reported yet (detail above). Relay [WARN] on the workspace dashboard with the forensic, confirm the cron cadence survived, then acknowledge the probe (scripts/diagnostic/check-unclean-boot.ps1 -Acknowledge) - ONLY once the WARN has actually been relayed: a failed relay must not ack, or the crash is silenced and retried never. The cycle continues: a crash is a fact to surface, never a blocker.'
+        } elseif ($crashExit -ne 0) {
+            Write-Warning ("[executor-preflight][UNCLEAN-BOOT] probe instrument error (exit $crashExit) — crash state is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+        }
+    }
+
     # #4289 grain h-RSM: a seat whose RSM is suffering cannot report it through RSM, so
     # the coordinator reads silence as health (user, 27/10: "quand RSM est en souffrance,
     # tu ne vois rien"). This is the seat's own voice, printed at every pre-flight: host
