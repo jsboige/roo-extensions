@@ -331,6 +331,13 @@ foreach ($machineEntry in $machineList) {
 # n'exige AUCUN changement consommateur : report-failed-scheduled-tasks.ps1
 # traite deja RC=2 comme un echec reel (liste benigne : 0, 267009, 267011,
 # 2147946720) et son harnais verrouille cette absence d'exclusion.
+#
+# #4503 (review A, PR #4574) : le critere "$totalUnknown -eq $results.Count"
+# rate le cas ou un siege RETIRED masque l'instrument aveugle — 8 UNKNOWN +
+# 1 RETIRED rend 8 <> 9 donc exit 0 alors que RIEN n'a ete verifie. On compte
+# donc les sieges reellement VERIFIES (ALIVE ou STALE) : s'il n'y en a aucun,
+# la passe n'a rien prouve -> exit 2, quel que soit le nombre de RETIRED.
+$verifiedInScope = @($results | Where-Object { $_.heartbeat -eq 'ALIVE' -or $_.heartbeat -eq 'STALE' }).Count
 if ($Json) {
     [PSCustomObject]@{
         checkedAtUtc = $nowUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -341,7 +348,7 @@ if ($Json) {
         sharedRoots   = $sharedRoots
         machines      = $results
     } | ConvertTo-Json -Depth 3
-    exit $(if ($totalDead -gt 0) { 1 } elseif ($totalUnknown -eq $results.Count -and $results.Count -gt 0) { 2 } else { 0 })
+    exit $(if ($totalDead -gt 0) { 1 } elseif ($verifiedInScope -eq 0 -and $results.Count -gt 0) { 2 } else { 0 })
 }
 
 # ---------- Markdown report ----------
@@ -545,4 +552,4 @@ if (-not $NoRepair -and $totalDead -gt 0) {
     Write-Output "[REPAIR] Use [WAKE-CLAUDE] on affected machines or dispatch via coordinator to trigger repair."
 }
 
-exit $(if ($totalDead -gt 0) { 1 } elseif ($totalUnknown -eq $results.Count -and $results.Count -gt 0) { 2 } else { 0 })
+exit $(if ($totalDead -gt 0) { 1 } elseif ($verifiedInScope -eq 0 -and $results.Count -gt 0) { 2 } else { 0 })

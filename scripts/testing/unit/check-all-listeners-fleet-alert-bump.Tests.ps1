@@ -431,6 +431,30 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
 
             $code | Should -Be 0 -Because 'a verified fleet is a green run'
         }
+
+        It 'exits 2 even when a RETIRED seat would mask the blind instrument' -Skip:($env:OS -ne 'Windows_NT') {
+            # #4503 (review A, PR #4574) : l'ancien critere "$totalUnknown -eq
+            # $results.Count" retombait a exit 0 des qu'un siege RETIRED
+            # cohabitait avec des sieges sans heartbeat (8 UNKNOWN + 1 RETIRED
+            # = 8 <> 9). Or RIEN n'a ete verifie : un siege RETIRED n'est pas
+            # une preuve de vie. Le run doit rester exit 2.
+            $rootA = Join-Path $script:Tmp 'exit-retired-mask'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            # Un siege silencieux depuis 30 jours -> RETIRED ; l'autre n'a aucun
+            # heartbeat -> UNKNOWN. Aucun siege ALIVE/STALE = rien verifie.
+            New-AgedHeartbeat $rootA 'machine-gone' 30
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = $rootA
+            try {
+                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-gone,machine-none' -NoRepair -NoAlert 2>$null | Out-Null
+                $code = $LASTEXITCODE
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+
+            $code | Should -Be 2 -Because 'a RETIRED seat is not a verified seat; the pass proved nothing'
+        }
     }
 
     Context '#4503 (roster) - the machine list comes from the declarative manifest' {
