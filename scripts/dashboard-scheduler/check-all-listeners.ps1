@@ -78,8 +78,21 @@ foreach ($machineEntry in $machineList) {
     $heartbeatStatus = "UNKNOWN"
     $heartbeatAge = $null
     if ($sharedHbFile -and (Test-Path $sharedHbFile)) {
-        $mt = (Get-Item $sharedHbFile).LastWriteTimeUtc
-        $age = [int]($nowUtc - $mt).TotalSeconds
+        # #4503 (sujet principal) : l'âge se lit dans le CONTENU du fichier — le
+        # timestamp ISO (UTC « …Z ») que le listener y écrit (dashboard-listener.ps1)
+        # — et non dans le mtime : celui-ci dépend de la propagation des métadonnées
+        # DriveFS, qui peut être périmée dans la vue G: du lecteur et faire passer
+        # une machine vivante pour STALE (faux positif). Le contenu embarqué est la
+        # source de vérité, indépendante de la propagation. Repli mtime si le contenu
+        # est vide ou ne se parse pas (comportement d'origine).
+        $hbContent = $null
+        try { $hbContent = (Get-Content $sharedHbFile -Raw -Encoding UTF8).Trim() } catch { $hbContent = $null }
+        $beaten = $null
+        if ($hbContent) {
+            try { $beaten = [DateTimeOffset]::Parse($hbContent).UtcDateTime } catch { $beaten = $null }
+        }
+        if ($null -eq $beaten) { $beaten = (Get-Item $sharedHbFile).LastWriteTimeUtc }
+        $age = [int]($nowUtc - $beaten).TotalSeconds
         $heartbeatAge = $age
         $heartbeatStatus = if ($age -lt 7200) { "ALIVE" } else { "STALE" }
         if ($age -gt 7200) { $totalDead++ }
