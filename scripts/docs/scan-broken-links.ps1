@@ -20,8 +20,11 @@ function Convert-Slashes([string]$p) { return $p.Replace('\','/') }
 # != archiver — we stamp a header, we don't "fix" a snapshot's links). SOURCE-ONLY:
 # links in LIVE docs that point INTO _archive/ are still resolved below (target
 # Test-Path unchanged) — only archived files stop being walked for their outgoing links.
-# Segment-safe regex '(^|/)_archive/' won't false-match e.g. 'some_archive/'.
-$parentMd = git -C $RepoRoot ls-files "*.md" 2>$null | Where-Object { $_ -notlike "roo-code/*" -and $_ -notmatch '(^|/)_archive/' }
+# Segment-safe regex '(^|/)_?archive/' won't false-match e.g. 'some_archive/' —
+# it also covers the underscore-less archive dirs actually present in the tree
+# (docs/archive/, docs/mcp/archive/, docs/roosync/archive/), which the previous
+# '(^|/)_archive/' form silently scanned as sources (9 noise findings, #2639 W3 p3).
+$parentMd = git -C $RepoRoot ls-files "*.md" 2>$null | Where-Object { $_ -notlike "roo-code/*" -and $_ -notmatch '(^|/)_?archive/' }
 $submodMd = git -C "$RepoRoot/mcps/internal" ls-files "*.md" 2>$null | ForEach-Object { "mcps/internal/$_" }
 $allMd = @($parentMd) + @($submodMd) | Sort-Object -Unique
 
@@ -43,6 +46,7 @@ $stats = [ordered]@{
     brokenPath      = 0
     brokenAnchor    = 0
     nonMd           = 0
+    illegalPath     = 0
     filesWithBroken = 0
 }
 
@@ -98,6 +102,26 @@ foreach ($mdFile in $allMd) {
         }
 
         $stats.internalLinks++
+
+        # Cible a caracteres non conformes pour un chemin (ex. cle brute du store
+        # citee comme destination de lien) : GetExtension/Join-Path jettent dessus
+        # et tuaient le scan entier -- signaler comme finding, jamais crasher
+        # ni masquer (#2639 W3 passe 3, crash mesure 06/11 sur le corpus vif).
+        $illegal = $false
+        foreach ($ic in [System.IO.Path]::GetInvalidPathChars()) {
+            if ($pathPart.IndexOf($ic) -ge 0) { $illegal = $true; break }
+        }
+        if ($illegal) {
+            $stats.illegalPath++
+            [void]$results.Add([ordered]@{
+                file = $mdFileNorm
+                text = $linkText
+                target = $target
+                classification = 'ILLEGAL-PATH'
+                resolved = '(caracteres non conformes dans le chemin)'
+            })
+            continue
+        }
 
         $ext = [System.IO.Path]::GetExtension($pathPart).ToLower()
         if ($ext -ne '' -and $ext -ne '.md' -and $ext -ne '.markdown') {
@@ -175,5 +199,6 @@ if (-not $Quiet) {
     Write-Host "  OK                : $($stats.okLinks)" -ForegroundColor Gray
     Write-Host "  BROKEN-PATH       : $($stats.brokenPath)" -ForegroundColor $(if ($stats.brokenPath -gt 0) {'Red'} else {'Green'})
     Write-Host "  BROKEN-ASSET      : $($stats.nonMd)" -ForegroundColor $(if ($stats.nonMd -gt 0) {'Yellow'} else {'Green'})
+    Write-Host "  ILLEGAL-PATH      : $($stats.illegalPath)" -ForegroundColor $(if ($stats.illegalPath -gt 0) {'Red'} else {'Green'})
     Write-Host "Files with broken   : $($stats.filesWithBroken)" -ForegroundColor Gray
 }

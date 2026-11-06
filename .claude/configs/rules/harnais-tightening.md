@@ -3,7 +3,7 @@
 **Issue :** #3657 (mandat user 15/09) — appliqué à `settings.json` sur ai-01, propagé
 flotte. Les trois conséquences opérationnelles ci-dessous sont auto-chargées dans
 chaque workspace ; tableau de drapeaux, mesures de référence et incidents fondateurs :
-[`docs/harness/global-rules-detail.md`](../../docs/harness/global-rules-detail.md) §« Harnais serré ».
+[`docs/harness/global-rules-detail.md`](../../../docs/harness/global-rules-detail.md) §« Harnais serré ».
 
 ## 1. Zéro question bloquante — registre persistant
 
@@ -32,7 +32,7 @@ Claude Code). Échec = capacité notebook **BLOQUÉE** (jamais de workaround) + 
 registre ; le provisioning est une décision par workspace. Câblage canonique UNIQUE :
 `.mcp.json` local du workspace (gitignoré) + install editable dans le venv + entrée
 `{"type":"stdio","command":"<venv-python>","args":["-m","papermill_mcp.main"]}` sans
-drapeau. Détail : [`deny-fallback-probe.md`](../../docs/harness/reference/deny-fallback-probe.md).
+drapeau. Détail : [`deny-fallback-probe.md`](../../../docs/harness/reference/deny-fallback-probe.md).
 
 ## 3. Harnais maigre — `ENABLE_TOOL_SEARCH` + drapeaux de réduction
 

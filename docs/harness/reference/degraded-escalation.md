@@ -147,5 +147,5 @@ pas partie ne se présente jamais comme un succès.
 
 **Voir aussi :** [`escalation-protocol.md`](escalation-protocol.md) (escalade de
 **capacité**, 5 niveaux — axe différent) · [`deny-fallback-probe.md`](deny-fallback-probe.md)
-(le repli deny qui n'existe pas) · [`tool-availability.md`](../../.claude/rules/tool-availability.md)
+(le repli deny qui n'existe pas) · [`tool-availability.md`](../../../.claude/rules/tool-availability.md)
 (STOP & REPAIR).

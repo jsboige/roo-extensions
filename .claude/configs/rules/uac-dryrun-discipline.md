@@ -32,4 +32,4 @@ Une tâche `SYSTEM`/`RunLevel Highest` est **invisible au jeton standard** : `Ge
 
 **Si friction** (script sans flag dry-run au source) : poster `[FRICTION]` avec le diff.
 
-**Cas fondateur 2026-10-07** (lanceur PS7-only, fenêtre consommée, replay non-élevé manquant) : [`docs/harness/global-rules-detail.md`](../../docs/harness/global-rules-detail.md) §« UAC & Dry-run — cas fondateur ».
+**Cas fondateur 2026-10-07** (lanceur PS7-only, fenêtre consommée, replay non-élevé manquant) : [`docs/harness/global-rules-detail.md`](../../../docs/harness/global-rules-detail.md) §« UAC & Dry-run — cas fondateur ».
