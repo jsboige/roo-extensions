@@ -810,6 +810,20 @@ jobs:
       - name: Run measure-gdrive-write-freeze suite (#4451)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1 -CI
+      # #4503: the fleet listener checker runs the REAL script as a
+      # powershell.exe 5.1 child on a throwaway shared-state fixture. Its
+      # verdicts come from reading <root>/listener-heartbeats/*.heartbeat, so
+      # every assertion is a filesystem read — pwsh/linux has neither the
+      # script's PowerShell dialect nor a DriveFS mirror to read. The suite
+      # therefore SKIPS itself on ubuntu (all Its carry
+      # -Skip:($env:OS -ne 'Windows_NT')), and ubuntu ran it green without
+      # executing a single assertion: the fleet check had no CI protection at
+      # all. Same acceptance criterion as the suites above (the fleet runs
+      # 5.1), hence this windows-latest job — this step is where the suite
+      # actually runs.
+      - name: Run check-all-listeners fleet check suite (#4503)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-all-listeners-fleet-alert-bump.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
