@@ -198,7 +198,18 @@ function Invoke-RsmCliJson($scriptName, $cliArgs) {
     if ($dir -eq "") { return $null }
     $node = Get-Command node -ErrorAction SilentlyContinue
     if ($null -eq $node) { return $null }
-    $out = & $node.Source (Join-Path $dir $scriptName) @cliArgs 2>$null
+    # Review re#4569 (mesuré 5.1.26100) : sous PS 5.1 + EAP Stop (l.101), le
+    # stderr d'une commande native redirigé par 2>$null devient un ErrorRecord
+    # TERMINANT (RemoteException) — le test $LASTEXITCODE ci-dessous n'est donc
+    # JAMAIS atteint et l'appelant meurt au lieu de replier sur le fichier
+    # (pwsh 7 atteint la branche : les deux runtimes divergent sur ce geste).
+    # try/catch local = même idiome que roosync-statusline.ps1 (validé review).
+    try {
+        $out = & $node.Source (Join-Path $dir $scriptName) @cliArgs 2>$null
+    } catch {
+        Write-Log "DEBUG" "RSM CLI $scriptName stderr terminant capture (repli fichier)."
+        return $null
+    }
     if ($LASTEXITCODE -ne 0) {
         Write-Log "DEBUG" "RSM CLI $scriptName exit $LASTEXITCODE (repli fichier)."
         return $null
