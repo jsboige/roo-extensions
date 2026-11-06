@@ -13,6 +13,20 @@ families frozen for 24 h. Twins (`inventories (2)`, `messages (2)`,
 to a twin keeps writing to G: just the same -- an instrument that watched only the
 canonical name would report FROZEN while a twin was still hot.
 
+#4131 G-MES -- family `dashboards`: EXPORT-AWARE criterion, not total freeze. Under
+PG-first the dashboards dir stays ALIVE by design: the in-host reconcile daemon
+(index.ts initializeDashboardReconcile; first pass 90 s after host start, then every
+6 h) exports PG->file (repairDashboardMirrorFromPg, repair + materialization). Those
+export writes are EXPECTED and must not count as residual writers. Ticks are per-host
+(start times drift fleet-wide), so the hour alone can never recognize one: each export
+stamps the frontmatter `mirrorExportAt` (the export hour), and this instrument justifies
+a recent write ONLY by a fresh stamp (|mtime - stamp| <= -ExportToleranceMinutes).
+A recent write without a fresh stamp = residual writer. Limit, stated honestly: mtime
+only remembers the LAST write per file -- a residual write later overwritten by an
+export is masked; the metric samples last-writer state, run it repeatedly to cover a
+window. Top level only (*.md): the archive/ subdir (condensation archives, written on
+their own cadence) and staging tmp files are excluded by construction.
+
 Writes nothing. Exit 0 = FROZEN (criterion met), 1 = ACTIVE (criterion not met),
 2 = instrument error (shared path unreadable, a family produced no instances,
 or an enumeration errored).
@@ -26,7 +40,11 @@ powershell -ExecutionPolicy Bypass -File scripts\diagnostic\measure-gdrive-write
 [CmdletBinding()]
 param(
     [string]$SharedPath,
-    [double]$FreezeHours = 24
+    [double]$FreezeHours = 24,
+    # #4131 G-MES -- |mtime - mirrorExportAt| tolerance (minutes) for calling a
+    # recent dashboards write an export. The stamp is written by the same
+    # process that lands the file (ms apart); 10 min absorbs DriveFS skew.
+    [double]$ExportToleranceMinutes = 10
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,7 +59,7 @@ if (-not (Test-Path -LiteralPath $SharedPath)) {
 }
 
 $now = (Get-Date).ToUniversalTime()
-$families = @('inventories', 'messages', '.machine-registry')
+$families = @('inventories', 'messages', '.machine-registry', 'dashboards')
 
 $rows = @()
 foreach ($family in $families) {
@@ -51,6 +69,78 @@ foreach ($family in $families) {
         Write-Output ("[INSTRUMENT] enumeration of '{0}*' under {1} errored: {2}" -f $family, $SharedPath, $famErr[0].Exception.Message)
         exit 2
     }
+
+    # ---- #4131 G-MES: dashboards = EXPORT-AWARE verdict, not total freeze ----
+    # Export writes (daemon PG->file) are expected; a recent write counts as a
+    # residual writer UNLESS the frontmatter carries a fresh mirrorExportAt
+    # stamp (|mtime - stamp| <= $ExportToleranceMinutes). See .DESCRIPTION.
+    if ($family -eq 'dashboards') {
+        foreach ($entry in $entries) {
+            if (-not $entry.PSIsContainer) {
+                Write-Output ("[INSTRUMENT] dashboards instance '{0}' is a FILE, expected a directory" -f $entry.Name)
+                exit 2
+            }
+            $dashErr = $null
+            $mdFiles = @(Get-ChildItem -LiteralPath $entry.FullName -File -Filter '*.md' -Force -ErrorAction SilentlyContinue -ErrorVariable dashErr)
+            if (@($dashErr).Count -gt 0) {
+                Write-Output ("[INSTRUMENT] enumeration inside {0} errored: {1}" -f $entry.FullName, $dashErr[0].Exception.Message)
+                exit 2
+            }
+            if ($mdFiles.Count -eq 0) {
+                Write-Output ("[INSTRUMENT] dashboards instance '{0}' has zero .md files -- no verdict possible" -f $entry.Name)
+                exit 2
+            }
+            $residual = @()
+            $exportedRecent = 0
+            $frozenFiles = 0
+            foreach ($f in $mdFiles) {
+                $ageF = ($now - $f.LastWriteTimeUtc).TotalHours
+                if ($ageF -ge $FreezeHours) { $frozenFiles++; continue }
+                $stampUtc = $null
+                try {
+                    $head = (Get-Content -LiteralPath $f.FullName -TotalCount 20 -ErrorAction Stop) -join "`n"
+                    if ($head -match "(?m)^mirrorExportAt:\s*'?([^'\r\n]+)'?") {
+                        $stampUtc = [DateTimeOffset]::Parse($Matches[1], [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
+                    }
+                } catch {
+                    Write-Output ("[INSTRUMENT] unreadable dashboard file {0}: {1}" -f $f.FullName, $_.Exception.Message)
+                    exit 2
+                }
+                if ($null -ne $stampUtc) {
+                    $gapMin = [math]::Abs(($f.LastWriteTimeUtc - $stampUtc).TotalMinutes)
+                    if ($gapMin -le $ExportToleranceMinutes) { $exportedRecent++; continue }
+                }
+                $residual += [pscustomobject]@{ Name = $f.Name; AgeH = [math]::Round($ageF, 1) }
+            }
+            if ($residual.Count -gt 0) {
+                $worst = $residual | Sort-Object AgeH | Select-Object -First 1
+                $rows += [pscustomobject]@{
+                    Family      = 'dashboards'
+                    Instance    = $entry.Name
+                    Kind        = 'DIR'
+                    Files       = $mdFiles.Count
+                    NewestUtc   = $now.AddHours(-$worst.AgeH).ToString('yyyy-MM-dd HH:mm:ss')
+                    AgeHours    = $worst.AgeH
+                    Verdict     = 'ACTIVE'
+                    NewestEntry = ($residual | ForEach-Object { $_.Name } | Sort-Object) -join ', '
+                }
+            } else {
+                $newestAll = $mdFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+                $rows += [pscustomobject]@{
+                    Family      = 'dashboards'
+                    Instance    = $entry.Name
+                    Kind        = 'DIR'
+                    Files       = $mdFiles.Count
+                    NewestUtc   = $newestAll.LastWriteTimeUtc.ToString('yyyy-MM-dd HH:mm:ss')
+                    AgeHours    = [math]::Round(($now - $newestAll.LastWriteTimeUtc).TotalHours, 1)
+                    Verdict     = 'FROZEN'
+                    NewestEntry = ("export-aware: 0 residual ({0} export-justified, {1} older than {2} h)" -f $exportedRecent, $frozenFiles, $FreezeHours)
+                }
+            }
+        }
+        continue
+    }
+
     foreach ($entry in $entries) {
         $isDir = [bool]$entry.PSIsContainer
         if ($isDir) {
@@ -125,4 +215,8 @@ if ($active.Count -gt 0) {
 }
 
 Write-Output ("[PHASE-D] MET -- all {0} instance(s) across {1} frozen for at least {2} h" -f $rows.Count, ($seen -join ', '), $FreezeHours)
+$dashMet = @($rows | Where-Object { $_.Family -eq 'dashboards' })
+if ($dashMet.Count -gt 0) {
+    Write-Output ("[PHASE-D] dashboards detail: export-aware -- every recent write carries a fresh mirrorExportAt stamp (tolerance {0} min). mtime only proves the LAST write per file: sample repeatedly to cover a window." -f $ExportToleranceMinutes)
+}
 exit 0
