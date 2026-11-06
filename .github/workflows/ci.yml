@@ -183,6 +183,13 @@ on:
       # scripts/testing/python/ guards the format sniffing of this instrument;
       # a change to the instrument alone must re-run it (same rule as above).
       - 'scripts/diagnostic/measure-mode-prompt-prefix.py'
+      # Tenth instance of the same gap, closed in the PR that changes the script
+      # (#4311). scripts/testing/python/test_detect_approval_stalls.py runs the
+      # detector's --selftest and pins its fixture contract; without this path a
+      # main push touching ONLY the detector re-runs nothing, so a regression in
+      # the waiting/abandoned classification would land silently on a fleet of
+      # seats that consume the WARN it emits.
+      - 'scripts/diagnostic/detect-approval-stalls.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
