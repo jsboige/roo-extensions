@@ -77,30 +77,56 @@ try {
     $machineId = ($env:COMPUTERNAME).ToLowerInvariant()
     $ackFile = Join-Path $stateDir ('unclean-boot-ack-{0}.txt' -f $machineId)
 
-    $since = (Get-Date).AddDays(-[Math]::Abs($LookbackDays))
-
-    # Newest unclean-shutdown marker in the window. 41 (Kernel-Power) and 6008
-    # (EventLog) are both written at the startup that FOLLOWS the crash.
-    $latest = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 6008; StartTime = $since } -ErrorAction Stop |
-        Sort-Object TimeCreated -Descending |
-        Select-Object -First 1
-
-    if (-not $latest) {
-        Out-Line "[UNCLEAN-BOOT] OK - no unclean-shutdown marker in the last $LookbackDays day(s)."
-        exit 0
-    }
-
-    # Last acknowledged crash timestamp (if any).
+    # Last acknowledged crash timestamp (if any). Read BEFORE the scan: the
+    # scan window anchors on it (see $since below).
     $acked = $null
     if (Test-Path $ackFile) {
         $raw = (Get-Content $ackFile -Raw -ErrorAction SilentlyContinue)
         if ($raw) { $parsed = [DateTime]::MinValue; if ([DateTime]::TryParse($raw.Trim(), [ref]$parsed)) { $acked = $parsed } }
     }
 
+    # Scan window. LookbackDays bounds the default sweep, but the probe's
+    # contract is "most recent crash NOT yet acknowledged": any crash newer
+    # than the last ack must stay in scope even when it is older than
+    # LookbackDays (a lane can stay down for days after the crash boot -- the
+    # marker must not silently fall out of the window, review #4578).
+    $since = (Get-Date).AddDays(-[Math]::Abs($LookbackDays))
+    if ($acked -and $acked -lt $since) { $since = $acked }
+
+    # Newest unclean-shutdown marker in the window. 41 (Kernel-Power) and 6008
+    # (EventLog) are both written at the startup that FOLLOWS the crash.
+    # A HEALTHY seat holds no such event in the window: with -ErrorAction Stop,
+    # Get-WinEvent then THROWS NoMatchingEventsFound instead of returning an
+    # empty set (measured ai-01 06/11, review #4578 blocker). Swallow exactly
+    # that error -- repo idiom scripts/diagnostic/classify-machine-usability.ps1
+    # -- so the clean branch below is reachable; every other failure stays an
+    # instrument error (a blanket SilentlyContinue would make "log unreadable"
+    # look like "no crash").
+    $latest = $null
+    try {
+        $latest = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 6008; StartTime = $since } -ErrorAction Stop |
+            Sort-Object TimeCreated -Descending |
+            Select-Object -First 1
+    } catch {
+        if ($_.FullyQualifiedErrorId -notlike '*NoMatchingEventsFound*') { throw }
+    }
+
+    if (-not $latest) {
+        Out-Line "[UNCLEAN-BOOT] OK - no unclean-shutdown marker in the scan window (default $LookbackDays day(s), extended to the last ack when older)."
+        exit 0
+    }
+
     if ($Acknowledge) {
+        if ($acked -and $latest.TimeCreated -le $acked) {
+            # Nothing unacknowledged to record: refuse the rewrite instead of
+            # stamping the marker again (review #4578 -- an unconditional ack
+            # could silence a crash whose relay never happened).
+            Out-Line "[UNCLEAN-BOOT] ACK - nothing new to acknowledge (latest marker already reported). Marker NOT rewritten."
+            exit 0
+        }
         if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
         [System.IO.File]::WriteAllText($ackFile, $latest.TimeCreated.ToString('o'), [System.Text.UTF8Encoding]::new($false))
-        Out-Line "[UNCLEAN-BOOT] ACK - recorded crash $($latest.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss')) as reported."
+        Out-Line "[UNCLEAN-BOOT] ACK - recorded crash $($latest.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss')) as reported. Contract: only a caller that RELAYED the WARN acks; a failed relay must NOT (the crash is retried next cycle)."
         exit 0
     }
 

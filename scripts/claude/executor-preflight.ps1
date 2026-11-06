@@ -268,7 +268,7 @@ try {
         foreach ($line in $crashOutput) { Write-Host $line }
         $crashExit = $LASTEXITCODE
         if ($crashExit -eq 2) {
-            Write-Warning '[executor-preflight][UNCLEAN-BOOT] this seat crashed before this session and it has not been reported yet (detail above). Relay [WARN] on the workspace dashboard with the forensic, confirm the cron cadence survived, then acknowledge the probe (scripts/diagnostic/check-unclean-boot.ps1 -Acknowledge) so it is not re-reported. The cycle continues: a crash is a fact to surface, never a blocker.'
+            Write-Warning '[executor-preflight][UNCLEAN-BOOT] this seat crashed before this session and it has not been reported yet (detail above). Relay [WARN] on the workspace dashboard with the forensic, confirm the cron cadence survived, then acknowledge the probe (scripts/diagnostic/check-unclean-boot.ps1 -Acknowledge) - ONLY once the WARN has actually been relayed: a failed relay must not ack, or the crash is silenced and retried never. The cycle continues: a crash is a fact to surface, never a blocker.'
         } elseif ($crashExit -ne 0) {
             Write-Warning ("[executor-preflight][UNCLEAN-BOOT] probe instrument error (exit $crashExit) — crash state is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
         }

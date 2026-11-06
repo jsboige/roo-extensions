@@ -95,3 +95,133 @@ Describe 'executor-preflight.ps1 -- cablage de la sonde crash' {
         $script:preflight | Should -Match '-Acknowledge'
     }
 }
+
+Describe 'check-unclean-boot.ps1 -- machine a etats (Get-WinEvent mocke, process enfant 5.1)' {
+
+    BeforeAll {
+        # Ces tests EXECUTENT la sonde (aucune assertion regex) : chaque cas
+        # construit un process enfant powershell.exe 5.1 dont Get-WinEvent est
+        # remplace par un mock isole (LOCALAPPDATA rejete sur un tmp), puis
+        # tranche sur le code de sortie. Ils tuent les mutants que les gardes
+        # statiques ne voient pas (reviews #4578) : healthy-seat throw, fenetre
+        # ancree sur l ack, garde no-op de -Acknowledge.
+        $script:tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("unclean-boot-tests-" + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $script:tmpRoot -Force | Out-Null
+
+        # Corps de mock : un event 41 a un timestamp FIGE (env), rendu s'il
+        # tombe dans la fenetre demandee -- sinon throw NoMatchingEventsFound
+        # exactement comme la vraie cmdlet sous -ErrorAction Stop. Respecter
+        # FilterHashtable.StartTime est ce qui rend le mutant "fenetre non
+        # ancree" reellement mortel.
+        $script:mockEvent = @'
+    $evt = [pscustomobject]@{ Id = 41; TimeCreated = [datetime]::ParseExact($env:PROBE_EVT_TS, 'o', $null) }
+    if ($evt.TimeCreated -lt $FilterHashtable.StartTime) {
+        $er = [System.Management.Automation.ErrorRecord]::new(
+            [System.Exception]::new('No events were found that match the specified selection criteria.'),
+            'NoMatchingEventsFound,Microsoft.PowerShell.Commands.GetWinEventCommand',
+            [System.Management.Automation.ErrorCategory]::NotSpecified,
+            $null)
+        throw $er
+    }
+    return @($evt)
+'@
+
+        $script:mockThrow = @'
+    $er = [System.Management.Automation.ErrorRecord]::new(
+        [System.Exception]::new('No events were found that match the specified selection criteria.'),
+        'NoMatchingEventsFound,Microsoft.PowerShell.Commands.GetWinEventCommand',
+        [System.Management.Automation.ErrorCategory]::NotSpecified,
+        $null)
+    throw $er
+'@
+
+        # Helper (Pester 5 : les helpers vivent dans BeforeAll, jamais dans le
+        # corps du Describe -- celui-ci ne sert qu'a la decouverte).
+        function script:Invoke-MockedProbe {
+            param(
+                [string]$Name,
+                [string]$MockBody,
+                [string]$EvtIso,             # timestamp 'o' de l event mocke
+                [string]$AckIso = '',        # timestamp 'o' pose dans le marqueur ; vide = aucun
+                [int]$LookbackDays = 3,
+                [switch]$WithAcknowledge
+            )
+            $root = Join-Path $script:tmpRoot $Name
+            $stateDir = Join-Path $root 'la\claude-executor'
+            New-Item -ItemType Directory -Path $stateDir -Force | Out-Null
+            if ($AckIso) {
+                $ackFile = Join-Path $stateDir ('unclean-boot-ack-{0}.txt' -f $env:COMPUTERNAME.ToLowerInvariant())
+                [System.IO.File]::WriteAllText($ackFile, $AckIso, [System.Text.UTF8Encoding]::new($false))
+            }
+            $runner = Join-Path $root "runner-$Name.ps1"
+            # Le call operator + propagation est OBLIGATOIRE : en dot-sourcing,
+            # l'`exit` de la sonde termine le SCRIPT appele, pas le process --
+            # le wrapper poursuit et le process sort en 0 (mesure de mise au
+            # point 06/11 : dot-source rendait 0 sur un cas qui vaut 2).
+            $template = @'
+$env:LOCALAPPDATA = '{LA}'
+$env:PROBE_EVT_TS = '{EVT}'
+function Get-WinEvent {
+    param($FilterHashtable, $ErrorAction)
+{MOCK}
+}
+& '{PROBE}' -Quiet -LookbackDays {LB}{ACK}
+exit $LASTEXITCODE
+'@
+            $content = $template.
+                Replace('{LA}', (Join-Path $root 'la')).
+                Replace('{EVT}', $EvtIso).
+                Replace('{MOCK}', $MockBody).
+                Replace('{PROBE}', $probePath).
+                Replace('{LB}', $LookbackDays).
+                Replace('{ACK}', $(if ($WithAcknowledge) { ' -Acknowledge' } else { '' }))
+            [System.IO.File]::WriteAllText($runner, $content, [System.Text.UTF8Encoding]::new($false))
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner 2>$null | Out-Null
+            return $LASTEXITCODE
+        }
+    }
+
+    AfterAll {
+        if (Test-Path $script:tmpRoot) { Remove-Item -Recurse -Force $script:tmpRoot -Confirm:$false }
+    }
+
+    It 'siege sain (throw NoMatchingEventsFound) : exit 0, jamais un WARN permanent' -Skip:($env:OS -ne 'Windows_NT') {
+        # Review #4578 blocker : -ErrorAction Stop leve NoMatchingEventsFound
+        # quand la fenetre ne contient AUCUN event 41/6008 -- c'est l etat SAIN.
+        # Un catch global qui le rend exit 1 transformerait chaque cycle sain en
+        # WARN (mesure ai-01 06/11 sous 5.1).
+        $code = Invoke-MockedProbe -Name 'healthy' -MockBody $script:mockThrow -EvtIso ([datetime]::Now.ToString('o'))
+        $code | Should -Be 0
+    }
+
+    It 'crash non acquitte plus vieux que LookbackDays mais posterieur au dernier ack : reste detecte (exit 2)' -Skip:($env:OS -ne 'Windows_NT') {
+        # Review #4578 WARN fenetre : ack a T-10j, crash a T-8j. Sans ancrage de
+        # la fenetre sur l ack, since = now-3j exclut l event -> throw ->
+        # exit 0 silencieux : le crash tomberait du contrat sans jamais etre
+        # signale. Le mock respecte StartTime, le mutant meurt reellement.
+        $evtIso = [datetime]::Now.AddDays(-8).ToString('o')
+        $ackIso = [datetime]::Now.AddDays(-10).ToString('o')
+        $code = Invoke-MockedProbe -Name 'window' -MockBody $script:mockEvent -EvtIso $evtIso -AckIso $ackIso
+        $code | Should -Be 2
+    }
+
+    It '-Acknowledge sur un crash deja acquitte : exit 0 et le marqueur est INCHANGE (garde no-op)' -Skip:($env:OS -ne 'Windows_NT') {
+        # Review #4578 WARN ack : le marqueur porte le timestamp de l event
+        # acquitte ; re-acker ne doit rien reecrire -- un ack inconditionnel
+        # peut taire un crash dont le relai n a jamais eu lieu.
+        $evtIso = [datetime]::Now.AddDays(-8).ToString('o')
+        $code = Invoke-MockedProbe -Name 'acknoop' -MockBody $script:mockEvent -EvtIso $evtIso -AckIso $evtIso -LookbackDays 30 -WithAcknowledge
+        $code | Should -Be 0
+        $ackFile = Join-Path (Join-Path $script:tmpRoot 'acknoop\la\claude-executor') ('unclean-boot-ack-{0}.txt' -f $env:COMPUTERNAME.ToLowerInvariant())
+        (Get-Content $ackFile -Raw).Trim() | Should -Be $evtIso
+    }
+
+    It '-Acknowledge sur un crash NON acquitte : exit 0 et le marqueur est ecrit (contrat normal)' -Skip:($env:OS -ne 'Windows_NT') {
+        $evtIso = [datetime]::Now.AddDays(-8).ToString('o')
+        $code = Invoke-MockedProbe -Name 'ackwrite' -MockBody $script:mockEvent -EvtIso $evtIso -LookbackDays 30 -WithAcknowledge
+        $code | Should -Be 0
+        $ackFile = Join-Path (Join-Path $script:tmpRoot 'ackwrite\la\claude-executor') ('unclean-boot-ack-{0}.txt' -f $env:COMPUTERNAME.ToLowerInvariant())
+        Test-Path $ackFile | Should -Be $true
+        (Get-Content $ackFile -Raw).Trim() | Should -Be $evtIso
+    }
+}

@@ -50,6 +50,11 @@ on:
       # script must re-trigger the unit-pester job on a main push (same rule as
       # every entry above — eleventh instance of the gap, not a new exception).
       - 'scripts/diagnostic/classify-machine-usability.ps1'
+      # #4578 review: check-unclean-boot.Tests.ps1 drives the crash probe as a
+      # powershell.exe 5.1 child with a mocked Get-WinEvent (healthy-seat throw,
+      # ack-anchored window); the guarded script must re-trigger the unit-pester
+      # job on a main push (same rule as every entry above).
+      - 'scripts/diagnostic/check-unclean-boot.ps1'
       # #4451: the Phase D freeze measure's suite (marshall job below) drives the
       # REAL instrument as a powershell.exe 5.1 child on a throwaway fixture; the
       # guarded script and its suite must re-trigger that job on main pushes.
