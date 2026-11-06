@@ -33,8 +33,12 @@
     A STALE heartbeat (>2h) makes the machine dead, which is what arms the
     alert path. -NoRepair keeps the auto-repair branch out of the test.
 
-    Age is the file's LastWriteTimeUtc, not the timestamp inside it:
-    the stale setups below backdate the FILE after writing it.
+    Age is read from the ISO timestamp INSIDE the file (the listener writes it),
+    falling back to the file's LastWriteTimeUtc only when the content is empty or
+    unparseable (#4503 main subject: a stale DriveFS mtime must not make a live
+    machine read STALE). The stale setups below write a backdated timestamp into
+    the CONTENT and also backdate the file mtime, so they stay STALE under the
+    content-first rule.
 
     Excluded from CI? No - unit suite, temp-dir file effects +
     Windows-guarded subprocess calls.
@@ -229,6 +233,50 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
             $j.totalUnknown | Should -Be 1 -Because 'the absent heartbeat is counted as unknown, not dead'
             $j.totalDead | Should -Be 0 -Because 'an unreadable heartbeat is not evidence of death'
             $j.machines[0].heartbeat | Should -Be 'UNKNOWN'
+        }
+    }
+
+    Context '#4503 (sujet principal) - the ALIVE/STALE verdict reads the embedded ISO content, mtime is only the fallback' {
+        # Fresh content + stale mtime -> ALIVE. A live machine must not read STALE
+        # just because DriveFS propagated a stale mtime in the reader's G: view:
+        # the embedded timestamp is the authority (this is the false-positive the
+        # issue targets).
+        It 'reports ALIVE when the content timestamp is fresh even though the file mtime is stale' -Skip:($env:OS -ne 'Windows_NT') {
+            $tmpShared = Join-Path $script:Tmp 'content-alive'
+            $hbDir = Join-Path $tmpShared 'listener-heartbeats'
+            New-Item -ItemType Directory -Path $hbDir -Force | Out-Null
+            $hbf = Join-Path $hbDir 'machine-ca.heartbeat'
+            $fresh = (Get-Date).ToUniversalTime().AddMinutes(-1).ToString('yyyy-MM-ddTHH:mm:ssZ')
+            [System.IO.File]::WriteAllText($hbf, $fresh, [System.Text.UTF8Encoding]::new($false))
+            (Get-Item $hbf).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddHours(-3)   # stale mtime, must not win
+            $fake = New-FakeRsmRoot 'rsm-content-alive' 'ok'
+            $cliLog = Join-Path $script:Tmp 'content-alive-cli.log'
+
+            $out = Invoke-FleetCheck $tmpShared $fake 'machine-ca' $cliLog
+
+            $out | Should -Match 'machine-ca'
+            $out | Should -Match 'ALIVE' -Because 'the embedded fresh timestamp must win over the stale mtime'
+            $out | Should -Not -Match 'FLEET-ALERT' -Because 'a live machine must not arm the STALE alert'
+        }
+
+        # Stale content + fresh mtime -> STALE. The content is authoritative in the
+        # other direction too: a heartbeat whose own data is 3h old is stale even
+        # if the file was re-synced recently and its mtime is fresh.
+        It 'reports STALE when the content timestamp is old even though the file mtime is fresh' -Skip:($env:OS -ne 'Windows_NT') {
+            $tmpShared = Join-Path $script:Tmp 'content-stale'
+            $hbDir = Join-Path $tmpShared 'listener-heartbeats'
+            New-Item -ItemType Directory -Path $hbDir -Force | Out-Null
+            $hbf = Join-Path $hbDir 'machine-cs.heartbeat'
+            $stale = (Get-Date).ToUniversalTime().AddHours(-3).ToString('yyyy-MM-ddTHH:mm:ssZ')
+            [System.IO.File]::WriteAllText($hbf, $stale, [System.Text.UTF8Encoding]::new($false))
+            # mtime left fresh (just written) - must NOT rescue a stale content
+            $fake = New-FakeRsmRoot 'rsm-content-stale' 'ok'
+            $cliLog = Join-Path $script:Tmp 'content-stale-cli.log'
+
+            $out = Invoke-FleetCheck $tmpShared $fake 'machine-cs' $cliLog
+
+            $out | Should -Match 'STALE' -Because 'the embedded old timestamp must make the machine stale'
+            $out | Should -Match 'FLEET-ALERT' -Because 'a genuinely stale heartbeat must arm the alert'
         }
     }
 }
