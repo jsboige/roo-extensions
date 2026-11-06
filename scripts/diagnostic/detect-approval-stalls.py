@@ -40,6 +40,20 @@ the join is same-file: parent activity after the tool_use ts -> abandoned. An
 abandoned tail is reported for visibility but does NOT trip exit 2 (like
 executing, it is not an approval wait someone could still answer).
 
+#4311 extends the same retirement to MAIN sessions, with a stricter signal. The
+defect was symmetrical -- the "did the session write after?" test was gated on
+`sidechain`, so a main-session wait rode the mtime window for days and dominated
+the 2 h WARN (measured po-2025 21/10: three sessions writing 2.3 to 6.6 days
+after the pending tool_use). The raw tail timestamp cannot be the test: a live
+approval wait also keeps writing progress/hook lines and the tool_result of a
+parallel sibling call. The safe proof is a later NON-sidechain `assistant`
+record whose `message.id` differs from the pending tool_use's own message -- the
+model only opens a new message once the whole tool batch of the previous one is
+resolved, so that wait can never be answered. The message.id condition is
+load-bearing: one assistant message is emitted as several JSONL lines (one per
+content block), so a sibling tool_use would otherwise read as "the turn went
+on".
+
 The `abandoned-process` state (#4243 detector facet, ai-01 27/10) retires the
 fourth shape, and it is the one that made this detector noisy: a session whose
 own process is GONE. Its dangling tail is textually identical to a frozen one --
@@ -106,12 +120,19 @@ def now_utc():
 
 
 def scan_session(path, tools):
-    """Parse one session JSONL. Returns (dangling, last_ts, last_parent_ts, stats, last_cwd).
+    """Parse one session JSONL.
+
+    Returns (dangling, last_ts, last_parent_ts, parent_turns, stats, last_cwd).
 
     dangling: list of unterminated shell tool_use records at EOF, in emission
     order (uuid-deduped against resume copies, same rule as scan-approval-waits).
     last_parent_ts: timestamp of the last non-sidechain record -- the parent
     session's own watermark, used to retire orphaned sidechain waits (abandoned).
+    parent_turns: (datetime, message.id) of every non-sidechain assistant record
+    -- the only proof that a MAIN session moved its turn on without closing a
+    pending tool_use (#4311). Raw timestamps are not usable for that: a live wait
+    keeps writing progress/hook lines and sibling tool_results, and one assistant
+    message is emitted as several lines (one per content block).
     last_cwd: the last root-level ``cwd`` seen -- where the session worked, i.e.
     the lane whose dashboard a stall note must reach (#4243 volet 3 routing).
     """
@@ -121,6 +142,7 @@ def scan_session(path, tools):
     seen_uuids = set()
     last_ts = None
     last_parent_ts = None
+    parent_turns = []
     last_cwd = None
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
         for lineno, line in enumerate(fh, 1):
@@ -137,6 +159,15 @@ def scan_session(path, tools):
                 last_ts = entry["timestamp"]  # tracked on every record: the tail lag
                 if not entry.get("isSidechain"):
                     last_parent_ts = entry["timestamp"]
+            # Collected BEFORE the tool_use/tool_result fast-path below: a
+            # text-only assistant record carries no tool block, yet it is exactly
+            # what proves the turn advanced past a pending tool_use (#4311).
+            if entry.get("type") == "assistant" and not entry.get("isSidechain"):
+                turn_ts = parse_ts(entry.get("timestamp"))
+                if turn_ts is not None:
+                    turn_msg = entry.get("message")
+                    parent_turns.append(
+                        (turn_ts, turn_msg.get("id") if isinstance(turn_msg, dict) else None))
             if '"tool_use"' not in line and '"tool_result"' not in line:
                 continue
             msg = entry.get("message")
@@ -167,10 +198,35 @@ def scan_session(path, tools):
                         "tool": block.get("name"),
                         "command": command_of(block),
                         "sidechain": bool(entry.get("isSidechain")),
+                        "message_id": msg.get("id"),
                     }
                 elif btype == "tool_result" and block.get("tool_use_id"):
                     pending.pop(block["tool_use_id"], None)
-    return list(pending.values()), last_ts, last_parent_ts, stats, last_cwd
+    return (list(pending.values()), last_ts, last_parent_ts, parent_turns, stats,
+            last_cwd)
+
+
+def parent_turn_advanced(started, message_id, parent_turns):
+    """Did a MAIN session move its turn on after ``started`` without closing it?
+
+    A later non-sidechain assistant record whose ``message.id`` differs from the
+    pending tool_use's own message is the proof (#4311): the model only starts a
+    new message once every tool block of the previous batch is resolved, so this
+    wait can never be answered -- it is transcript residue, not a live wait.
+
+    The message.id condition is load-bearing, not cosmetic: one assistant message
+    is written as several JSONL lines, one per content block (up to 9 per message
+    measured on this fleet), and a SIBLING tool_use of the same batch would
+    otherwise read as "the turn went on".
+
+    Timestamps of any OTHER record do not count either: a live approval wait
+    keeps writing progress/hook lines and the tool_result of a parallel sibling
+    call. Using the raw tail timestamp (``last_ts``) would retire real waits.
+    """
+    for turn_ts, turn_mid in parent_turns:
+        if turn_ts > started and turn_mid != message_id:
+            return True
+    return False
 
 
 def adjudicate_state(record, session_id, hook_index):
@@ -413,9 +469,14 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
            live_procs=_AUTO, state_dir=None):
     """Scan every session JSONL under root whose mtime falls in the active window.
 
-    The active window is what makes this live rather than forensic: a stalled
-    session writes nothing (that IS the symptom), so its mtime pins the moment
-    the wait began -- a 16 h freeze is still inside a 7-day default window.
+    The active window is a cheap pre-filter, NOT a liveness proof (#4311). A
+    stalled session writes nothing on its own account (that IS the symptom), but
+    a transcript keeps growing for other reasons -- progress/hook lines, the
+    tool_result of a parallel sibling call, and every later turn. Its mtime is
+    the LAST write, often days after the pending tool_use: that is exactly how a
+    dead wait used to ride a 7-day window. Liveness is decided per record
+    (abandoned / abandoned-process); the window only bounds how many files are
+    read.
 
     live_procs: _AUTO reads this host's process table; a list (possibly empty)
     overrides it; None means "host cannot tell". state_dir holds the once-only
@@ -450,7 +511,8 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
             continue
         active += 1
         try:
-            dangling, _last_ts, last_parent_ts, _stats, last_cwd = scan_session(path, tools)
+            dangling, _last_ts, last_parent_ts, parent_turns, _stats, last_cwd = \
+                scan_session(path, tools)
         except OSError as exc:
             print(f"WARNING: unreadable {path}: {exc}", file=sys.stderr)
             continue
@@ -468,11 +530,21 @@ def detect(root, min_minutes, tools, active_hours, hook_log=None, as_json=False,
             age_s = (now_utc() - started).total_seconds()
             if age_s < threshold_s:
                 continue
-            parent_ts = parse_ts(last_parent_ts) if record["sidechain"] else None
-            if parent_ts is not None and parent_ts > started:
+            if record["sidechain"]:
                 # Orphaned subagent: the parent session wrote on after this
                 # tool_use, so the wait will never be answered -- retire it
                 # (review nit #4245, real case 2d17885a: false "live" for days).
+                parent_ts = parse_ts(last_parent_ts)
+                retired = parent_ts is not None and parent_ts > started
+            else:
+                # Main session, same class (#4311): an assistant record later
+                # than this tool_use, with a DIFFERENT message.id, proves the turn
+                # advanced while the tool_use stayed open -- a phantom that used
+                # to ride the mtime window for days and dominate the 2 h WARN
+                # (measured po-2025 21/10: three sessions, 2.3 to 6.6 days of
+                # writes after the wait). Raw last_ts is deliberately NOT used.
+                retired = parent_turn_advanced(started, record["message_id"], parent_turns)
+            if retired:
                 state = "abandoned"
             else:
                 state = adjudicate_state(record, session_id, hook_index)
@@ -813,9 +885,11 @@ def maybe_publish_dashboard_note(totals, stalls, workspace, url, bearer,
 
 # --- selftest ---------------------------------------------------------------
 
-def _rec(role, blocks, ts, uuid, sidechain=False):
-    entry = {"type": role, "uuid": uuid, "timestamp": ts,
-             "message": {"role": role, "content": blocks}}
+def _rec(role, blocks, ts, uuid, sidechain=False, mid=None):
+    message = {"role": role, "content": blocks}
+    if mid:
+        message["id"] = mid     # real transcripts always carry one (measured)
+    entry = {"type": role, "uuid": uuid, "timestamp": ts, "message": message}
     if sidechain:
         entry["isSidechain"] = True
     return json.dumps(entry, ensure_ascii=False)
@@ -908,12 +982,41 @@ def selftest():
                  iso(base - timedelta(hours=2)), "a10"),
         ])
 
+        # 12. #4311: MAIN session, a tool_use never closed, then a NEW assistant
+        #     message two days later -- the turn moved on, so this wait is
+        #     residue. Before the fix it stayed waiting-suspected forever and the
+        #     WARN re-posted it every 2 h (measured po-2025 21/10: 2.3 to 6.6
+        #     days of writes after the pending tool_use).
+        write("proj-h/main-orphan.jsonl", [
+            _rec("assistant", [_tool_use("t12", "Bash", "git status --short")],
+                 iso(base - timedelta(days=2)), "a12", mid="msg_12a"),
+            _rec("assistant", [{"type": "text", "text": "moving on"}],
+                 iso(base - timedelta(minutes=20)), "a13", mid="msg_12b"),
+        ])
+
+        # 13. #4311 counterexample -- the mutant "just use the tail timestamp"
+        #     dies here. Only records a LIVE wait can write: a hook/progress
+        #     line, the tool_result of a PARALLEL sibling call, and a sibling
+        #     content block of the SAME message.id (one message spans several
+        #     lines). None of them proves the turn advanced: stay waiting.
+        write("proj-h/main-live.jsonl", [
+            _rec("assistant", [_tool_use("t13", "Bash", "npm run build")],
+                 iso(base - timedelta(minutes=40)), "a14", mid="msg_13a"),
+            _rec("assistant", [{"type": "text", "text": "sibling block"}],
+                 iso(base - timedelta(minutes=39)), "a15", mid="msg_13a"),
+            _rec("user", [_tool_result("other-tool")],
+                 iso(base - timedelta(minutes=38)), "u13"),
+            json.dumps({"type": "progress", "data": "hook fired",
+                        "timestamp": iso(base - timedelta(minutes=37))},
+                       ensure_ascii=False),
+        ])
+
         totals, stalls = detect(root, 10.0, list(DEFAULT_TOOLS), 168.0,
                                 live_procs=LIVE_TWO_HOURS_AGO,
                                 state_dir=Path(tmp) / "state")
 
-        assert totals["stalls"] == 5, f"expected 5 stalls, got {totals['stalls']}: {stalls}"
-        assert totals["abandoned"] == 1, totals
+        assert totals["stalls"] == 7, f"expected 7 stalls, got {totals['stalls']}: {stalls}"
+        assert totals["abandoned"] == 2, totals
         by_key = {(s["project"], s["session"]): s for s in stalls}
         stuck = by_key[("proj-a", "stalled")]
         assert stuck["state"] == "waiting-suspected" and stuck["sidechain"] is False
@@ -926,6 +1029,14 @@ def selftest():
         assert side["state"] == "waiting-suspected", side  # no parent after: still answerable
         orphan = by_key[("proj-e", "orphan")]
         assert orphan["state"] == "abandoned" and orphan["sidechain"] is True, orphan
+        # 12/13. Main-session retirement, and its counterexample: a later assistant
+        # message with a DIFFERENT id retires the wait; progress/hook lines, a
+        # sibling tool_result and a sibling block of the SAME message do not.
+        main_orphan = by_key[("proj-h", "main-orphan")]
+        assert main_orphan["state"] == "abandoned", main_orphan
+        assert main_orphan["sidechain"] is False, main_orphan
+        main_live = by_key[("proj-h", "main-live")]
+        assert main_live["state"] == "waiting-suspected", main_live
         secret = by_key[("proj-c", "secret")]
         assert "abcdef1234567890" not in secret["command"], secret["command"]
         assert "[REDACTED]" in secret["command"]
@@ -944,8 +1055,8 @@ def selftest():
         stuck2 = [s for s in stalls2 if s["session"] == "stalled"][0]
         assert stuck2["state"] == "executing", stuck2
         # Totals carry the adjudication split alongside the exit-code driver.
-        assert _totals2["executing"] == 1 and _totals2["waiting"] == 3, _totals2
-        assert _totals2["abandoned"] == 1, _totals2  # retired sidechain is not re-adjudicated
+        assert _totals2["executing"] == 1 and _totals2["waiting"] == 4, _totals2
+        assert _totals2["abandoned"] == 2, _totals2  # retired waits are not re-adjudicated
 
         # 11. Liveness (#4243 detector facet): the SAME dangling tail, two
         #     process tables. A live process older than the wait keeps the
@@ -1188,7 +1299,10 @@ def selftest():
     print("             tool_use stay silent; prose-ending session ignored; sidechain")
     print("             marked; secret values redacted in previews; resume copies")
     print("             deduped; orphaned sidechain retired as abandoned; hook-log")
-    print("             marker adjudicates waiting vs executing; a wait older than")
+    print("             marker adjudicates waiting vs executing; a main-session wait")
+    print("             retired only by a LATER assistant message with a DIFFERENT")
+    print("             message.id, while hook lines, sibling results and same-id")
+    print("             blocks keep it waiting; a wait older than")
     print("             every live process is classified dead ONCE and never")
     print("             re-signalled, while a live older process keeps the signal")
     print("             and an unreadable process table stays conservative;")
@@ -1208,8 +1322,9 @@ def main():
                         help="comma-separated tool names to watch (default: Bash,PowerShell)")
     parser.add_argument("--active-hours", type=float, default=168.0,
                         help="only read session files modified within this window "
-                             "(default: 168 -- a stalled session writes nothing, its "
-                             "mtime pins when the wait began)")
+                             "(default: 168). A pre-filter, not a liveness proof: "
+                             "mtime is the last write of the transcript, which can "
+                             "be days after the pending tool_use (#4311)")
     parser.add_argument("--hook-log", type=Path, default=None, metavar="PATH",
                         help="adjudicate each stall with the log-tool-start journal "
                              "(#4214): PATH and PATH.1 are indexed, a marker at/after "
