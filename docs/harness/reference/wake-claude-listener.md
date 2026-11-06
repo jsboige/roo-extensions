@@ -106,6 +106,8 @@ Sans surveiller les heartbeats eux-mêmes, un listener mort passe inaperçu 8h+ 
 `check-all-listeners.ps1` lit tous les `*.heartbeat` partagées et poste `[FLEET-ALERT] [WARN]` dès
 qu'une machine dépasse 2h. Conçu pour cron 2h, mais **il n'était enregistré sur AUCUNE machine**
 (incident #2928 : ai-01 dead 8h, remarqué seulement par patrouilles manuelles po-2026/po-2024).
+La **lecture multi-miroirs** et le **code de sortie** de ce check sont décrits plus bas
+(« Miroirs de l'état partagé et code de sortie (#4503) ») — c'est la lecture qui décide du verdict.
 
 Installer (identique sur chaque machine — n'importe laquelle peut détecter n'importe quel autre
 listener mort via les heartbeats partagées GDrive) :
@@ -118,6 +120,41 @@ pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-check-all
 Options de rollout (lane coordinator/user) : (1) ai-01 seul auto-monitore tout le fleet,
 (2) chaque machine installe → détection distribuée redondante, (3) garder ad-hoc. L'installeur ne
 décide pas — il supporte les trois selon qui l'installe.
+
+### Miroirs de l'état partagé et code de sortie (#4503)
+
+L'état partagé vit sur un dossier `Synchronisation` que DriveFS **duplique** : la copie d'origine et
+les copies suffixées (`Synchronisation (1)`, `Synchronisation (2)`…) coexistent, et chaque siège
+écrit dans le miroir que **sa** configuration désigne. Un check qui n'en lit qu'un juge la flotte
+sur une fraction de l'état : depuis une copie périmée il rend « 4 of 6 machines STALE/DEAD » pour
+des sièges qui publient dans l'autre miroir, et le verdict **contredit** celui d'un autre siège
+deux minutes plus tard (symptôme mesuré le 01-02/11 : 6 alertes identiques en 48 h).
+
+Le checker lit donc **toutes** les racines candidates (`<drive>/Mon Drive/Synchronisation*/RooSync/
+.shared-state`) et retient, pour chaque siège, la **preuve la plus fraîche** — le timestamp ISO
+embarqué dans le contenu du fichier (le `mtime` n'est qu'un repli : sa propagation DriveFS peut
+être périmée dans la vue du lecteur). Chaque verdict **nomme le miroir qui l'a produit** (colonne
+`Source`), ce qui permet à un lecteur de départager deux verdicts contradictoires. Diagnostic
+ponctuel d'un miroir précis : `-FleetSharedRoots "<racine1>;<racine2>"` ou la variable
+d'environnement `FLEET_SHARED_ROOTS` (remplace la découverte, ne s'y ajoute pas).
+
+Le roster des sièges vient de `.claude/configs/fleet-manifest.json` (9 sièges), plus d'une liste en
+dur. Un siège silencieux depuis plus de 7 jours est marqué `RETIRED` : il ne déclenche pas d'alerte
+(siège sorti du périmètre, pas un listener mort — l'alerte permanente serait le bruit que #4503
+combat) mais reste visible dans la sortie.
+
+Codes de sortie :
+
+| Code | Signification |
+|---|---|
+| `0` | flotte saine, et au moins un siège vérifié |
+| `1` | au moins un listener **confirmé mort** (> 2 h sans publication) |
+| `2` | la passe n'a **rien vérifié** (aucun heartbeat lisible dans aucun miroir) |
+
+`RC=2` rend visible le « vert qui ne vérifie rien » pour tout planificateur. Il n'exige **aucun**
+changement consommateur : `report-failed-scheduled-tasks.ps1` traite déjà `RC=2` comme un échec réel
+(liste bénigne : `0`, `267009`, `267011`, `2147946720`), et son harnais verrouille cette
+absence d'exclusion.
 
 ## Réponse à une alerte STALE — probe local avant tout geste (#3904)
 

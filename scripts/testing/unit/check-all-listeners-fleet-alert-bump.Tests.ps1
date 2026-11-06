@@ -59,10 +59,16 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
             $prevRsmRoot = $env:RSM_SERVER_ROOT
             $prevMachineId = $env:ROOSYNC_MACHINE_ID
             $prevCliLog = $env:FLEET_CLI_LOG
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
             $env:ROOSYNC_SHARED_PATH = $tmpShared
             $env:RSM_SERVER_ROOT = $fakeRsmRoot
             $env:ROOSYNC_MACHINE_ID = 'machine-det'
             $env:FLEET_CLI_LOG = $cliLog
+            # Isolation : la surcharge FLEET_SHARED_ROOTS REMPLACE la decouverte.
+            # Sans elle, le script enumererait les vrais miroirs DriveFS de la
+            # machine de test — la lecture serait realiste mais non deterministe
+            # (et le verdict dependrait de ce que la flotte publie a l'instant).
+            $env:FLEET_SHARED_ROOTS = $tmpShared
             try {
                 $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines $machines -NoRepair 2>$null
                 return ($out -join "`n")
@@ -71,6 +77,7 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
                 $env:RSM_SERVER_ROOT = $prevRsmRoot
                 $env:ROOSYNC_MACHINE_ID = $prevMachineId
                 $env:FLEET_CLI_LOG = $prevCliLog
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
             }
         }
 
@@ -102,6 +109,24 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
             $hbf = Join-Path $hbDir "$machine.heartbeat"
             [System.IO.File]::WriteAllText($hbf, $stale, [System.Text.UTF8Encoding]::new($false))
             (Get-Item $hbf).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddHours(-3)
+        }
+
+        # Heartbeat frais (contenu ISO) dans une racine donnee.
+        function New-FreshHeartbeat($root, $machine, $minutesAgo = 1) {
+            $hbDir = Join-Path $root 'listener-heartbeats'
+            New-Item -ItemType Directory -Path $hbDir -Force | Out-Null
+            $fresh = (Get-Date).ToUniversalTime().AddMinutes(-$minutesAgo).ToString('yyyy-MM-ddTHH:mm:ssZ')
+            [System.IO.File]::WriteAllText((Join-Path $hbDir "$machine.heartbeat"), $fresh, [System.Text.UTF8Encoding]::new($false))
+        }
+
+        # Heartbeat vieux (contenu ISO) dans une racine donnee.
+        function New-AgedHeartbeat($root, $machine, $daysAgo = 3) {
+            $hbDir = Join-Path $root 'listener-heartbeats'
+            New-Item -ItemType Directory -Path $hbDir -Force | Out-Null
+            $old = (Get-Date).ToUniversalTime().AddDays(-$daysAgo).ToString('yyyy-MM-ddTHH:mm:ssZ')
+            $hbf = Join-Path $hbDir "$machine.heartbeat"
+            [System.IO.File]::WriteAllText($hbf, $old, [System.Text.UTF8Encoding]::new($false))
+            (Get-Item $hbf).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddDays(-$daysAgo)
         }
     }
     AfterAll {
@@ -221,13 +246,16 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
             New-Item -ItemType Directory -Path $tmpShared -Force | Out-Null
             $prevShared = $env:ROOSYNC_SHARED_PATH
             $prevRsmRoot = $env:RSM_SERVER_ROOT
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
             $env:ROOSYNC_SHARED_PATH = $tmpShared
             $env:RSM_SERVER_ROOT = ''
+            $env:FLEET_SHARED_ROOTS = $tmpShared
             try {
                 $jsonOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-ux' -NoRepair -Json 2>$null
             } finally {
                 $env:ROOSYNC_SHARED_PATH = $prevShared
                 $env:RSM_SERVER_ROOT = $prevRsmRoot
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
             }
             $j = ($jsonOut -join "`n") | ConvertFrom-Json
             $j.totalUnknown | Should -Be 1 -Because 'the absent heartbeat is counted as unknown, not dead'
@@ -277,6 +305,153 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
 
             $out | Should -Match 'STALE' -Because 'the embedded old timestamp must make the machine stale'
             $out | Should -Match 'FLEET-ALERT' -Because 'a genuinely stale heartbeat must arm the alert'
+        }
+    }
+
+    Context '#4503 (cause racine) - the verdict reads the FRESHEST proof across the shared-state mirrors' {
+        # Le symptome de #4503 : deux miroirs DriveFS de l'etat partage
+        # (« Synchronisation » et « Synchronisation (1) ») divergent. Un siege
+        # publie dans le miroir (1) ; un lecteur qui ne lit QUE la racine
+        # canonique ne le voit pas et le declare mort, ou absent. Le correctif
+        # lit l'UNION des miroirs et retient la preuve la plus recente.
+
+        It 'reads ALIVE a machine that publishes ONLY in the divergent mirror' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'mirror-a'
+            $rootB = Join-Path $script:Tmp 'mirror-b'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            New-Item -ItemType Directory -Path $rootB -Force | Out-Null
+            # Le siege vit dans le miroir B, absent du miroir A.
+            New-FreshHeartbeat $rootB 'machine-split'
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = "$rootA;$rootB"
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-split' -NoRepair -NoAlert 2>$null
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+            $text = ($out -join "`n")
+
+            $text | Should -Match 'machine-split'
+            $text | Should -Match 'ALIVE' -Because 'a machine publishing in the divergent mirror must not read STALE, nor UNKNOWN'
+            $text | Should -Not -Match 'FLEET-ALERT' -Because 'a live machine must not arm the STALE alert'
+        }
+
+        It 'keeps ALIVE a machine that is STALE in one mirror and fresh in another' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'mirror-stale-a'
+            $rootB = Join-Path $script:Tmp 'mirror-fresh-b'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            New-Item -ItemType Directory -Path $rootB -Force | Out-Null
+            New-AgedHeartbeat $rootA 'machine-both' 3
+            New-FreshHeartbeat $rootB 'machine-both' 1
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = "$rootA;$rootB"
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-both' -NoRepair -NoAlert 2>$null
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+            $text = ($out -join "`n")
+
+            $text | Should -Match 'ALIVE' -Because 'the freshest proof wins across mirrors'
+            $text | Should -Not -Match 'FLEET-ALERT' -Because 'a stale copy must not outvote a fresh publication'
+        }
+
+        It 'names the mirror that supplied the verdict (issue piste 3)' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'mirror-named-a'
+            $rootB = Join-Path $script:Tmp 'mirror-named-b'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            New-Item -ItemType Directory -Path $rootB -Force | Out-Null
+            New-FreshHeartbeat $rootB 'machine-src'
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = "$rootA;$rootB"
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-src' -NoRepair -NoAlert -Json 2>$null
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+            $j = (($out -join "`n")) | ConvertFrom-Json
+
+            $j.machines[0].sourceRoot | Should -Be $rootB -Because 'the verdict must name the root it was read from'
+            $j.machines[0].sourceKind | Should -Be 'content' -Because 'the embedded ISO timestamp is the authority'
+            $j.sharedRoots.Count | Should -Be 2 -Because 'both mirrors must be reported to the reader'
+        }
+
+        It 'marks a seat silent for more than 7 days RETIRED, and does not alert on it' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'mirror-retired'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            New-AgedHeartbeat $rootA 'machine-gone' 30
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = $rootA
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-gone' -NoRepair -NoAlert 2>$null
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+            $text = ($out -join "`n")
+
+            $text | Should -Match 'RETIRED' -Because 'a seat silent for a month is out of scope, not a dead listener'
+            $text | Should -Not -Match 'FLEET-ALERT' -Because 'a permanent alert on a retired seat is exactly the noise #4503 targets'
+        }
+    }
+
+    Context '#4503 (exit instrument) - a run that verified nothing is not a green run' {
+        It 'exits 2 when no heartbeat is readable anywhere' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'exit-empty'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = $rootA
+            try {
+                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-none' -NoRepair -NoAlert 2>$null | Out-Null
+                $code = $LASTEXITCODE
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+
+            $code | Should -Be 2 -Because 'a pass that read nothing must not report success to a scheduler'
+        }
+
+        It 'exits 0 when at least one seat is verified' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'exit-ok'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+            New-FreshHeartbeat $rootA 'machine-ok'
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = $rootA
+            try {
+                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-ok' -NoRepair -NoAlert 2>$null | Out-Null
+                $code = $LASTEXITCODE
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+
+            $code | Should -Be 0 -Because 'a verified fleet is a green run'
+        }
+    }
+
+    Context '#4503 (roster) - the machine list comes from the declarative manifest' {
+        It 'checks the 9 seats of fleet-manifest.json, not a hardcoded list of 6' -Skip:($env:OS -ne 'Windows_NT') {
+            $rootA = Join-Path $script:Tmp 'roster'
+            New-Item -ItemType Directory -Path $rootA -Force | Out-Null
+
+            $prevFleetRoots = $env:FLEET_SHARED_ROOTS
+            $env:FLEET_SHARED_ROOTS = $rootA
+            try {
+                $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -NoRepair -NoAlert -Json 2>$null
+            } finally {
+                $env:FLEET_SHARED_ROOTS = $prevFleetRoots
+            }
+            $j = (($out -join "`n")) | ConvertFrom-Json
+            $ids = @($j.machines | ForEach-Object { $_.machineId })
+
+            $ids | Should -Contain 'myia-po-2027' -Because 'the manifest seat publishes a heartbeat and was never checked'
+            $ids | Should -Contain 'myia-po-2028' -Because 'the manifest seat publishes a heartbeat and was never checked'
+            $ids | Should -Contain 'myia-web2' -Because 'the manifest seat publishes a heartbeat and was never checked'
+            $ids.Count | Should -Be 9 -Because 'the manifest declares 9 seats'
         }
     }
 }
