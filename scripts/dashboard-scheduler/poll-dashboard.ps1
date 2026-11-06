@@ -163,6 +163,60 @@ function Set-LastAckTimestamp($ws, $timestamp) {
     )
 }
 
+# ========== #4131 G-DASH : IO DASHBOARD PG-FIRST ==========
+# Le miroir fichier n'est plus écrit à chaque append (il devient un export
+# périodique produit par la réconciliation) : la découverte par `workspace-*.md`
+# et la lecture du markdown ne sont donc plus des surfaces fiables. Les deux
+# sites passent D'ABORD par le CLI du submodule RSM (journal PG), et gardent le
+# fichier en repli — fail-open partout : node absent, submodule absent,
+# `PG-UNREACHABLE` (exit 1), usage (exit 2) rendent $null et le chemin fichier
+# d'origine reprend, inchangé.
+
+$script:RsmScriptsDirCache = $null
+
+function Get-RsmScriptsDir {
+    # Résolution (une fois, cachée) : RSM_SERVER_ROOT env > submodule voisin du
+    # dépôt qui porte ce script. "" = introuvable -> repli fichier.
+    if ($null -ne $script:RsmScriptsDirCache) { return $script:RsmScriptsDirCache }
+    $candidates = @()
+    if (-not [string]::IsNullOrEmpty($env:RSM_SERVER_ROOT)) { $candidates += $env:RSM_SERVER_ROOT }
+    $candidates += [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\mcps\internal\servers\roo-state-manager"))
+    foreach ($c in $candidates) {
+        if (Test-Path (Join-Path $c "scripts\rsm-dashboard-intercom.mjs")) {
+            $script:RsmScriptsDirCache = Join-Path $c "scripts"
+            return $script:RsmScriptsDirCache
+        }
+    }
+    Write-Log "DEBUG" "RSM CLI dir not found (PG-first read disabled, file paths only)."
+    $script:RsmScriptsDirCache = ""
+    return ""
+}
+
+function Invoke-RsmCliJson($scriptName, $cliArgs) {
+    # Appelle un CLI .mjs du submodule, rend le JSON stdout parsé ou $null.
+    $dir = Get-RsmScriptsDir
+    if ($dir -eq "") { return $null }
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -eq $node) { return $null }
+    # Review re#4569 (mesuré 5.1.26100) : sous PS 5.1 + EAP Stop (l.101), le
+    # stderr d'une commande native redirigé par 2>$null devient un ErrorRecord
+    # TERMINANT (RemoteException) — le test $LASTEXITCODE ci-dessous n'est donc
+    # JAMAIS atteint et l'appelant meurt au lieu de replier sur le fichier
+    # (pwsh 7 atteint la branche : les deux runtimes divergent sur ce geste).
+    # try/catch local = même idiome que roosync-statusline.ps1 (validé review).
+    try {
+        $out = & $node.Source (Join-Path $dir $scriptName) @cliArgs 2>$null
+    } catch {
+        Write-Log "DEBUG" "RSM CLI $scriptName stderr terminant capture (repli fichier)."
+        return $null
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "DEBUG" "RSM CLI $scriptName exit $LASTEXITCODE (repli fichier)."
+        return $null
+    }
+    try { return (($out -join "`n") | ConvertFrom-Json) } catch { return $null }
+}
+
 function Resolve-Workspaces {
     # Priority: explicit -Workspaces > legacy -Workspace > env var > auto-discover
     if (-not [string]::IsNullOrEmpty($Workspaces)) {
@@ -189,13 +243,28 @@ function Resolve-Workspaces {
         return @()
     }
     $dashboardDir = Join-Path $sharedPath "dashboards"
-    if (-not (Test-Path $dashboardDir)) {
-        Write-Log "WARN" "Auto-discover: dashboards dir not found at $dashboardDir"
-        return @()
-    }
 
-    $discovered = Get-ChildItem -Path $dashboardDir -Filter "workspace-*.md" -File |
-                  ForEach-Object { $_.BaseName -replace '^workspace-', '' }
+    # #4131 G-DASH — découverte PG d'abord. Un workspace actif peut n'avoir
+    # aucun fichier : le markdown est un export, pas la surface. Le repli
+    # fichier couvre le CLI muet ET le journal vide (store neuf, backfill non
+    # fait) — un `discover` à 0 clé ne doit pas éteindre le watcher.
+    $discovered = $null
+    $pgDiscover = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--discover')
+    if ($null -ne $pgDiscover -and $pgDiscover.mode -eq 'discover') {
+        $pgWorkspaces = @($pgDiscover.workspaces)
+        if ($pgWorkspaces.Count -gt 0) {
+            $discovered = $pgWorkspaces
+            Write-Log "DEBUG" "Auto-discover via PG: $($pgWorkspaces.Count) workspace(s)"
+        }
+    }
+    if ($null -eq $discovered) {
+        if (-not (Test-Path $dashboardDir)) {
+            Write-Log "WARN" "Auto-discover: dashboards dir not found at $dashboardDir"
+            return @()
+        }
+        $discovered = @(Get-ChildItem -Path $dashboardDir -Filter "workspace-*.md" -File |
+                        ForEach-Object { $_.BaseName -replace '^workspace-', '' })
+    }
 
     # Apply -AllowedWorkspaces filter if provided
     if (-not [string]::IsNullOrEmpty($AllowedWorkspaces)) {
@@ -218,6 +287,40 @@ function Invoke-DashboardRead($ws, [int]$MaxMessages = 0) {
     if ([string]::IsNullOrEmpty($sharedPath)) {
         throw "ROOSYNC_SHARED_PATH env var not set"
     }
+
+    # #4131 G-DASH — journal PG d'abord : le markdown n'est plus écrit à chaque
+    # append (export périodique), donc un workspace actif peut n'avoir aucun
+    # fichier, ou un fichier en retard. Le CLI rend la MÊME shape que le
+    # parseur fichier ; le repli intégral suit si node/submodule/PG manque.
+    #
+    # Normalisation au bord (même mesure que dashboard-listener.ps1:650-662) :
+    # ConvertFrom-Json désérialise les ISO-8601 en [DateTime] sous pwsh 7 — et
+    # un [string] sur un DateTime rend un format local/culture que le
+    # consommateur relit mal. On force donc une STRING ISO identique au chemin
+    # fichier, sur les deux runtimes.
+    $pg = Invoke-RsmCliJson "rsm-dashboard-intercom.mjs" @('--workspace', $ws)
+    if ($null -ne $pg -and $pg.mode -eq 'messages') {
+        $pgMessages = @($pg.messages)
+        if ($MaxMessages -gt 0 -and $pgMessages.Count -gt $MaxMessages) {
+            $pgMessages = $pgMessages[($pgMessages.Count - $MaxMessages)..($pgMessages.Count - 1)]
+        }
+        $messages = @($pgMessages | ForEach-Object {
+            [pscustomobject]@{
+                timestamp = if ($_.timestamp -is [datetime]) { $_.timestamp.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'") } else { [string]$_.timestamp }
+                content   = $_.content
+                author    = $_.author
+            }
+        })
+        Write-Log "DEBUG" "Read $ws from PG: $($messages.Count) message(s)"
+        return [pscustomobject]@{
+            data = [pscustomobject]@{
+                intercom = [pscustomobject]@{
+                    messages = $messages
+                }
+            }
+        }
+    }
+
     $dashboardFile = Join-Path $sharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) {
         throw "Dashboard file not found: $dashboardFile"
