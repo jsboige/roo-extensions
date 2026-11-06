@@ -1,4 +1,4 @@
-# Static harness: report-failed-scheduled-tasks.ps1 must exclude exactly the
+﻿# Static harness: report-failed-scheduled-tasks.ps1 must exclude exactly the
 # result codes that are NOT failures -- no more, no less.
 #
 # What this pins (measured ai-01 2026-08-15, 223 tasks, 22 non-zero, 5 real):
