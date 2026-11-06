@@ -197,4 +197,38 @@ Describe 'FLEET-ALERT write path (#4131 G-C étape 3, option a)' {
             (Join-Path $tmpShared 'dashboards/machine-machine-det.md') | Should -Not -Exist
         }
     }
+
+    Context '#4503 - a missing heartbeat is UNVERIFIED, never counted healthy or dead' {
+        It 'reports an absent heartbeat as UNVERIFIED, not STALE and not healthy' -Skip:($env:OS -ne 'Windows_NT') {
+            $tmpShared = Join-Path $script:Tmp 'unknown'
+            New-Item -ItemType Directory -Path $tmpShared -Force | Out-Null   # shared path exists, no heartbeat inside
+            $fake = New-FakeRsmRoot 'rsm-unknown' 'ok'
+            $cliLog = Join-Path $script:Tmp 'unknown-cli.log'
+
+            $out = Invoke-FleetCheck $tmpShared $fake 'machine-ux' $cliLog
+
+            $out | Should -Match '1 UNVERIFIED' -Because 'the absent heartbeat must be surfaced as UNVERIFIED, not folded into a clean green'
+            $out | Should -Match 'no heartbeat readable' -Because 'the note must state the run verified nothing for that machine'
+            $out | Should -Not -Match 'FLEET-ALERT' -Because 'UNKNOWN must never arm the STALE alert (that is the false-positive the issue targets)'
+        }
+
+        It 'JSON output carries totalUnknown=1 and totalDead=0 for a missing heartbeat' -Skip:($env:OS -ne 'Windows_NT') {
+            $tmpShared = Join-Path $script:Tmp 'unknown-json'
+            New-Item -ItemType Directory -Path $tmpShared -Force | Out-Null
+            $prevShared = $env:ROOSYNC_SHARED_PATH
+            $prevRsmRoot = $env:RSM_SERVER_ROOT
+            $env:ROOSYNC_SHARED_PATH = $tmpShared
+            $env:RSM_SERVER_ROOT = ''
+            try {
+                $jsonOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:FleetPath -Machines 'machine-ux' -NoRepair -Json 2>$null
+            } finally {
+                $env:ROOSYNC_SHARED_PATH = $prevShared
+                $env:RSM_SERVER_ROOT = $prevRsmRoot
+            }
+            $j = ($jsonOut -join "`n") | ConvertFrom-Json
+            $j.totalUnknown | Should -Be 1 -Because 'the absent heartbeat is counted as unknown, not dead'
+            $j.totalDead | Should -Be 0 -Because 'an unreadable heartbeat is not evidence of death'
+            $j.machines[0].heartbeat | Should -Be 'UNKNOWN'
+        }
+    }
 }

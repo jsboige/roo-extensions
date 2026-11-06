@@ -62,6 +62,7 @@ if (-not [string]::IsNullOrEmpty($Machines)) {
 
 $results = @()
 $totalDead = 0
+$totalUnknown = 0
 
 foreach ($machineEntry in $machineList) {
     # Parse machineId:workspace or just machineId
@@ -83,6 +84,13 @@ foreach ($machineEntry in $machineList) {
         $heartbeatStatus = if ($age -lt 7200) { "ALIVE" } else { "STALE" }
         if ($age -gt 7200) { $totalDead++ }
     }
+
+    # #4503 : un heartbeat absent (ou ROOSYNC_SHARED_PATH non pose) laisse
+    # $heartbeatStatus = "UNKNOWN". Cet etat ne se compte PAS sain : s'il
+    # s'effacait dans le "0 STALE/DEAD", une passe qui ne lit aucun heartbeat
+    # rendrait un vert silencieux (totalDead=0). Il est donc compte a part et
+    # surface, sans jamais alerter (l'alerte reste reservee au STALE confirme).
+    if ($heartbeatStatus -eq "UNKNOWN") { $totalUnknown++ }
 
     # #3761 remède 3 : compteur de skips du jour, écrit par le listener à côté du
     # heartbeat (listener-heartbeats/<machine>.skips, UTF-8 no BOM, lignes
@@ -116,6 +124,7 @@ if ($Json) {
         checkedAtUtc = $nowUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
         totalMachines = $results.Count
         totalDead     = $totalDead
+        totalUnknown  = $totalUnknown
         machines      = $results
     } | ConvertTo-Json -Depth 3
     exit $(if ($totalDead -gt 0) { 1 } else { 0 })
@@ -133,8 +142,12 @@ foreach ($r in $results) {
     Write-Output "| $($r.machineId) | $($r.heartbeat) | $ageStr | $skipsStr | $statusStr |"
 }
 Write-Output ""
-Write-Output "Total: $($results.Count) machines checked, $totalDead STALE/DEAD."
+Write-Output "Total: $($results.Count) machines checked, $totalDead STALE/DEAD, $totalUnknown UNVERIFIED (no heartbeat read)."
 Write-Output ""
+if ($totalDead -eq 0 -and $totalUnknown -gt 0) {
+    Write-Output "NOTE: $totalUnknown machine(s) UNVERIFIED - no heartbeat readable (ROOSYNC_SHARED_PATH unset or file absent). Not counted as healthy; this run verified nothing for them."
+    Write-Output ""
+}
 
 # ========== G-C #4131 étape 3 : IO DASHBOARD VIA LES CLI DU SUBMODULE ==========
 # Mêmes helpers que dashboard-listener.ps1 (sites 1-4, #4203) — duplication
