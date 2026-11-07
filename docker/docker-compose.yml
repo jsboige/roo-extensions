@@ -29,3 +29,10 @@ services:
       test: ["CMD", "true"]
       interval: 60s
     restart: unless-stopped
+    # Fleet bounds (Maintenance#303, user mandate 07/11): an unbounded container
+    # can take the whole WSL VM it shares with qdrant/postgres. Measured
+    # 07/11 18:00Z: ~150 MiB, 66 PIDs. Limits live HERE, not in `docker update`,
+    # because an update is lost at the next recreate.
+    mem_limit: 1g
+    memswap_limit: 1g
+    pids_limit: 512
