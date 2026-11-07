@@ -2,7 +2,7 @@
 
 **Version:** 1.1.0
 **Created:** 2026-03-18
-**Updated:** 2026-06-23
+**Updated:** 2026-11-07
 **Issue:** #675
 **Tool:** `roosync_dashboard`
 
@@ -40,6 +40,17 @@ Shared markdown dashboards for cross-machine and cross-workspace collaboration. 
   archive/
     {key}-{datetime}.json
 ```
+
+### Authority: the PG store only (#4439, #4131 G-DASH)
+
+**The PostgreSQL unified store (`UNIFIED_STORE_PG_URL`) holds the authoritative copy of every dashboard.** `read` and `list` serve from it. Files under `.shared-state/dashboards/` on G: are a **derived export**, never a source of truth.
+
+- **Who writes the file.** Since #4131 G-DASH became the default (06/11/2026, ms#1664), an `append` does **not** rewrite the file once PG has taken the write. `writeVerification.gdriveSkipped: true` is the nominal answer, not a failure. The file belongs to the **PG→file mirror repair** of the reconciliation daemon (`roosync-dashboard-reconcile.ts`, #3230). It runs every 6 h, writes at most 10 lagging files per pass (`ROOSYNC_DASHBOARD_MIRROR_REPAIR_MAX`), and one process per cluster holds its PG lock.
+- **Write fallback, kept on purpose.** When PG does not take an append (store unreachable, seat without a store), the file is written as before, so no message is lost. `UNIFIED_STORE_DASHBOARD_APPEND_MIRROR=0` restores the per-append mirror without a redeploy.
+- **The file view differs from seat to seat.** Conflict copies `name (N).md` are numbered **by each DriveFS client**: on 06/11, ai-01 and web1 saw disjoint sets of twins, and one file was empty on one seat and absent on the other, while PG held zero `(N)` keys (#4439). Store health, forks and closure criteria are therefore judged on `read` + `list` (PG), never on a seat's file view.
+- **Never repair a twin file by hand.** Renaming or deleting a `name (N).md` file on a seat propagates to Drive and does not touch PG. A fork key **in the store** is repaired with `action:"merge"` only. Never use `delete` on it.
+- **A reader in file fallback is degraded.** A reader that falls back to the file (PG unreachable, host on an old build, a human browsing Drive) can get a stale, empty or twin copy with no staleness marker. Report what it reads as degraded, never as current state. Export freshness is measured by G-MES (ms#1679, #4580).
+- **Known gap: a 0-byte file is never repaired.** The mirror repair parses the file before comparing it with PG. An empty file fails that parse (`dashboard-markdown.ts`, missing frontmatter), the pass logs it as a transient error and moves on, and the "file absent" branch skips it because the name exists. Until the fix tracked in #4131 lands, a 0-byte export stays 0 bytes.
 
 ---
 
