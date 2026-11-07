@@ -13,6 +13,6 @@ qui n'existent plus - scan #4576 du 07/11/2026 : 9 (INSTALLATION) + 7 (TROUBLESH
 
 **Decision :** #2639 WS3 option (a) - archivage (coordinateur ai-01, c.6711090866,
 07/11/2026) ; porteur po-204. Les documents vivants equivalents vivent dans
-`mcps/internal/` (submodule) et `docs/harness/reference/tool-availability.md`.
+`mcps/internal/` (submodule) et `docs/harness/reference/tool-availability-detailed.md`.
 
 *Fichiers geles : on ne repare pas les liens d'un snapshot (consolider != archiver).*
