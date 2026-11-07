@@ -50,6 +50,7 @@ Shared markdown dashboards for cross-machine and cross-workspace collaboration. 
 - **The file view differs from seat to seat.** Conflict copies `name (N).md` are numbered **by each DriveFS client**: on 06/11, ai-01 and web1 saw disjoint sets of twins, and one file was empty on one seat and absent on the other, while PG held zero `(N)` keys (#4439). Store health, forks and closure criteria are therefore judged on `read` + `list` (PG), never on a seat's file view.
 - **Never repair a twin file by hand.** Renaming or deleting a `name (N).md` file on a seat propagates to Drive and does not touch PG. A fork key **in the store** is repaired with `action:"merge"` only. Never use `delete` on it.
 - **A reader in file fallback is degraded.** A reader that falls back to the file (PG unreachable, host on an old build, a human browsing Drive) can get a stale, empty or twin copy with no staleness marker. Report what it reads as degraded, never as current state. Export freshness is measured by G-MES (ms#1679, #4580).
+- **Known gap: a 0-byte file is never repaired.** The mirror repair parses the file before comparing it with PG. An empty file fails that parse (`dashboard-markdown.ts`, missing frontmatter), the pass logs it as a transient error and moves on, and the "file absent" branch skips it because the name exists. Until the fix tracked in #4131 lands, a 0-byte export stays 0 bytes.
 
 ---
 
