@@ -27,10 +27,10 @@ Un conflit critique a été identifié dans l'organisation des serveurs MCP Jupy
 
 #### Fichiers de documentation corrigés :
 - ✅ `mcps/README.md` - Suppression de la référence externe
-- ✅ `mcps/TROUBLESHOOTING.md` - Redirection vers le bon chemin
+- ✅ `docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md` - Redirection vers le bon chemin
 - ✅ `mcps/REORGANISATION-RAPPORT.md` - Mise à jour de la description
 - ✅ `mcps/INDEX.md` - Correction du chemin de commande
-- ✅ `mcps/INSTALLATION.md` - Mise à jour des chemins et liens
+- ✅ `docs/archive/mcps-pre-submodule/INSTALLATION.md` - Mise à jour des chemins et liens
 - ✅ `mcps/MANUAL_START.md` - Correction des chemins de démarrage
 - ✅ `mcps/SEARCH.md` - Mise à jour des exemples
 

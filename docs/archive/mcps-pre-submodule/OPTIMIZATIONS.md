@@ -1,3 +1,11 @@
+> ## ARCHIVED - pre-submodule era (2026-11-07)
+>
+> **Status:** Verbatim snapshot, kept for traceability. Pre-dates the `mcps/internal` submodule split.
+> **Moved from:** `mcps/OPTIMIZATIONS.md` (git mv, history preserved).
+> **Why:** 3 outgoing links point at pre-submodule paths that no longer exist (#2639 WS3 scan, #4576 scanner).
+> **Decision:** #2639 WS3 option (a) - archivage (coordinateur ai-01, c.6711090866, 2026-11-07).
+> **Living docs:** `mcps/internal/README.md` - `docs/harness/reference/tool-availability.md`.
+
 <!-- START_SECTION: metadata -->
 ---
 title: "Optimisations des serveurs MCP"
