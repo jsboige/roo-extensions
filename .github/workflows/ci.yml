@@ -836,6 +836,17 @@ jobs:
       - name: Run check-all-listeners fleet check suite (#4503)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-all-listeners-fleet-alert-bump.Tests.ps1 -CI
+      # #4587: same gap, one cycle later — the unclean-boot crash probe suite
+      # (#4578, po-2028 crash guard) drives the probe as a powershell.exe 5.1
+      # child with a mocked Get-WinEvent; its four state-machine Its carry
+      # -Skip:($env:OS -ne 'Windows_NT'), so the unit-pester job's ubuntu
+      # runner reported the file green WITHOUT executing one assertion. The
+      # push filter above already re-triggers CI on the probe and on
+      # scripts/testing/unit/** — this windows-latest step is where the suite
+      # actually runs.
+      - name: Run check-unclean-boot suite (#4587)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-unclean-boot.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
