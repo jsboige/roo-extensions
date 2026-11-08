@@ -47,6 +47,22 @@ supprimer un fichier du dépôt demande une preuve de préservation — l'archiv
 
 - **#2877** (Epic consolidation doc, sous-chantier W9 nouveau), lane `myia-web1:roo-extensions`,
   cycle c.771, 08/11/2026.
+
+## Complément c.774 (même jour, arbitrage #2877)
+
+| Fichier | Origine | Âge au 08/11/2026 | Octets |
+|---|---|---|---|
+| `SCHEDULED_COORDINATOR.md` | `docs/roo-code/` | 247 j | 6 791 |
+
+Ajouté par `myia-web1:roo-extensions` (cycle c.774) après **arbitrage ai-01 c.6721203691** : zéro
+consommateur vivant (INDEX seul — les points d'entrée vivants citent
+[`docs/harness/coordinator-specific/scheduled-coordinator.md`](../../harness/coordinator-specific/scheduled-coordinator.md),
+cité par `CLAUDE.md` et `.roo/rules/15`), qui en est un **sur-ensemble modernisé** (mapping section
+par section dans le corps de la PR). Déplacement pur (`git mv`, rename 100 %). Contrairement aux
+5 premiers, ce fichier n'est pas une note de session d'octobre 2025 mais un protocole de mars 2026
+dont chaque section vit, mise à jour, dans la version harness — les seules valeurs absentes de la
+cible sont des variantes périmées (cadence méta-analyste 24 h, `roosync_list_diffs`,
+`roosync_heartbeat`, défauts 8 h/opus/30 min), listées comme telles dans la PR.
 - Les 8 workstreams d'origine W1-W8 sont tous fermés ; ce lot est un **résidu neuf** trouvé par
   re-mesure de l'audit #2876 (07/2026), qui comptait 718 fichiers `.md` là où l'arbre en porte 779.
 

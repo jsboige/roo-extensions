@@ -132,6 +132,17 @@ git push origin main
 
 ## Commandes utiles
 
+### Cloner le dépôt pour la première fois
+
+*(fusionné depuis `guide-synchronisation-submodules.md`, #2877 — c'était son seul contenu non couvert ailleurs)*
+
+```bash
+git clone <URL_DU_DEPOT_PRINCIPAL>
+cd <NOM_DU_DEPOT>
+git submodule update --init --recursive   # initialise ET aligne tous les submodules
+git status                                 # "working tree clean" = prêt
+```
+
 ### Vérifier l'état des submodules
 
 ```bash
@@ -267,6 +278,8 @@ git commit -m "chore: Update submodule"
 
 ## Dépannage
 
+> ⚠️ **Procédures legacy — la règle prime** : pour tout bump de gitlink ou conflit de sous-module, [`.claude/rules/submod-pointer-safety.md`](../../.claude/rules/submod-pointer-safety.md) **prime** sur les recettes ci-dessous (arbitrage #2877) : `git fetch` le submodule puis `merge-base --is-ancestor` (SHA atteignable depuis l'upstream, **push du submodule AVANT bump parent**), jamais de `checkout main` aveugle ni de `checkout --theirs` sans inspecter la cible — ces deux gestes sont les pièges 1 et 3 de la règle. Les recettes qui suivent datent d'avant la règle et sont conservées comme historique de diagnostic.
+
 ### Problème : "fatal: remote error: upload-pack: not our ref ..."
 
 **Cause :** Le projet principal fait référence à un commit d'un submodule qui n'existe pas sur le dépôt distant.
@@ -376,12 +389,12 @@ git submodule status
 
 ## Références
 
-- [Guide de synchronisation des submodules](../guides/guide-synchronisation-submodules.md)
+- [Guide de synchronisation des submodules (archivé — consolidé ici, #2877)](../archive/guides-2025/guide-synchronisation-submodules.md)
 - [Glossaire RooSync](guides/GLOSSAIRE.md)
 - [Troubleshooting RooSync](guides/TROUBLESHOOTING.md)
 - [Documentation Git officielle sur les submodules](https://git-scm.com/book/fr/v2/Utilitaires-Git-Submodules)
 
 ---
 
-**Dernière mise à jour :** 2025-01-16  
-**Version :** 1.0.0
+**Dernière mise à jour :** 2026-11-08 (consolidation du guide de synchronisation, #2877)  
+**Version :** 1.1.0

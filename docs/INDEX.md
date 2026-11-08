@@ -198,14 +198,15 @@ docs/
 | `scheduler-issues-fixes.md` | Fixes scheduler (2026-02-09) | active |
 | `scheduler-modes-deployment-guide.md` | Guide deploiement modes scheduler (issue #487) | active |
 
-### docs/roo-code/ — 8 fichiers + sous-dossiers
+### docs/roo-code/ — 7 fichiers + sous-dossiers
+
+> `SCHEDULED_COORDINATOR.md` consolidé dans `docs/harness/coordinator-specific/scheduled-coordinator.md` (sur-ensemble modernisé) puis archivé vers `docs/archive/roo-code-analyses-2025/` (arbitrage #2877 c.6721203691).
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `INDEXING_ARCHITECTURE.md` | Architecture indexation semantique (issue #452) | active |
-| `SCHEDULED_COORDINATOR.md` | Protocol coordinateur (doublon harness/) | active |
-| `SCHEDULER_DENSIFICATION.md` | Regle densification (doublon harness/) | active |
-| `SCHEDULER_SYSTEM.md` | Reference scheduler (doublon harness/) | active |
+| `SCHEDULER_DENSIFICATION.md` | Regle densification scheduler (**autorité** — citée par `.claude/commands/`, arbitrage #2877) | active |
+| `SCHEDULER_SYSTEM.md` | Reference scheduler (**autorité** — citée par `.claude/agents/` + `docs/scheduler-workflow.md`, arbitrage #2877) | active |
 | `message-editor-pr-description.md` | Description PR message editor | active |
 | `roo-scheduler-analysis.md` | Analyse extension kyle-apex/roo-scheduler | active |
 | `roo-scheduler-direct-config-guide.md` | Guide config directe scheduler | active |
@@ -408,9 +409,9 @@ Repertoires vides (.gitkeep) : `myia-po-2023/`, `myia-po-2024/`, `myia-po-2025/`
 
 ## 6. Guides & Reference (64 fichiers)
 
-### docs/guides/ — 13 fichiers + user-guide/ (3 fichiers)
+### docs/guides/ — 12 fichiers + user-guide/ (3 fichiers)
 
-> 4 guides d'époque (>1 an, zéro consommateur) archivés vers `docs/archive/guides-2025/` (#2877 W10) — voir le README de cette archive pour les preuves de préservation.
+> 4 guides d'époque (>1 an, zéro consommateur) archivés vers `docs/archive/guides-2025/` (#2877 W10), + 1 consolidé (arbitrage c.6721203691 : `guide-synchronisation-submodules.md` → `docs/roosync/SUBMODULE_WORKFLOW.md`) — voir le README de cette archive pour les preuves de préservation.
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
@@ -423,7 +424,6 @@ Repertoires vides (.gitkeep) : `myia-po-2023/`, `myia-po-2024/`, `myia-po-2025/`
 | `TROUBLESHOOTING-GUIDE.md` | Guide depannage general v1.1 | active |
 | `guide-complet-modes-roo.md` | Guide complet modes Roo | active |
 | `guide-exploration-prompts-natifs.md` | Guide exploration prompts natifs | active |
-| `guide-synchronisation-submodules.md` | Guide synchronisation submodules | active |
 | `guide-utilisation-mcps.md` | Guide utilisation MCPs dans modes | active |
 | `guide-utilisation-profils-modes.md` | Guide profils modes | active |
 | `jupyter-papermill-execution.md` | Guide execution Jupyter Papermill (issue #600) | active |
@@ -580,9 +580,9 @@ coordination/ (3), issues/ (1), reports/ (9), sessions/ (1), plus 3 fichiers rac
 
 ## Doublons connus
 
-- `roo-code/SCHEDULED_COORDINATOR.md` ↔ `harness/reference/scheduler-system.md`
-- `roo-code/SCHEDULER_DENSIFICATION.md` ↔ `harness/reference/scheduler-densification.md`
-- `roo-code/SCHEDULER_SYSTEM.md` ↔ `harness/reference/scheduler-system.md`
+- ~~`roo-code/SCHEDULED_COORDINATOR.md`~~ — **résolu** (arbitrage #2877 c.6721203691) : consolidé dans `harness/coordinator-specific/scheduled-coordinator.md`, archivé.
+- ~~`roo-code/SCHEDULER_DENSIFICATION.md` ↔ `harness/reference/scheduler-densification.md`~~ — **réfuté** (arbitrage #2877) : le doc roo-code garde l'autorité (consommateurs vivants `.claude/commands/`), ce n'est pas un doublon.
+- ~~`roo-code/SCHEDULER_SYSTEM.md` ↔ `harness/reference/scheduler-system.md`~~ — **réfuté** (arbitrage #2877) : le doc roo-code garde l'autorité (consommateurs vivants `.claude/agents/`), ce n'est pas un doublon.
 - `roosync/FEEDBACK_PROCESS.md` ↔ `harness/reference/feedback-process.md`
 - `roosync/PR_REVIEW_POLICY.md` ↔ `harness/coordinator-specific/pr-review-policy.md`
 - `roosync/SKEPTICISM_PROTOCOL.md` ↔ `rules/skepticism-protocol.md`
