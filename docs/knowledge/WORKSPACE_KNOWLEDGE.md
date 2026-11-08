@@ -310,8 +310,8 @@ papermill_mcp/
 
 **Documentation**:
 - `mcps/README.md` - Guide principal
-- `mcps/INSTALLATION.md` - Installation pas-à-pas
-- `mcps/TROUBLESHOOTING.md` - Dépannage
+- `docs/archive/mcps-pre-submodule/INSTALLATION.md` - Installation pas-à-pas
+- `docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md` - Dépannage
 
 #### 2.4 Personnalisations et Forks
 
@@ -694,8 +694,8 @@ docs/
 
 **MCPs**:
 - `mcps/README.md`
-- `mcps/INSTALLATION.md`
-- `mcps/TROUBLESHOOTING.md`
+- `docs/archive/mcps-pre-submodule/INSTALLATION.md`
+- `docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md`
 
 **Configuration**:
 - `roo-config/README.md`
@@ -983,7 +983,7 @@ Développer un **système agentique de vibe coding** multi-machines et multi-wor
 
 **MCPs**:
 - `mcps/README.md` (guide)
-- `mcps/INSTALLATION.md` (installation)
+- `docs/archive/mcps-pre-submodule/INSTALLATION.md` (installation)
 - `roo-config/settings/servers.json` (configuration)
 
 **Configuration Roo**:

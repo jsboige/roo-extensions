@@ -76,7 +76,7 @@ cd mcps
 npm install
 ```
 
-Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](./INSTALLATION.md).
+Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](../docs/archive/mcps-pre-submodule/INSTALLATION.md).
 
 ## Configuration
 
@@ -261,7 +261,7 @@ Si vous rencontrez des problèmes avec les serveurs MCP :
 3. Assurez-vous que la configuration dans `servers.json` est correcte
 4. Vérifiez les dépendances requises pour chaque serveur
 
-Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
+Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLESHOOTING.md](../docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md).
 
 ## Ressources supplémentaires
 
@@ -269,7 +269,7 @@ Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLES
 - [Documentation de la configuration Roo](../roo-config/README.md)
 - [Documentation des tests](../tests/README.md)
 - [Configuration MCP dans Roo](../docs/dev/archive-configuration/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
-- [INSTALLATION.md](./INSTALLATION.md) - Instructions d'installation détaillées
-- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Guide de dépannage
+- [INSTALLATION.md](../docs/archive/mcps-pre-submodule/INSTALLATION.md) - Instructions d'installation détaillées
+- [TROUBLESHOOTING.md](../docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md) - Guide de dépannage
 - [MANUAL_START.md](./MANUAL_START.md) - Instructions pour démarrer manuellement les serveurs
-- [OPTIMIZATIONS.md](./OPTIMIZATIONS.md) - Recommandations d'optimisation
+- [OPTIMIZATIONS.md](../docs/archive/mcps-pre-submodule/OPTIMIZATIONS.md) - Recommandations d'optimisation

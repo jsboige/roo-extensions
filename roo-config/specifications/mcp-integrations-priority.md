@@ -77,7 +77,7 @@ Ces MCPs apportent une **valeur ajoutée significative** et sont recommandés po
 - **Rôle** : Conversion documents (PDF, DOCX, etc.) vers Markdown
 - **Privilégié pour** : Traitement documents dans workflows documentation
 - **Statut** : ✅ Opérationnel (uv 0.8.22 installé, Python 3.13.7)
-- **Installation** : Documentée dans [`mcps/INSTALLATION.md#markitdown`](../../mcps/INSTALLATION.md#markitdown)
+- **Installation** : Documentée dans [`mcps/INSTALLATION.md#markitdown`](../../docs/archive/mcps-pre-submodule/INSTALLATION.md#markitdown)
 
 ---
 

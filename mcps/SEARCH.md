@@ -227,6 +227,6 @@ grep -r -A 10 -B 2 "```json" --include="*.md" ./mcps/
 
 - [Retour à l'index](../docs/mcps/INDEX.md)
 - [Accueil](./README.md)
-- [Installation](./INSTALLATION.md)
-- [Dépannage](./TROUBLESHOOTING.md)
+- [Installation](../docs/archive/mcps-pre-submodule/INSTALLATION.md)
+- [Dépannage](../docs/archive/mcps-pre-submodule/TROUBLESHOOTING.md)
 <!-- END_SECTION: navigation -->
