@@ -2,7 +2,7 @@
 
 **Sub-issue:** [#2878 [W1] Liens morts inter-docs](https://github.com/jsboige/roo-extensions/issues/2878) (sub-issue of #2877 / workstream #3 of #2639)
 **Scope:** All tracked `.md` files in parent repo + `mcps/internal` submodule (1087 files, 3050 markdown links).
-**Method:** `scripts/docs/scan-broken-links.ps1` — regex `[text](target)` extraction, relative-path resolution (`./`, `../`), filesystem existence check via `Test-Path`. External links (http/https/mailto) skipped. Companion raw data: [`doc-broken-links-raw-2026-07-21.json`](./doc-broken-links-raw-2026-07-21.json).
+**Method:** `scripts/docs/scan-broken-links.ps1` — regex `[text](target)` extraction, relative-path resolution (`./`, `../`), filesystem existence check via `Test-Path`. External links (http/https/mailto) skipped. Companion raw data: [`doc-broken-links-raw-2026-07-21.json`](../../archive/doc-audit-2026-07-21/doc-broken-links-raw-2026-07-21.json).
 **Author:** myia-po-2023 (executor c.108). **W1 livrable #1 (read-only audit).** No fix PR — that is livrable #2 (gated).
 
 ---
