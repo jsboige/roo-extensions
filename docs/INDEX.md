@@ -198,23 +198,22 @@ docs/
 | `scheduler-issues-fixes.md` | Fixes scheduler (2026-02-09) | active |
 | `scheduler-modes-deployment-guide.md` | Guide deploiement modes scheduler (issue #487) | active |
 
-### docs/roo-code/ — 13 fichiers + sous-dossiers
+### docs/roo-code/ — 8 fichiers + sous-dossiers
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `INDEXING_ARCHITECTURE.md` | Architecture indexation semantique (issue #452) | active |
-| `PARSING_XML_ASSISTANT_MESSAGES.md` | Notes parsing XML assistant | active |
 | `SCHEDULED_COORDINATOR.md` | Protocol coordinateur (doublon harness/) | active |
 | `SCHEDULER_DENSIFICATION.md` | Regle densification (doublon harness/) | active |
 | `SCHEDULER_SYSTEM.md` | Reference scheduler (doublon harness/) | active |
-| `message-editor-fix-summary.md` | Resume fix autosave draft PR | active |
 | `message-editor-pr-description.md` | Description PR message editor | active |
-| `message-editor-pr-guide.md` | Guide soumission PR message editor | active |
-| `race-condition-manual-verification.md` | Verification manuelle race condition | active |
 | `roo-scheduler-analysis.md` | Analyse extension kyle-apex/roo-scheduler | active |
 | `roo-scheduler-direct-config-guide.md` | Guide config directe scheduler | active |
 | `roo-scheduler-installation-guide.md` | Guide installation scheduler | active |
-| `send-message-flow-analysis.md` | Analyse flux envoi messages | active |
+
+**Archives** (W9, 08/11/2026) : 5 fichiers one-shot d'octobre 2025 (analyses autosave draft /
+race condition, guide de soumission PR, notes XML vides) déplacés vers
+`docs/archive/roo-code-analyses-2025/` — voir son README.
 
 **adr/** (3 fichiers) : `001-registry-pattern`, `002-singleton-pattern`, `004-template-method` — tous actifs
 
