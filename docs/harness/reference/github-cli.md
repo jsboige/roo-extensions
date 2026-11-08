@@ -133,6 +133,34 @@ echo '...' > query.graphql && gh api graphql -f query=$(cat query.graphql)
 
 Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
+## Quota GraphQL — discipline REST et lecture des en-têtes (#4150)
+
+**Mesure po-2028 du 08/11 (issue #4150)** : le plafond atteint en flotte est la limite **primaire** 5 000 pts/h du compte partagé (user id 3159389) — pas une limite secondaire. L'état du plafond est **fragmenté en cellules de limiteur à fenêtres indépendantes** : deux sondes consécutives à la même seconde ont rendu deux états cohérents alternés (`4061/939/reset 00:54:45Z` puis `3962/1038/reset 00:37:04Z`, ancres ~17,7 min d'écart). Conséquence mesurée : `gh api rate_limit` et le nœud `rateLimit` d'une réponse rendent l'état d'**UNE** cellule (plus son cache ≤60 s) — ils ne peuvent **pas** prédire le verdict de la requête suivante. C'est ce qui résout les paradoxes « 4418/5000 affiché pendant l'échec » (ai-01, 08/11) et « remaining=4919 pendant que `{viewer{login}}` échoue » (po-2026, 09/10).
+
+### RÈGLE 1 — REST d'abord pour les lectures en masse
+
+`gh api repos/{owner}/{repo}/issues|pulls|comments` (REST) coûte **0 pt GraphQL** — le bucket `core` est indépendant et intact pendant les vagues. Chaque commande `gh` de haut niveau (`gh issue list`, `gh pr list|view --json`, `gh pr checks`) est convertie en **GraphQL** (~1-3 pts par requête) : à réserver aux usages ponctuels, jamais aux collectes répétées ni aux observateurs de fond. L'épuisement flotte vient du **volume** (mesuré 09/10 : ~4 500 pts en ~60 s, 7 machines tirant leurs collectes dans le même créneau), pas du coût unitaire.
+
+```bash
+# Lectures en masse : REST (0 pt GraphQL)
+gh api "repos/jsboige/roo-extensions/issues?state=open&per_page=100" --jq 'length'
+# Équivalent à ÉVITER en rafale (GraphQL, ~1-3 pts/requête)
+gh issue list --state open --limit 100 --json number
+```
+
+### RÈGLE 2 — En cas d'échec, capturer les en-têtes du 403 AVANT de conclure
+
+La seule mesure qui tranche est celle de la **réponse faillie elle-même** : relancer la commande réelle avec `--include` et lire `X-RateLimit-Remaining/Used/Reset` (plus `Retry-After` éventuel). Un snapshot séparé (`rate_limit`) montre une autre cellule — « reste des points affichés » n'est **pas** une preuve de santé.
+
+- **Limite primaire** : wording « API rate limit already exceeded for user ID … », **aucun** `Retry-After`, en-têtes `X-RateLimit-*` autoritaires.
+- **Limite secondaire** : wording « You have exceeded a secondary rate limit », `Retry-After` présent — respecter sa valeur.
+
+### RÈGLE 3 — La guérison se constate par sonde, jamais par horloge
+
+Le reset affiché est celui d'UNE cellule : le reset de l'autre peut être ~18 min plus loin. « Attendre le reset affiché » ne suffit pas — re-sonder la commande réelle (avec `--include`) jusqu'à ce qu'elle passe.
+
+Coûts unitaires mesurés (appariement par même cellule) : sonde minimale `{rateLimit{remaining resetAt}}` = 1 pt ; `gh issue list --limit 100 --json` = 1 requête GraphQL ~1-3 pts ; `gh api` REST = 0 pt. Correctifs structurels (identités `gh` séparées par machine, cache local des listes) : décision user, voir #4150.
+
 ## Labels GitHub Disponibles
 
 **IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels incorrects (`maintenance`, `scheduler`, `memory`) ne doivent PAS être utilisés.
