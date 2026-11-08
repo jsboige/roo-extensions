@@ -406,9 +406,11 @@ Repertoires vides (.gitkeep) : `myia-po-2023/`, `myia-po-2024/`, `myia-po-2025/`
 
 ---
 
-## 6. Guides & Reference (68 fichiers)
+## 6. Guides & Reference (64 fichiers)
 
-### docs/guides/ — 17 fichiers + user-guide/ (3 fichiers)
+### docs/guides/ — 13 fichiers + user-guide/ (3 fichiers)
+
+> 4 guides d'époque (>1 an, zéro consommateur) archivés vers `docs/archive/guides-2025/` (#2877 W10) — voir le README de cette archive pour les preuves de préservation.
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
@@ -419,16 +421,12 @@ Repertoires vides (.gitkeep) : `myia-po-2023/`, `myia-po-2024/`, `myia-po-2025/`
 | `MCPs-INSTALLATION-GUIDE.md` | Guide installation MCPs v2.0 | active |
 | `README.md` | Index documentation synthese | active |
 | `TROUBLESHOOTING-GUIDE.md` | Guide depannage general v1.1 | active |
-| `consolidated-task-management-guide.md` | Guide gestion taches Roo (Aout 2025) | active |
 | `guide-complet-modes-roo.md` | Guide complet modes Roo | active |
 | `guide-exploration-prompts-natifs.md` | Guide exploration prompts natifs | active |
 | `guide-synchronisation-submodules.md` | Guide synchronisation submodules | active |
-| `guide-utilisation-mcp-jupyter.md` | Guide MCP Jupyter | active |
 | `guide-utilisation-mcps.md` | Guide utilisation MCPs dans modes | active |
 | `guide-utilisation-profils-modes.md` | Guide profils modes | active |
 | `jupyter-papermill-execution.md` | Guide execution Jupyter Papermill (issue #600) | active |
-| `procedures-maintenance.md` | Procedures maintenance depot | active |
-| `vscode-extension-debug-powershell-configuration.md` | Config debug VS Code PowerShell | active |
 
 **user-guide/** : `QUICK-START.md`, `README.md`, `TROUBLESHOOTING.md` — tous actifs
 
