@@ -106,19 +106,6 @@ NOT_FOUND_RE = re.compile(r"HTTP 404")
 # exit code gh itself can return, so it never has to be recognised from prose.
 GH_UNRUNNABLE = -1
 
-# The quota-exhaustion vocabulary GitHub itself uses, primary ("API rate limit
-# exceeded") and secondary ("You have exceeded a secondary rate limit"). Unlike
-# the 404 trap above, this phrase family only ever appears in an actual limit
-# error, so matching it is safe. It gates the two automatic fallbacks this tool
-# allows: when the GraphQL read (`gh issue view --json`, #3899) or the GraphQL
-# write (`gh issue comment`, #4155) dies on a recognised quota error, the call
-# is retried over REST (`gh api`), whose budget is separate. Any OTHER failure
-# (network, auth, 5xx) still raises as-is -- a timeout is not a quota
-# condition, and retrying it on a second API would just move the outage around.
-# The match runs on run_gh's error text, which quotes the command's args: free
-# text must never travel as an arg of a classified call (see post_comment).
-RATE_LIMIT_RE = re.compile(r"rate limit", re.IGNORECASE)
-
 # --- markers -----------------------------------------------------------------
 
 # A comment line is a claim EVENT only if it STARTS with one of these bracketed
@@ -436,34 +423,19 @@ def resolve_repo(number: str):
 def fetch_issue(issue_number: str, repo: str):
     """Fetch issue state + comments as a dict. Raises RuntimeError on gh failure.
 
-    GraphQL first (`gh issue view --json`), REST fallback ONLY when the GraphQL
-    call died on an explicitly recognised quota error (#3899): the fleet hits
-    the GraphQL limit at active hours, precisely when collisions matter most.
-    The REST endpoints run on a separate budget, so the guard keeps answering.
-    If REST is limited too, `run_gh` raises and the caller exits 2 -- the
-    fail-closed contract is unchanged.
+    REST-native (#4604 doctrine, #4150 grain 1): `gh api repos/...` runs on
+    the core budget, which the fleet's GraphQL fragmentation never touches.
+    This tool is the hottest claim path -- every pre-edit check and every
+    --claim used to pay one GraphQL call (`gh issue view --json`, the #3899
+    primary), precisely the budget that dies at active hours, when collisions
+    matter most. The GraphQL leg and its quota-error fallback (#3899) are
+    gone; if REST itself fails or is limited, `run_gh` raises and the caller
+    exits 2 -- the fail-closed contract is unchanged.
 
     The REST comments endpoint is paginated; with `--paginate --jq` gh emits
     one compact JSON object per line across pages, which is parsed line-wise.
-    Field names are mapped to the GraphQL shape reduce_claims expects
-    (`createdAt`), so both paths feed the same reducer.
+    Field names are mapped to the shape reduce_claims expects (`createdAt`).
     """
-    try:
-        raw = run_gh(
-            [
-                "issue",
-                "view",
-                issue_number,
-                "--repo",
-                repo,
-                "--json",
-                "number,state,comments",
-            ]
-        )
-        return json.loads(raw)
-    except RuntimeError as err:
-        if not RATE_LIMIT_RE.search(str(err)):
-            raise
     state = json.loads(
         run_gh(
             ["api", f"repos/{repo}/issues/{issue_number}", "--jq", "{state: .state}"]
@@ -486,54 +458,30 @@ def fetch_issue(issue_number: str, repo: str):
 
 
 def post_comment(issue_number: str, repo: str, body: str) -> None:
-    """Post a comment, REST fallback on a GraphQL quota error (write leg of
-    #3899).
+    """Post a comment over REST (#4604 doctrine, #4150 grain 1).
 
-    fetch_issue has fallen back to REST since #3899, but posting stayed on
-    `gh issue comment` (GraphQL): during a fleet quota window a lane could
-    READ the verdict yet not TAKE the lock -- measured 2026-10-09, a bare
-    check answered CLEAR while `--claim` died, leaving the collision guard
-    silently disarmed exactly when the fleet is most active. Same
-    recognition rule as fetch_issue: explicitly recognised quota errors only
-    (a network error propagates untouched), and if REST is limited too the
-    error surfaces -- fail-closed, no silent no-op claim.
+    The write leg used to go through `gh issue comment` (GraphQL) with a REST
+    fallback (#4155): during a fleet quota window a lane could READ the
+    verdict yet not TAKE the lock -- measured 2026-10-09, a bare check
+    answered CLEAR while `--claim` died, leaving the collision guard silently
+    disarmed exactly when the fleet was most active. REST-native removes the
+    GraphQL leg entirely: the POST runs on the core budget (same as the read
+    leg), and any failure surfaces as-is -- fail-closed, no silent no-op
+    claim.
 
-    A double post cannot corrupt the ledger: both legs carry the SAME marker
-    for the SAME lane, and the reducer is last-marker-wins per lane.
+    A double post cannot corrupt the ledger: the comment carries the SAME
+    marker for the SAME lane, and the reducer is last-marker-wins per lane.
     """
-    # --body-file from a temp file, not --body: run_gh quotes the command's
-    # args in its error text and RATE_LIMIT_RE scans that text, so an inline
-    # body that says "rate limit" would turn a 5xx into a REST retry. (No shell
-    # is involved -- subprocess.run gets an argv list -- so backticks are not
-    # the concern.) The REST leg below passes the body inline with -f: its
-    # error is terminal, never classified, and a claim body is two lines.
-    import tempfile
-    from pathlib import Path
-
-    with tempfile.NamedTemporaryFile(
-        "w", suffix=".md", delete=False, encoding="utf-8"
-    ) as handle:
-        handle.write(body)
-        path = handle.name
-    try:
-        try:
-            run_gh(["issue", "comment", issue_number, "--repo", repo, "--body-file", path])
-            return
-        except RuntimeError as err:
-            if not RATE_LIMIT_RE.search(str(err)):
-                raise
-        run_gh(
-            [
-                "api",
-                "--method",
-                "POST",
-                f"repos/{repo}/issues/{issue_number}/comments",
-                "-f",
-                f"body={body}",
-            ]
-        )
-    finally:
-        Path(path).unlink(missing_ok=True)
+    run_gh(
+        [
+            "api",
+            "--method",
+            "POST",
+            f"repos/{repo}/issues/{issue_number}/comments",
+            "-f",
+            f"body={body}",
+        ]
+    )
 
 
 # --- main ---------------------------------------------------------------------

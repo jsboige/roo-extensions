@@ -757,16 +757,19 @@ class TestMain(unittest.TestCase):
 
 
 def gh_router(graphql, issue_state, comments):
-    """Fake `_gh_exec` routing on the CALL SHAPE (#3899), unlike gh_stub which
-    routes on the repo: the fallback fires several different gh invocations in
-    one fetch, each with its own outcome.
+    """Fake `_gh_exec` routing on the CALL SHAPE, unlike gh_stub which routes
+    on the repo: one fetch fires several different gh invocations, each with
+    its own outcome.
 
-    graphql     : (returncode, stdout, stderr) for `gh issue view --json ...`
+    graphql     : (returncode, stdout, stderr) for `gh issue ...` -- GraphQL.
+                  REST-native code never makes one (#4150); tests route the
+                  GRAPHQL_LIMITED sentinel there so a surviving GraphQL leg
+                  fails the test instead of passing silently.
     issue_state : outcome for `gh api repos/<repo>/issues/<n>`
     comments    : outcome for `gh api repos/<repo>/issues/<n>/comments`
 
-    Records every call in `calls` so a test can prove the REST leg ran (or
-    provably did NOT, for the non-quota error contract).
+    Records every call in `calls` so a test can prove the REST legs ran and
+    no GraphQL leg was attempted.
     """
 
     def _exec(args):
@@ -786,17 +789,13 @@ GRAPHQL_LIMITED = (
     "",
     "gh: GraphQL: API rate limit exceeded (HTTP 403)",
 )
-GRAPHQL_SECONDARY_LIMITED = (
-    1,
-    "",
-    "gh: You have exceeded a secondary rate limit "
-    "and will be blocked from receiving content (HTTP 403)",
-)
-GRAPHQL_OTHER_ERROR = (1, "", "gh: connection reset by peer (HTTP 500)")
+REST_OTHER_ERROR = (1, "", "gh: connection reset by peer (HTTP 500)")
 
 
-class TestFetchIssueRestFallback(unittest.TestCase):
-    """#3899: REST fallback ONLY on an explicitly recognised quota error."""
+class TestFetchIssueRestNative(unittest.TestCase):
+    """#4150 grain 1 (#4604 doctrine): the read leg is REST-only -- zero
+    GraphQL points per check. The claim guard runs at every pre-edit check
+    and every --claim; its GraphQL leg was the fleet's hottest consumer."""
 
     def _rest_ok(self, bodies=(), state="open"):  # real REST shape (#3909)
         lines = "".join(
@@ -806,7 +805,9 @@ class TestFetchIssueRestFallback(unittest.TestCase):
         )
         return (0, '{"state":"%s"}' % state, ""), (0, lines, "")
 
-    def test_rate_limit_falls_back_to_rest(self):
+    def test_happy_path_never_touches_graphql(self):
+        # GRAPHQL_LIMITED as sentinel: had a GraphQL primary survived the
+        # migration, this call would fail limited and the test would go red.
         state_out, comments_out = self._rest_ok(["[CLAIMED] myia-po-2025 -- on it"])
         stub = gh_router(GRAPHQL_LIMITED, state_out, comments_out)
         with patch("check_issue_claim._gh_exec", stub):
@@ -814,83 +815,56 @@ class TestFetchIssueRestFallback(unittest.TestCase):
         self.assertEqual(issue["state"], "OPEN")
         self.assertEqual(len(issue["comments"]), 1)
         self.assertEqual(issue["comments"][0]["body"], "[CLAIMED] myia-po-2025 -- on it")
-        self.assertIn("createdAt", issue["comments"][0])  # GraphQL shape preserved
-        # both REST legs actually ran
+        self.assertIn("createdAt", issue["comments"][0])  # reducer shape preserved
+        # both REST legs ran, and NO GraphQL leg was attempted at all
         self.assertTrue(any(a[0] == "api" for a in stub.calls))
-        self.assertEqual(sum(1 for a in stub.calls if a and a[0] == "issue"), 1)
+        self.assertEqual(sum(1 for a in stub.calls if a and a[0] == "issue"), 0)
 
-    def test_secondary_rate_limit_also_falls_back(self):
-        state_out, comments_out = self._rest_ok([])
-        stub = gh_router(GRAPHQL_SECONDARY_LIMITED, state_out, comments_out)
-        with patch("check_issue_claim._gh_exec", stub):
-            issue = fetch_issue("123", DEFAULT_REPO)
-        self.assertEqual(issue["state"], "OPEN")
-        self.assertEqual(issue["comments"], [])
-
-    def test_non_quota_error_propagates_without_rest_calls(self):
-        # A network/5xx error is NOT a quota condition: no second API is tried,
-        # the failure surfaces as before (fail-closed, exit 2 upstream).
-        stub = gh_router(GRAPHQL_OTHER_ERROR, (0, "{}", ""), (0, "", ""))
+    def test_error_propagates_no_second_api(self):
+        # There is no fallback to skip anymore: ANY failure (network, auth,
+        # 5xx, limit) surfaces as-is -- fail-closed, exit 2 upstream.
+        stub = gh_router(GRAPHQL_LIMITED, REST_OTHER_ERROR, (0, "", ""))
         with patch("check_issue_claim._gh_exec", stub):
             with self.assertRaises(RuntimeError):
                 fetch_issue("123", DEFAULT_REPO)
-        self.assertEqual(len(stub.calls), 1)  # GraphQL leg only, no REST leg
+        self.assertEqual(len(stub.calls), 1)  # failed state leg only
 
-    def test_rest_also_limited_stays_fail_closed(self):
+    def test_rest_limited_stays_fail_closed(self):
         stub = gh_router(GRAPHQL_LIMITED, (1, "", "gh: API rate limit exceeded (HTTP 403)"), (0, "", ""))
         with patch("check_issue_claim._gh_exec", stub):
             with self.assertRaises(RuntimeError):
                 fetch_issue("123", DEFAULT_REPO)
 
 
-class TestPostCommentRestFallback(unittest.TestCase):
-    """Write leg of the #3899 contract: a claim must be POSTable while the
-    GraphQL quota window is open (measured 2026-10-09: read answered CLEAR
-    while `--claim` died on `gh issue comment`)."""
+class TestPostCommentRestNative(unittest.TestCase):
+    """#4150 grain 1 (#4604 doctrine): the write leg is REST-only. A claim
+    must be POSTable whenever the guard can READ -- both now share the core
+    budget, so the 2026-10-09 failure mode (read CLEAR / claim dead on
+    GraphQL) cannot recur by construction."""
 
     @staticmethod
     def _posts(calls):
         return [a for a in calls if a[1:3] == ["--method", "POST"]]
 
-    def test_happy_path_stays_graphql_only(self):
-        stub = gh_router((0, "", ""), (0, "{}", ""), (0, "", ""))
-        with patch("check_issue_claim._gh_exec", stub):
-            post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
-        self.assertEqual(len(stub.calls), 1)
-        self.assertEqual(stub.calls[0][0], "issue")
-
-    def test_rate_limit_falls_back_to_rest_post(self):
+    def test_happy_path_is_single_rest_post(self):
+        # GRAPHQL_LIMITED as sentinel: any surviving `gh issue comment` leg
+        # would fail limited and turn this test red.
         stub = gh_router(GRAPHQL_LIMITED, (0, "{}", ""), (0, '{"id": 1}', ""))
         with patch("check_issue_claim._gh_exec", stub):
             post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
+        self.assertEqual(len(stub.calls), 1)
+        self.assertEqual(stub.calls[0][0], "api")
         posts = self._posts(stub.calls)
         self.assertEqual(len(posts), 1)
         self.assertEqual(
             posts[0][3], f"repos/{DEFAULT_REPO}/issues/123/comments"
         )
-        # the marker survives the fallback leg verbatim
+        # the marker survives verbatim
         self.assertEqual(posts[0][5], "body=[CLAIMED] myia-po-2025 -- on it")
 
-    def test_secondary_rate_limit_also_falls_back(self):
-        stub = gh_router(
-            GRAPHQL_SECONDARY_LIMITED, (0, "{}", ""), (0, '{"id": 1}', "")
-        )
-        with patch("check_issue_claim._gh_exec", stub):
-            post_comment("123", DEFAULT_REPO, "[RELEASED] myia-po-2025")
-        self.assertEqual(len(self._posts(stub.calls)), 1)
-
-    def test_non_quota_error_propagates_without_rest_post(self):
-        # Same contract as the read leg: a 5xx/network error is not a quota
-        # condition, no second API is tried, the failure surfaces.
-        stub = gh_router(GRAPHQL_OTHER_ERROR, (0, "{}", ""), (0, "", ""))
-        with patch("check_issue_claim._gh_exec", stub):
-            with self.assertRaises(RuntimeError):
-                post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
-        self.assertEqual(len(stub.calls), 1)  # GraphQL leg only, no POST
-
-    def test_rest_also_limited_raises_no_silent_claim(self):
-        # Both legs limited: the error must surface (caller exits non-zero) --
-        # never a silent no-op that would let the caller believe it claimed.
+    def test_post_error_raises_no_silent_claim(self):
+        # The POST failing must surface (caller exits non-zero) -- never a
+        # silent no-op that would let the caller believe it claimed.
         stub = gh_router(
             GRAPHQL_LIMITED,
             (0, "{}", ""),
@@ -899,10 +873,12 @@ class TestPostCommentRestFallback(unittest.TestCase):
         with patch("check_issue_claim._gh_exec", stub):
             with self.assertRaises(RuntimeError):
                 post_comment("123", DEFAULT_REPO, "[CLAIMED] myia-po-2025 -- on it")
+        self.assertEqual(len(stub.calls), 1)
 
 
-class TestRestFallbackEndToEnd(unittest.TestCase):
-    """main() must reach a MEASURED verdict through the REST leg."""
+class TestRestNativeEndToEnd(unittest.TestCase):
+    """main() reaches a MEASURED verdict through REST data only -- the
+    GRAPHQL_LIMITED sentinel proves no GraphQL point was spent on the way."""
 
     def _run(self, bodies, state="open"):  # real REST shape (#3909)
         lines = "".join(
