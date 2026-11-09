@@ -59,7 +59,7 @@ Describe "Rules footprint budget (#2368)" {
         $rulesDir = Join-Path $projectRoot ".claude/rules"
         $rules = Get-ChildItem -Path $rulesDir -Filter *.md -File
         $total = ($rules | ForEach-Object { Get-NormalizedByteCount -Path $_.FullName } | Measure-Object -Sum).Sum
-        $total | Should -BeLessOrEqual 61324
+        $total | Should -BeLessOrEqual 57734
     }
 
     It "rules dir compte 20 fichiers (chaque fichier auto-charge paie son contexte ; volet 2 : 22 -> 20)" {
