@@ -226,28 +226,26 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 
 ## 2. RooSync (53 fichiers)
 
-### docs/roosync/ — 21 fichiers actifs
+### docs/roosync/ — 14 fichiers actifs
 
-> 3 doublons consolidés vers `docs/harness/` et archivés dans `docs/archive/doc-audit-2026-11-09/` (#2877, arbitrage `c.6728993741`) — voir le README de cette archive pour les preuves de préservation.
+> Vagues 2-4 de la consolidation #2877 : 3 doublons consolidés vers `docs/harness/`, puis 4 + 4 documents supersédés archivés dans `docs/archive/doc-audit-2026-11-09/` — voir le README de cette archive pour les preuves de préservation (R100 + SHA-256).
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `AGENTS_ARCHITECTURE.md` | Architecture agents, skills, commandes | active |
 | `ARCHITECTURE_ROOSYNC.md` | Architecture technique RooSync v2.3.0 | active |
-| `BASELINE_GHOST_MCPS.md` | Investigation MCPs fantomes (issue #460) | active |
 | `CROSS_WORKSPACE_SETUP.md` | Guide setup cross-workspace (issue #526) | active |
-| `DASHBOARD_AUTO_REFRESH.md` | Automatisation refresh dashboards (issue #460) | active |
 | `ERROR_CODES_REFERENCE.md` | Reference codes erreur v1.0 | active |
 | `ESCALATION_MECHANISM.md` | Mecanisme escalation Roo (issues #462/#464) | active |
 | `GUIDE-TECHNIQUE-v2.3.md` | Guide technique unifie v2.3.1 (production) | active |
 | `HARNESS-CORRESPONDENCE.md` | Mapping harnais Roo/Claude (issue #874) | active |
-| `HEARTBEAT_REGISTRATION_PROCEDURE.md` | Procedure enregistrement heartbeat (issue #460) | active |
 | `MCP_AVAILABILITY.md` | Inventaire outils et STOP & REPAIR v1.2 | active |
+| `PROFILE_TO_MODES_DESIGN.md` | Design profile-to-modes phase 1 (issue #537, draft) | active |
 | `QUICKSTART.md` | Guide demarrage rapide (30 lignes) | active |
 | `README.md` | Entree principale RooSync v2.3 | active |
 | `ROOSYNC_DASHBOARDS.md` | Documentation dashboards (issue #675) | active |
+| `SERVICES_TARGET.md` | Cibles services roosync_config (issue #2409, po-2023) | active |
 | `SUBMODULE_WORKFLOW.md` | Guide workflow submodules | active |
-| `worktree-best-practices.md` | Bonnes pratiques worktrees (issue #627) | active |
 
 ### docs/roosync/guides/ — 5 fichiers
 
