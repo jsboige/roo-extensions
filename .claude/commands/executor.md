@@ -83,6 +83,8 @@ git log --oneline -5
 
 > **WARN `[MANIFEST-DRIFT]` sur exit `0`** (#4336) : `scripts/diagnostic/verify-fleet-manifest.py` — config MCP vivante ≠ manifeste `.claude/configs/fleet-manifest.json`. Relayer en `[WARN]`. Un `required` absent ou désactivé pour ce workspace = capacité perdue : réparer la config ou consigner une override explicite, jamais réactiver à l'aveugle (#4195). Non bloquant, le cycle continue.
 
+> **WARN `[RULES-DEPLOY]` sur exit `0`** (#2368 volet 2) : `scripts/diagnostic/check-global-rules.py` — une règle de `.claude/configs/rules/` est absente, périmée ou dupliquée sur ce siège. Relayer en `[WARN]` puis déployer (`Deploy-GlobalConfig.ps1 -Target rules`). Les règles n'ont plus de copie projet depuis le 09/11 : un siège non déployé les perd en silence. Non bloquant, le cycle continue.
+
 Puis (en parallele) :
 1. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)

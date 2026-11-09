@@ -249,6 +249,27 @@ try {
         }
     }
 
+    # #2368 volet 2: global-rules deployment check. The rules in
+    # .claude/configs/rules/ are the ONLY copy since 09/11 — their project
+    # duplicates in .claude/rules/ were removed because a deployed seat loaded
+    # the same subject twice per session. That removal leaves one hole: a seat
+    # that never ran Deploy-GlobalConfig -Target rules would lose the rule in
+    # silence. This probe closes it (and re-flags any duplicate re-introduced).
+    # Same WARN-never-block posture as #3169/#4340/#4336: a finding is relayed,
+    # the cycle continues.
+    # Absent script = older checkout: skip silently, the pull above brings it.
+    $rulesCheck = Join-Path $RepoRoot 'scripts/diagnostic/check-global-rules.py'
+    if (Test-Path $rulesCheck) {
+        $rulesOutput = @(& cmd /c "python ""$rulesCheck"" --repo ""$RepoRoot"" 2>&1" | ForEach-Object { "$_" })
+        foreach ($line in $rulesOutput) { Write-Host $line }
+        $rulesExit = $LASTEXITCODE
+        if ($rulesExit -eq 2) {
+            Write-Warning '[executor-preflight][RULES-DEPLOY] a global rule is missing, stale, or duplicated on this seat (finding above). A rule living in .claude/configs/rules/ is loaded from ~/.claude/rules/ ONLY — an undeployed seat silently loses it, and a copy back in .claude/rules/ loads it twice. Relay [WARN] on the workspace dashboard, then deploy it. The cycle continues.'
+        } elseif ($rulesExit -ne 0) {
+            Write-Warning ("[executor-preflight][RULES-DEPLOY] probe instrument error (exit $rulesExit) — this seat's global-rule state is UNKNOWN this cycle. Relay [WARN] on the workspace dashboard.")
+        }
+    }
+
     # po-2028 crash guard (mandat user 06/11 : chaque crash -> forensic ET garde). The
     # night of 05->06/11 this seat crashed at 07:08 (Kernel-Power 41, power loss / hard
     # hang), auto-rebooted, and the crash went UNNOTICED until the user woke the lane:
