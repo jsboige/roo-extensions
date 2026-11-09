@@ -525,3 +525,80 @@ Describe 'Get-PullRequestSummary — extensions lot 3 (title / author / labels)'
         finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
+
+Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
+    BeforeAll {
+        # Forme exacte de ConvertFrom-RestCheckRun (Name/Status/Conclusion MAJUSCULES).
+        $script:Run = {
+            param($Name, $Status, $Conclusion)
+            $c = $null
+            if ($Conclusion) { $c = $Conclusion }
+            [pscustomobject]@{ Name = $Name; Status = $Status; Conclusion = $c }
+        }
+    }
+
+    It 'un rouge (COMPLETED + FAILURE) BLOQUE le merge — régression lot 4a' {
+        $checks = @(
+            & $script:Run 'build-and-test (unit)'   'COMPLETED' 'SUCCESS'
+            & $script:Run 'build-and-test (pester)' 'COMPLETED' 'FAILURE'
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Failed).Count   | Should -Be 1
+        @($gate.Pending).Count  | Should -Be 0
+        $gate.Failed[0].Name | Should -Be 'build-and-test (pester)'
+    }
+
+    It 'un check in_progress BLOQUE (pending, pas failed)' {
+        $checks = @(& $script:Run 'build-and-test (unit)' 'IN_PROGRESS' $null)
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 1
+        @($gate.Failed).Count  | Should -Be 0
+    }
+
+    It 'QUEUED et COMPLETED-sans-conclusion sont pending ; TIMED_OUT/ACTION_REQUIRED/CANCELLED sont failed (fail-closed)' {
+        $checks = @(
+            & $script:Run 'a' 'QUEUED'    $null
+            & $script:Run 'b' 'COMPLETED' $null
+            & $script:Run 'c' 'COMPLETED' 'TIMED_OUT'
+            & $script:Run 'd' 'COMPLETED' 'ACTION_REQUIRED'
+            & $script:Run 'e' 'COMPLETED' 'CANCELLED'
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 2
+        @($gate.Failed).Count  | Should -Be 3
+    }
+
+    It 'tout vert (SUCCESS/SKIPPED/NEUTRAL) -> porte OUVERTE (aucun pending, aucun failed)' {
+        $checks = @(
+            & $script:Run 'a' 'COMPLETED' 'SUCCESS'
+            & $script:Run 'b' 'COMPLETED' 'SKIPPED'
+            & $script:Run 'c' 'COMPLETED' 'NEUTRAL'
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 0
+        @($gate.Failed).Count  | Should -Be 0
+    }
+
+    It 'vocabulaire commit-status legacy (EXPECTED/ERROR sur .status) toujours couvert' {
+        $checks = @(
+            & $script:Run 'legacy-status' 'EXPECTED' $null
+            & $script:Run 'legacy-error'  'ERROR'    $null
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Failed).Count | Should -Be 2
+    }
+
+    It 'rollup vide -> porte OUVERTE (chemin « pas de CI » de review-bot inchangé)' {
+        $gate = Get-CiRollupGate -Checks @()
+        @($gate.Pending).Count | Should -Be 0
+        @($gate.Failed).Count  | Should -Be 0
+    }
+
+    It 'sentinelle : la porte de pr-review-and-merge passe bien par Get-CiRollupGate' {
+        $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
+        $pram | Should -Match 'Get-CiRollupGate'
+        # L'ancien vocabulaire legacy seul (sans le helper) ne doit plus piloter la porte.
+        $pram | Should -Not -Match '\$ciPending\s*=\s*\$ciChecks\s*\|\s*Where-Object'
+        $pram | Should -Not -Match '\$ciFailed\s*=\s*\$ciChecks\s*\|\s*Where-Object'
+    }
+}

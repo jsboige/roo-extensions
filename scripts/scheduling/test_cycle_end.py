@@ -17,8 +17,14 @@ discipline dashboard [CLAIMED]/[DONE], pas par cet instrument.
 
 REGLE :
   "Ai-je transforme un grain du pool global en PR ? Si non et que
-   `gh issue list --limit 300` renvoie >0 issue actionnable, alors
+   le backlog ouvert renvoie >0 issue actionnable, alors
    c'est un ECHEC DE METHODE, quel que soit le label 'idle-honnete'."
+
+REST (#4150 lot 4b, doctrine #4604) : toutes les collectes passent par
+`gh api repos/...` (quota core 5 000/h). `gh issue list` / `gh pr list` /
+`gh issue view` (GraphQL, quota flotte en contention continue — mesure
+po-204 c.371/372 : ERROR fail-closed sur ce seul instrument) ne sont plus
+consommes. Le piege `--limit` (#2509) disparait avec : le REST pagine.
 
 RETOURNE :
   exit 0 = cycle conforme (grain livre OU backlog grain genuinement vide)
@@ -62,32 +68,77 @@ class GhCommandError(RuntimeError):
         self.reason = reason
 
 
-def run_gh_json(cmd: list, repo: str, timeout: int = 60) -> list:
-    """Execute gh, decode UTF-8, parse JSON. Leve GhCommandError sur panne."""
+def run_gh_text(cmd: list, repo: str, timeout: int = 60) -> str:
+    """Execute gh, decode UTF-8, retourne le stdout brut (pattern picker #4103).
+
+    Fail-closed : CalledProcessError / TimeoutExpired sont des pannes
+    d'instrument, pas des pools vides (review #3681, bloquant 2).
+    """
     try:
         result = subprocess.run(
             cmd, capture_output=True, check=True, timeout=timeout,
             encoding="utf-8", errors="replace",
         )
-        return json.loads(result.stdout)
+        return result.stdout
     except subprocess.CalledProcessError as e:
         stderr = (e.stderr or "").strip() if isinstance(e.stderr, str) else ""
         raise GhCommandError(repo, f"exit {e.returncode}: {stderr}") from e
     except subprocess.TimeoutExpired as e:
         raise GhCommandError(repo, f"timeout apres {timeout}s") from e
-    except json.JSONDecodeError as e:
-        raise GhCommandError(repo, f"stdout non-JSON: {e}") from e
+
+
+def _parse_json_lines(stdout: str, repo: str) -> list:
+    """`gh api --paginate --jq '.[]'` emet un objet JSON compact par ligne ;
+    toute ligne non-JSON est une panne d'instrument (fail-closed), pas un
+    pool vide."""
+    items = []
+    for line in stdout.splitlines():
+        if not line.strip():
+            continue
+        try:
+            items.append(json.loads(line))
+        except json.JSONDecodeError as e:
+            raise GhCommandError(repo, f"stdout non-JSON: {e}") from e
+    return items
+
+
+def _normalize_issue(raw: dict) -> dict:
+    """REST snake_case -> forme interne camelCase (parite picker #4103)."""
+    return {
+        "number": raw.get("number"),
+        "title": raw.get("title", ""),
+        "labels": [{"name": l.get("name")} for l in raw.get("labels", [])],
+        "createdAt": raw.get("created_at", ""),
+    }
+
+
+def fetch_open_items(repo: str) -> list:
+    """Issues ET PRs ouvertes d'un depot, en un appel REST pagine.
+
+    `gh api .../issues?state=open` rend les deux : une PR y porte la cle
+    `pull_request` (pattern picker #4103). Remplace `gh issue list` et
+    `gh pr list --state open` (GraphQL) — meme reponse pour le backlog, la
+    couverture D3 et les ouvertes de la fenetre, sans appel supplementaire.
+    """
+    cmd = [
+        "gh", "api", "--paginate", "--jq", ".[]",
+        f"repos/{repo}/issues?state=open&per_page=100",
+    ]
+    return _parse_json_lines(run_gh_text(cmd, repo), repo)
+
+
+def split_open_items(items: list):
+    """(issues normalisees, PRs brutes) — la PR porte la cle `pull_request`."""
+    issues, prs = [], []
+    for raw in items:
+        (prs if "pull_request" in raw else issues).append(raw)
+    return [_normalize_issue(r) for r in issues], prs
 
 
 def fetch_open_issues(repo: str) -> list:
-    """Issues ouvertes d'un depot (limite 300, bug #2509), fail-closed."""
-    return run_gh_json([
-        "gh", "issue", "list",
-        "--repo", repo,
-        "--state", "open",
-        "--limit", "300",
-        "--json", "number,title,labels",
-    ], repo)
+    """Issues ouvertes (hors PRs) d'un depot, REST pagine, fail-closed."""
+    issues, _ = split_open_items(fetch_open_items(repo))
+    return issues
 
 
 def issue_labels(issue: dict) -> set:
@@ -110,7 +161,7 @@ def count_actionnable_backlog(issues_by_repo: dict = None) -> int:
     return total
 
 
-def list_approved_without_pr(issues_by_repo: dict) -> list:
+def list_approved_without_pr(issues_by_repo: dict, prs_by_repo: dict) -> list:
     """
     #3381 D3 : issues portant le label `approved` (ouvertes, non gatees)
     qu'aucune PR ouverte ne couvre, sur les 2 depots.
@@ -118,20 +169,13 @@ def list_approved_without_pr(issues_by_repo: dict) -> list:
     Couverture = frontiere de mot sur le numero dans le titre de la PR
     (`#N([^0-9]|$)`) - le --search GitHub est flou (mesure 05/09) et la
     parite exacte avec la discipline anti-double-claim est requise.
-    Vue deterministe destinee au statut du dashboard (les etats GitHub
-    ne viennent JAMAIS de la condensation LLM, #3771).
+    Les PRs ouvertes viennent de la meme collecte REST que le backlog
+    (fetch_open_items — 0 appel supplementaire). Vue deterministe destinee
+    au statut du dashboard (les etats GitHub ne viennent JAMAIS de la
+    condensation LLM, #3771).
     """
     covered = set()
-    prs_by_repo = {}
-    for repo in REPOS:
-        prs = run_gh_json([
-            "gh", "pr", "list",
-            "--repo", repo,
-            "--state", "open",
-            "--limit", "100",
-            "--json", "number,title",
-        ], repo)
-        prs_by_repo[repo] = prs
+    for repo, prs in prs_by_repo.items():
         for pr in prs:
             title = pr.get("title", "")
             for m in re.finditer(r"#(\d+)(?!\d)", title):
@@ -162,7 +206,6 @@ def list_approved_without_pr(issues_by_repo: dict) -> list:
 CHANTIER_LABELS = ("epic", "approved")
 CHANTIER_MIN_AGE_DAYS = 30
 DORMANT_DAYS = 14
-COMMENTS_PAGE = 100  # plafond de commentaires par issue dans `gh issue list`
 # Commentaires qui ne disent rien de l'avancement : verrous et rapports vides
 # des workers (mesure #3151 : 30 des 82 commentaires).
 _BOILERPLATE = re.compile(
@@ -208,28 +251,54 @@ def classify_chantier(issue: dict, now: datetime):
     }
 
 
+def fetch_issue_comments(repo: str, number: int, max_pages: int = 30) -> list:
+    """Tous les commentaires d'une issue, REST page par page.
+
+    Remplace le `--json comments` de `gh issue list` (cape aux 100 premiers,
+    mesure 20/10 : #622 en avait 694, dernier lu le 14/03 au lieu du 14/10)
+    et le rattrapage `gh issue view` : la pagination REST rend tout, structurellement.
+    """
+    out = []
+    for page in range(1, max_pages + 1):
+        cmd = [
+            "gh", "api", "--jq", ".[]",
+            f"repos/{repo}/issues/{number}/comments?per_page=100&page={page}",
+        ]
+        batch = _parse_json_lines(run_gh_text(cmd, repo, timeout=120), repo)
+        out += [{"body": c.get("body", ""), "createdAt": c.get("created_at", "")}
+                for c in batch]
+        if len(batch) < 100:
+            break
+    return out
+
+
 def list_chantiers(repos=REPOS, now=None) -> list:
-    """D4 : chantiers (labels epic/approved) ouverts depuis >= 30 j, signales d'abord."""
+    """D4 : chantiers (labels epic/approved) ouverts depuis >= 30 j, signales d'abord.
+
+    REST (#4150 lot 4b) : requetes par label puis commentaires par candidat —
+    l'age est filtre AVANT le fetch des commentaires (seuls les vrais chantiers
+    les paient).
+    """
     now = now or datetime.now(timezone.utc)
     result = []
     for repo in repos:
         seen = {}
         for label in CHANTIER_LABELS:
-            for issue in run_gh_json([
-                "gh", "issue", "list", "--repo", repo, "--state", "open",
-                "--label", label, "--limit", "200",
-                "--json", "number,title,labels,createdAt,comments",
-            ], repo, timeout=120):
+            cmd = [
+                "gh", "api", "--paginate", "--jq", ".[]",
+                f"repos/{repo}/issues?state=open&labels={label}&per_page=100",
+            ]
+            for raw in _parse_json_lines(run_gh_text(cmd, repo, timeout=120), repo):
+                issue = _normalize_issue(raw)
                 seen[issue["number"]] = issue
         for issue in seen.values():
-            # `gh issue list` ne rend que les 100 premiers commentaires (mesure 20/10 :
-            # #622 en a 694, dernier lu le 14/03 au lieu du 14/10) ; `gh issue view`
-            # les rend tous.
-            if len(issue.get("comments") or []) >= COMMENTS_PAGE:
-                issue["comments"] = run_gh_json([
-                    "gh", "issue", "view", str(issue["number"]), "--repo", repo,
-                    "--json", "comments",
-                ], repo, timeout=120)["comments"]
+            try:
+                created = _parse_ts(issue["createdAt"])
+            except (ValueError, TypeError):
+                continue
+            if (now - created).days < CHANTIER_MIN_AGE_DAYS:
+                continue
+            issue["comments"] = fetch_issue_comments(repo, issue["number"])
             row = classify_chantier(issue, now)
             if row:
                 row["repo"] = repo
@@ -247,51 +316,66 @@ def format_chantier_line(row: dict) -> str:
             f"{row['idle_days']} j, decision datee : {decision}{gate}{marks} — {row['title'][:70]}")
 
 
-def count_prs_delivered_since(since_hours: int) -> int:
+def fetch_merged_prs_since(repo: str, cutoff: datetime, max_pages: int = 10) -> list:
+    """PRs mergees apres cutoff, via REST, pages arretees tot.
+
+    `pulls?state=closed&sort=updated&direction=desc` : updated_at >= merged_at
+    toujours, donc des que TOUTE une page precede la fenetre, aucune page
+    suivante ne peut porter une fusion dans la fenetre — l'arret tot evite de
+    marcher les ~17 pages de PRs fermees du depot. Les PRs fermees sans merge
+    (rejetees) sont filtrees par merged_at null.
+    """
+    merged = []
+    for page in range(1, max_pages + 1):
+        cmd = [
+            "gh", "api", "--jq", ".[]",
+            f"repos/{repo}/pulls?state=closed&sort=updated&direction=desc"
+            f"&per_page=100&page={page}",
+        ]
+        batch = _parse_json_lines(run_gh_text(cmd, repo), repo)
+        if not batch:
+            break
+        for pr in batch:
+            merged_at = pr.get("merged_at")
+            if merged_at and _parse_ts(merged_at) >= cutoff:
+                merged.append(pr)
+        if all(
+            _parse_ts(p.get("updated_at") or "1970-01-01T00:00:00Z") < cutoff
+            for p in batch
+        ):
+            break
+    return merged
+
+
+def count_prs_delivered_since(since_hours: int, prs_by_repo: dict = None) -> int:
     """
     Compte les PRs ouvertes ou mergees par la FLOTTE (2 depots) dans la
     fenetre temporelle. C'est le test de RESULTAT - portee flotte, voir
-    docstring module.
+    docstring module. REST (#4150 lot 4b) : ouvertes depuis la meme collecte
+    que le backlog (fetch_open_items, 0 appel supplementaire quand
+    prs_by_repo est passe par l'appelant), mergees via pulls?state=closed.
     """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=since_hours)
     delivered = 0
     for repo in REPOS:
         # PRs ouvertes dans la fenetre (livraison en attente de review)
-        opened = run_gh_json([
-            "gh", "pr", "list",
-            "--repo", repo,
-            "--state", "open",
-            "--limit", "100",
-            "--json", "number,createdAt",
-        ], repo)
+        if prs_by_repo is not None:
+            opened = prs_by_repo.get(repo, [])
+        else:
+            opened = [p for p in fetch_open_items(repo) if "pull_request" in p]
         for pr in opened:
-            created = pr.get("createdAt", "")
+            created = pr.get("created_at", "")
             if not created:
                 continue
             try:
-                pr_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                pr_dt = _parse_ts(created)
             except ValueError:
                 continue
-            if pr_dt > datetime.now(timezone.utc) - timedelta(hours=since_hours):
+            if pr_dt >= cutoff:
                 delivered += 1
 
-        # PRs mergees dans la fenetre
-        merged = run_gh_json([
-            "gh", "pr", "list",
-            "--repo", repo,
-            "--state", "merged",
-            "--limit", "100",
-            "--json", "number,mergedAt",
-        ], repo)
-        for pr in merged:
-            merged_at = pr.get("mergedAt", "")
-            if not merged_at:
-                continue
-            try:
-                merge_dt = datetime.fromisoformat(merged_at.replace("Z", "+00:00"))
-            except ValueError:
-                continue
-            if merge_dt > datetime.now(timezone.utc) - timedelta(hours=since_hours):
-                delivered += 1
+        # PRs mergees dans la fenetre (deja filtrees par fetch_merged_prs_since)
+        delivered += len(fetch_merged_prs_since(repo, cutoff))
     return delivered
 
 
@@ -311,18 +395,26 @@ def main() -> int:
     args = parser.parse_args()
 
     # Etape 1-2 : collecte fail-closed - toute panne instrument rend ERROR
-    # AVANT tout verdict de fond (review #3681).
+    # AVANT tout verdict de fond (review #3681). Un seul appel REST par depot
+    # alimente backlog, couverture D3 et ouvertes de la fenetre (#4150 lot 4b).
     errors = []
     approved_no_pr = None
+    prs_by_repo = None
     try:
-        issues_by_repo = {repo: fetch_open_issues(repo) for repo in REPOS}
+        prs_by_repo = {}
+        issues_by_repo = {}
+        for repo in REPOS:
+            issues, prs = split_open_items(fetch_open_items(repo))
+            issues_by_repo[repo] = issues
+            prs_by_repo[repo] = prs
         backlog = count_actionnable_backlog(issues_by_repo)
-        approved_no_pr = list_approved_without_pr(issues_by_repo)
+        approved_no_pr = list_approved_without_pr(issues_by_repo, prs_by_repo)
     except GhCommandError as e:
         errors.append(e)
         backlog = None
+        prs_by_repo = None
     try:
-        delivered = count_prs_delivered_since(args.since_hours)
+        delivered = count_prs_delivered_since(args.since_hours, prs_by_repo)
     except GhCommandError as e:
         errors.append(e)
         delivered = None

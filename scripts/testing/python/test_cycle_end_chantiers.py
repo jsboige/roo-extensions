@@ -8,7 +8,9 @@ list_chantiers() is exercised with run_gh_json patched.
 """
 
 import importlib.util
+import json
 import os
+import re
 import unittest
 from datetime import datetime, timezone
 from unittest import mock
@@ -84,42 +86,64 @@ class ClassifyChantier(unittest.TestCase):
 
 
 class ListChantiers(unittest.TestCase):
+    """Formes REST (#4150 lot 4b) : requetes par label puis commentaires
+    page par page, run_gh_text rend une ligne JSON compacte par item."""
+
+    @staticmethod
+    def _raw(number, created, labels):
+        return {"number": number, "title": f"chantier {number}",
+                "created_at": created,
+                "labels": [{"name": n} for n in labels]}
+
+    @staticmethod
+    def _lines(items):
+        return "".join(json.dumps(i) + "\n" for i in items)
 
     def test_dedups_across_labels_and_sorts_flagged_first(self):
-        quiet = issue(10, "2026-08-01T00:00:00Z",
-                      [("2026-10-19T00:00:00Z", "Décision datée : pilote le 22/10")],
-                      labels=("epic", "approved"))
-        sleeping = issue(11, "2026-05-01T00:00:00Z", labels=("approved",))
+        quiet = self._raw(10, "2026-08-01T00:00:00Z", ("epic", "approved"))
+        quiet_comments = [{"body": "Décision datée : pilote le 22/10",
+                           "created_at": "2026-10-19T00:00:00Z"}]
+        sleeping = self._raw(11, "2026-05-01T00:00:00Z", ("approved",))
 
         def fake(cmd, repo, timeout=60):
-            label = cmd[cmd.index("--label") + 1]
-            return {"epic": [quiet], "approved": [quiet, sleeping]}[label]
+            url = cmd[-1]
+            if "/comments" in url:
+                if "issues/10/comments" in url:
+                    return self._lines(quiet_comments)
+                return ""  # #11 : aucun commentaire -> retombe sur createdAt
+            label = "epic" if "labels=epic" in url else "approved"
+            return self._lines({("epic",): [quiet], ("approved",): [quiet, sleeping]}[(label,)])
 
-        with mock.patch.object(tce, "run_gh_json", side_effect=fake):
+        with mock.patch.object(tce, "run_gh_text", side_effect=fake):
             rows = tce.list_chantiers(repos=["jsboige/roo-extensions"], now=NOW)
         self.assertEqual([r["number"] for r in rows], [11, 10])
         self.assertTrue(rows[0]["flags"])
         self.assertEqual(rows[1]["flags"], [])
 
-    def test_comments_capped_by_issue_list_are_refetched_in_full(self):
-        # `gh issue list` stops at 100 comments: #622 had 694, last read 14/03
-        # instead of 14/10 (measured 20/10), so it was reported dormant 219 j.
-        capped = issue(622, "2026-03-10T00:00:00Z",
-                       [("2026-03-14T00:00:00Z", "old progress")] * 100)
-        full = capped["comments"] + [
-            {"createdAt": "2026-10-14T00:00:00Z", "body": "Décision datée : AC0 re-mesuré le 21/10"}]
-        calls = []
+    def test_comments_are_fetched_full_via_rest_paging(self):
+        # #622 avait 694 commentaires : `gh issue list --json comments` cappait
+        # a 100 (dernier lu 14/03 au lieu du 14/10, mesure 20/10). La pagination
+        # REST rend tout — page 1 pleine (100 anciens), page 2 courte (1 décision
+        # récente) : les deux pages doivent être lues.
+        pages = {
+            1: [{"body": "old progress", "created_at": "2026-03-14T00:00:00Z"}] * 100,
+            2: [{"body": "Décision datée : AC0 re-mesuré le 21/10",
+                 "created_at": "2026-10-14T00:00:00Z"}],
+        }
+        seen_pages = []
 
         def fake(cmd, repo, timeout=60):
-            calls.append(cmd[:3])
-            if cmd[:3] == ["gh", "issue", "view"]:
-                self.assertIn("622", cmd)
-                return {"comments": full}
-            return {"epic": [capped], "approved": []}[cmd[cmd.index("--label") + 1]]
+            url = cmd[-1]
+            if "/comments" in url:
+                page = int(re.search(r"[?&]page=(\d+)", url).group(1))
+                seen_pages.append(page)
+                return self._lines(pages.get(page, []))
+            return self._lines([self._raw(622, "2026-03-10T00:00:00Z", ("epic",))]
+                               if "labels=epic" in url else [])
 
-        with mock.patch.object(tce, "run_gh_json", side_effect=fake):
+        with mock.patch.object(tce, "run_gh_text", side_effect=fake):
             rows = tce.list_chantiers(repos=["jsboige/roo-extensions"], now=NOW)
-        self.assertIn(["gh", "issue", "view"], calls)
+        self.assertEqual(seen_pages, [1, 2])  # page 2 courte -> arrêt
         self.assertEqual(rows[0]["idle_days"], 6)
         self.assertEqual(rows[0]["flags"], [])
 

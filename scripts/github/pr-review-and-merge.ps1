@@ -209,9 +209,13 @@ if ($tier -eq 'glm' -and $isTrivial) {
 # Step 2: Check CI status
 Write-Host "`n[Step 2] Checking CI status..." -ForegroundColor Cyan
 
-$ciChecks = $pr.statusCheckRollup | Where-Object { $_.name -match "build-and-test" }
-$ciPending = $ciChecks | Where-Object { $_.status -eq "PENDING" }
-$ciFailed = $ciChecks | Where-Object { $_.status -in "FAILED", "EXPECTED" }
+# #4150 lot 4a : classification check-run (status/conclusion) via le helper —
+# l'ancien test PENDING/FAILED/EXPECTED sur .status lisait le vocabulaire des
+# commit-status legacy : un rouge (COMPLETED + FAILURE) ne bloquait jamais.
+$ciChecks = @($pr.statusCheckRollup | Where-Object { $_.name -match "build-and-test" })
+$ciGate = Get-CiRollupGate -Checks $ciChecks
+$ciPending = $ciGate.Pending
+$ciFailed = $ciGate.Failed
 
 if ($ciPending) {
     Write-Host "✗ CI still pending..." -ForegroundColor Yellow

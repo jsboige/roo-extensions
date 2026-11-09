@@ -241,6 +241,36 @@ function ConvertFrom-RestCheckRun {
     }
 }
 
+function Get-CiRollupGate {
+    <#
+    .SYNOPSIS
+        Classe un rollup de check-runs (forme ConvertFrom-RestCheckRun : Name/Status/
+        Conclusion MAJUSCULES) en Pending / Failed — porte CI de pr-review-and-merge.
+    .DESCRIPTION
+        #4150 lot 4a : l'ancienne porte testait le vocabulaire des commit-status
+        legacy sur .status (PENDING/FAILED/EXPECTED) — un check-run rouge porte
+        status=COMPLETED + conclusion=FAILURE : un rouge n'a jamais bloqué le merge
+        (constat coordinateur, review #4622). Le modèle check-run : status ∈
+        QUEUED/IN_PROGRESS/COMPLETED, conclusion rempli seulement sur COMPLETED.
+        CANCELLED compte comme échec (fail-closed : un run annulé ne prouve rien) ;
+        SKIPPED/NEUTRAL passent. Les statuts legacy (EXPECTED/ERROR) restent couverts
+        pour un rollup qui mêlerait les deux nomenclatures.
+    .OUTPUTS
+        @{ Pending = object[]; Failed = object[] }
+    #>
+    param([Parameter(Mandatory)]$Checks)
+
+    $pending = @($Checks | Where-Object {
+        $_.Status -in @('QUEUED', 'IN_PROGRESS', 'PENDING', 'WAITING', 'REQUESTED') -or
+        ($_.Status -eq 'COMPLETED' -and -not $_.Conclusion)
+    })
+    $failed = @($Checks | Where-Object {
+        $_.Conclusion -in @('FAILURE', 'TIMED_OUT', 'ACTION_REQUIRED', 'ERROR', 'CANCELLED') -or
+        $_.Status -in @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE')
+    })
+    return @{ Pending = $pending; Failed = $failed }
+}
+
 function Get-PullRequestReviewDecision {
     <#
     .SYNOPSIS
