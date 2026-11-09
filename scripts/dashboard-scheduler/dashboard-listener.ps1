@@ -861,10 +861,14 @@ function Test-ReferencedClosedIssues($content, $repo) {
         if ($checked -ge 5) { break }
         $issueNum = $m.Groups[1].Value
         try {
-            $result = & gh issue view $issueNum --repo $repo --json state 2>$null
+            # REST (#4150 lot 3, doctrine #4604) : `gh issue view --json state` brûlait
+            # un point GraphQL par référence vérifiée. REST rend `state` MINUSCULE
+            # (open/closed) — la comparaison historique est en MAJUSCULES, d'où la
+            # normalisation. Introuvable/réseau = exit non-nul = référence ignorée
+            # (comportement inchangé : seules les issues FERMÉES sont collectées).
+            $result = & gh api "repos/$repo/issues/$issueNum" --jq .state 2>$null
             if ($LASTEXITCODE -eq 0 -and $result) {
-                $obj = $result | ConvertFrom-Json
-                if ($obj.state -eq 'CLOSED') {
+                if ("$result".Trim().ToUpperInvariant() -eq 'CLOSED') {
                     $closed += "#$issueNum"
                 }
             }

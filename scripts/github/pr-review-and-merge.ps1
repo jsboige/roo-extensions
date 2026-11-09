@@ -21,6 +21,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Détail PR en REST seul (#4150 lot 3, doctrine #4604) : `gh pr view` brûlait un point
+# GraphQL par invocation ; le helper compose la même forme (state MAJUSCULE, files[].path,
+# statusCheckRollup majuscules) depuis l'API REST.
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 # === Tier-gate constants (#2565) ===
 # Opus-class: full merge authority
 $OpusClassMachines = @('MYIA-AI-01')
@@ -99,8 +104,9 @@ function Test-IsTrivialPR {
 
     # 4. Labels check: 'security' label = non-trivial
     # (fetched separately if needed — check PR body/labels)
+    # REST (#4150 lot 3) : `gh pr view --json labels` -> `gh api pulls/{n}` ; best-effort.
     try {
-        $labels = gh pr view $PrData.number --repo $Repo --json labels --jq '.labels[].name' 2>$null
+        $labels = & gh api "repos/$Repo/pulls/$($PrData.number)" --jq '.labels[].name' 2>$null
         if ($labels -contains 'security') {
             Write-Host "  [TIER-GATE] Non-trivial: labeled 'security'" -ForegroundColor DarkGray
             return $false
@@ -129,9 +135,16 @@ if ($DryRun) {
     Write-Host "MODE: DRY RUN (no merge)" -ForegroundColor Yellow
 }
 
-# Step 1: Get PR details
+# Step 1: Get PR details — REST via helper (#4150 lot 3) : même forme que
+# `gh pr view --json title,author,body,headRefName,baseRefName,state,mergeable,
+# additions,deletions,files,reviewDecision,statusCheckRollup | ConvertFrom-Json`.
 Write-Host "`n[Step 1] Fetching PR details..." -ForegroundColor Cyan
-$pr = gh pr view $PrNumber --repo $Repo --json title,author,body,headRefName,baseRefName,state,mergeable,additions,deletions,files,reviewDecision,statusCheckRollup | ConvertFrom-Json
+$prDetail = Get-PullRequestDetail -Repo $Repo -Number $PrNumber
+if (-not $prDetail.Ok) {
+    Write-Host "✗ Failed to fetch PR details: $($prDetail.Error)" -ForegroundColor Red
+    exit 1
+}
+$pr = $prDetail.Item
 
 if ($pr.state -ne "OPEN") {
     Write-Host "✗ PR is not open (state: $($pr.state))" -ForegroundColor Red
