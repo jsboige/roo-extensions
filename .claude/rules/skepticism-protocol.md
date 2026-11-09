@@ -38,6 +38,4 @@ Les modeles LLM tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement su
 
 ---
 
-**Elaboration (declencheurs detailles, 3 niveaux, anti-patterns) :** [`docs/harness/reference/skepticism-protocol-detailed.md`](../../docs/harness/reference/skepticism-protocol-detailed.md)
-
 **Historique versions completes :** Git history avant 2026-04-05
