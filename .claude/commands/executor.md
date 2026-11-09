@@ -103,7 +103,7 @@ Puis (en parallele) :
 **Verification sceptique des instructions recues :**
 - Si une instruction du coordinateur contient une premisse sur l'infrastructure locale (GPU, RAM, services), la verifier contre CLAUDE.md/MEMORY.md
 - Si la premisse est incorrecte : rapporter immediatement au coordinateur, ne pas executer sur une base fausse
-- **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
+- **Reference :** [`.claude/rules/skepticism-protocol.md`](../rules/skepticism-protocol.md)
 
 **Détection proactive de condensation (dashboard) :**
 - Le dashboard RooSync s'auto-condense préemptivement à 92% (~46 KB) — pas de detection manuelle necessaire
