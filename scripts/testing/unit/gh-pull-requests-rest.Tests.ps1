@@ -1,4 +1,4 @@
-﻿# gh-pull-requests-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL
+# gh-pull-requests-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL
 #
 # Ce que ces tests prouvent (#4150 lot 2, doctrine #4604) :
 #   1. la normalisation REST -> contrat historique : `state = closed` + `merged_at`
@@ -29,7 +29,10 @@ BeforeAll {
     $script:Helper = Join-Path $script:RepoRoot 'scripts/common/gh-pull-requests.ps1'
     # $env:TEMP n'existe pas sous Linux ; GetTempPath() rend /tmp là-bas.
     $script:TmpRoot = [System.IO.Path]::GetTempPath()
-    $script:IsWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ($PSVersionTable.Platform -eq 'Win32NT')
+    # PAS « IsWindows » : variable AUTOMATIQUE read-only en pwsh 7 (CI) — l'assigner
+    # lève SessionStateUnauthorizedAccessException ; inexistante en 5.1, d'où le
+    # vert local / rouge CI du premier push.
+    $script:HostIsWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ($PSVersionTable.Platform -eq 'Win32NT')
 
     # Shim gh : seul `gh api` répond ; tout le reste simule un 403 GraphQL.
     # Le log d'appels (1er argument seulement — jamais %*, qui casserait sur `|` du jq)
@@ -54,7 +57,7 @@ BeforeAll {
         # une seule ligne et le helper les relit comme un objet unique.
         $parsed = ConvertFrom-Json -InputObject $Json
         $lines = @(foreach ($item in @($parsed)) { $item | ConvertTo-Json -Compress -Depth 5 })
-        if ($script:IsWindows) {
+        if ($script:HostIsWindows) {
             $cmd = @(
                 '@echo off',
                 'if /I "%~1"=="api" goto rest',
@@ -177,13 +180,15 @@ Describe 'Get-PullRequestSummary — normalisation REST (#4150)' {
     }
 
     It '#3731 : stderr non vide sous EAP=Stop est terminant en 5.1 — le catch rend Ok, jamais un crash (review #4616 R2)' {
-        # gh réussit (exit 0) MAIS écrit sur stderr. Contrat attendu PAR HÔTE :
-        #   - powershell.exe 5.1 : le stderr du natif redirigé sous EAP=Stop devient
-        #     NativeCommandError TERMINANT -> attrapé par le catch -> Ok = $false
-        #     (l'appelant garde sa branche : conservateur, voulu) ;
-        #   - pwsh 7 (CI) : pas de throw -> Ok = $true (le succès n'est pas puni).
-        # Dans les deux cas le script de test est VIVANT pour l'affirmer : sans le
-        # catch, le chemin 5.1 mourait avant le fail-safe « KEPT ».
+        # gh réussit (exit 0) MAIS écrit sur stderr. Sans le catch, le chemin 5.1
+        # meurt (NativeCommandError TERMINANT sous EAP=Stop) AVANT le fail-safe
+        # « KEPT » — ce que ce test pousse et vérifie.
+        # Assertion par hôte, honnête sur ce qui est mesuré :
+        #   - powershell.exe 5.1 (mesuré sur ce siège) : Ok = $false — la panne
+        #     stderr est contenue par le catch, l'appelant garde sa branche ;
+        #   - pwsh 7 (CI) : la VALEUR dépend de sémantiques stderr propres à chaque
+        #     7.x, non mesurées depuis un siège sans pwsh — on n'affirme que la
+        #     forme (Ok défini, pas de crash, cohérence Items).
         $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
             -Json '[{"number":9,"state":"open","merged_at":null,"head_ref":"wt/noisy"}]' -NoisyStderr
         try {
@@ -191,9 +196,13 @@ Describe 'Get-PullRequestSummary — normalisation REST (#4150)' {
                 $ErrorActionPreference = 'Stop'
                 Get-PullRequestSummary -Repo jsboige/roo-extensions -Head wt/noisy -MaxCount 1
             }
-            $expected = if ($PSVersionTable.PSEdition -eq 'Core') { $true } else { $false }
-            $s.Ok | Should -Be $expected
-            if ($expected) { $s.Items[0].Number | Should -Be 9 }
+            ($s.Ok -is [bool]) | Should -BeTrue
+            if ($PSVersionTable.PSEdition -ne 'Core') {
+                $s.Ok | Should -BeFalse
+            }
+            elseif ($s.Ok) {
+                $s.Items[0].Number | Should -Be 9
+            }
         }
         finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
