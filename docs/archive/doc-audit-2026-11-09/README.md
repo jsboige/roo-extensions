@@ -61,3 +61,28 @@ Chaque suppression est justifiée dans le tableau « section source → cible »
 correspondante : pointeurs morts (`CLAUDE.md` § « GPU Fleet », `.claude/rules/myia-web1-constraints.md`),
 lignes contredites par une règle plus récente (push direct sur `main` pour les tâches `-simple`),
 mécanismes jamais outillés (hook pre-push non installé, workflow de labellisation absent).
+
+---
+
+# Vague 4 (2026-11-09) — 4 documents `docs/roosync/` archivés
+
+Renames purs (`git mv`, R100), même méthode que la vague 3. Seul pointeur vivant corrigé :
+`docs/INDEX.md` (4 lignes retirées, en-tête recompté 18→14, 2 fichiers non listés ajoutés).
+Empreintes relevées après déplacement — identiques à l'original par construction du rename git.
+
+| Document archivé | Octets | Lignes | SHA-256 | Motif |
+|---|---:|---:|---|---|
+| `worktree-best-practices.md` | 14 635 | 437 | `ac8d62a45d8f4c67474c9ec85642fabd1c6ce1bcf731d7d73555ea39a97ca0e0` | Synthèse #627 (2026-03-10) : décrivait des worktrees **dans** le projet et une adoption « selon complexité » — superseded par `.claude/rules/worktree-lifecycle.md` (worktree HORS arbre parent #2123, cycle de vie, jonctions) + `pr-mandatory.md` (PR obligatoire, décision tranchée) |
+| `BASELINE_GHOST_MCPS.md` | 6 349 | 220 | `a73479030ff23d0508abc793c539e64f41514324200957c219ce3e887f74928a` | Investigation #460 (2026-02-12) close : baseline régénérée depuis ; le canon des MCP retirés vit dans `.claude/rules/tool-availability.md` § Retires + la garde `RETIRED_MCP_NAMES` du RSM. NB : `docs/cleanup/CONSOLIDATION-MCP-DEPRECATED-PROOF.md` l.87 la citait comme migration-record volontairement conservée — le rename R100 **préserve** ce record (byte-identique), il ne le supprime pas |
+| `DASHBOARD_AUTO_REFRESH.md` | 8 964 | 286 | `3842f70c9b5180109afb493997ecc0de51939f7dc12811ad23f2e1cf659aa060` | Analyse d'options #460 (2026-02-12) pour un refresh horaire d'un dashboard alors manuel — superseded par l'architecture v3 réelle (écritures MCP directes + auto-condensation 92 % #4527, passe détachée) |
+| `HEARTBEAT_REGISTRATION_PROCEDURE.md` | 5 476 | 201 | `b1381ffc5803e69238a0338afef95b8b69ce0c6bea837bf16fadc9cb4f2c3f38` | Procédure #460 (2026-02-12) pour un enregistrement heartbeat **manuel** via l'outil `roosync_heartbeat_service` — l'outil n'existe plus, l'enregistrement est automatique (`roosync_inventory` type `heartbeat`, RSM v4.2+) |
+
+## Où le contenu vit maintenant (vague 4)
+
+| Sujet | Autorité | Élaboration |
+|---|---|---|
+| Worktrees / cycle de vie | `.claude/rules/worktree-lifecycle.md` | `docs/harness/reference/worktree-lifecycle-detailed.md` |
+| Workflow PR (worktree → PR → merge) | `.claude/rules/pr-mandatory.md` | `docs/harness/reference/pr-workflow-guards.md` |
+| MCP retirés / baseline | `.claude/rules/tool-availability.md` § Retires | garde `RETIRED_MCP_NAMES` (RSM) + `docs/cleanup/CONSOLIDATION-MCP-DEPRECATED-PROOF.md` |
+| Dashboard v3 (écriture/condensation) | `.claude/rules/intercom-protocol.md` | `docs/harness/reference/intercom-append-timeout.md` + `GUIDE-TECHNIQUE-v2.3.md` |
+| Heartbeat flotte | `roosync_inventory(type: "heartbeat")` | `docs/harness/reference/roosync-tools-guide.md` |
