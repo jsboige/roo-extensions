@@ -240,6 +240,8 @@ the author waits.
 
 ## 5. Machine-Specific Rules
 
+> Historique, périmé au 09/11/2026 : la contrainte RAM de web1 et les règles par machine d'avant le modèle des lanes.
+
 ### Coordinator (myia-ai-01)
 
 - Merges PRs (no PRs created by this agent)
@@ -252,7 +254,7 @@ the author waits.
 - Create PRs for all code changes
 - Cannot merge PRs (review by coordinator required)
 - Can self-review research/analysis tasks (no code)
-- Scheduler agents: `-simple` can push to main, `-complex` requires PR
+- Scheduler agents: aucun push direct sur `main` — `-simple` commite sur une branche et Claude Worker crée la PR, `-complex` crée sa PR (voir `.claude/rules/pr-mandatory.md` § « Workflow PR — Roo »)
 
 ### web1 (RAM constraints)
 
@@ -274,6 +276,8 @@ All PRs with checklists in body MUST follow [`docs/harness/reference/github-chec
 ---
 
 ## 7. PR Monitoring & Metrics
+
+> Historique, périmé au 09/11/2026 : des métriques d'époque, non instrumentées aujourd'hui.
 
 ### Dashboard (Updated in sync-tour, Phase 7)
 
@@ -418,6 +422,8 @@ This requires GitHub Actions app or PAT management. Option E is sufficient for c
 ---
 
 ## 10. Transition Timeline
+
+> Historique, périmé au 09/11/2026 : un calendrier de transition de mars 2026, achevé.
 
 | Date | Phase | Action |
 |------|-------|--------|
