@@ -41,6 +41,8 @@ $ErrorActionPreference = "Stop"
 
 # Guard #2772 (couche 3b): shared deletion-path guards (submodule + #2123 nesting)
 . "$PSScriptRoot\..\common\path-guards.ps1"
+# Lecture des PR en REST seul (#4150 lot 2, doctrine #4604).
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
 
 # Configuration
 # Resolve the repo root from the script's own location: scheduled runs may have no
@@ -346,25 +348,19 @@ function Remove-StaleBranch {
         return
     }
 
-    $prInfo = $null
-    try {
-        $prInfo = gh pr list --repo jsboige/roo-extensions --head $BranchName --state all --json number,state --limit 1 2>$null
-    }
-    catch { }
-    if ($LASTEXITCODE -ne 0 -or -not $prInfo) {
+    # Preuve de livraison lue en REST (#4150 lot 2, doctrine #4604) : `gh pr list`
+    # consommait un point GraphQL par branche, budget fragmenté et 403 sous charge.
+    $prSummary = Get-PullRequestSummary -Repo jsboige/roo-extensions -Head $BranchName -MaxCount 1
+    if (-not $prSummary.Ok) {
         Write-Warn "KEPT $BranchName — gh unavailable or empty answer (fail-safe) — manual review"
         return
     }
     $prState = "NO-PR"
     $prNumber = ""
-    try {
-        $parsed = $prInfo | ConvertFrom-Json
-        if ($parsed) {
-            $prState = $parsed[0].state
-            $prNumber = $parsed[0].number
-        }
+    if ($prSummary.Items.Count -gt 0) {
+        $prState = $prSummary.Items[0].State
+        $prNumber = $prSummary.Items[0].Number
     }
-    catch { }
 
     if ($prState -eq "MERGED") {
         try {
@@ -392,20 +388,14 @@ function Get-RemoteWtBranches {
     foreach ($branch in $remoteBranches) {
         if (-not $branch) { continue }
 
-        # Check PR status via gh CLI
-        $prInfo = gh pr list --repo jsboige/roo-extensions --head $branch --state all --json number,state --limit 1 2>$null
+        # Check PR status via REST (#4150 lot 2) — 0 point GraphQL par branche distante.
+        $prSummary = Get-PullRequestSummary -Repo jsboige/roo-extensions -Head $branch -MaxCount 1
         $prState = "NO-PR"
         $prNumber = ""
 
-        if ($prInfo -and $prInfo -ne "[]") {
-            try {
-                $parsed = $prInfo | ConvertFrom-Json
-                if ($parsed) {
-                    $prState = $parsed[0].state
-                    $prNumber = $parsed[0].number
-                }
-            }
-            catch { }
+        if ($prSummary.Ok -and $prSummary.Items.Count -gt 0) {
+            $prState = $prSummary.Items[0].State
+            $prNumber = $prSummary.Items[0].Number
         }
 
         $branches += @{

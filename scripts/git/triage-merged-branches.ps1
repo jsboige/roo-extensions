@@ -61,6 +61,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Lecture des PR en REST seul (#4150 lot 2, doctrine #4604).
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
 
 # Resolve absolute repo path up front so the helper closes over the final value.
 $RepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
@@ -92,12 +94,12 @@ $branches = @(Invoke-Git @('branch', '--format=%(refname:short)') |
 Write-Host "Fetching merged PR heads from $GhRepo..." -ForegroundColor DarkGray
 $mergedByHead = @{}
 try {
-    $mergedPrs = & gh pr list --repo $GhRepo --state merged --limit 5000 --json headRefName,number 2>&1 | ConvertFrom-Json
-    foreach ($pr in $mergedPrs) {
-        if ($pr.headRefName -and -not $mergedByHead.ContainsKey($pr.headRefName)) {
-            $mergedByHead[$pr.headRefName] = $pr.number
-        }
-    }
+    # REST (#4150 lot 2, doctrine #4604) : l'ancien `--limit 5000` était la plus grosse
+    # requête GraphQL de la flotte (un seul tir, mais 5 000 PR). La pagination REST va
+    # au bout de l'historique pour 0 point GraphQL.
+    $merged = Get-MergedPullRequestHeads -Repo $GhRepo
+    if (-not $merged.Ok) { throw $merged.Error }
+    $mergedByHead = $merged.Map
     Write-Host "  ($($mergedByHead.Count) distinct merged head refs)" -ForegroundColor DarkGray
 } catch {
     Write-Warning "Could not fetch/parse merged PR list; squash-merge detection disabled. ($_)"
