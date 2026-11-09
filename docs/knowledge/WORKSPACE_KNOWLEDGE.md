@@ -502,7 +502,7 @@ ROOSYNC_SHARED_PATH=<shared path>
 **Documentation**:
 - `docs/roosync/README.md` - Point d'entrée
 - `docs/roosync/ARCHITECTURE_ROOSYNC.md` - Architecture complète
-- `docs/roosync/GESTION_MULTI_AGENT.md` - Protocoles multi-agents
+- `docs/roosync/GESTION_MULTI_AGENT.md` - *(archived to docs/archive/doc-audit-2026-11-09/)*
 - `docs/roosync/GUIDE_UTILISATION_ROOSYNC.md` - *(archived to docs/_archive/v2.1/)*
 - `docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md` - État actuel
 
@@ -690,7 +690,6 @@ docs/
 **RooSync**:
 - `docs/roosync/README.md`
 - `docs/roosync/ARCHITECTURE_ROOSYNC.md`
-- `docs/roosync/GESTION_MULTI_AGENT.md`
 
 **MCPs**:
 - `mcps/README.md`

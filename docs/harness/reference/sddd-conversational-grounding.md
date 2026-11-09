@@ -336,12 +336,15 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 - `bookend pattern` (début et fin de tâche)
 - `protocole multi-pass` pour `codebase_search`
 
-**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
-- [docs/roosync/PROTOCOLE_SDDD.md](../../roosync/PROTOCOLE_SDDD.md) (v2.7.0)
+**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, obligations agents, workflow projet) :
+l'ancien `docs/roosync/PROTOCOLE_SDDD.md` (v2.7.0, janvier) est archivé dans
+`docs/archive/doc-audit-2026-11-09/` — ses sections vivantes sont couvertes par la règle
+auto-chargée `.claude/rules/sddd-grounding.md`, ce fichier et `sddd-grounding-detailed.md` ;
+le volet création/rattachement d'issues vit dans `.claude/rules/issue-creation.md`.
 
-**Les deux documents sont complémentaires** :
-- **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
-- **Ce fichier** : Protocole opérationnel Claude Code (`conversation_browser`, `bookend`, multi-pass)
+**Répartition actuelle** :
+- **`.claude/rules/sddd-grounding.md`** : autorité slim (invariants, bookend, 4 passes)
+- **Ce fichier + `sddd-grounding-detailed.md`** : protocole opérationnel Claude Code (`conversation_browser`, `bookend`, multi-pass) et tables de paramètres
 
 ---
 

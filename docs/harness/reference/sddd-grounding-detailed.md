@@ -94,5 +94,5 @@ Apres chaque tache significative, si le bookend de debut a trouve de la document
 la **verifier**, la **mettre a jour** si le travail l'a rendue obsolete, et **documenter** les
 decisions prises ainsi que les approches testees-et-rejetees.
 
-**Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes)
-**Methodologie systeme :** `docs/roosync/PROTOCOLE_SDDD.md`
+**Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md`
+**Methodologie systeme :** regle `.claude/rules/sddd-grounding.md` + `sddd-conversational-grounding.md` (l'ancien `docs/roosync/PROTOCOLE_SDDD.md` v2.7.0 est archive en `docs/archive/doc-audit-2026-11-09/`)

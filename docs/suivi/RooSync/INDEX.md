@@ -20,7 +20,7 @@
 | Fichier | Usage |
 |---------|-------|
 | [`../roosync/GUIDE-TECHNIQUE-v2.3.md`](../../roosync/GUIDE-TECHNIQUE-v2.3.md) | Guide technique complet |
-| [`../roosync/PROTOCOLE_SDDD.md`](../../roosync/PROTOCOLE_SDDD.md) | Protocole SDDD v2.5.0 |
+| [`PROTOCOLE_SDDD.md (archivé)`](../../archive/doc-audit-2026-11-09/PROTOCOLE_SDDD.md) | Protocole SDDD v2.7 — superseded par `.claude/rules/sddd-grounding.md` |
 | [`../roosync/QUICKSTART.md`](../../roosync/QUICKSTART.md) | Guide rapide (30 lignes) |
 | [`../roosync/ERROR_CODES_REFERENCE.md`](../../roosync/ERROR_CODES_REFERENCE.md) | Codes erreur T2.8 |
 | [`../../../CLAUDE.md`](../../../CLAUDE.md) | Guide Claude Code + IDs GitHub |

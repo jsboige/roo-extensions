@@ -22,7 +22,7 @@ Ce dossier contient les guides pratiques pour les agents RooSync.
 Ces documents ont été créés suite à l'analyse T4.10 des besoins de documentation multi-agent.
 
 **Voir aussi:**
-- [../GESTION_MULTI_AGENT.md](../GESTION_MULTI_AGENT.md) - Rôles et protocoles
+- [GESTION_MULTI_AGENT.md (archivé)](../../archive/doc-audit-2026-11-09/GESTION_MULTI_AGENT.md) - Rôles et protocoles (topologie janvier obsolète — voir CLAUDE.md § Vue d'ensemble)
 - [../ERROR_CODES_REFERENCE.md](../ERROR_CODES_REFERENCE.md) - Codes d'erreur
 - [../ARCHITECTURE_ROOSYNC.md](../ARCHITECTURE_ROOSYNC.md) - Architecture technique
 
