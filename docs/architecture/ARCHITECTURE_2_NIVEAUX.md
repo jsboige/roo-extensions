@@ -370,7 +370,7 @@ L'architecture SDDD 2-niveaux vise à **optimiser les coûts et les performances
 
 ### 9.1 Documentation Technique
 
-- [PROTOCOLE_SDDD.md](../roosync/PROTOCOLE_SDDD.md) - Méthodologie SDDD v2.6.0
+- [sddd-grounding.md](../../.claude/rules/sddd-grounding.md) - Méthodologie SDDD (règle v5.1.0 ; l'ancien PROTOCOLE_SDDD.md v2.7 est archivé)
 - [GUIDE-TECHNIQUE-v2.3.md](../roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide RooSync
 - [CLAUDE.md](../../CLAUDE.md) - Configuration projet
 

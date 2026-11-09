@@ -205,7 +205,7 @@ Body:
 | Document | Contenu | Priorité |
 |----------|---------|----------|
 | [CLAUDE.md](../../../CLAUDE.md) | Guide principal agents | **CRITIQUE** |
-| [GESTION_MULTI_AGENT.md](../GESTION_MULTI_AGENT.md) | Rôles et protocoles | HIGH |
+| [GESTION_MULTI_AGENT.md (archivé)](../../archive/doc-audit-2026-11-09/GESTION_MULTI_AGENT.md) | Rôles et protocoles — topologie janvier obsolète, l'autorité est [CLAUDE.md § Vue d'ensemble](../../../CLAUDE.md) | HIGH |
 | [ERROR_CODES_REFERENCE.md](../ERROR_CODES_REFERENCE.md) | Codes d'erreur | MEDIUM |
 
 ### Fichiers de Coordination

@@ -239,14 +239,10 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 | `DASHBOARD_AUTO_REFRESH.md` | Automatisation refresh dashboards (issue #460) | active |
 | `ERROR_CODES_REFERENCE.md` | Reference codes erreur v1.0 | active |
 | `ESCALATION_MECHANISM.md` | Mecanisme escalation Roo (issues #462/#464) | active |
-| `GESTION_MULTI_AGENT.md` | Guide gestion multi-agent v1.0 | active |
 | `GUIDE-TECHNIQUE-v2.3.md` | Guide technique unifie v2.3.1 (production) | active |
 | `HARNESS-CORRESPONDENCE.md` | Mapping harnais Roo/Claude (issue #874) | active |
 | `HEARTBEAT_REGISTRATION_PROCEDURE.md` | Procedure enregistrement heartbeat (issue #460) | active |
-| `INTERCOM_PROTOCOL.md` | Protocol communication inter-agents v1.1 | active |
 | `MCP_AVAILABILITY.md` | Inventaire outils et STOP & REPAIR v1.2 | active |
-| `PROTOCOLE_SDDD.md` | Protocol SDDD v2.7 | active |
-| `QUALITY-PIPELINE.md` | Pipeline qualite automatique (issue #544) | active |
 | `QUICKSTART.md` | Guide demarrage rapide (30 lignes) | active |
 | `README.md` | Entree principale RooSync v2.3 | active |
 | `ROOSYNC_DASHBOARDS.md` | Documentation dashboards (issue #675) | active |
