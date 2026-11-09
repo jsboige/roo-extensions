@@ -78,7 +78,16 @@ function Get-PullRequestSummary {
         # ces guillemets, cmd coupe l'URL ; mesuré : sortie correcte mais exit code 1,
         # donc la branche « échec » était prise à tort.
         $quotedUrl = '"' + $url + '&page=' + $page + '"'
-        $out = & gh api $quotedUrl --jq $jq 2>$null
+        try {
+            # #3731 : sous EAP=Stop (powershell.exe 5.1), le stderr d'un natif redirigé
+            # devient NativeCommandError TERMINANT avant tout check de $LASTEXITCODE.
+            # Ce helper tourne en production 5.1 (worktree-cleanup, sched cleanup) :
+            # sans ce catch, un gh qui écrit sur stderr (quota, timeout réseau) tue le
+            # run AVANT le fail-safe Ok=$false — la panne silencieuse que la PR élimine.
+            $out = & gh api $quotedUrl --jq $jq 2>$null
+        } catch {
+            return [pscustomobject]@{ Ok = $false; Items = @(); Error = "gh api threw: $($_.Exception.Message)" }
+        }
         $code = $LASTEXITCODE
         if ($code -ne 0) {
             return [pscustomobject]@{ Ok = $false; Items = @(); Error = "gh api exit $code" }
@@ -88,6 +97,14 @@ function Get-PullRequestSummary {
         if ($MaxCount -gt 0 -and $items.Count -ge $MaxCount) { break }
         if ($pageItems.Count -lt $perPage) { break }
         $page++
+    }
+
+    if ($Head) {
+        # Le gh CLI peut manger le filtre `head=` par substitution interne de placeholder
+        # quand le nom de branche contient le token « branch » (mesuré review #4616 :
+        # head=jsboige:branch-foo rend des rows NON filtrés). On ne fait pas confiance à
+        # la query string seule : la réponse est re-filtrée sur ce qu'on a demandé.
+        $items = @($items | Where-Object { "$($_.HeadRefName)" -eq $Head })
     }
 
     if ($MaxCount -gt 0 -and $items.Count -gt $MaxCount) { $items = $items[0..($MaxCount - 1)] }
