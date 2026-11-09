@@ -51,6 +51,10 @@ $ErrorActionPreference = "Stop"
 $MachineName = $env:COMPUTERNAME
 $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
+# Lectures PR en REST seul (#4150 lot 3, doctrine #4604) : `gh pr list` / `gh pr view`
+# brûlaient un point GraphQL par passe et par PR.
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 # --- Helper functions ---
 
 function Write-Log {
@@ -143,8 +147,11 @@ function Test-RestrictedLabels {
     $restricted = @("harness-change", "critical")
     $findings = @()
     foreach ($label in $Labels) {
-        if ($restricted -contains $label.name) {
-            $findings += "Restricted label: $($label.name) — requires human review"
+        # Lot 3 (#4150) : le helper REST rend les labels en noms (strings) ; l'ancien
+        # `gh pr list --json labels` rendait des objets {name}. Les deux passent.
+        $name = if ($label -is [string]) { $label } else { $label.name }
+        if ($restricted -contains $name) {
+            $findings += "Restricted label: $name — requires human review"
         }
     }
     return $findings
@@ -163,18 +170,20 @@ if ($Once) {
 }
 
 # Step 1: Fetch eligible PRs (empty author filter = all open PRs are candidates)
-$searchClause = ""
-if (-not [string]::IsNullOrEmpty($AuthorFilter)) {
-    $searchClause = " --search `"author:$AuthorFilter`""
-}
+# REST (#4150 lot 3, doctrine #4604) : `gh pr list` brûlait un point GraphQL par
+# passe ; le helper rend la liste en REST, et le filtre auteur (`--search author:`,
+# qui n'existe pas sur l'API pulls) s'applique côté client sur user.login.
 Write-Log "Fetching open PRs (author filter: $AuthorDisplay)..." "INFO"
-$prListJson = Invoke-GhSafe "gh pr list --repo $Repo --state open$searchClause --json number,title,labels,reviewDecision,author"
-if ($null -eq $prListJson) {
-    Write-Log "Failed to fetch PR list" "ERROR"
+$prSummary = Get-PullRequestSummary -Repo $Repo -State open
+if (-not $prSummary.Ok) {
+    Write-Log "Failed to fetch PR list: $($prSummary.Error)" "ERROR"
     exit 1
 }
 
-$prList = $prListJson | ConvertFrom-Json
+$prList = @($prSummary.Items)
+if (-not [string]::IsNullOrEmpty($AuthorFilter)) {
+    $prList = @($prList | Where-Object { "$($_.AuthorLogin)" -eq $AuthorFilter })
+}
 if ($prList.Count -eq 0) {
     Write-Log "No open PRs found (author filter: $AuthorDisplay)" "INFO"
     exit 2
@@ -188,18 +197,26 @@ $flagged = 0
 $skipped = 0
 
 foreach ($pr in $prList) {
-    $prNumber = $pr.number
-    Write-Log "`n--- Processing PR #$prNumber : $($pr.title) ---" "INFO"
+    $prNumber = $pr.Number
+    Write-Log "`n--- Processing PR #$prNumber : $($pr.Title) ---" "INFO"
 
-    # Skip if already approved
-    if ($pr.reviewDecision -eq "APPROVED") {
+    # Skip if already approved — reviewDecision est GraphQL-only : composé en REST
+    # depuis les revues (#4150 lot 3). Échec du fetch = skip : commenter une PR
+    # peut-être déjà approuvée est précisément le doublon que ce skip évite.
+    $reviewDecision = Get-PullRequestReviewDecision -Repo $Repo -Number $prNumber
+    if (-not $reviewDecision.Ok) {
+        Write-Log "Failed to fetch review decision for PR #$prNumber ($($reviewDecision.Error)), skipping" "WARN"
+        $skipped++
+        continue
+    }
+    if ($reviewDecision.Decision -eq "APPROVED") {
         Write-Log "PR #$prNumber already APPROVED, skipping" "INFO"
         $skipped++
         continue
     }
 
     # Check restricted labels
-    $labelFindings = Test-RestrictedLabels -Labels $pr.labels
+    $labelFindings = Test-RestrictedLabels -Labels $pr.Labels
     if ($labelFindings.Count -gt 0) {
         Write-Log "PR #$prNumber has restricted labels, skipping auto-review:" "WARN"
         $labelFindings | ForEach-Object { Write-Log "  $_" "WARN" }
@@ -207,13 +224,15 @@ foreach ($pr in $prList) {
         continue
     }
 
-    # Get full PR details (CI status, files, LOC)
-    $prDetailJson = Invoke-GhSafe "gh pr view $prNumber --repo $Repo --json statusCheckRollup,additions,deletions,files,headRefName"
-    if ($null -eq $prDetailJson) {
-        Write-Log "Failed to fetch PR #$prNumber details" "ERROR"
+    # Get full PR details (CI status, files, LOC) — REST (#4150 lot 3), forme
+    # « gh pr view --json » préservée : statusCheckRollup composé des check-runs,
+    # casse MAJUSCULE comme gh, additions/deletions inchangés.
+    $prDetailR = Get-PullRequestDetail -Repo $Repo -Number $prNumber
+    if (-not $prDetailR.Ok) {
+        Write-Log "Failed to fetch PR #$prNumber details: $($prDetailR.Error)" "ERROR"
         continue
     }
-    $prDetail = $prDetailJson | ConvertFrom-Json
+    $prDetail = $prDetailR.Item
 
     # Check CI status
     $ciChecks = $prDetail.statusCheckRollup
