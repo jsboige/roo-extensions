@@ -331,7 +331,7 @@ conversation_browser(
 - Croiser avec `git log`, tables d'infrastructure (CLAUDE.md GPU Fleet/Services), MEMORY.md
 - Si affirmation surprenante → verifier (Niveau 1-3) AVANT de dispatcher
 - Ne JAMAIS relayer une affirmation sans qualifier : "VERIFIE par [preuve]" ou "RAPPORTE PAR [source] (non verifie)"
-- **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
+- **Reference :** [`.claude/rules/skepticism-protocol.md`](../rules/skepticism-protocol.md)
 - `[ESCALADE-CLAUDE]` → Taches echouees en `-complex` a reprendre par Claude
 
 **4. Evaluer et ajuster :**

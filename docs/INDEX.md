@@ -135,7 +135,6 @@ docs/
 | `conversation-browser-detailed.md` | Reference conversation_browser (issue #1063) | active |
 | `delegation.md` | Regles delegation sub-agents (issue #566) | active |
 | `escalation-protocol.md` | Protocole escalation Claude Code (issue #842) | active |
-| `feedback-process.md` | Processus feedback et amelioration | active |
 | `friction-protocol-detailed.md` | Friction detaille (issue #1033) — procedure complete (Dashboard canonical) | active |
 | `friction-protocol-v1-deprecated.md` | v1.0 archivée 2026-06-18 (INTERCOM-deprecated, name collision with slim rule) | archive |
 | `github-checklists.md` | Regles checklists GitHub (issue #516) | active |
@@ -156,6 +155,7 @@ docs/
 | `scheduler-system.md` | Reference technique scheduler Roo | active |
 | `sddd-conversational-grounding.md` | Protocole SDDD triple grounding v2.2 (issue #984) | active |
 | `sddd-grounding-detailed.md` | SDDD multi-pass et filtres (issue #1063) | active |
+| `skepticism-protocol-detailed.md` | Scepticisme detaille — declencheurs, 3 niveaux, anti-patterns (issue #2877, archive de `SKEPTICISM_PROTOCOL.md`) | active |
 | `stub-detection.md` | Protocol detection stubs (crise #767-#786) | active |
 | `test-success-rates.md` | Taux succes tests (issues #720/#827) | active |
 | `tool-availability-detailed.md` | Inventaire outils detaille | active |
@@ -226,7 +226,9 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 
 ## 2. RooSync (53 fichiers)
 
-### docs/roosync/ — 24 fichiers actifs
+### docs/roosync/ — 21 fichiers actifs
+
+> 3 doublons consolidés vers `docs/harness/` et archivés dans `docs/archive/doc-audit-2026-11-09/` (#2877, arbitrage `c.6728993741`) — voir le README de cette archive pour les preuves de préservation.
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
@@ -237,7 +239,6 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 | `DASHBOARD_AUTO_REFRESH.md` | Automatisation refresh dashboards (issue #460) | active |
 | `ERROR_CODES_REFERENCE.md` | Reference codes erreur v1.0 | active |
 | `ESCALATION_MECHANISM.md` | Mecanisme escalation Roo (issues #462/#464) | active |
-| `FEEDBACK_PROCESS.md` | Processus feedback continu | active |
 | `GESTION_MULTI_AGENT.md` | Guide gestion multi-agent v1.0 | active |
 | `GUIDE-TECHNIQUE-v2.3.md` | Guide technique unifie v2.3.1 (production) | active |
 | `HARNESS-CORRESPONDENCE.md` | Mapping harnais Roo/Claude (issue #874) | active |
@@ -245,12 +246,10 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 | `INTERCOM_PROTOCOL.md` | Protocol communication inter-agents v1.1 | active |
 | `MCP_AVAILABILITY.md` | Inventaire outils et STOP & REPAIR v1.2 | active |
 | `PROTOCOLE_SDDD.md` | Protocol SDDD v2.7 | active |
-| `PR_REVIEW_POLICY.md` | Politique review PR multi-agents (issue #461) | active |
 | `QUALITY-PIPELINE.md` | Pipeline qualite automatique (issue #544) | active |
 | `QUICKSTART.md` | Guide demarrage rapide (30 lignes) | active |
 | `README.md` | Entree principale RooSync v2.3 | active |
 | `ROOSYNC_DASHBOARDS.md` | Documentation dashboards (issue #675) | active |
-| `SKEPTICISM_PROTOCOL.md` | Protocol scepticisme raisonnable | active |
 | `SUBMODULE_WORKFLOW.md` | Guide workflow submodules | active |
 | `worktree-best-practices.md` | Bonnes pratiques worktrees (issue #627) | active |
 
@@ -583,9 +582,9 @@ coordination/ (3), issues/ (1), reports/ (9), sessions/ (1), plus 3 fichiers rac
 - ~~`roo-code/SCHEDULED_COORDINATOR.md`~~ — **résolu** (arbitrage #2877 c.6721203691) : consolidé dans `harness/coordinator-specific/scheduled-coordinator.md`, archivé.
 - ~~`roo-code/SCHEDULER_DENSIFICATION.md` ↔ `harness/reference/scheduler-densification.md`~~ — **réfuté** (arbitrage #2877) : le doc roo-code garde l'autorité (consommateurs vivants `.claude/commands/`), ce n'est pas un doublon.
 - ~~`roo-code/SCHEDULER_SYSTEM.md` ↔ `harness/reference/scheduler-system.md`~~ — **réfuté** (arbitrage #2877) : le doc roo-code garde l'autorité (consommateurs vivants `.claude/agents/`), ce n'est pas un doublon.
-- `roosync/FEEDBACK_PROCESS.md` ↔ `harness/reference/feedback-process.md`
-- `roosync/PR_REVIEW_POLICY.md` ↔ `harness/coordinator-specific/pr-review-policy.md`
-- `roosync/SKEPTICISM_PROTOCOL.md` ↔ `rules/skepticism-protocol.md`
+- ~~`roosync/FEEDBACK_PROCESS.md` ↔ `harness/reference/feedback-process.md`~~ — **résolu** (#2877 vague 2, arbitrage `c.6728993741`) : twins byte-identiques (sha256 `0d767baa…`), contenu unique fusionné dans `harness/reference/friction-protocol-detailed.md`, les deux archivés.
+- ~~`roosync/PR_REVIEW_POLICY.md` ↔ `harness/coordinator-specific/pr-review-policy.md`~~ — **résolu** (#2877 vague 2) : la cible est un sur-ensemble (§1-§10 reprises, 18 lignes périmées remplacées), source archivée.
+- ~~`roosync/SKEPTICISM_PROTOCOL.md` ↔ `rules/skepticism-protocol.md`~~ — **résolu** (#2877 vague 2) : la règle reste seule autorité, l'élaboration encore vraie vit dans `harness/reference/skepticism-protocol-detailed.md`, copie roosync archivée.
 
 ---
 
