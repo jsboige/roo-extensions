@@ -20,6 +20,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Lecture des PR en REST seul (#4150 lot 2, doctrine #4604).
+. "$PSScriptRoot\common\gh-pull-requests.ps1"
 $Repo = 'jsboige/roo-extensions'
 $cutoff = (Get-Date).AddDays(-$DaysThreshold)
 
@@ -33,7 +35,11 @@ Write-Host ""
 Write-Host "Fetching open PRs..." -ForegroundColor Yellow
 $prBranches = @()
 try {
-    $prBranches = gh pr list --state open --json headRefName --jq '.[].headRefName' --repo $Repo 2>$null
+    # REST (#4150 lot 2) : `gh pr list --json headRefName` débitait un point GraphQL
+    # par audit ; la forme REST ramène les mêmes têtes de branche, 0 point GraphQL.
+    $prSummary = Get-PullRequestSummary -Repo $Repo -State open
+    if (-not $prSummary.Ok) { throw $prSummary.Error }
+    $prBranches = @($prSummary.Items | ForEach-Object { $_.HeadRefName })
 } catch {
     Write-Host "Warning: Could not fetch PRs" -ForegroundColor Yellow
 }

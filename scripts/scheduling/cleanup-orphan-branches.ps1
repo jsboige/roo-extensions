@@ -47,6 +47,11 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
+# Lecture des PR en REST seul (#4150 lot 2, doctrine #4604) — ce script tourne dans le
+# bloc finally de `start-claude-worker.ps1`, donc à chaque run worker de chaque siège :
+# `gh pr list` y coûtait un point GraphQL par exécution.
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 # Resolve repo root
 if (-not $RepoRoot) {
     $gitRoot = git rev-parse --show-toplevel 2>$null
@@ -72,9 +77,14 @@ Write-Host "Prefixes: $($BranchPrefixes -join ', ')"
 # Fetch up to 200 PRs — covers recent activity
 $AllPRs = @()
 try {
-    $PrJson = & gh pr list --state all --json headRefName,state,number --limit 200 --repo jsboige/roo-extensions 2>$null
-    if ($LASTEXITCODE -eq 0 -and $PrJson) {
-        $AllPRs = $PrJson | ConvertFrom-Json
+    # REST (#4150 lot 2) : même fenêtre que l'ancien `--limit 200` (200 PR les plus
+    # récentes, tri created desc), sans consommer le budget GraphQL.
+    $PrSummary = Get-PullRequestSummary -Repo 'jsboige/roo-extensions' -State all -MaxCount 200
+    if ($PrSummary.Ok) {
+        $AllPRs = @($PrSummary.Items)
+    }
+    else {
+        Write-Host "WARN: Could not fetch PR list from GitHub: $($PrSummary.Error)"
     }
 } catch {
     Write-Host "WARN: Could not fetch PR list from GitHub: $_"

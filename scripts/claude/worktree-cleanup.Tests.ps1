@@ -22,6 +22,7 @@ BeforeAll {
     $script:RepoRoot = (git -C "$PSScriptRoot\..\.." rev-parse --show-toplevel).Trim()
     $script:SourceScript = Join-Path $script:RepoRoot 'scripts\claude\worktree-cleanup.ps1'
     $script:SourceGuards = Join-Path $script:RepoRoot 'scripts\common\path-guards.ps1'
+    $script:SourceGhHelper = Join-Path $script:RepoRoot 'scripts\common\gh-pull-requests.ps1'
     $script:OldDate = '2026-08-01T12:00:00'
 
     function New-CleanupFixture {
@@ -32,6 +33,7 @@ BeforeAll {
         New-Item -ItemType Directory -Path (Join-Path $fixture '.claude\worktrees') -Force | Out-Null
         Copy-Item $script:SourceScript -Destination (Join-Path $fixture 'scripts\claude\worktree-cleanup.ps1')
         Copy-Item $script:SourceGuards -Destination (Join-Path $fixture 'scripts\common\path-guards.ps1')
+        Copy-Item $script:SourceGhHelper -Destination (Join-Path $fixture 'scripts\common\gh-pull-requests.ps1')
 
         git -C $fixture init -q -b master
         if ($LASTEXITCODE -ne 0) { Set-ItResult -Skipped -Because "git init failed"; return $null }
@@ -50,9 +52,27 @@ BeforeAll {
         param([string]$Fixture, [string]$Json)
         $shimDir = Join-Path $Fixture 'shim'
         New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
-        # Un .cmd suffit : le script enfant appelle `gh pr list ...` et ne lit que la
-        # sortie + le code retour. Exit 0 implicite, JSON sur stdout.
-        Set-Content -Path (Join-Path $shimDir 'gh.cmd') -Value "@echo $Json" -Encoding ASCII
+        # Shim sentinelle (#4150 lot 2) : seul `gh api` répond. Toute autre sous-commande
+        # — `gh pr list` comprise — simule un 403 GraphQL et sort en 1 : si une jambe
+        # GraphQL subsistait dans le script, la preuve de livraison serait introuvable
+        # et ces scénarios rougiraient.
+        $log = Join-Path $shimDir 'calls.log'
+        # `gh api --jq '.[] | {...}'` rend UN OBJET JSON PAR LIGNE (contrat reproduit ici).
+        # PS 5.1 rend un tableau JSON comme UN SEUL objet de pipeline — matérialiser.
+        $parsed = ConvertFrom-Json -InputObject $Json
+        $lines = @(foreach ($item in @($parsed)) { $item | ConvertTo-Json -Compress -Depth 5 })
+        $cmd = @(
+            '@echo off',
+            'if /I "%~1"=="api" goto rest',
+            ('>>"{0}" echo %~1' -f $log),
+            'echo GraphQL: API rate limit exceeded 1>&2',
+            'exit /b 1',
+            ':rest',
+            ('>>"{0}" echo api' -f $log)
+        ) + @($lines | ForEach-Object { 'echo ' + $_ }) + @(
+            'exit /b 0'
+        )
+        Set-Content -Path (Join-Path $shimDir 'gh.cmd') -Value ($cmd -join "`r`n") -Encoding ASCII
         return $shimDir
     }
 
@@ -129,12 +149,16 @@ Describe 'worktree-cleanup safety guards' {
         Remove-Item Env:GIT_AUTHOR_DATE, Env:GIT_COMMITTER_DATE -ErrorAction SilentlyContinue
         git -C $f checkout -q master
         git -C $f push -q -u origin wt/merged
-        $shim = New-GhShim -Fixture $f -Json '[{"number":42,"state":"MERGED"}]'
+        $shim = New-GhShim -Fixture $f -Json '[{"number":42,"state":"closed","merged_at":"2026-08-05T10:00:00Z","head_ref":"wt/merged"}]'
 
         $out = Invoke-CleanupChild -Fixture $f -ShimPath @($shim)
 
         Test-BranchExists -Fixture $f -Name 'wt/merged' | Should -BeFalse
         $out | Should -Match 'Deleted branch \(PR #42 MERGED\): wt/merged'
+        # Sentinelle #4150 : la preuve a été lue en REST, jamais via GraphQL.
+        $calls = @(Get-Content (Join-Path $shim 'calls.log') -ErrorAction SilentlyContinue | Where-Object { $_ })
+        $calls.Count | Should -BeGreaterThan 0
+        @($calls | Where-Object { $_ -ne 'api' }) | Should -BeNullOrEmpty
     }
 
     It 'branche poussée, PR OPEN (shim gh) → KEPT' {
@@ -149,7 +173,7 @@ Describe 'worktree-cleanup safety guards' {
         Remove-Item Env:GIT_AUTHOR_DATE, Env:GIT_COMMITTER_DATE -ErrorAction SilentlyContinue
         git -C $f checkout -q master
         git -C $f push -q -u origin wt/open-pr
-        $shim = New-GhShim -Fixture $f -Json '[{"number":43,"state":"OPEN"}]'
+        $shim = New-GhShim -Fixture $f -Json '[{"number":43,"state":"open","merged_at":null,"head_ref":"wt/open-pr"}]'
 
         $out = Invoke-CleanupChild -Fixture $f -ShimPath @($shim)
 
