@@ -41,22 +41,6 @@ import test_cycle_end as tce  # noqa: E402
 REPOS = ["jsboige/roo-extensions", "jsboige/jsboige-mcp-servers"]
 
 
-def ok_result(payload):
-    """Fake subprocess.CompletedProcess avec stdout JSON valide (test_cycle_end)."""
-    return SimpleNamespace(stdout=json.dumps(payload), stderr="", returncode=0)
-
-
-def issue(number, labels, title="issue"):
-    return {
-        "number": number,
-        "title": title,
-        "labels": [{"name": l} for l in labels],
-        "assignees": [],
-        "createdAt": "2026-09-01T00:00:00Z",
-        "updatedAt": "2026-09-15T00:00:00Z",
-    }
-
-
 # --- fixtures REST du picker (#4103 : une collecte par depot) -----------------
 
 
@@ -84,6 +68,13 @@ def rest_pr(number, title="pr", labels=(), body=""):
     return {**rest_issue(number, list(labels), title),
             "body": body,
             "pull_request": {"url": f"https://api.github.com/repos/x/pulls/{number}"}}
+
+
+def merged_pr(number, hours_ago=2.0):
+    """PR fusionee dans la fenetre 24h de test_cycle_end (bornes horloge reelle
+    — pas de mock de datetime : _parse_ts en depend, #4150 lot 4b)."""
+    ts = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+    return {"number": number, "merged_at": ts, "updated_at": ts}
 
 
 def claim_comment(machine, hours=1.0):
@@ -331,14 +322,12 @@ class TestCycleEndFailClosed(unittest.TestCase):
         self.assertIn("rate limit", json.dumps(data))
 
     def test_partial_failure_backlog_ok_delivery_panics_is_error(self):
-        now = datetime.now(timezone.utc)
-        fresh_pr = {"number": 1, "mergedAt": now.isoformat()}
+        # #4150 lot 4b : la collecte items passe (backlog rendu), la page
+        # merged R2 expire — aucune livraison rendue, aucun verdict de fond.
         seq = [
-            ok_result([issue(1, ["approved"])]),  # backlog R1
-            ok_result([]),                         # backlog R2
-            ok_result([]),                         # opened R1
-            ok_result([fresh_pr]),                 # merged R1
-            subprocess.TimeoutExpired(cmd=["gh"], timeout=60),  # opened R2
+            rest_page([rest_issue(1, ["approved"])]),  # items R1
+            rest_page([]),                             # items R2
+            rest_page([]),                             # merged R1 (page vide -> arret)
             subprocess.TimeoutExpired(cmd=["gh"], timeout=60),  # merged R2
         ]
         with mock.patch("subprocess.run", side_effect=seq):
@@ -348,18 +337,19 @@ class TestCycleEndFailClosed(unittest.TestCase):
 
 
 class TestCycleEndVerdicts(unittest.TestCase):
-    def _seq(self, issues_r1, issues_r2, opened, merged):
-        # Ordre des appels gh de test_cycle_end : issues r1/r2, PR-listes r1/r2
-        # (#3381 D3 : approved-sans-PR), puis delivered (opened/merged par repo).
-        return [
-            ok_result(issues_r1), ok_result(issues_r2),
-            ok_result([]), ok_result([]),
-            ok_result(opened[0]), ok_result(merged[0]),
-            ok_result(opened[1]), ok_result(merged[1]),
-        ]
+    def _seq(self, items_r1, items_r2, merged_r1, merged_r2):
+        """Ordre des appels gh REST de test_cycle_end (#4150 lot 4b) : items
+        r1/r2 (issues + PRs de la meme collecte — couverture D3 #3381 et
+        ouvertes de la fenetre sans appel supplementaire), puis merged r1/r2.
+        Une page merged non vide et fraiche n'arrete pas tot : la page 2 vide
+        qui suit ferme la boucle de pagination."""
+        def merged_calls(merged):
+            return [rest_page(merged), rest_page([])] if merged else [rest_page([])]
+        return ([rest_page(items_r1), rest_page(items_r2)]
+                + merged_calls(merged_r1) + merged_calls(merged_r2))
 
     def test_empty_backlog_no_delivery_pass(self):
-        with mock.patch("subprocess.run", side_effect=self._seq([], [], ([], []), ([], []))):
+        with mock.patch("subprocess.run", side_effect=self._seq([], [], [], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -367,11 +357,9 @@ class TestCycleEndVerdicts(unittest.TestCase):
         self.assertEqual(data["backlog_grain"], 0)
 
     def test_backlog_and_fleet_delivery_pass(self):
-        now = datetime.now(timezone.utc)
-        merged_pr = {"number": 5, "mergedAt": now.isoformat()}
         with mock.patch("subprocess.run",
-                        side_effect=self._seq([issue(1, ["approved"])], [],
-                                              ([], []), ([merged_pr], []))):
+                        side_effect=self._seq([rest_issue(1, ["approved"])], [],
+                                              [merged_pr(5)], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -379,11 +367,13 @@ class TestCycleEndVerdicts(unittest.TestCase):
         self.assertEqual(data["prs_delivered_fleet"], 1)
 
     def test_backlog_no_delivery_fail_exit1(self):
-        old = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
-        stale_open = {"number": 2, "createdAt": old}
+        # La PR ouverte 2 rode dans items R1 avec son created_at par defaut
+        # (2026-09-01, hors fenetre) : ouverte != livree, le backlog grain
+        # sans livraison rend FAIL.
         with mock.patch("subprocess.run",
-                        side_effect=self._seq([issue(1, ["bug"])], [],
-                                              ([stale_open], []), ([], []))):
+                        side_effect=self._seq(
+                            [rest_issue(1, ["bug"]), rest_pr(2, "stale opened")],
+                            [], [], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 1)
         data = json.loads(out)
@@ -396,8 +386,8 @@ class TestCycleEndVerdicts(unittest.TestCase):
         # ne doit ni gonfler le backlog ni pretendre etre compte (le test
         # ne rapporte que ce qu'il mesure).
         with mock.patch("subprocess.run",
-                        side_effect=self._seq([issue(3, ["needs-approval"])], [],
-                                              ([], []), ([], []))):
+                        side_effect=self._seq([rest_issue(3, ["needs-approval"])],
+                                              [], [], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -409,13 +399,12 @@ class TestCycleEndVerdicts(unittest.TestCase):
         # porte AVEC un label actionnable ne doit ni gonfler le backlog ni
         # contredire le picker (ADR 016) - sinon le test presse la lane vers
         # des grains non actionnables. frozen inclus : parite #3381/#3809.
-        gated = [issue(3, ["bug", "needs-approval"]),
-                 issue(4, ["investigation", "deferred"]),
-                 issue(5, ["approved", "blocked-on-gate"]),
-                 issue(6, ["approved", "frozen"])]
+        gated = [rest_issue(3, ["bug", "needs-approval"]),
+                 rest_issue(4, ["investigation", "deferred"]),
+                 rest_issue(5, ["approved", "blocked-on-gate"]),
+                 rest_issue(6, ["approved", "frozen"])]
         with mock.patch("subprocess.run",
-                        side_effect=self._seq(gated, [],
-                                              ([], []), ([], []))):
+                        side_effect=self._seq(gated, [], [], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -426,22 +415,14 @@ class TestCycleEndVerdicts(unittest.TestCase):
         # #3381 D3 : couverture = frontiere de mot sur le numero dans le titre
         # de la PR. "#71" ne couvre PAS l'issue 7 (mesure 05/09 : le flou
         # --search GitHub, ici remplace par un scan regex local des titres).
-        now = datetime.now(timezone.utc)
-        merged_pr = {"number": 5, "mergedAt": now.isoformat()}
-
-        def pr(n, title):
-            return {"number": n, "title": title}
-
-        seq = [
-            ok_result([issue(7, ["approved"]), issue(8, ["approved"])]),
-            ok_result([]),
-            # PR-listes r1/r2 : "#8 fix" couvre 8 ; "#71" ne couvre PAS 7.
-            ok_result([pr(101, "fix(#8): covered"), pr(102, "ref #71 for other")]),
-            ok_result([]),
-            ok_result([]), ok_result([merged_pr]),   # delivered r1
-            ok_result([]), ok_result([]),            # delivered r2
+        # #4150 lot 4b : les PRs ouvertes arrivent dans la MEME page items que
+        # les issues (cle `pull_request`) — "#8 fix" couvre 8 ; "#71" non 7.
+        items_r1 = [
+            rest_issue(7, ["approved"]), rest_issue(8, ["approved"]),
+            rest_pr(101, "fix(#8): covered"), rest_pr(102, "ref #71 for other"),
         ]
-        with mock.patch("subprocess.run", side_effect=seq):
+        with mock.patch("subprocess.run",
+                        side_effect=self._seq(items_r1, [], [merged_pr(5)], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
@@ -453,17 +434,10 @@ class TestCycleEndVerdicts(unittest.TestCase):
     def test_approved_no_pr_gated_excluded(self):
         # Une approved portant un label de gel ne doit pas apparaitre dans la
         # vue D3 (meme filtre que le backlog).
-        gated_and_clean = [issue(3, ["approved", "needs-approval"]),
-                           issue(9, ["approved"])]
-        now = datetime.now(timezone.utc)
-        merged_pr = {"number": 5, "mergedAt": now.isoformat()}
-        seq = [
-            ok_result(gated_and_clean), ok_result([]),
-            ok_result([]), ok_result([]),
-            ok_result([]), ok_result([merged_pr]),
-            ok_result([]), ok_result([]),
-        ]
-        with mock.patch("subprocess.run", side_effect=seq):
+        gated_and_clean = [rest_issue(3, ["approved", "needs-approval"]),
+                           rest_issue(9, ["approved"])]
+        with mock.patch("subprocess.run",
+                        side_effect=self._seq(gated_and_clean, [], [merged_pr(5)], [])):
             code, out = run_main(tce, ["--json"])
         self.assertEqual(code, 0)
         data = json.loads(out)
