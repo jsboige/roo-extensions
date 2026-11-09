@@ -93,7 +93,7 @@ Les fichiers dans `rules/` sont chargés automatiquement par Roo Code dans le co
 |---------------|--------------------------|
 | `rules/*.md` (auto-chargées) | `rules/*.md` (auto-chargées) |
 | `mcp.json` (overrides projet) | `~/.claude.json` (config globale) |
-| `schedules.json` (scheduler) | `schtasks` Windows (scheduler) |
+| `schedules.json` (scheduler) | `CronCreate` session-only (session claude-code) |
 | `scheduler-workflow-*.md` | `commands/executor.md` |
 
 ---
