@@ -26,8 +26,10 @@ configs/
 ├── commands/                    # Commands generiques (-> ~/.claude/commands/)
 │   ├── switch-provider.md
 │   └── debrief.md
-└── rules/                       # Regles globales (-> ~/.claude/rules/)
+└── rules/                       # Regles globales (-> ~/.claude/rules/) — SEULE copie (#2368)
+    ├── degraded-escalation.md   # Escalade degradee, echeance 2 cycles (#4517)
     ├── harnais-tightening.md    # Regles 15/09 (zero question, papermill, ENABLE_TOOL_SEARCH, #3657)
+    ├── shell-composite-discipline.md  # Jamais cd/rm en commande composee (#4214)
     └── uac-dryrun-discipline.md # Discipline dry-run UAC
 ```
 
@@ -70,7 +72,9 @@ Semantique du deploiement (`Deploy-GlobalConfig.ps1 -Target settings`) :
   (`.claude/rules/context-window.md`) ; les labels `_NAME`/`_DESCRIPTION`
   restent canon (generiques).
 
-> **Note (#2368, maj #445 17/10/2026) :** les regles `sddd-protocol.md` et `file-writing.md` n'existent plus comme fichiers — leur contenu est replie dans les sections SDDD et Tool Discipline du `~/.claude/CLAUDE.md` global (2 lignes chacune), le detail (4 passes, qualificateurs, matrice Edit/Write) vivant dans `docs/harness/global-rules-detail.md`. Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. Les regles `harnais-tightening.md` (#3657), `uac-dryrun-discipline.md` et `shell-composite-discipline.md` (#4214) restent deployees globalement via le meme `Deploy-GlobalConfig.ps1 -Target rules`.
+> **Note (#2368, maj #445 17/10/2026) :** les regles `sddd-protocol.md` et `file-writing.md` n'existent plus comme fichiers — leur contenu est replie dans les sections SDDD et Tool Discipline du `~/.claude/CLAUDE.md` global (2 lignes chacune), le detail (4 passes, qualificateurs, matrice Edit/Write) vivant dans `docs/harness/global-rules-detail.md`. Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`. Les 4 regles de `rules/` (`degraded-escalation.md` #4517, `harnais-tightening.md` #3657, `shell-composite-discipline.md` #4214, `uac-dryrun-discipline.md`) se deploient globalement via `Deploy-GlobalConfig.ps1 -Target rules`.
+>
+> **Note (#2368 volet 2, 09/11/2026) :** `harnais-tightening.md` et `degraded-escalation.md` vivaient **aussi** dans `.claude/rules/` comme « copie pour les sieges ou la regle globale n'est pas deployee ». Ce doublon chargeait le meme sujet deux fois par session sur les sieges deployes (mesure : po-2027 chargeait `harnais-tightening` 2x, 14 + 32 l. ; ai-01 2x les deux). Les copies projet sont **supprimees** — la seule source est `rules/` ici, deployee dans `~/.claude/rules/`. Un siege qui n'a pas deploye le voit desormais via `scripts/diagnostic/check-global-rules.py` (relaye en `[RULES-DEPLOY]` par le pre-vol executeur), au lieu de perdre la regle en silence.
 
 ## Profils Claudish
 

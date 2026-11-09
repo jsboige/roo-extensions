@@ -1,21 +1,21 @@
 # .claude/rules/ Footprint Snapshot
 
-**Generated:** 2026-11-04 (lot 1 campagne d'amincissement #2368)
+**Generated:** 2026-11-09 (volet 2 campagne d'amincissement #2368)
 **Script:** `scripts/audit-rules-footprint.ps1` (octets bruts, lecture seule)
 **Plafonds gardés par test :** `scripts/testing/unit/rules-footprint-budget.Tests.ps1` (octets LF-normalisés — c'est le test, pas ce snapshot, qui fait foi en CI)
 **Issues:** #1606 (baseline), #2368 (campagne d'amincissement, décision ai-01 04/11 12:50Z — porteur po-2025, vérificateur po-2028)
 
-## Totals (2026-11-04)
+## Totals (2026-11-09)
 
 | Metric | Value |
 |---|---|
-| Files | 22 |
-| Bytes (LF-normalisés) | 61324 (~15 330 tokens estimés) — **61879 avant le lot 2** (coupe agent-claim-discipline 6860 → 6305) |
-| Source harnais global `.claude/configs/user-global-claude.md` | 26117 (~6 530 tokens estimés) — **27174 avant le lot 1** ; coupe du lot 1 = 25915, puis +202 o de pointeurs Q20 (#4543) fusionnés par update-branch |
+| Files | 20 |
+| Bytes (LF-normalisés) | 57734 (~14 430 tokens estimés) — **61324 avant le volet 2** (suppression des 2 sommaires projet : `harnais-tightening` 1836 o + `degraded-escalation` 1754 o) ; **61879 avant le lot 2** (coupe agent-claim-discipline 6860 → 6305) |
+| Source harnais global `.claude/configs/user-global-claude.md` | 26103 (~6 520 tokens estimés) — **27174 avant le lot 1** ; coupe du lot 1 = 25915, +202 o de pointeurs Q20 (#4543) fusionnés par update-branch → 26117, puis −14 o au volet 2 (lien vers le canon raccourci) |
 
 Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig.ps1 -Target claude-md`) : ces octets sont payés à **chaque** conversation de chaque machine. Le détail déporté vit dans `docs/harness/` (on-demand, non auto-chargé).
 
-## Per-file breakdown (2026-11-04, largest first)
+## Per-file breakdown (2026-11-09, largest first)
 
 | File | Bytes | 
 |------|------:|
@@ -33,8 +33,6 @@ Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig
 | issue-closure.md | 2844 |
 | plans-progress-usage.md | 2739 |
 | wake-claude-routing.md | 2435 |
-| harnais-tightening.md | 1836 |
-| degraded-escalation.md | 1754 |
 | security.md | 1705 |
 | skepticism-protocol.md | 1540 |
 | shell-fallback.md | 1494 |
@@ -54,6 +52,7 @@ Le harnais global est déployé vers `~/.claude/CLAUDE.md` (`Deploy-GlobalConfig
 |---|---|---|---:|---:|---|
 | 1 | 2026-11-04 | `user-global-claude.md` §Délégation tier mini | 27174 | 25915 | #4546 |
 | 2 | 2026-11-04 | `agent-claim-discipline.md` (§Pre-Claim identité + dépôt + frontière → lignes dures) | 6860 | 6305 | (cette PR) |
+| 3 (volet 2) | 2026-11-09 | `.claude/rules/` — suppression des sommaires projet `harnais-tightening` + `degraded-escalation` (double chargement : le canon `.claude/configs/rules/` est déployé dans `~/.claude/rules/` et se chargeait EN PLUS) | 22 f. / 61324 o | 20 f. / 57734 o | #4619 |
 
 Update-branch 04/11 (observation po-2028, c.6633632807) : la base main a avancé après la coupe — #4543 ajoute ~202 o de pointeurs Q20 dans le même fichier. Mesure fusionnée : **26117** ; plafond du test relevé 25915 → 26117 dans la même PR (justification : base fusionnée, pas base de coupe). La coupe du lot reste 27174 → 25915.
 

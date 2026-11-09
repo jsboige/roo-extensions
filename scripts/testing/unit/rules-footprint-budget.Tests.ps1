@@ -21,6 +21,11 @@
 #   2026-11-04, lot 2 (#2368) : agent-claim-discipline 6860 -> 6305 (deduplication — identite/depot
 #     deja relocalises verbatim en claudish#445, la rule ne garde que les lignes dures ; nouveau
 #     deport du recit #4221 dans la doc detaillee) ; regles 61879 -> 61324, 22 fichiers.
+#   2026-11-09, volet 2 (#2368, PR #4619) : les deux sommaires projet de `harnais-tightening` et
+#     `degraded-escalation` sont SUPPRIMES (double chargement : le canon `.claude/configs/rules/`
+#     est deploye dans `~/.claude/rules/` et se chargeait EN PLUS de la copie projet). Plafonds
+#     ABAISSES d'autant : regles 61324 -> 57734, 22 -> 20 fichiers ; global 26117 -> 26103 (le lien
+#     vers le canon raccourcit, `rules/harnais-tightening.md` resout aussi dans la copie deployee).
 #
 # Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
 # scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux.
@@ -45,20 +50,20 @@ BeforeAll {
 
 Describe "Rules footprint budget (#2368)" {
 
-    It "user-global-claude.md <= 26117 octets normalises (lot 1 coupe a 25915 ; plafond releve a la valeur fusionnee post update-branch)" {
+    It "user-global-claude.md <= 26103 octets normalises (volet 2 : lien vers le canon raccourci)" {
         $bytes = Get-NormalizedByteCount -Path (Join-Path $projectRoot ".claude/configs/user-global-claude.md")
-        $bytes | Should -BeLessOrEqual 26117
+        $bytes | Should -BeLessOrEqual 26103
     }
 
-    It "rules dir <= 61324 octets normalises (lot 2 coupe, agent-claim-discipline 6860 a 6305)" {
+    It "rules dir <= 57734 octets normalises (volet 2 : deux sommaires projet de 3590 o supprimes)" {
         $rulesDir = Join-Path $projectRoot ".claude/rules"
         $rules = Get-ChildItem -Path $rulesDir -Filter *.md -File
         $total = ($rules | ForEach-Object { Get-NormalizedByteCount -Path $_.FullName } | Measure-Object -Sum).Sum
         $total | Should -BeLessOrEqual 61324
     }
 
-    It "rules dir compte 22 fichiers (chaque fichier auto-charge paie son contexte)" {
+    It "rules dir compte 20 fichiers (chaque fichier auto-charge paie son contexte ; volet 2 : 22 -> 20)" {
         $rulesDir = Join-Path $projectRoot ".claude/rules"
-        (Get-ChildItem -Path $rulesDir -Filter *.md -File).Count | Should -Be 22
+        (Get-ChildItem -Path $rulesDir -Filter *.md -File).Count | Should -Be 20
     }
 }

@@ -192,7 +192,7 @@ consolidation réduit aussi la surface de noms devinables à tort.
 
 ## Références
 
-- Harnais maigre & différé : `.claude/rules/harnais-tightening.md` (#3657)
+- Harnais maigre & différé : `.claude/configs/rules/harnais-tightening.md` (#3657)
 - Décisions désactivation/activation par workspace : `.claude/rules/tool-availability.md` (#3137)
 - Inventaire MCP complet : `.claude/rules/tool-availability.md`
 - Issue mère (audits, arbitrages, historique complet) : #2224
