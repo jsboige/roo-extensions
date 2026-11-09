@@ -236,7 +236,7 @@ python scripts/diagnostic/check-degraded-escalations.py --json
 python scripts/diagnostic/check-degraded-escalations.py --selftest
 ```
 
-Règle normative : [`.claude/rules/degraded-escalation.md`](../../.claude/rules/degraded-escalation.md) (source canonique `.claude/configs/rules/`) · Détail et mesures : [`docs/harness/reference/degraded-escalation.md`](../../docs/harness/reference/degraded-escalation.md).
+Règle normative : [`.claude/configs/rules/degraded-escalation.md`](../../.claude/configs/rules/degraded-escalation.md) (seule copie, déployée dans `~/.claude/rules/`) · Détail et mesures : [`docs/harness/reference/degraded-escalation.md`](../../docs/harness/reference/degraded-escalation.md).
 
 ### `probe-hermes-liveness.py`
 

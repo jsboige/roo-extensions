@@ -10,7 +10,7 @@ User verbatim : « La complaisance vis à vis d'un environnement défectueux est
 
 Le MCP `jupyter-papermill` n'a jamais été provisionné sur po-2027 (`~/.claude.json` sans entrée, `.mcp.json` local absent) alors que `NotebookEdit` est deny : **le repli canonique désigné par la règle n'existait pas, et rien ne l'a détecté pendant des semaines**. La lane a normalisé un fallback interdit (bytesplice JSON du `.ipynb` par script) au lieu d'escalader. Mesures et réparation : dashboard global 2026-10-24 13:11Z + REPLY 16:00Z (repair vérifié en session, 23 outils).
 
-La règle (`.claude/rules/harnais-tightening.md` §2) était saine — son **prérequis de provisioning n'était pas vérifié**. Ce document outille cette vérification.
+La règle (`.claude/configs/rules/harnais-tightening.md` §2, déployée dans `~/.claude/rules/`) était saine — son **prérequis de provisioning n'était pas vérifié**. Ce document outille cette vérification.
 
 ## Les quatre leçons câblées dans le harnais
 
