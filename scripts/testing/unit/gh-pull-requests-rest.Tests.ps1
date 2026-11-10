@@ -18,6 +18,10 @@
 #      filename), casse MAJUSCULE du rollup (REST: minuscule, mesuré #4620),
 #      reviewDecision approximé des revues chronologiques — et tout échec d'appel
 #      rend Ok = $false (un détail partiel ne doit jamais passer pour un CI green).
+#   7. LOT 5 (review #4626 SHOULDs) : Get-CiRollupGate est une liste de PASSAGE
+#      (SUCCESS/SKIPPED/NEUTRAL passent, toute autre conclusion COMPLETED est rouge
+#      — STARTUP_FAILURE/STALE inclus), et review-bot consomme la même porte que
+#      pr-review-and-merge, plus de classification CI inline.
 #
 # Portabilité (review #4616 R1) : ce fichier tourne sur les DEUX hôtes — powershell.exe
 # 5.1 sur les sièges Windows, pwsh/ubuntu en CI (job `unit-pester`). Conséquences :
@@ -568,6 +572,17 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         @($gate.Failed).Count  | Should -Be 3
     }
 
+    It 'liste de PASSAGE (lot 5, review #4626 SHOULD 1) : une conclusion inconnue (STARTUP_FAILURE/STALE) est rouge — elle passait pour green sous la liste de blocage' {
+        $checks = @(
+            & $script:Run 'workflow-start' 'COMPLETED' 'STARTUP_FAILURE'
+            & $script:Run 'stale-run'      'COMPLETED' 'STALE'
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Failed).Count   | Should -Be 2
+        @($gate.Pending).Count  | Should -Be 0
+        $gate.Failed[0].Name | Should -Be 'workflow-start'
+    }
+
     It 'tout vert (SUCCESS/SKIPPED/NEUTRAL) -> porte OUVERTE (aucun pending, aucun failed)' {
         $checks = @(
             & $script:Run 'a' 'COMPLETED' 'SUCCESS'
@@ -600,5 +615,12 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         # L'ancien vocabulaire legacy seul (sans le helper) ne doit plus piloter la porte.
         $pram | Should -Not -Match '\$ciPending\s*=\s*\$ciChecks\s*\|\s*Where-Object'
         $pram | Should -Not -Match '\$ciFailed\s*=\s*\$ciChecks\s*\|\s*Where-Object'
+    }
+
+    It 'sentinelle : review-bot passe par Get-CiRollupGate (lot 5, review #4626 SHOULD 2) — plus de classification CI inline' {
+        $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        $bot | Should -Match 'Get-CiRollupGate'
+        $bot | Should -Not -Match '\$ciPending\s*=\s*\$ciChecks\s*\|\s*Where-Object'
+        $bot | Should -Not -Match '\$ciFailed\s*=\s*\$ciChecks\s*\|\s*Where-Object'
     }
 }
