@@ -125,6 +125,21 @@ Describe "Healthcheck - publication idempotente (pattern #3276)" {
         $script:pubBody | Should -Match 'ReadLineAsync'
         $script:pubBody | Should -Not -Match 'StandardInput\.Close\('
     }
+
+    It "Le spawn tue apres la reponse : il doit epingler CONDENSE_DETACHED=0 (#4608)" {
+        # Mesure 10/11 : la passe detachee (#4527) part apres la reponse id:3, le Kill()
+        # du finally l'avorte — machine-myia-web1 (seul ecrivain = ce battement) restait
+        # a 131 % depuis 42 h, lastOutcome=attempting. La passe doit tourner en ligne.
+        $script:pubBody | Should -Match '\$psi\.EnvironmentVariables\[''CONDENSE_DETACHED''\]\s*=\s*''0'''
+        $script:pubBody | Should -Match '\$proc\.Kill\(\)'
+    }
+
+    It "Le delai de publication doit couvrir une passe en ligne sans depasser le tick (5 min)" {
+        $m = [regex]::Match($script:pubBody, '\[int\]\$TimeoutSec\s*=\s*(\d+)')
+        $m.Success | Should -BeTrue -Because 'parametre TimeoutSec introuvable'
+        [int]$m.Groups[1].Value | Should -BeGreaterOrEqual 180
+        [int]$m.Groups[1].Value | Should -BeLessThan 270
+    }
 }
 
 Describe "Install schtask - contrat du deploiement" {
