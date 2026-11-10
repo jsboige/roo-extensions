@@ -211,8 +211,16 @@ function Test-E2E {
 # dashboard append can legitimately take tens of seconds (GDrive write + possible
 # server-side condensation). Piping the requests and closing stdin races the kill
 # against the append — measured: response id:3 never emitted, note lost silently.
+#
+# The spawn is KILLED as soon as id:3 arrives (finally block), so the server must not
+# be asked for detached work: since #4527 the condensation pass runs detached by
+# default and the append answers before the pass ends — the Kill() then aborts every
+# pass (#4608: machine-myia-web1, whose only writer is this heartbeat, stayed at 131 %
+# for 42 h with lastOutcome=attempting). CONDENSE_DETACHED=0 makes the append answer
+# AFTER the inline pass; TimeoutSec covers that pass (measured up to 254 s on
+# machine-myia-ai-01) while staying under the 5-min ExecutionTimeLimit of the tick.
 function Publish-HealthNote {
-    param([string]$Level, [string]$Text, [int]$TimeoutSec = 120)
+    param([string]$Level, [string]$Text, [int]$TimeoutSec = 200)
     $wrapperPath = Join-Path $RsmServerDir 'mcp-wrapper.cjs'
     if (-not (Test-Path $wrapperPath)) { return $false }
 
@@ -251,6 +259,7 @@ function Publish-HealthNote {
     $psi.RedirectStandardInput = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $false   # logs go nowhere; stdout carries only JSON-RPC
+    $psi.EnvironmentVariables['CONDENSE_DETACHED'] = '0'   # see function header (#4608)
 
     $proc = $null
     try {
