@@ -22,7 +22,7 @@
 | [`../roosync/GUIDE-TECHNIQUE-v2.3.md`](../../roosync/GUIDE-TECHNIQUE-v2.3.md) | Guide technique complet |
 | [`PROTOCOLE_SDDD.md (archivé)`](../../archive/doc-audit-2026-11-09/PROTOCOLE_SDDD.md) | Protocole SDDD v2.7 — superseded par `.claude/rules/sddd-grounding.md` |
 | [`../roosync/QUICKSTART.md`](../../roosync/QUICKSTART.md) | Guide rapide (30 lignes) |
-| [`../roosync/ERROR_CODES_REFERENCE.md`](../../roosync/ERROR_CODES_REFERENCE.md) | Codes erreur T2.8 |
+| [`../roosync/ERROR_CODES_REFERENCE.md (archivé)`](../../archive/doc-audit-2026-11-09/ERROR_CODES_REFERENCE.md) | Codes erreur T2.8 (janvier, #2877 vague 5) |
 | [`../../../CLAUDE.md`](../../../CLAUDE.md) | Guide Claude Code + IDs GitHub |
 
 ### Guides Opérationnels
@@ -31,7 +31,7 @@
 |---------|-------|
 | [`../roosync/guides/ONBOARDING_AGENT.md`](../../roosync/guides/ONBOARDING_AGENT.md) | Guide nouvel agent |
 | [`../roosync/guides/TROUBLESHOOTING.md`](../../roosync/guides/TROUBLESHOOTING.md) | FAQ et problèmes |
-| [`../roosync/guides/CHECKLISTS.md`](../../roosync/guides/CHECKLISTS.md) | Listes vérification |
+| [`../roosync/guides/CHECKLISTS.md (archivé)`](../../archive/doc-audit-2026-11-09/guides/CHECKLISTS.md) | Listes vérification (janvier, #2877 vague 5) |
 | [`../roosync/guides/GLOSSAIRE.md`](../../roosync/guides/GLOSSAIRE.md) | Termes RooSync |
 
 ---

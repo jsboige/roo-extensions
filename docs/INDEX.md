@@ -226,16 +226,14 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 
 ## 2. RooSync (53 fichiers)
 
-### docs/roosync/ — 14 fichiers actifs
+### docs/roosync/ — 10 fichiers actifs
 
-> Vagues 2-4 de la consolidation #2877 : 3 doublons consolidés vers `docs/harness/`, puis 4 + 4 documents supersédés archivés dans `docs/archive/doc-audit-2026-11-09/` — voir le README de cette archive pour les preuves de préservation (R100 + SHA-256).
+> Vagues 2-5 de la consolidation #2877 : 3 doublons consolidés vers `docs/harness/`, puis 4 + 4 + 4 documents supersédés archivés dans `docs/archive/doc-audit-2026-11-09/` — voir le README de cette archive pour les preuves de préservation (R100 + SHA-256).
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
-| `AGENTS_ARCHITECTURE.md` | Architecture agents, skills, commandes | active |
 | `ARCHITECTURE_ROOSYNC.md` | Architecture technique RooSync v2.3.0 | active |
 | `CROSS_WORKSPACE_SETUP.md` | Guide setup cross-workspace (issue #526) | active |
-| `ERROR_CODES_REFERENCE.md` | Reference codes erreur v1.0 | active |
 | `ESCALATION_MECHANISM.md` | Mecanisme escalation Roo (issues #462/#464) | active |
 | `GUIDE-TECHNIQUE-v2.3.md` | Guide technique unifie v2.3.1 (production) | active |
 | `HARNESS-CORRESPONDENCE.md` | Mapping harnais Roo/Claude (issue #874) | active |
@@ -247,14 +245,12 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 | `SERVICES_TARGET.md` | Cibles services roosync_config (issue #2409, po-2023) | active |
 | `SUBMODULE_WORKFLOW.md` | Guide workflow submodules | active |
 
-### docs/roosync/guides/ — 5 fichiers
+### docs/roosync/guides/ — 3 fichiers
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
-| `CHECKLISTS.md` | Checklists operationnelles | active |
 | `GLOSSAIRE.md` | Glossaire RooSync v1.1 | active |
 | `ONBOARDING_AGENT.md` | Guide onboarding nouvel agent | active |
-| `README.md` | Index guides operationnels | active |
 | `TROUBLESHOOTING.md` | Guide depannage RooSync | active |
 
 ### docs/roosync/archive/ — 2 fichiers + integration/ (23 fichiers)

@@ -86,3 +86,36 @@ Empreintes relevées après déplacement — identiques à l'original par constr
 | MCP retirés / baseline | `.claude/rules/tool-availability.md` § Retires | garde `RETIRED_MCP_NAMES` (RSM) + `docs/cleanup/CONSOLIDATION-MCP-DEPRECATED-PROOF.md` |
 | Dashboard v3 (écriture/condensation) | `.claude/rules/intercom-protocol.md` | `docs/harness/reference/intercom-append-timeout.md` + `GUIDE-TECHNIQUE-v2.3.md` |
 | Heartbeat flotte | `roosync_inventory(type: "heartbeat")` | `docs/harness/reference/roosync-tools-guide.md` |
+
+---
+
+# Vague 5 (2026-11-10) — 4 documents archivés (2 `docs/roosync/` + 2 `docs/roosync/guides/`)
+
+Dispatch `file-10a-web1-ai01` item 2 (« les 4 documents remplacés suivants », même forme
+que la vague 4 : renames purs R100, correspondance section→cible et SHA-256 dans le body).
+Identification mesurée sur `main` (`884c4acd`) : les candidats sont les documents dont le
+**domaine est absorbé ailleurs** et dont **aucun point d'entrée vivant** (`CLAUDE.md`,
+`.claude/commands/`, `.claude/skills/`, `.claude/agents/`) ne dépend — seuls INDEX et des
+guides d'époque (janvier) les citent encore.
+
+Empreintes relevées **avant** déplacement, identiques après par construction du rename git.
+
+| Document archivé | Octets | Lignes | SHA-256 | Motif |
+|---|---:|---:|---|---|
+| `ERROR_CODES_REFERENCE.md` | 12 104 | 395 | `921ca20e8f4bd22917a98a6919fc5dba5742e104f35c3387e46604a80bd2223e` | Référence v1.0.0 du **2026-01-15, jamais mise à jour** — codes d'erreur de la stack Roo/win-cli d'époque ; le diagnostic courant vit dans `docs/harness/reference/mcp-diagnosis-procedure.md` + `.claude/rules/mcp-diagnosis.md` ; seuls INDEX + guides de janvier la citaient |
+| `AGENTS_ARCHITECTURE.md` | 3 166 | 87 | `6d7f55a0a9f78d8cf5a43bb66f1ad162b3aebf3941ceb31a1f36a1990019b375` | Inventaire figé au **2026-03-04** (audit #556, CLOSED) — liste des subagents/skills/commands de l'époque (dont des agents n'existant plus : `intercom-compactor`, `sddd-router`) ; le canon vivant est `CLAUDE.md` § Agents, Skills & Commands avec recompte firsthand (#3321) ; 0 entrypoint vivant |
+| `guides/README.md` | 1 284 | 31 | `322410ccdd09a2f922f9a0d2ab06a2dc0f474072ddfea05e8f7d16cc71f21a82` | Index des guides opérationnels RooSync de janvier — **aucun document vivant ne pointe dans `guides/`** (mesuré : README/QUICKSTART/GUIDE-TECHNIQUE/CLAUDE.md/docs/knowledge, 0 hit) ; la table y renvoyait vers les docs archivés vagues 3-5 |
+| `guides/CHECKLISTS.md` | 8 436 | 301 | `9029807e22038774f9931e51293014238b6beda1df66e3c724b780ac1471fbd9` | Checklists opérationnelles **2026-01-15**, stack Roo scheduler d'époque ; les checklists vivantes sont `.claude/rules/validation.md` (comptage avant/après) et les gardes CI (`ci-guardrails.md`) ; 0 consommateur vivant |
+
+Pointeurs corrigés : `docs/INDEX.md` (recomptes **14→10** et guides **5→3**, 4 lignes retirées),
+`guides/GLOSSAIRE.md` (2 liens), `guides/ONBOARDING_AGENT.md` (1), `guides/TROUBLESHOOTING.md` (1),
+`docs/suivi/RooSync/INDEX.md` (1) — tous redirigés vers l'archive avec mention « archivé ».
+
+## Où le contenu vit maintenant (vague 5)
+
+| Sujet | Autorité | Élaboration |
+|---|---|---|
+| Diagnostic outils/MCP | `.claude/rules/mcp-diagnosis.md` + `tool-availability.md` | `docs/harness/reference/mcp-diagnosis-procedure.md` |
+| Inventaire agents/skills/commands | `CLAUDE.md` § Agents, Skills & Commands | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` (recompte firsthand #3321) |
+| Checklists opérationnelles | `.claude/rules/validation.md` | `.claude/rules/ci-guardrails.md` |
+| Onboarding nouvel agent | `CLAUDE.md` + `.claude/rules/` (auto-chargées) | `docs/harness/reference/INDEX.md` |
