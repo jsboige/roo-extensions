@@ -217,8 +217,11 @@ function Test-E2E {
 # default and the append answers before the pass ends — the Kill() then aborts every
 # pass (#4608: machine-myia-web1, whose only writer is this heartbeat, stayed at 131 %
 # for 42 h with lastOutcome=attempting). CONDENSE_DETACHED=0 makes the append answer
-# AFTER the inline pass; TimeoutSec covers that pass (measured up to 254 s on
-# machine-myia-ai-01) while staying under the 5-min ExecutionTimeLimit of the tick.
+# AFTER the inline pass. TimeoutSec (200 s) covers the usual inline pass (25-122 s
+# measured) and stays under the 5-min ExecutionTimeLimit of the tick. It does NOT
+# cover the longest one measured (254 s, machine-myia-ai-01, model fallback): such a
+# pass is still killed, but it leaves the durable `attempting` marker that the next
+# append's dead-pass detection relaunches.
 function Publish-HealthNote {
     param([string]$Level, [string]$Text, [int]$TimeoutSec = 200)
     $wrapperPath = Join-Path $RsmServerDir 'mcp-wrapper.cjs'
