@@ -326,7 +326,7 @@ Error: Cannot find module '../../types/errors.js'
 | `EXECUTION_FAILED` | PowerShellExecutor | Script PS échoué | Vérifier script |
 | `TIMEOUT` | Generic | Délai dépassé | Augmenter timeout |
 
-**Référence complète:** [ERROR_CODES_REFERENCE.md](../ERROR_CODES_REFERENCE.md)
+**Référence complète:** [ERROR_CODES_REFERENCE.md (archivé)](../../archive/doc-audit-2026-11-09/ERROR_CODES_REFERENCE.md)
 
 ---
 

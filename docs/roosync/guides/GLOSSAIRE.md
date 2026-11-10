@@ -254,8 +254,8 @@ Fil de conversation RooSync regroupant les messages liés.
 
 - [ONBOARDING_AGENT.md](ONBOARDING_AGENT.md) - Guide nouvel agent
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Résolution problèmes
-- [CHECKLISTS.md](CHECKLISTS.md) - Listes de vérification
-- [ERROR_CODES_REFERENCE.md](../ERROR_CODES_REFERENCE.md) - Codes d'erreur détaillés
+- [CHECKLISTS.md (archivé)](../../archive/doc-audit-2026-11-09/guides/CHECKLISTS.md) - Listes de vérification (janvier, #2877 vague 5)
+- [ERROR_CODES_REFERENCE.md (archivé)](../../archive/doc-audit-2026-11-09/ERROR_CODES_REFERENCE.md) - Codes d'erreur détaillés (janvier, #2877 vague 5)
 
 ---
 
