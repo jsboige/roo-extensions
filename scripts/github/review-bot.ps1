@@ -259,6 +259,14 @@ foreach ($pr in $prList) {
         if ($ciPassed -gt 0) {
             Write-Log "CI: $ciPassed/$($ciChecks.Count) checks passed" "OK"
         }
+
+        # #4150 lot 5 suite (APPROVE #4628, trou a) : exiger au moins un run
+        # build-and-test, comme pr-review-and-merge — ici en WARN (le bot audite,
+        # il ne merge pas) : un rollup sans build-and-test n'est pas un CI certifié.
+        $bat = @($ciChecks | Where-Object { $_.name -match "build-and-test" })
+        if ($bat.Count -eq 0) {
+            Write-Log "PR #$prNumber has no build-and-test check-run — CI not certified (empty build-and-test set)" "WARN"
+        }
     }
     else {
         Write-Log "No CI checks found for PR #$prNumber, proceeding without CI gate" "WARN"
