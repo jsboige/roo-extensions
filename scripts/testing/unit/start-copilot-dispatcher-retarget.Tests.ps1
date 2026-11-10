@@ -75,14 +75,27 @@ Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: issue pool follows
 Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: isolated per-issue worktree' {
 
     BeforeAll {
-        # A real throwaway git repo: init + one commit on a default branch.
+        # A real throwaway git repo: init + one seed commit on a default
+        # branch. The identity is set REPO-LOCALLY: CI runners (ubuntu) have
+        # no global git user, and without it the seed commit dies silently
+        # under 2>$null, leaving an unborn HEAD that makes every
+        # `git worktree add` fail — measured on the first CI run of this
+        # suite (3 reds, $wt = $null).
         $script:tmpRepo = Join-Path $TestDrive 'repo'
         New-Item -ItemType Directory -Path $script:tmpRepo | Out-Null
         & git -C $script:tmpRepo init -q -b main 2>$null
-        & git -C $script:tmpRepo -C $script:tmpRepo commit -q --allow-empty -m 'seed' 2>$null
         if ($LASTEXITCODE -ne 0) {
-            & git -C $script:tmpRepo checkout -q -b main 2>$null
-            & git -C $script:tmpRepo commit -q --allow-empty -m 'seed' 2>$null
+            # Pre-2.28 git has no -b: plain init, the branch name is
+            # irrelevant to what these tests exercise.
+            & git -C $script:tmpRepo init -q 2>$null
+        }
+        & git -C $script:tmpRepo config user.name 'copilot-dispatcher-test'
+        & git -C $script:tmpRepo config user.email 'copilot-test@example.invalid'
+        & git -C $script:tmpRepo commit -q --allow-empty -m 'seed'
+        if ($LASTEXITCODE -ne 0) {
+            # An unborn-HEAD repo cannot host worktrees; a silent seed
+            # failure makes every test in this block fail opaquely.
+            throw 'seed commit failed in the temporary test repo (git identity?)'
         }
     }
 
