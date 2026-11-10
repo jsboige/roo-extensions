@@ -252,9 +252,12 @@ function Get-CiRollupGate {
         status=COMPLETED + conclusion=FAILURE : un rouge n'a jamais bloqué le merge
         (constat coordinateur, review #4622). Le modèle check-run : status ∈
         QUEUED/IN_PROGRESS/COMPLETED, conclusion rempli seulement sur COMPLETED.
-        CANCELLED compte comme échec (fail-closed : un run annulé ne prouve rien) ;
-        SKIPPED/NEUTRAL passent. Les statuts legacy (EXPECTED/ERROR) restent couverts
-        pour un rollup qui mêlerait les deux nomenclatures.
+        Liste de PASSAGE (#4150 lot 5, review #4626 SHOULD 1) : SUCCESS/SKIPPED/NEUTRAL
+        passent, toute AUTRE conclusion sur un run COMPLETED est rouge — une conclusion
+        inconnue (STARTUP_FAILURE quand un workflow ne démarre pas, STALE) échoue la
+        porte au lieu de passer en silence comme sous l'ancienne liste de blocage.
+        Un run annulé ne prouve rien : il échoue. Les statuts legacy (EXPECTED/ERROR)
+        restent couverts pour un rollup qui mêlerait les deux nomenclatures.
     .OUTPUTS
         @{ Pending = object[]; Failed = object[] }
     #>
@@ -265,7 +268,8 @@ function Get-CiRollupGate {
         ($_.Status -eq 'COMPLETED' -and -not $_.Conclusion)
     })
     $failed = @($Checks | Where-Object {
-        $_.Conclusion -in @('FAILURE', 'TIMED_OUT', 'ACTION_REQUIRED', 'ERROR', 'CANCELLED') -or
+        ($_.Status -eq 'COMPLETED' -and $null -ne $_.Conclusion -and
+            $_.Conclusion -notin @('SUCCESS', 'SKIPPED', 'NEUTRAL')) -or
         $_.Status -in @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE')
     })
     return @{ Pending = $pending; Failed = $failed }

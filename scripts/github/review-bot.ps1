@@ -234,12 +234,15 @@ foreach ($pr in $prList) {
     }
     $prDetail = $prDetailR.Item
 
-    # Check CI status
+    # Check CI status — porte unique Get-CiRollupGate (#4150 lot 5, review #4626
+    # SHOULD 2) : l'inline ne voyait QUE FAILURE, laissant TIMED_OUT/ACTION_REQUIRED/
+    # CANCELLED et toute conclusion inconnue (STARTUP_FAILURE) passer pour un CI green.
     $ciChecks = $prDetail.statusCheckRollup
     if ($null -ne $ciChecks -and $ciChecks.Count -gt 0) {
-        $ciPending = $ciChecks | Where-Object { $_.status -eq "QUEUED" -or $_.status -eq "IN_PROGRESS" }
-        $ciFailed = $ciChecks | Where-Object { $_.conclusion -eq "FAILURE" }
-        $ciSuccess = $ciChecks | Where-Object { $_.conclusion -eq "SUCCESS" }
+        $ciGate = Get-CiRollupGate -Checks $ciChecks
+        $ciPending = @($ciGate.Pending)
+        $ciFailed = @($ciGate.Failed)
+        $ciPassed = $ciChecks.Count - $ciPending.Count - $ciFailed.Count
 
         if ($ciPending -and $ciPending.Count -gt 0) {
             Write-Log "PR #$prNumber CI still pending ($($ciPending.Count) checks), skipping" "WARN"
@@ -253,8 +256,8 @@ foreach ($pr in $prList) {
             continue
         }
 
-        if ($ciSuccess -and $ciSuccess.Count -gt 0) {
-            Write-Log "CI: $($ciSuccess.Count)/$($ciChecks.Count) checks passed" "OK"
+        if ($ciPassed -gt 0) {
+            Write-Log "CI: $ciPassed/$($ciChecks.Count) checks passed" "OK"
         }
     }
     else {
