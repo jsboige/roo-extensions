@@ -623,4 +623,36 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match '\$ciPending\s*=\s*\$ciChecks\s*\|\s*Where-Object'
         $bot | Should -Not -Match '\$ciFailed\s*=\s*\$ciChecks\s*\|\s*Where-Object'
     }
+
+    It 'trou b (APPROVE #4628) : un statut INCONNU non-COMPLETED est ROUGE — il passait vert sous la liste pending-only' {
+        $checks = @(& $script:Run 'future-run' 'SOMETHING_NEW' $null)
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Failed).Count  | Should -Be 1
+        @($gate.Pending).Count | Should -Be 0
+    }
+
+    It 'trou b : les statuts connus restent classés comme avant (non-régression du durcissement)' {
+        $checks = @(
+            & $script:Run 'q' 'QUEUED'      $null
+            & $script:Run 'p' 'IN_PROGRESS' $null
+            & $script:Run 's' 'COMPLETED'   'SUCCESS'
+        )
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 2
+        @($gate.Failed).Count  | Should -Be 0
+    }
+
+    It 'trou a (APPROVE #4628) : pr-review-and-merge exige au moins un run build-and-test — un ensemble vide ne passe plus pour « CI passed »' {
+        $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
+        $pram | Should -Match '\$ciChecks\.Count -eq 0'
+        $pram | Should -Match 'No build-and-test check-runs found'
+        # Le bloc vide est AVANT le verdict « CI passed » (ancre ASCII : console 5.1).
+        $pram | Should -Match '(?s)\$ciChecks\.Count -eq 0.*?CI passed'
+    }
+
+    It 'trou a : review-bot signale un rollup sans build-and-test (WARN, non bloquant — le bot audite, ne merge pas)' {
+        $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        $bot | Should -Match 'build-and-test check-run'
+        $bot | Should -Match 'CI not certified'
+    }
 }

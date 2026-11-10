@@ -217,6 +217,17 @@ $ciGate = Get-CiRollupGate -Checks $ciChecks
 $ciPending = $ciGate.Pending
 $ciFailed = $ciGate.Failed
 
+# #4150 lot 5 suite (APPROVE #4628, trou a) : un ensemble build-and-test VIDE
+# rendait "✓ CI passed" — zéro run n'est pas un CI vert. Exiger au moins un run.
+if ($ciChecks.Count -eq 0) {
+    Write-Host "✗ No build-and-test check-runs found — cannot certify CI (empty set is not green)" -ForegroundColor Red
+    if (!$Force) {
+        Write-Host "Use -Force to merge anyway (not recommended)" -ForegroundColor Yellow
+        exit 1
+    }
+    Write-Host "  -Force: proceeding WITHOUT any build-and-test run" -ForegroundColor Yellow
+}
+
 if ($ciPending) {
     Write-Host "✗ CI still pending..." -ForegroundColor Yellow
     $ciPending | ForEach-Object { Write-Host "  - $($_.name): $($_.status)" -ForegroundColor Gray }

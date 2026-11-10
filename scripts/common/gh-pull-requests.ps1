@@ -258,6 +258,10 @@ function Get-CiRollupGate {
         porte au lieu de passer en silence comme sous l'ancienne liste de blocage.
         Un run annulé ne prouve rien : il échoue. Les statuts legacy (EXPECTED/ERROR)
         restent couverts pour un rollup qui mêlerait les deux nomenclatures.
+        #4150 lot 5 suite (APPROVE #4628, trou b) : liste de passage aussi sur le
+        STATUT — QUEUED/IN_PROGRESS (+ legacy PENDING/WAITING/REQUESTED) = pending,
+        COMPLETED = classé par conclusion ; tout AUTRE statut non-COMPLETED est rouge
+        au lieu de passer vert (un statut inconnu n'est pas une preuve de CI).
     .OUTPUTS
         @{ Pending = object[]; Failed = object[] }
     #>
@@ -270,7 +274,9 @@ function Get-CiRollupGate {
     $failed = @($Checks | Where-Object {
         ($_.Status -eq 'COMPLETED' -and $null -ne $_.Conclusion -and
             $_.Conclusion -notin @('SUCCESS', 'SKIPPED', 'NEUTRAL')) -or
-        $_.Status -in @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE')
+        $_.Status -in @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE') -or
+        ($_.Status -and $_.Status -notin @('QUEUED', 'IN_PROGRESS', 'PENDING',
+            'WAITING', 'REQUESTED', 'COMPLETED', 'FAILED', 'EXPECTED', 'ERROR', 'FAILURE'))
     })
     return @{ Pending = $pending; Failed = $failed }
 }
