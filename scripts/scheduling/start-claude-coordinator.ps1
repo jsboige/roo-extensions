@@ -79,6 +79,11 @@ param(
 # Configuration
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# #4150 lot 7 (doctrine #4604) : lectures GitHub en REST — le quota GraphQL
+# partage flotte tombe en ~60 s des qu'une lane liste des issues/PRs ; ces
+# helpers consomment le budget core, jamais epuise en pratique.
+. (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
+. (Join-Path $ScriptDir '..\common\gh-issues.ps1')
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_COORDINATOR_LOG_DIR)) {
     $env:CLAUDE_COORDINATOR_LOG_DIR
@@ -172,13 +177,16 @@ function Invoke-StaleLockReaper {
 
     $Locked = $null
     try {
-        $Raw = & gh issue list --repo jsboige/roo-extensions --state open --limit 200 `
-                 --json number,updatedAt,assignees 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "LOCK REAPER: gh issue list a echoue -- reaper saute (pas de conclusion)" "WARN"
+        # #4150 lot 7 : jambe REST (doctrine #4604) — le quota GraphQL partage
+        # flotte tombe en ~60 s des qu'une lane liste des issues ; les champs
+        # rendus (number, updatedAt, assignees[].login) sont en casse gh, les
+        # lectures aval ne changent pas.
+        $open = Get-IssueSummary -Repo jsboige/roo-extensions -State open -MaxCount 200
+        if (-not $open.Ok) {
+            Write-Log "LOCK REAPER: gh api a echoue ($($open.Error)) -- reaper saute (pas de conclusion)" "WARN"
             return
         }
-        $Locked = $Raw | ConvertFrom-Json
+        $Locked = @($open.Items)
     } catch {
         Write-Log "LOCK REAPER: lecture impossible ($_) -- reaper saute" "WARN"
         return
@@ -336,9 +344,12 @@ if (-not $Force) {
 
     # Check 2: Open PRs needing review (any open PR = reason to run)
     try {
-        $OpenPRs = & gh pr list --repo jsboige/roo-extensions --state open --json number 2>$null | ConvertFrom-Json
-        $OpenSubmodPRs = & gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number 2>$null | ConvertFrom-Json
-        $TotalPRs = ($OpenPRs | Measure-Object).Count + ($OpenSubmodPRs | Measure-Object).Count
+        # #4150 lot 7 : jambes REST (doctrine #4604) — seul le compte importe.
+        $mainPrs = Get-PullRequestSummary -Repo jsboige/roo-extensions -State open
+        $submodPrs = Get-PullRequestSummary -Repo jsboige/jsboige-mcp-servers -State open
+        $OpenPRs = if ($mainPrs.Ok) { @($mainPrs.Items) } else { $null }
+        $OpenSubmodPRs = if ($submodPrs.Ok) { @($submodPrs.Items) } else { $null }
+        $TotalPRs = (@($OpenPRs) | Measure-Object).Count + (@($OpenSubmodPRs) | Measure-Object).Count
         if ($TotalPRs -gt 0) {
             $IdleSkip = $false
             $IdleReasons += "$TotalPRs open PR(s) need review"

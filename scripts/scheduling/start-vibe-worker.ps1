@@ -98,6 +98,11 @@ function Write-Log {
 # -LogPrefix 'Heartbeat' pour préserver les logs greppables d'avant l'extraction.
 
 . (Join-Path $ScriptDir '..\common\worker-heartbeat.ps1')
+# #4150 lot 7 (doctrine #4604) : lectures GitHub en REST — le quota GraphQL
+# partage flotte (5 000 pts/h) tombe en ~60 s des qu'une lane liste des
+# issues/PRs ; ces helpers consomment le budget core, jamais épuisé en pratique.
+. (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
+. (Join-Path $ScriptDir '..\common\gh-issues.ps1')
 
 # ========== PROFILE LOADING ==========
 
@@ -212,24 +217,20 @@ function Get-QueueOpenPrs {
     # duplique $2.02 a 18:05Z). Tout echec = throw : l'etat des collisions ne
     # se devine pas, l'appelant refuse (fail-closed).
     param([string]$Repo)
-    $raw = & gh pr list -R $Repo --state open --limit 100 --json number,title,headRefName 2>$null
-    # Vide explicite d'abord : `'' | ConvertFrom-Json` rend null SANS erreur
-    # (mesure 15/09) — sans cette garde, un stdout vide deviendrait « aucune PR »
-    # et le picker tirerait sans protection anti-collision.
-    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh pr list: sortie vide (repo $Repo)" }
+    # #4150 lot 7 : jambe REST (doctrine #4604) — Get-PullRequestSummary consomme
+    # le budget core, jamais le quota GraphQL partage flotte. Les gardes « sortie
+    # vide / non-JSON » vivent desormais dans le helper (contrat Ok/Error) ; le
+    # fail-closed reste porte par le throw ci-dessous. NB : le module rend la
+    # casse Capitalisee (Number/Title/HeadRefName) — les lectures aval ont suivi.
+    $summary = Get-PullRequestSummary -Repo $Repo -State open -MaxCount 100
+    if (-not $summary.Ok) { throw "gh api (PRs ouvertes, repo $Repo): $($summary.Error)" }
     # PARSE DANS UNE VARIABLE, puis rendre une collection enumerable. L'idiome
-    # `return ,@(...)` n'est PAS portable : sous Windows PowerShell 5.1 l'appelant
-    # recoit l'ENVELOPPE et non les PRs (mesure 15/09 sur le head exact, sonde
-    # differentielle : PS5.1 outerCount=1 / pwsh 7 outerCount=2). `$pr.number`
-    # vaut alors {16136,16238} et `[int]$pr.number` leve -- HORS du try du lookup,
-    # donc avant tout PICK, des qu'une PR matche. L'enveloppe n'etait pas
-    # necessaire : l'appelant enumere par `foreach`, qui traite identiquement
-    # $null, un scalaire et un tableau. Le fail-closed reste porte par le throw
-    # ci-dessous, pas par la forme du retour.
-    $parsed = $null
-    try { $parsed = $raw | ConvertFrom-Json -ErrorAction Stop }
-    catch { throw "gh pr list: sortie non-JSON (repo $Repo)" }
-    return @($parsed)
+    # `return ,@(...)` n'est PAS portable (mesure 15/09, sonde differentielle
+    # PS5.1/pwsh) : l'enveloppe n'etait pas necessaire — l'appelant enumere par
+    # `foreach`, qui traite identiquement $null, un scalaire et un tableau.
+    # Le fail-closed reste porte par le throw ci-dessus, pas par la forme du
+    # retour.
+    return @($summary.Items)
 }
 
 function Test-QueueIssueClaimed {
@@ -238,13 +239,12 @@ function Test-QueueIssueClaimed {
     # labels (#3407). Fenetre QueueClaimHours : un claim plus vieux est presume
     # abandonne. Echec gh = throw (fail-closed, jamais fail-open).
     param([string]$Repo, [int]$Number)
-    $raw = & gh issue view $Number -R $Repo --json comments 2>$null
-    # Meme garde que Get-QueueOpenPrs : '' rend null sans erreur via le pipeline.
-    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh issue view #$($Number): sortie vide" }
-    try { $data = $raw | ConvertFrom-Json -ErrorAction Stop }
-    catch { throw "gh issue view #$($Number): sortie non-JSON" }
+    # #4150 lot 7 : jambe REST (doctrine #4604) — Get-IssueComments pagine
+    # (l'endpoint tranche a 30 par defaut) et rend la casse gh (createdAt).
+    $comments = Get-IssueComments -Repo $Repo -Number $Number
+    if (-not $comments.Ok) { throw "gh api (commentaires #$($Number), repo $Repo): $($comments.Error)" }
     $cutoff = (Get-Date).ToUniversalTime().AddHours(-1 * $script:QueueClaimHours)
-    foreach ($c in @($data.comments)) {
+    foreach ($c in @($comments.Items)) {
         if (-not $c.createdAt) { continue }
         # Normalisation avant comparaison (revue ai-01, correction 1). Portee
         # MESUREE le 15/09 sous pwsh 7.6.6, pas supposee :
@@ -313,7 +313,12 @@ function Invoke-IdleQueuePick {
     }
 
     try {
-        $items = & gh issue list -R ([string]$queue.repo) --state open --label ([string]$queue.label) --limit 10 --json number,title,body,updatedAt 2>$null | ConvertFrom-Json
+        # #4150 lot 7 : jambe REST — même sémantique que `gh issue list --label`
+        # (filtre serveur) ; les champs rendus sont en casse gh, les lectures aval
+        # ne changent pas. Échec gh api = pool vide ce tick (même branche que le
+        # catch d'avant : pas de tirage sur une lecture non certifiée).
+        $pool = Get-IssueSummary -Repo ([string]$queue.repo) -Labels @([string]$queue.label) -MaxCount 10
+        $items = if ($pool.Ok) { @($pool.Items) } else { $null }
     } catch { $items = $null }
     if (-not $items -or @($items).Count -eq 0) {
         return $false
@@ -359,9 +364,9 @@ function Invoke-IdleQueuePick {
     foreach ($c in $candidates) {
         $n = [int]$c.number
         foreach ($pr in $openPrs) {
-            if ("$($pr.title)" -match ('#{0}([^0-9]|$)' -f $n) -or
-                "$($pr.headRefName)" -match ('(^|[^0-9]){0}([^0-9]|$)' -f $n)) {
-                $coveredBy[$n] = [int]$pr.number
+            if ("$($pr.Title)" -match ('#{0}([^0-9]|$)' -f $n) -or
+                "$($pr.HeadRefName)" -match ('(^|[^0-9]){0}([^0-9]|$)' -f $n)) {
+                $coveredBy[$n] = [int]$pr.Number
                 break
             }
         }

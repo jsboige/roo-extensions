@@ -48,6 +48,41 @@ BeforeAll {
     # the real code (calling by name would hit the mock — vacuous, #3646 lesson).
     $script:RealTestQueueIssueClaimed = ${function:Test-QueueIssueClaimed}
     $script:RealGetQueueOpenPrs = ${function:Get-QueueOpenPrs}
+
+    # #4150 lot 7 : les corps réels lisent désormais les modules REST
+    # (gh-pull-requests.ps1 / gh-issues.ps1). Ces shims reproduisent les
+    # CONTRATS de ces modules à l'ancienne frontière `gh` pour que les ~44
+    # Mock gh existants (fixtures en forme gh) fonctionnent inchangés —
+    # l'intégration REST a ses propres tests (gh-issues-rest.Tests.ps1,
+    # gh-pull-requests-rest.Tests.ps1, sentinelle GraphQL incluse).
+    function Get-PullRequestSummary {
+        param([string]$Repo, [string]$Head, [string]$State = 'all', [int]$MaxCount = 0)
+        $raw = & gh pr list -R $Repo --state open --limit 100 --json number,title,headRefName 2>$null
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            return [pscustomobject]@{ Ok = $false; Items = @(); Error = 'sortie vide' }
+        }
+        return [pscustomobject]@{ Ok = $true; Items = @($raw | ConvertFrom-Json); Error = $null }
+    }
+    function Get-IssueSummary {
+        param([string]$Repo, [string]$State = 'open', [string[]]$Labels, [string[]]$ExcludeLabels, [int]$MaxCount = 0)
+        try {
+            $raw = & gh issue list -R $Repo --state $State --limit $MaxCount --json number,title,body,updatedAt 2>$null
+            $items = $raw | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+            return [pscustomobject]@{ Ok = $false; Items = @(); Error = 'gh issue list failed' }
+        }
+        return [pscustomobject]@{ Ok = $true; Items = @($items); Error = $null }
+    }
+    function Get-IssueComments {
+        param([string]$Repo, [int]$Number, [int]$MaxPages = 20)
+        try {
+            $raw = & gh issue view $Number -R $Repo --json comments 2>$null
+            $data = $raw | ConvertFrom-Json -ErrorAction Stop
+        } catch {
+            return [pscustomobject]@{ Ok = $false; Items = @(); Error = 'gh issue view failed' }
+        }
+        return [pscustomobject]@{ Ok = $true; Items = @($data.comments); Error = $null }
+    }
     $script:TestStateDir = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-picker-tests-" + [guid]::NewGuid().ToString('N').Substring(0,8))
     New-Item -ItemType Directory -Path $script:TestStateDir -Force | Out-Null
     $script:QueueStateDir = $script:TestStateDir
@@ -215,7 +250,9 @@ It 'Re-picks the same issue once the retry window has expired' {
 It 'Skips an issue covered by an OPEN PR (title #N, word boundary) and picks the next free one' {
     # The 14/09 collision: the picker never looked at open PRs, so a delivered
     # issue whose label never changed was re-pickable ($2.02 duplicate run).
-    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 55; title = 'fix(SemanticWeb): relabel for #7 in flight'; headRefName = 'feature/x' }) }
+    # #4150 lot 7 : Get-QueueOpenPrs lit désormais Get-PullRequestSummary —
+    # contrat Capitalisé (Number/Title/HeadRefName), le mock suit le module réel.
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ Number = 55; Title = 'fix(SemanticWeb): relabel for #7 in flight'; HeadRefName = 'feature/x' }) }
     Mock gh { '[{"number":7,"title":"T7","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":9,"title":"T9","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
     ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #9'
@@ -223,7 +260,7 @@ It 'Skips an issue covered by an OPEN PR (title #N, word boundary) and picks the
 }
 
 It 'Skips an issue whose number is only in the PR HEAD BRANCH, not the title (measured #16136/#16120)' {
-    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 16136; title = 'relabel 4 worked-examples + add 3 real exercises'; headRefName = 'feature/16120-sw14-exercises' }) }
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ Number = 16136; Title = 'relabel 4 worked-examples + add 3 real exercises'; HeadRefName = 'feature/16120-sw14-exercises' }) }
     Mock gh { '[{"number":16120,"title":"SW-14","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":16121,"title":"T","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
     ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #16121'
@@ -231,14 +268,14 @@ It 'Skips an issue whose number is only in the PR HEAD BRANCH, not the title (me
 }
 
 It 'Does NOT skip #1612 when the PR head contains 16120 (word boundary holds)' {
-    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 16136; title = 'x'; headRefName = 'feature/16120-sw14' }) }
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ Number = 16136; Title = 'x'; HeadRefName = 'feature/16120-sw14' }) }
     Mock gh { '[{"number":1612,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
     ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #1612'
 }
 
 It 'Quiet SKIP (noop) when the whole pool is covered by open PRs' {
-    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 1; title = 'for #7'; headRefName = 'x' }) }
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ Number = 1; Title = 'for #7'; HeadRefName = 'x' }) }
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $false
     $script:IdlePickOutcome | Should -Be 'noop'
