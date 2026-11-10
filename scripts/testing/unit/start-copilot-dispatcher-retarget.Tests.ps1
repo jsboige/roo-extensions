@@ -1,4 +1,4 @@
-# Pester 5 tests: the Copilot dispatcher's foreign-repo re-targeting (#622
+﻿# Pester 5 tests: the Copilot dispatcher's foreign-repo re-targeting (#622
 # harness-change, directive user 05/11 — the three items named by po-2025's
 # 05/11 report on the issue).
 #
@@ -35,7 +35,7 @@ BeforeAll {
         $script:logLines += $Message
     }
 
-    foreach ($name in @('Get-WorkPrompt', 'Initialize-CopilotWorktree', 'Get-TargetIssue', 'Get-RepoSlug')) {
+    foreach ($name in @('Get-WorkPrompt', 'Initialize-CopilotWorktree', 'Get-TargetIssue', 'Get-RepoSlug', 'Invoke-PhaseCDispatch', 'Write-CopilotPromptFile', 'ConvertTo-NativeArg', 'Get-DispatchArgv', 'Convert-JsonWorkReport', 'Get-SanitizedReport')) {
         $m = [regex]::Match($script:src, "(?s)(function $name \{.*?\r?\n\})")
         if (-not $m.Success) { throw "$name not found in start-copilot-dispatcher.ps1" }
         Invoke-Expression $m.Groups[1].Value
@@ -154,8 +154,23 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         ($guardPos -ge 0 -and $guardPos -lt $dispatchPos) | Should -BeTrue
     }
 
+    It 'a -TargetRepoPath without -TargetRepoSlug blocks too (the pair is required together — review point 2)' {
+        $script:src | Should -Match "given without -TargetRepoSlug - blocking before any Copilot call"
+        $guardPos = $script:src.IndexOf('given without -TargetRepoSlug')
+        $dispatchPos = $script:src.IndexOf('Invoke-PhaseCDispatch -Profile')
+        ($guardPos -ge 0 -and $guardPos -lt $dispatchPos) | Should -BeTrue
+        # Symmetry: BOTH guard branches assign blocked (neither half of the pair
+        # may fall back silently to roo-extensions).
+        $slugGuard = $script:src -split '\r?\n' | Where-Object { $_ -match 'given without a usable -TargetRepoPath' }
+        @($slugGuard).Count | Should -BeGreaterThan 0
+    }
+
     It 'the dispatch hands the CLI the work root but keeps the prompt file in the dispatcher repo' {
         $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -PromptRepositoryRoot \$repoRoot'
+    }
+
+    It 'delivery mode arms HEAD-move detection (review point 1 wiring)' {
+        $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -PromptRepositoryRoot \$repoRoot -DetectHeadMoves:\$canDeliver'
     }
 
     It 'foreign-repo work only ever runs through Initialize-CopilotWorktree (never the target main checkout)' {
@@ -166,5 +181,61 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         $script:src | Should -Match '\$state\.lastWorktreePath = \$workRoot'
         $script:src | Should -Match '\$state\.lastWorkBranch = \$copilotWt\.Branch'
         $script:src | Should -Match '\$state\.lastTargetRepoSlug = \$queueSlug'
+    }
+}
+
+Describe 'start-copilot-dispatcher.ps1 — #622 delivery detection (a delivered commit is work, not idle)' {
+
+    # Review point 1 (ai-01, 10/11): the delivery mandate is edit-then-commit,
+    # and a fresh worktree goes clean -> clean. The porcelain diff alone reads
+    # a successful delivery as "no repository change" -> status idle -> the
+    # pilot counts successes as no-ops and the idle streak escalates cadence.
+    # These tests simulate the CLI with a `copilot` FUNCTION (same resolution
+    # trick as the gh stub) whose only action is an empty commit in the work
+    # root — clean before, clean after, HEAD moved.
+
+    BeforeAll {
+        $script:tmpRepo2 = Join-Path $TestDrive 'repo-delivery'
+        New-Item -ItemType Directory -Path $script:tmpRepo2 | Out-Null
+        & git -C $script:tmpRepo2 init -q -b main 2>$null
+        if ($LASTEXITCODE -ne 0) { & git -C $script:tmpRepo2 init -q 2>$null }
+        # CI runners carry no global git identity (measured 10/11): repo-local
+        # identity or the seed commit dies silently.
+        & git -C $script:tmpRepo2 config user.name 'copilot-dispatcher-test'
+        & git -C $script:tmpRepo2 config user.email 'copilot-test@example.invalid'
+        & git -C $script:tmpRepo2 commit -q --allow-empty -m 'seed'
+        if ($LASTEXITCODE -ne 0) { throw 'seed commit failed in the delivery test repo' }
+
+        # Bookkeeping root OUTSIDE the repo under test: the prompt file is
+        # untracked-visible in porcelain, and leaving it inside would make the
+        # no-detection direction of the pair pass for the wrong reason.
+        $script:promptRoot = Join-Path $TestDrive 'bookkeeping'
+
+        # The stub MUST declare an explicit -p parameter: with a function,
+        # PowerShell binds -p to the COMMON parameter -PipelineVariable
+        # (abbreviation match) and rejects the prompt text as "not a valid
+        # variable name" — a native binary would just take -p as its own flag.
+        function copilot {
+            param(
+                [string]$p,
+                [Parameter(ValueFromRemainingArguments = $true)][object[]]$Arguments
+            )
+            & git commit -q --allow-empty -m 'simulated copilot delivery'
+            return 'work_summary: simulated delivery commit'
+        }
+    }
+
+    It 'with -DetectHeadMoves, a clean->clean commit counts as work (status active)' {
+        $r = Invoke-PhaseCDispatch -Profile 'balanced' -RepositoryRoot $script:tmpRepo2 -Prompt 'go' -PromptRepositoryRoot $script:promptRoot -DetectHeadMoves
+        $r.exitCode | Should -Be 0
+        $r.repositoryChanges | Should -BeTrue
+        $r.status | Should -Be 'active'
+    }
+
+    It 'without -DetectHeadMoves, the same commit is invisible to porcelain (the pre-fix behavior, pinned)' {
+        $r = Invoke-PhaseCDispatch -Profile 'balanced' -RepositoryRoot $script:tmpRepo2 -Prompt 'go' -PromptRepositoryRoot $script:promptRoot
+        $r.exitCode | Should -Be 0
+        $r.repositoryChanges | Should -BeFalse
+        $r.status | Should -Be 'idle'
     }
 }

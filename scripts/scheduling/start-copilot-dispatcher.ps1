@@ -451,7 +451,16 @@ function Invoke-PhaseCDispatch {
         # when work runs in a foreign repo's worktree, the dispatcher passes its
         # own repoRoot so the prompt file never lands untracked in the target
         # repo (it would pollute the PR and false-positive repositoryChanges).
-        [string]$PromptRepositoryRoot = ''
+        [string]$PromptRepositoryRoot = '',
+        # #622 review point 1 (ai-01, 10/11): in DELIVERY mode the mandate is
+        # edit-then-commit, and a fresh worktree goes clean -> clean — the
+        # porcelain diff alone reads a delivered commit as "no repository
+        # change" and a successful delivery lands idle (cadence escalation at
+        # 4, AC3 pilot counts successes as no-ops). A moved HEAD is work.
+        # Scoped to the isolated worktree, where nothing else commits: NOT the
+        # home checkout, where concurrent lanes move HEAD for their own
+        # reasons and a bare HEAD diff would credit their work to Copilot.
+        [switch]$DetectHeadMoves
     )
 
     $result = @{
@@ -467,8 +476,13 @@ function Invoke-PhaseCDispatch {
     try {
         $beforeStatus = ''
         $afterStatus = ''
+        $beforeHead = ''
+        $afterHead = ''
         Push-Location $RepositoryRoot
         $beforeStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
+        if ($DetectHeadMoves) {
+            $beforeHead = (& git -C $RepositoryRoot rev-parse HEAD 2>$null | Out-String).Trim()
+        }
         # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
         # Copilot cannot execute any tool (shell/file/git) and falls back to a
         # conversational "ready, standing by" no-op instead of doing real work
@@ -521,6 +535,9 @@ function Invoke-PhaseCDispatch {
             $ErrorActionPreference = $prevEap
         }
         $afterStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
+        if ($DetectHeadMoves) {
+            $afterHead = (& git -C $RepositoryRoot rev-parse HEAD 2>$null | Out-String).Trim()
+        }
         Pop-Location
 
         $result.exitCode = $exit
@@ -530,7 +547,16 @@ function Invoke-PhaseCDispatch {
         if ([string]::IsNullOrWhiteSpace($result.report)) {
             $result.report = Get-SanitizedReport -Lines $cmdOutput
         }
-        $result.repositoryChanges = ($beforeStatus -ne $afterStatus)
+        # Review point 1 (ai-01): a delivered commit leaves the worktree clean
+        # (clean -> clean), so in delivery mode a moved HEAD is the evidence of
+        # work that the porcelain diff cannot see.
+        $headMoved = (
+            $DetectHeadMoves -and
+            -not [string]::IsNullOrWhiteSpace($beforeHead) -and
+            -not [string]::IsNullOrWhiteSpace($afterHead) -and
+            ($beforeHead -ne $afterHead)
+        )
+        $result.repositoryChanges = ($beforeStatus -ne $afterStatus) -or $headMoved
 
         $joined = ($cmdOutput | Out-String)
         $usageMatch = [regex]::Match(
@@ -971,6 +997,14 @@ if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {
         $queueRepoRoot = $TargetRepoPath
         Write-Log "Retargeted: queue+work repo $queueSlug (clone $TargetRepoPath)"
     }
+} elseif (-not [string]::IsNullOrWhiteSpace($TargetRepoPath)) {
+    # Review point 2 (ai-01, 10/11): the guard used to protect only one half of
+    # the pair — a -TargetRepoPath without -TargetRepoSlug was silently
+    # ignored and the dispatcher fell back to roo-extensions while the caller
+    # believed it had retargeted. Fail closed in both directions: the pair is
+    # required together.
+    Write-Log "-TargetRepoPath '$TargetRepoPath' given without -TargetRepoSlug - blocking before any Copilot call (the pair is required together, fail-closed)"
+    $status = 'blocked'
 }
 
 $dispatch = $null
@@ -1007,7 +1041,7 @@ if ($status -ne 'blocked') {
 
         if ($status -ne 'blocked') {
             $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
-            $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -PromptRepositoryRoot $repoRoot
+            $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -PromptRepositoryRoot $repoRoot -DetectHeadMoves:$canDeliver
             $status = [string]$dispatch.status
         if ($dispatch.exitCode -eq 0) {
             Write-Log "Phase C execution success (exit=0)"
