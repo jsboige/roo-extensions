@@ -655,4 +655,23 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Match 'build-and-test check-run'
         $bot | Should -Match 'CI not certified'
     }
+
+    It 'lot 6 (INFO ai-01) : la liste des statuts pending n existe plus qu en UN endroit dans Get-CiRollupGate' {
+        $src = Get-Content (Join-Path $script:RepoRoot 'scripts/common/gh-pull-requests.ps1') -Raw
+        # Une seule source : les deux clauses ($pending / $failed) consomment $pendingStatuses.
+        $src | Should -Match '\$pendingStatuses\s*=\s*@\('
+        $src | Should -Match '\$_\.Status -in \$pendingStatuses'
+        $src | Should -Match '\$_\.Status -notin \$knownStatuses'
+        # La liste littérale des 5 statuts pending n'apparaît plus qu'UNE fois
+        # (la définition $pendingStatuses) — plus dans les clauses du corps.
+        $literalHits = [regex]::Matches($src, "'QUEUED',\s*'IN_PROGRESS',\s*'PENDING',\s*'WAITING',\s*'REQUESTED'")
+        $literalHits.Count | Should -Be 1
+    }
+
+    It 'lot 6 (INFO ai-01) : un rollup TOTALEMENT vide = CI not certified (plus « proceeding without CI gate »)' {
+        $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        $bot | Should -Not -Match 'proceeding without CI gate'
+        $bot | Should -Match 'no CI check-runs at all'
+        $bot | Should -Match 'CI not certified \(empty rollup\)'
+    }
 }

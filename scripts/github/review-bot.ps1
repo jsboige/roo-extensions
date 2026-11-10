@@ -269,7 +269,11 @@ foreach ($pr in $prList) {
         }
     }
     else {
-        Write-Log "No CI checks found for PR #$prNumber, proceeding without CI gate" "WARN"
+        # #4150 lot 6 (INFO ai-01) : un rollup TOTALEMENT vide n'est pas « proceeding
+        # without CI gate » (qui se lisait comme un acquittement) — c'est un CI non
+        # certifié, explicitement : aucun run n'atteste le build. Le bot audite, il ne
+        # merge pas : WARN non bloquant, comme la garde build-and-test vide ci-dessus.
+        Write-Log "PR #$prNumber has no CI check-runs at all — CI not certified (empty rollup)" "WARN"
     }
 
     # Get diff for audit
