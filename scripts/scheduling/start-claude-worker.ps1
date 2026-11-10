@@ -71,6 +71,12 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # Shared claim lock-window logic (dot-sourced also by claim-lock.Tests.ps1 — fix #2428)
 . (Join-Path $ScriptDir 'claim-lock.ps1')
+# Lectures GitHub en REST seul (#4150 lot 5, doctrine #4604) : les `gh issue view` /
+# `gh pr view` de ce script passaient par GraphQL (quota flotte fragmenté). Les deux
+# recherches --search subsistent : les guards scw-gh-stderr-class exigent leur forme
+# quote-doublée et la sémantique de dispatch de L823 en dépend — migration restante
+# documentée sur #4150.
+. (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
 # Claim lane identity (#4114, producer side): every GitHub [CLAIMED]/[RELEASED]/
 # [RESULT] marker below must carry machine:workspace — the same derivation as
 # check_issue_claim.py (COMPUTERNAME + basename of the git toplevel). A machine-only
@@ -658,11 +664,11 @@ function Test-IssueAlreadyProcessed {
     param([int]$IssueNumber)
 
     try {
-        $CommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[-5:]"" 2>&1"
-
-        if ($LASTEXITCODE -ne 0) { return $false }
-
-        $Comments = $CommentsJson | ConvertFrom-Json
+        # REST (#4150 lot 5) : `gh issue view --json comments --jq .comments[-5:]`
+        # = derniers 5 commentaires, forme {body, createdAt} préservée.
+        $CommentsR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $IssueNumber
+        if (-not $CommentsR.Ok) { return $false }
+        $Comments = @($CommentsR.Comments | Select-Object -Last 5)
 
         foreach ($Comment in $Comments) {
             $CreatedAt = ConvertTo-UtcDateTime $Comment.createdAt
@@ -861,9 +867,11 @@ function Get-GitHubTask {
                 # NB: this comment deliberately spells out no literal quoted jq call — the harness
                 # scans this whole file for that pattern, and prose would trip it (it did).
                 $jqExpr = '[.comments[-10:][] | {body, createdAt}]'
-                $DispatchJson = & cmd /c "gh issue view $($Issue.number) --repo jsboige/roo-extensions --json comments --jq ""$jqExpr"" 2>&1"
-                if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
-                    $DispatchComments = $DispatchJson | ConvertFrom-Json
+                # REST (#4150 lot 5) : derniers 10 commentaires (jq fenêtré devenu
+                # Select-Object -Last 10, mêmes champs que l'expression ci-dessus).
+                $DispatchR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $Issue.number
+                $DispatchComments = if ($DispatchR.Ok) { @($DispatchR.Comments | Select-Object -Last 10) } else { $null }
+                if ($DispatchComments) {
                     foreach ($Dc in $DispatchComments) {
                         # #1980 (c.145): both [CLAIMED] and [RESULT] are now age-bounded,
                         # consistent with Test-IssueAlreadyProcessed (6h for [CLAIMED],
@@ -1000,11 +1008,10 @@ function Test-GitHubIssueLock {
     param([int]$IssueNumber)
 
     try {
-        $CommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[-3:]"" 2>&1"
-
-        if ($LASTEXITCODE -ne 0) { return $false }
-
-        $Comments = $CommentsJson | ConvertFrom-Json
+        # REST (#4150 lot 5) : derniers 3 commentaires (lock-window 30 min).
+        $LockCommentsR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $IssueNumber
+        if (-not $LockCommentsR.Ok) { return $false }
+        $Comments = @($LockCommentsR.Comments | Select-Object -Last 3)
 
         foreach ($Comment in $Comments) {
             $Body = $Comment.body
@@ -1071,9 +1078,11 @@ function Claim-GitHubIssue {
         # each worker yield to a phantom competitor forever (5 claim→yield cycles
         # in 48 h on #2428). Logic shared with claim-lock.Tests.ps1.
         $jqCommentsExpr = '[.comments[-20:][] | {body: .body, createdAt: .createdAt}]'
-        $RecentCommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq ""$jqCommentsExpr"" 2>&1"
-        if ($LASTEXITCODE -eq 0 -and $RecentCommentsJson) {
-            $RecentComments = @($RecentCommentsJson | ConvertFrom-Json) | ForEach-Object {
+        # REST (#4150 lot 5) : derniers 20 commentaires, même projection {body,
+        # createdAt} que l'expression jq ci-dessus (Test-ConcurrentClaimActive).
+        $RecentR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $IssueNumber
+        if ($RecentR.Ok -and $RecentR.Comments.Count -gt 0) {
+            $RecentComments = @($RecentR.Comments | Select-Object -Last 20) | ForEach-Object {
                 [PSCustomObject]@{
                     body      = [string]$_.body
                     createdAt = ConvertTo-UtcDateTime $_.createdAt
@@ -1095,13 +1104,14 @@ function Claim-GitHubIssue {
         # Both repos: a submodule PR lives in jsboige/jsboige-mcp-servers and is invisible
         # to a product-repo-only check (#3407: #1091 open 26h, undetected).
         foreach ($PrRepo in @('jsboige/roo-extensions', 'jsboige/jsboige-mcp-servers')) {
-            $ExistingPR = & cmd /c "gh pr list --repo $PrRepo --state open --json title,headRefName --jq "".[].title"" 2>&1"
-            if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
+            # REST (#4150 lot 5) : titres des PRs ouvertes (anti-double-travail).
+            $OpenPrsR = Get-PullRequestSummary -Repo $PrRepo -State open
+            if ($OpenPrsR.Ok -and $OpenPrsR.Items.Count -gt 0) {
                 # \b = frontiere de mot des DEUX cotes : "#109" ne doit matcher ni "#1091"
                 # (suffixe) ni "issue 3109" (prefixe — ".*" absorberait le "3" sans l'ancre
                 # gauche). Fausse collision => issue skippee a tort. .NET regex, pas de
                 # couche de quoting ici.
-                $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber\b" -or $_ -match "issue.*\b$IssueNumber\b" })
+                $PRsForIssue = @($OpenPrsR.Items | Where-Object { $_.Title -match "#$IssueNumber\b" -or $_.Title -match "issue.*\b$IssueNumber\b" })
                 if ($PRsForIssue.Count -gt 0) {
                     Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber ($PrRepo) — skip" "WARN"
                     & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
@@ -1511,7 +1521,10 @@ function Test-WaitStateReady {
         if ($TaskId -match "github-(\d+)") {
             $IssueNum = $Matches[1]
             try {
-                $IssueState = (& cmd /c "gh issue view $IssueNum --repo jsboige/roo-extensions --json state --jq "".state"" 2>nul") | Select-Object -First 1
+                # REST (#4150 lot 5) : état OPEN/CLOSED (casse GraphQL préservée),
+                # stderr rejeté à la couche cmd (forme discard, #3731).
+                $IssueStateJson = (& cmd /c "gh api ""repos/jsboige/roo-extensions/issues/$IssueNum"" --jq "".state"" 2>nul") | Select-Object -First 1
+                $IssueState = if ($LASTEXITCODE -eq 0 -and $IssueStateJson) { "$IssueStateJson".Trim().Trim('"').ToUpperInvariant() } else { $null }
                 if ($IssueState -eq "CLOSED") {
                     Write-Log "🗑️ Wait state pour issue FERMÉE (#$IssueNum) → suppression automatique" "WARN"
                     Remove-WaitState -TaskId $TaskId
@@ -1594,16 +1607,18 @@ function Test-UserApproval {
         $IssueNumber = if ($TaskId -match 'issue-(\d+)') { $Matches[1] } else { $null }
 
         if ($IssueNumber) {
-            $Comments = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[].body"" 2>&1"
-            if ($LASTEXITCODE -eq 0) {
+            # REST (#4150 lot 5) : corps de tous les commentaires (heuristique
+            # d'approbation — le commentaire n'est PAS une autorisation, #3442).
+            $ApprovalR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $IssueNumber
+            if ($ApprovalR.Ok) {
                 $ApprovalPatterns = @(
                     '\[APPROVE\]', '\[APPROVED\]', '\[OK\]', '\[GO\]',
                     'approved', 'go ahead', 'proceed', 'continue'
                 )
 
-                foreach ($Comment in $Comments) {
+                foreach ($Comment in $ApprovalR.Comments) {
                     foreach ($Pattern in $ApprovalPatterns) {
-                        if ($Comment -match $Pattern) {
+                        if ($Comment.body -match $Pattern) {
                             return $true
                         }
                     }
@@ -1700,27 +1715,28 @@ function Test-GitHubDecision {
             return $false
         }
 
-        # Récupérer l'état de l'issue
-        $IssueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json state,comments 2>&1"
-
-        if ($LASTEXITCODE -ne 0) {
-            Write-Log "  Erreur gh issue view: $IssueJson" "WARN"
+        # Récupérer l'état de l'issue et ses commentaires — REST (#4150 lot 5).
+        # On lit l'état et les commentaires SÉPARÉMENT : un échec des commentaires
+        # ne doit pas masquer une issue fermée (signal de reprise candidate).
+        $IssueStateR = Get-IssueRestState -Repo jsboige/roo-extensions -Number $IssueNumber
+        if (-not $IssueStateR.Ok) {
+            Write-Log "  Erreur lecture issue: $($IssueStateR.Error)" "WARN"
             return $false
         }
-
-        $Issue = $IssueJson | ConvertFrom-Json
+        $DecisionCommentsR = Get-IssueRestComments -Repo jsboige/roo-extensions -Number $IssueNumber
+        $DecisionComments = if ($DecisionCommentsR.Ok) { $DecisionCommentsR.Comments } else { @() }
         $SavedTimestamp = ConvertTo-UtcDateTime $WaitState.timestamp
         if ($null -eq $SavedTimestamp) { return $false }
 
         # Vérifier si issue fermée après le timestamp
-        if ($Issue.state -eq "CLOSED") {
+        if ($IssueStateR.State -eq "CLOSED") {
             Write-Log "  Issue #$IssueNumber est fermée - signal de reprise candidate (une fermeture d'issue ne vaut pas autorisation)"
             return $true
         }
 
         # Vérifier commentaires récents avec approval
         $ApprovalPatterns = @('approve', 'go ahead', 'proceed', 'continue', 'done', 'confirmed', 'validated', 'tested', 'ok', 'lgtm')
-        foreach ($Comment in $Issue.comments) {
+        foreach ($Comment in $DecisionComments) {
             $CommentTimestamp = ConvertTo-UtcDateTime $Comment.createdAt
             if ($null -ne $CommentTimestamp -and $CommentTimestamp -gt $SavedTimestamp) {
                 foreach ($Pattern in $ApprovalPatterns) {
@@ -3753,14 +3769,17 @@ function Request-StaleReview {
         $Repo = $Matches[1]; $PrNumber = $Matches[2]
 
         # Pending requests already tell the reviewers — never stack a second one.
-        $Pending = (& cmd /c "gh pr view $PrNumber --repo $Repo --json reviewRequests --jq ""[.reviewRequests[].login] | length"" 2>&1") | Select-Object -First 1
-        if ($LASTEXITCODE -eq 0 -and "$Pending".Trim() -match '^\d+$' -and [int]"$Pending".Trim() -gt 0) {
+        # REST (#4150 lot 5) : requested_reviewers est un tableau — non vide => pending.
+        $PendingR = Invoke-GhApiJson -Url "repos/$Repo/pulls/$PrNumber" -Jq '.requested_reviewers | length'
+        if ($PendingR.Ok -and "$($PendingR.Lines[0])".Trim() -match '^\d+$' -and [int]"$($PendingR.Lines[0])".Trim() -gt 0) {
             Write-Log "Re-review skip: $Repo#$PrNumber already has pending review requests." "INFO"
             return
         }
 
-        $HeadRefOid = (& cmd /c "gh pr view $PrNumber --repo $Repo --json headRefOid --jq "".headRefOid"" 2>&1") | Select-Object -First 1
-        if ($LASTEXITCODE -ne 0 -or -not "$HeadRefOid".Trim()) { return }
+        $HeadR = Invoke-GhApiJson -Url "repos/$Repo/pulls/$PrNumber" -Jq '.head.sha'
+        if (-not $HeadR.Ok) { return }
+        $HeadRefOid = "$($HeadR.Lines[0])".Trim().Trim('"')
+        if (-not $HeadRefOid) { return }
         $HeadDate = (& cmd /c "gh api ""repos/$Repo/commits/$($HeadRefOid.Trim())"" --jq "".commit.committer.date"" 2>&1") | Select-Object -First 1
         if ($LASTEXITCODE -ne 0 -or -not "$HeadDate".Trim()) { return }
         $ReviewsJson = (& cmd /c "gh api ""repos/$Repo/pulls/$PrNumber/reviews"" 2>&1") -join ''
@@ -3968,8 +3987,10 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
         # #2157: Check if PR already exists for this branch (graceful shutdown re-push scenario)
         $BranchName = (& cmd /c "git rev-parse --abbrev-ref HEAD 2>&1") | Select-Object -First 1
         if ($LASTEXITCODE -eq 0 -and $BranchName) {
-            $ExistingPR = & cmd /c "gh pr list --repo jsboige/roo-extensions --state open --head $BranchName --json url --jq "".[0].url"" 2>&1"
-            if ($LASTEXITCODE -eq 0 -and $ExistingPR -and "$ExistingPR".Trim() -ne '' -and "$ExistingPR".Trim() -ne '[]') {
+            # REST (#4150 lot 5) : PR ouverte pour cette branche (html_url).
+            $BranchPrR = Get-PullRequestSummary -Repo jsboige/roo-extensions -State open -Head $BranchName -MaxCount 1 -Fields @('html_url')
+            $ExistingPR = if ($BranchPrR.Ok -and $BranchPrR.Items.Count -gt 0) { "$($BranchPrR.Items[0].html_url)".Trim() } else { '' }
+            if ($ExistingPR) {
                 Write-Log "PR already exists for branch ${BranchName}: $ExistingPR" "INFO"
                 # New commits just landed on a reviewed PR (re-push on existing
                 # branch, typically fixes answering a CHANGES_REQUESTED) —
@@ -4595,11 +4616,12 @@ function Get-DeliveredArtifacts {
                     $PullRequests = @(& $PrListProvider $Repository $SearchQuery | Where-Object { $null -ne $_ })
                     $GhExitCode = 0
                 } else {
-                    # Server-side issue/date search avoids the former newest-100 window. The exact issue
-                    # boundary, timestamp, and author are still verified locally.
-                    $PrJson = & cmd /c "gh pr list --repo $Repository --state all --search ""$SearchQuery"" --limit 1000 --json number,url,title,body,headRefName,createdAt,author 2>nul"
-                    $GhExitCode = $LASTEXITCODE
-                    $PullRequests = if ($PrJson) { @($PrJson | ConvertFrom-Json | Where-Object { $null -ne $_ }) } else { @() }
+                    # REST (#4150 lot 5) : /search/issues, requête serveur identique
+                    # (évite l'ancienne fenêtre newest-100 ; frontière d'issue, date
+                    # et auteur restent vérifiés localement ci-dessous).
+                    $PrSearchR = Search-RestPullRequests -Repo $Repository -Query $SearchQuery -MaxCount 1000
+                    $GhExitCode = if ($PrSearchR.Ok) { 0 } else { 1 }
+                    $PullRequests = if ($PrSearchR.Ok) { @($PrSearchR.Items | Where-Object { $null -ne $_ }) } else { @() }
                 }
                 $ErrorActionPreference = $PreviousPreference
                 if ($GhExitCode -ne 0) { continue }

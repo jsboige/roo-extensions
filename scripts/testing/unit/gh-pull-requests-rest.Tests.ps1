@@ -624,3 +624,60 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match '\$ciFailed\s*=\s*\$ciChecks\s*\|\s*Where-Object'
     }
 }
+
+Describe 'Lot 5 (#4150) — helpers issues/recherche REST pour start-claude-worker' {
+    It 'Get-IssueRestComments : forme gh {body, createdAt} (created_at REST projeté), pagination lue' {
+        # Shim dédié : le shim routé ne sert pas la route /comments (le shim générique
+        # répond sa fixture à tout appel api — forme 1 objet/ligne de gh --jq).
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim5c-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '{"body":"claimed by claude on myia-po-2028","created_at":"2026-11-10T00:00:00Z","createdAt":"2026-11-10T00:00:00Z"}'
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-IssueRestComments -Repo jsboige/roo-extensions -Number 4150 }
+            $r.Ok | Should -BeTrue
+            $r.Comments.Count | Should -Be 1
+            $r.Comments[0].body | Should -Be 'claimed by claude on myia-po-2028'
+            $r.Comments[0].createdAt | Should -Be '2026-11-10T00:00:00Z'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'Get-IssueRestState : casse GraphQL préservée (OPEN/CLOSED)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim5s-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) -Json '"closed"'
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-IssueRestState -Repo jsboige/roo-extensions -Number 4150 }
+            $r.Ok | Should -BeTrue
+            $r.State | Should -Be 'CLOSED'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'Search-RestPullRequests : forme gh pr list (url, headRefName, createdAt, author.login) depuis /search/issues' {
+        # Forme REST /pulls projetée par le jq du helper (head.ref aplati en head_ref,
+        # user.login en login). Le shim ROUTÉ logue l'URL demandée (le générique ne
+        # logue que « api ») — c'est lui qui prouve que /search/issues a été frappé.
+        $searchJson = '{"number":4626,"url":"https://api.github.com/repos/jsboige/roo-extensions/pulls/4626","title":"fix(#4150): CI gate","body":"text","created_at":"2026-11-09T20:00:00Z","head_ref":"wt/4150-lot4","login":"jsboige","labels":[]}'
+        $shim = New-GhShimRouted -Dir (Join-Path $script:TmpRoot ("ghshim5p-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -PrJson $searchJson
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Search-RestPullRequests -Repo jsboige/roo-extensions -Query '#4150 in:title,body created:>=2026-11-09' -MaxCount 1 }
+            $r.Ok | Should -BeTrue
+            $r.Items.Count | Should -Be 1
+            $r.Items[0].number | Should -Be 4626
+            $r.Items[0].headRefName | Should -Be 'wt/4150-lot4'
+            $r.Items[0].createdAt | Should -Be '2026-11-09T20:00:00Z'
+            $r.Items[0].author.login | Should -Be 'jsboige'
+            $r.Items[0].url | Should -Match 'api.github.com'
+            (Get-CallLog $shim.Log) -join ' ' | Should -Match 'search/issues'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'sentinelle : start-claude-worker dot-source le helper et ne garde plus de gh issue view / gh pr view exécutable' {
+        $scw = Get-Content (Join-Path $script:RepoRoot 'scripts/scheduling/start-claude-worker.ps1') -Raw
+        $scw | Should -Match "common\\gh-pull-requests\.ps1"
+        # Forme COMMANDE (cmd-layer) uniquement : les mentions de commentaires
+        # (rationale de migration) ne sont pas des appels.
+        $scw | Should -Not -Match 'cmd /c "gh issue view'
+        $scw | Should -Not -Match 'cmd /c "gh pr view'
+    }
+}

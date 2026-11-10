@@ -1,4 +1,10 @@
-﻿# gh-pull-requests.ps1 — lecture des pull requests en REST seul (#4150 lots 2-3)
+﻿# gh-pull-requests.ps1 — lecture des pull requests en REST seul (#4150 lots 2-3 et 5)
+#
+# Lot 5 : helpers d'issues (état, commentaires) et recherche de PRs pour
+# start-claude-worker.ps1 — Get-IssueRestState / Get-IssueRestComments /
+# Search-RestPullRequests. Get-PullRequestSummary supporte désormais -Search
+# (endpoint /search/issues REST) et -Fields additionnels (url, body, createdAt,
+# author pour l'auto-commit du worker). Voir le bas du fichier.
 #
 # Doctrine #4604 : `gh pr list` / `gh pr view` / `gh issue view` passent par GraphQL ;
 # le budget GraphQL de la flotte est fragmenté entre les sièges et tombe en 403 sous
@@ -40,7 +46,7 @@ function ConvertFrom-RestPullRequest {
     elseif ($state -eq 'closed') { $state = if ($Raw.merged_at) { 'MERGED' } else { 'CLOSED' } }
     else { $state = $state.ToUpperInvariant() }
 
-    [pscustomobject]@{
+    $obj = [pscustomobject]@{
         Number      = $Raw.number
         HeadRefName = $Raw.head_ref
         State       = $state
@@ -51,6 +57,15 @@ function ConvertFrom-RestPullRequest {
         AuthorLogin = $Raw.login
         Labels      = @($Raw.labels | Where-Object { $_ })
     }
+    # Lot 5 : matérialiser les champs additionnels projetés par le jq (-Fields) —
+    # [pscustomobject]@{...} ne recopie que les membres nommés ci-dessus ; les champs
+    # demandés par l'appelant (url, body, created_at, html_url) seraient sinon vides.
+    foreach ($p in $Raw.PSObject.Properties) {
+        if ($p.Name -notin @('number', 'head_ref', 'state', 'merged_at', 'title', 'login', 'labels')) {
+            $obj | Add-Member -NotePropertyName $p.Name -NotePropertyValue $p.Value
+        }
+    }
+    $obj
 }
 
 function Get-PullRequestSummary {
@@ -68,13 +83,25 @@ function Get-PullRequestSummary {
         Nombre maximum de PR à ramener (0 = tout, pagination complète).
         Utilisé quand l'appelant avait un `--limit N` : les mêmes PR les plus
         récentes (tri created desc) sont ramenées, à la page près.
+    .PARAMETER Search
+        Lot 5 : requête de recherche (qualificateurs `in:title,body`,
+        `created:>=...`, `#123`) routée vers l'endpoint `/search/issues` REST
+        (0 point GraphQL), qualifiée `repo:<Repo> is:pr`. Tri created desc comme
+        l'endpoint /pulls ; réponse re-filtrée sur la présence de la clé
+        pull_request (l'endpoint mêle issues et PRs).
+    .PARAMETER Fields
+        Lot 5 : champs REST additionnels projetés sur chaque item (p.ex.
+        'url','body','created_at' — l'auto-commit de start-claude-worker lisait
+        --json number,url,title,body,headRefName,createdAt,author).
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Repo,
         [string]$Head,
         [ValidateSet('open', 'closed', 'all')][string]$State = 'all',
-        [int]$MaxCount = 0
+        [int]$MaxCount = 0,
+        [string]$Search,
+        [string[]]$Fields = @()
     )
 
     $perPage = 100
@@ -83,11 +110,23 @@ function Get-PullRequestSummary {
         $owner = ($Repo -split '/')[0]
         $url += "&head=$($owner):$Head"
     }
+    if ($Search) {
+        # /search/issues : le qualifieur repo+type est assemblé ici (l'appelant ne
+        # fournit que la requête métier). sort=created&order=desc reproduit le tri
+        # de l'endpoint /pulls ; sans state explicite la recherche porte sur tout
+        # l'historique, comme `gh pr list --state all --search`.
+        $encoded = [uri]::EscapeDataString("repo:$Repo is:pr $Search")
+        $url = "search/issues?q=$encoded&sort=created&order=desc&per_page=$perPage"
+        if ($State -ne 'all') { $url = "search/issues?q=$encoded+state:$State&sort=created&order=desc&per_page=$perPage" }
+    }
 
-    # Une ligne JSON compacte par PR : même forme pour toutes les pages, sans --slurp.
-    # title/login/labels (lot 3) : filter auteur côté client + labels restreints de
-    # review-bot, qui listait via `gh pr list --json number,title,labels,author`.
-    $jq = '.[] | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, title: .title, login: .user.login, labels: [.labels[].name]}'
+    # Projection additionnelle (lot 5) : chaque champ demandé est copié tel quel.
+    $extra = ''
+    if ($Fields.Count -gt 0) { $extra = ', ' + (($Fields | ForEach-Object { "$($_): .$_" }) -join ', ') }
+    # Enveloppe de la page : tableau nu (/pulls) ou .items[] filtré sur les PRs
+    # (/search/issues mêle issues et PRs — select(.pull_request)).
+    $envelope = if ($Search) { '.items[] | select(.pull_request)' } else { '.[]' }
+    $jq = "$envelope | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, title: .title, login: .user.login, labels: [.labels[].name]$extra}"
 
     $items = @()
     $page = 1
@@ -115,7 +154,10 @@ function Get-PullRequestSummary {
         $pageItems = @($out | Where-Object { $_ -and $_.ToString().Trim() } | ForEach-Object { $_ | ConvertFrom-Json })
         foreach ($raw in $pageItems) { $items += ConvertFrom-RestPullRequest -Raw $raw }
         if ($MaxCount -gt 0 -and $items.Count -ge $MaxCount) { break }
-        if ($pageItems.Count -lt $perPage) { break }
+        # Page vide : fin certaine. Page pleine : pagination (une page search peut
+        # contenir 100 items dont certains sont des issues filtrées par jq).
+        if ($pageItems.Count -eq 0) { break }
+        if ($pageItems.Count -lt $perPage -and -not $Search) { break }
         $page++
     }
 
@@ -361,4 +403,82 @@ function Get-PullRequestDetail {
         StatusCheckRollup = $rollup
     }
     return [pscustomobject]@{ Ok = $true; Item = $item; Error = $null }
+}
+
+# ============================================================================
+# Lot 5 (#4150) — issues et recherche en REST pour start-claude-worker.ps1
+# ============================================================================
+
+function Get-IssueRestState {
+    <#
+    .SYNOPSIS
+        État d'une issue en REST, casse GraphQL préservée (OPEN / CLOSED) — le
+        worker comparait `.state` à "CLOSED" après `gh issue view --json state`.
+    .OUTPUTS
+        @{ Ok = bool; State = 'OPEN'|'CLOSED'; Error }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][int]$Number
+    )
+    $r = Invoke-GhApiJson -Url "repos/$Repo/issues/$Number" -Jq '.state'
+    if (-not $r.Ok) { return [pscustomobject]@{ Ok = $false; State = $null; Error = "issue: $($r.Error)" } }
+    $raw = @($r.Lines)[0] | ConvertFrom-Json
+    return [pscustomobject]@{ Ok = $true; State = "$raw".ToUpperInvariant(); Error = $null }
+}
+
+function Get-IssueRestComments {
+    <#
+    .SYNOPSIS
+        Commentaires d'une issue en REST, forme « gh issue view --json comments »
+        préservée : des objets @{ body; createdAt } (GraphQL) projetés depuis les
+        champs REST body / created_at. Pagination complète — les consommateurs du
+        worker tronquent eux-mêmes la fenêtre ([-5:], [-3:], [-10:], [-20:]).
+    .OUTPUTS
+        @{ Ok = bool; Comments = @(@{ body; createdAt }); Error }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][int]$Number
+    )
+    $r = Invoke-GhApiJsonPaged -Url "repos/$Repo/issues/$Number/comments" -Jq '.[] | {body: .body, createdAt: .created_at}' -MaxPages 20
+    if (-not $r.Ok) { return [pscustomobject]@{ Ok = $false; Comments = @(); Error = "comments: $($r.Error)" } }
+    # PS 5.1 déstructure un tableau d'objets à l'assignation : sans le @() de
+    # matérialisation, un seul commentaire arrive NU au consommateur (.body null).
+    $comments = @($r.Lines | ForEach-Object { $_ | ConvertFrom-Json })
+    return [pscustomobject]@{ Ok = $true; Comments = $comments; Error = $null }
+}
+
+function Search-RestPullRequests {
+    <#
+    .SYNOPSIS
+        Recherche de PRs via /search/issues REST — remplace
+        `gh pr list --search "<query>" --json number,url,title,body,headRefName,createdAt,author`.
+    .OUTPUTS
+        @{ Ok = bool; Items = @(@{ number; url; title; body; headRefName; createdAt; author }); Error }
+        Forme camelCase GraphQL préservée (les consommateurs filtrent sur
+        createdAt / author.login).
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][string]$Query,
+        [int]$MaxCount = 1000
+    )
+    $s = Get-PullRequestSummary -Repo $Repo -Search $Query -State all -MaxCount $MaxCount -Fields @('url', 'body', 'created_at')
+    if (-not $s.Ok) { return [pscustomobject]@{ Ok = $false; Items = @(); Error = $s.Error } }
+    $items = @($s.Items | ForEach-Object {
+        [pscustomobject]@{
+            number      = $_.Number
+            url         = $_.url
+            title       = $_.Title
+            body        = $_.body
+            headRefName = $_.HeadRefName
+            createdAt   = $_.created_at
+            author      = [pscustomobject]@{ login = $_.AuthorLogin }
+        }
+    })
+    return [pscustomobject]@{ Ok = $true; Items = $items; Error = $null }
 }

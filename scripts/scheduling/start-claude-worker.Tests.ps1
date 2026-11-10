@@ -177,7 +177,9 @@ Describe 'start-claude-worker.ps1 — Request-StaleReview wiring (re-push branch
     }
 
     It 'never stacks a second nudge: skips when reviewRequests already pending' {
-        $script:src | Should -Match 'reviewRequests'
+        # #4150 lot 5 : GraphQL reviewRequests -> REST requested_reviewers
+        # (tableau non vide = demandes en attente, même garde anti-doublon).
+        $script:src | Should -Match 'requested_reviewers'
         $script:src | Should -Match 'Re-review skip'
     }
 
