@@ -267,16 +267,21 @@ function Get-CiRollupGate {
     #>
     param([Parameter(Mandatory)]$Checks)
 
+    # #4150 lot 6 (INFO ai-01) : la liste des statuts pending existait en DEUX
+    # endroits (ici et dans la clause $failed) — une seule source pour les deux.
+    $pendingStatuses = @('QUEUED', 'IN_PROGRESS', 'PENDING', 'WAITING', 'REQUESTED')
+    $failedLegacyStatuses = @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE')
+    $knownStatuses = $pendingStatuses + @('COMPLETED') + $failedLegacyStatuses
+
     $pending = @($Checks | Where-Object {
-        $_.Status -in @('QUEUED', 'IN_PROGRESS', 'PENDING', 'WAITING', 'REQUESTED') -or
+        $_.Status -in $pendingStatuses -or
         ($_.Status -eq 'COMPLETED' -and -not $_.Conclusion)
     })
     $failed = @($Checks | Where-Object {
         ($_.Status -eq 'COMPLETED' -and $null -ne $_.Conclusion -and
             $_.Conclusion -notin @('SUCCESS', 'SKIPPED', 'NEUTRAL')) -or
-        $_.Status -in @('FAILED', 'EXPECTED', 'ERROR', 'FAILURE') -or
-        ($_.Status -and $_.Status -notin @('QUEUED', 'IN_PROGRESS', 'PENDING',
-            'WAITING', 'REQUESTED', 'COMPLETED', 'FAILED', 'EXPECTED', 'ERROR', 'FAILURE'))
+        $_.Status -in $failedLegacyStatuses -or
+        ($_.Status -and $_.Status -notin $knownStatuses)
     })
     return @{ Pending = $pending; Failed = $failed }
 }
