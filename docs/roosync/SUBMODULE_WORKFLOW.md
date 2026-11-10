@@ -390,8 +390,8 @@ git submodule status
 ## Références
 
 - [Guide de synchronisation des submodules (archivé — consolidé ici, #2877)](../archive/guides-2025/guide-synchronisation-submodules.md)
-- [Glossaire RooSync](guides/GLOSSAIRE.md)
-- [Troubleshooting RooSync](guides/TROUBLESHOOTING.md)
+- [Glossaire RooSync (archivé, #2877 vague 6)](../archive/doc-audit-2026-11-09/guides/GLOSSAIRE.md)
+- [Troubleshooting RooSync (archivé, #2877 vague 6)](../archive/doc-audit-2026-11-09/guides/TROUBLESHOOTING.md)
 - [Documentation Git officielle sur les submodules](https://git-scm.com/book/fr/v2/Utilitaires-Git-Submodules)
 
 ---

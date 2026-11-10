@@ -245,13 +245,14 @@ race condition, guide de soumission PR, notes XML vides) déplacés vers
 | `SERVICES_TARGET.md` | Cibles services roosync_config (issue #2409, po-2023) | active |
 | `SUBMODULE_WORKFLOW.md` | Guide workflow submodules | active |
 
-### docs/roosync/guides/ — 3 fichiers
+### docs/roosync/guides/ — 0 fichier
 
-| Fichier | Description | Statut |
-|---------|-------------|--------|
-| `GLOSSAIRE.md` | Glossaire RooSync v1.1 | active |
-| `ONBOARDING_AGENT.md` | Guide onboarding nouvel agent | active |
-| `TROUBLESHOOTING.md` | Guide depannage RooSync | active |
+Les 3 guides résiduels (janvier 2026) sont archivés par la **vague 6** de #2877 vers
+`docs/archive/doc-audit-2026-11-09/guides/` (renames purs R100) :
+`GLOSSAIRE.md` (glossaire RooSync v1.1, 24/01), `ONBOARDING_AGENT.md` (onboarding nouvel agent, 15/01),
+`TROUBLESHOOTING.md` (dépannage RooSync, 15/01).
+Vivants : `docs/harness/reference/mcp-diagnosis-procedure.md` (diagnostic),
+`CLAUDE.md` § Démarrage + `docs/harness/reference/INDEX.md` (onboarding).
 
 ### docs/roosync/archive/ — 2 fichiers + integration/ (23 fichiers)
 
