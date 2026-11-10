@@ -119,3 +119,39 @@ Pointeurs corrigés : `docs/INDEX.md` (recomptes **14→10** et guides **5→3**
 | Inventaire agents/skills/commands | `CLAUDE.md` § Agents, Skills & Commands | `.claude/agents/`, `.claude/skills/`, `.claude/commands/` (recompte firsthand #3321) |
 | Checklists opérationnelles | `.claude/rules/validation.md` | `.claude/rules/ci-guardrails.md` |
 | Onboarding nouvel agent | `CLAUDE.md` + `.claude/rules/` (auto-chargées) | `docs/harness/reference/INDEX.md` |
+
+---
+
+# Vague 6 (2026-11-10) — 3 derniers guides `docs/roosync/guides/` archivés (le répertoire se vide)
+
+Dispatch `file-10c-web1-ai01` item 2 (« la vague 6 de consolidation de la doc, prise dans
+la file du body »). Les 3 candidats sont exactement ceux que le body de la PR vague 5
+(#4629, section « Non touché ») nommait « leur sort propre (janvier, 0 entrypoint vivant)
+est un grain ultérieur éventuel ». Même méthode : renames purs R100 + pointeurs + SHA-256.
+Aucun point d'entrée vivant (`CLAUDE.md`, `.claude/commands/`, `.claude/skills/`,
+`.claude/agents/`) ne cite ces fichiers — seuls `docs/INDEX.md`, `SUBMODULE_WORKFLOW.md`
+(Références) et `docs/suivi/RooSync/INDEX.md`.
+
+Empreintes relevées **avant** déplacement, identiques après par construction du rename git.
+
+| Document archivé | Octets | Lignes | SHA-256 | Motif |
+|---|---:|---:|---|---|
+| `guides/GLOSSAIRE.md` | 7 845 | 274 | `6c38ae9fbd7b4d48cc0b072df062813bf75b0191d3b5045a5c4ec6607ebf83be` | Glossaire **v1.1.0 du 2026-01-24, jamais mis à jour** — termes RooSync de janvier ; la référence courante est le guide technique `docs/roosync/GUIDE-TECHNIQUE-v2.3.md` + les règles auto-chargées |
+| `guides/ONBOARDING_AGENT.md` | 7 182 | 328 | `4f79c6f44ccb477e9e82d6a0b32d6edf5c2175acd8049e704f0f600d48fe9ee9` | Onboarding **v1.0.0 du 2026-01-15**, stack Roo scheduler d'époque ; l'onboarding vivant est `CLAUDE.md` § Démarrage (4 étapes) + `.claude/rules/` auto-chargées + `docs/harness/reference/INDEX.md` |
+| `guides/TROUBLESHOOTING.md` | 8 894 | 401 | `29ac289ad3fc43c2d111cc0ae2cfa733fca25303581ac87ae16e8ed5a353234c` | Dépannage **v1.0.0 du 2026-01-15**, stack Roo/win-cli d'époque ; le diagnostic courant est `.claude/rules/mcp-diagnosis.md` (2 règles absolues) + `docs/harness/reference/mcp-diagnosis-procedure.md` |
+
+Pointeurs corrigés : `docs/INDEX.md` (section guides **3→0**, note vague 6),
+`docs/roosync/SUBMODULE_WORKFLOW.md` (2 liens Références redirigés),
+`docs/suivi/RooSync/INDEX.md` (3 lignes redirigées) — tous vers l'archive avec mention « archivé ».
+Faux positifs écartés (noms homonymes ailleurs) : `docs/framework-multi-agent/TEMPLATE_WORKSPACE.md`
+(cite `.claude/TROUBLESHOOTING.md` upstream), `docs/guides/*` (TROUBLESHOOTING-GUIDE propre),
+`docs/knowledge/WORKSPACE_KNOWLEDGE.md` (cite `docs/archive/mcps-pre-submodule/`).
+
+## Où le contenu vit maintenant (vague 6)
+
+| Sujet | Autorité | Élaboration |
+|---|---|---|
+| Glossaire RooSync | `docs/roosync/GUIDE-TECHNIQUE-v2.3.md` | règles `.claude/rules/` (vocabulaire courant) |
+| Onboarding nouvel agent | `CLAUDE.md` § Démarrage + `.claude/rules/` (auto-chargées) | `docs/harness/reference/INDEX.md` |
+| Diagnostic / dépannage | `.claude/rules/mcp-diagnosis.md` | `docs/harness/reference/mcp-diagnosis-procedure.md` |
+

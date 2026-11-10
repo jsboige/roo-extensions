@@ -29,10 +29,10 @@
 
 | Fichier | Usage |
 |---------|-------|
-| [`../roosync/guides/ONBOARDING_AGENT.md`](../../roosync/guides/ONBOARDING_AGENT.md) | Guide nouvel agent |
-| [`../roosync/guides/TROUBLESHOOTING.md`](../../roosync/guides/TROUBLESHOOTING.md) | FAQ et problèmes |
+| [`../roosync/guides/ONBOARDING_AGENT.md (archivé)`](../../archive/doc-audit-2026-11-09/guides/ONBOARDING_AGENT.md) | Guide nouvel agent (janvier, #2877 vague 6) |
+| [`../roosync/guides/TROUBLESHOOTING.md (archivé)`](../../archive/doc-audit-2026-11-09/guides/TROUBLESHOOTING.md) | FAQ et problèmes (janvier, #2877 vague 6) |
 | [`../roosync/guides/CHECKLISTS.md (archivé)`](../../archive/doc-audit-2026-11-09/guides/CHECKLISTS.md) | Listes vérification (janvier, #2877 vague 5) |
-| [`../roosync/guides/GLOSSAIRE.md`](../../roosync/guides/GLOSSAIRE.md) | Termes RooSync |
+| [`../roosync/guides/GLOSSAIRE.md (archivé)`](../../archive/doc-audit-2026-11-09/guides/GLOSSAIRE.md) | Termes RooSync (janvier, #2877 vague 6) |
 
 ---
 
