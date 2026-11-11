@@ -35,9 +35,14 @@ Describe 'submit-pr stderr class, lot 2 family (#3731)' {
         $script:src | Should -Not -Match 'git log --oneline "origin/main\.\.\$currentBranch" 2>\$null'
     }
 
-    It 'reads the issue title through cmd with the empty-fallback try/catch intact' {
-        $script:src | Should -Match 'cmd /c "gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title 2>nul"'
-        $script:src | Should -Not -Match 'gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title 2>\$null'
+    It 'reads the issue title through the REST module with the empty-fallback intact (lot 7b: the cmd-layer leg left)' {
+        # Lot 7b (#4150) : la jambe `gh issue view 2>nul` est partie — le titre
+        # vient de Get-IssueDetail (module REST, 0 point GraphQL). Les pins de
+        # présence cmd-layer de ce site sont retirés avec leur porteur ; les
+        # pins du fallback et de la classe stderr (ci-dessus) restent.
+        $script:src | Should -Match 'Get-IssueDetail -Repo ''jsboige/roo-extensions'' -Number \$IssueNumber'
+        $script:src | Should -Match '\. "\$PSScriptRoot\\\.\.\\common\\gh-issues\.ps1"'
+        $script:src | Should -Not -Match 'gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title'
         # The downstream fallback when the issue cannot be read survives.
         $script:src | Should -Match 'Feature #\$IssueNumber'
     }

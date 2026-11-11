@@ -424,8 +424,9 @@ class TestTellcContract(unittest.TestCase):
 class TestOpenPrsGraphqlRestFallback(unittest.TestCase):
     """Mesure 17/10 11:10Z : pool GraphQL flotte epuise ~1 h -> `gh pr list
     --json` leve SystemExit -> organ exit 1, file non rafraichie (famine
-    artificielle pendant la fenetre). open_prs doit basculer en REST et
-    rester fail-closed si REST echoue aussi."""
+    artificielle pendant la fenetre). La bascule GraphQL->REST est livree en
+    secours ici ; lot 7b (#4150) : REST devient le chemin UNIQUE — ces tests
+    gardent le contrat (meme collecte) et la fail-closed."""
 
     def _fake_sh_factory(self, calls):
         def fake_sh(cmd, cwd=None, check=True):
@@ -451,6 +452,9 @@ class TestOpenPrsGraphqlRestFallback(unittest.TestCase):
         return fake_sh
 
     def test_graphql_pool_exhausted_falls_back_to_rest(self):
+        """REST unique (lot 7b) : la collecte rend les memes tuples que
+        l'ancien chemin GraphQL — fichiers de la PR contrat seule, branches
+        de TOUTES les PRs ouvertes."""
         calls = []
         with mock.patch.object(rvq, "sh", self._fake_sh_factory(calls)):
             held, branches = rvq.open_prs("jsboige/CoursIA", [15719])
@@ -463,11 +467,17 @@ class TestOpenPrsGraphqlRestFallback(unittest.TestCase):
                           "pas de requete fichiers pour une PR hors contrat")
 
     def test_graphql_healthy_path_unchanged(self):
-        graphql = json.dumps([
-            {"number": 21, "title": "fix(#16472)", "headRefName": "wt/g",
-             "files": [{"path": "n/b.ipynb"}]},
-        ])
-        with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: graphql):
+        """Chemin REST healthy (lot 7b : le GraphQL n'est PLUS jamais appele)
+        — le mock repond la forme REST (head.ref, filename via /files)."""
+        def rest(cmd, cwd=None, check=True):
+            if "/pulls?" in cmd[-1]:
+                return json.dumps([
+                    {"number": 21, "title": "fix(#16472)", "head": {"ref": "wt/g"}},
+                ])
+            if "/files" in cmd[-1]:
+                return json.dumps([{"filename": "n/b.ipynb"}])
+            raise AssertionError("appel inattendu: %s" % cmd)
+        with mock.patch.object(rvq, "sh", rest):
             held, branches = rvq.open_prs("jsboige/CoursIA", [16472])
         self.assertEqual(held, {"n/b.ipynb": 21})
         self.assertEqual(branches, {"wt/g"})
@@ -531,21 +541,27 @@ class TestPrintConflicts(unittest.TestCase):
         def fake_sh(cmd, cwd=None, check=True):
             line = " ".join(cmd)
             seen.append(line)
+            # Lot 7b (#4150) : open_prs est REST unique — liste paginee (1
+            # page courte), puis /files des PRs dont le titre cite l'umbrella.
             if line.startswith("gh pr list"):
+                raise AssertionError("la jambe GraphQL ne doit plus exister (lot 7b)")
+            if "/pulls?" in line:
                 return json.dumps([
                     {"number": 21032,
                      "title": "chore(translations,#19241): mlnet re-cle",
-                     "headRefName": "wt/mistral-trad-g1",
-                     "files": [{"path": "translations\\mlnet\\mlnet.csv"}]},
+                     "head": {"ref": "wt/mistral-trad-g1"}},
                     {"number": 21155,
                      "title": "chore(translations,#19241): lot search",
-                     "headRefName": "wt/mistral-trad-g2-trad-search",
-                     "files": [{"path": "translations/search/search.csv"}]},
+                     "head": {"ref": "wt/mistral-trad-g2-trad-search"}},
                 ])
-            if line.startswith("gh issue view"):
-                return json.dumps({"comments": [
+            if "/pulls/21032/files" in line:
+                return json.dumps([{"filename": "translations\\mlnet\\mlnet.csv"}])
+            if "/pulls/21155/files" in line:
+                return json.dumps([{"filename": "translations/search/search.csv"}])
+            if "/comments?" in line:
+                return json.dumps([
                     {"body": "[CLAIMED-AMEND] fournee\npaths:\n"
-                             "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb."}]})
+                             "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb."}])
             raise AssertionError(
                 "commande inattendue sous --print-conflicts "
                 "(le mode doit sortir avant le scan): %s" % line)
@@ -571,13 +587,79 @@ class TestPrintConflicts(unittest.TestCase):
         self.assertIn("MyIA.AI.Notebooks/GenAI/Audio/a.ipynb", out["claims"])
         # Les branches ouvertes aussi : un semis ne doit pas bruler un nom vif
         self.assertIn("wt/mistral-trad-g1", out["branches"])
-        # Union d'office : 1 pr list + 1 issue view par contrat actif + l'umbrella
+        # Union d'office : 1 liste REST + 1 fetch comments par contrat actif
+        # (le /files des PRs de contrat vient en sus, par PR matchee).
         expected_issues = sorted(set([19241]) | set(rvq.default_issues()))
-        self.assertEqual(sum(1 for c in seen if c.startswith("gh pr list")), 1)
+        self.assertEqual(sum(1 for c in seen if "/pulls?" in c), 1)
         self.assertEqual(
-            sum(1 for c in seen if c.startswith("gh issue view")),
+            sum(1 for c in seen if "/comments?" in c),
             len(expected_issues))
+
+
+class TestMergedBranchesRest(unittest.TestCase):
+    """Lot 7b (#4150) : merged_branches passe en REST — `state=merged`
+    n'existe pas côté REST : state=closed + filtre merged_at. Une PR fermée
+    NON mergée ne livre pas la branche (elle serait re-semee, #3755)."""
+
+    def _fake(self, rows):
+        def fake(cmd, cwd=None, check=True):
+            self.assertIn("state=closed", cmd[-1])
+            self.assertIn("head=wt/g&per_page=100", cmd[-1])
+            return json.dumps(rows)
+        return fake
+
+    def test_merged_at_present_delivers_branch(self):
+        with mock.patch.object(rvq, "sh", self._fake(
+                [{"number": 1, "merged_at": "2026-11-01T00:00:00Z"}])):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             {"wt/g"})
+
+    def test_closed_not_merged_does_not_deliver(self):
+        with mock.patch.object(rvq, "sh", self._fake(
+                [{"number": 1, "merged_at": None}])):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             set())
+
+    def test_newer_closed_pr_does_not_hide_older_merge(self):
+        with mock.patch.object(rvq, "sh", self._fake([
+                {"number": 2, "merged_at": None},
+                {"number": 1, "merged_at": "2026-10-01T00:00:00Z"}])):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             {"wt/g"})
+
+    def test_empty_answer_is_warn_not_deliver(self):
+        with mock.patch.object(rvq, "sh", self._fake([])):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             set())
+
+    def test_unreadable_answer_keeps_branch_undelivered(self):
+        with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: "not json"):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             set())
+    def test_merge_on_a_later_page_delivers_branch(self):
+        """100 PR fermées non mergées ne doivent pas masquer un merge ancien."""
+        calls = []
+
+        def pages(cmd, cwd=None, check=True):
+            calls.append(cmd[-1])
+            if "page=2" in cmd[-1]:
+                return json.dumps([{"number": 1, "merged_at": "2026-10-01T00:00:00Z"}])
+            return json.dumps([
+                {"number": i, "merged_at": None} for i in range(2, 102)])
+
+        with mock.patch.object(rvq, "sh", pages):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             {"wt/g"})
+        self.assertEqual(len(calls), 2)
+        self.assertIn("page=1", calls[0])
+        self.assertIn("page=2", calls[1])
+
+    def test_invalid_json_shape_keeps_branch_undelivered(self):
+        with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: "{}"):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             set())
 
 
 if __name__ == "__main__":
     unittest.main()
+

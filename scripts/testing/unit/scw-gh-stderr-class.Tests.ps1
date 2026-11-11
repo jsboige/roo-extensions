@@ -82,9 +82,11 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
     }
 
     It 'jq expressions inside gh cmd strings are quote-doubled when present (--jq ""..."" — pipes need double quotes)' {
-        # Les lectures REST passent par Invoke-GhApiJson : aucun --jq ne
-        # subsiste en cmd-layer. Le pin NÉGATIF couvre chaque site jusqu'à
-        # sa redirection, même si le --jq tombe à la ligne suivante (#4645).
+        # Lot 8 convertit les trois lectures REST de Request-StaleReview au
+        # module : aucun --jq cmd-layer ne subsiste. Le pin NÉGATIF reste la
+        # garde de classe : il examine chaque site jusqu'à sa redirection
+        # cmd, y compris quand le --jq tombe sur une ligne suivante (#4645).
+        # Les blocs de prompt/here-string ne sont pas des sites cmd réels.
         $callSites = @([regex]::Matches($script:src,
             '(?ms)^[ \t]*&[ \t]+cmd[ \t]+/c[ \t]+"gh .*?(?:2>&1|2>nul)"'))
         $offenders = @($callSites | Where-Object { $_.Value -match "--jq '" })

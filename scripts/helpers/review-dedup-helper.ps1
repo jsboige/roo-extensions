@@ -22,6 +22,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Lot 7b (#4150) review : lectures REST via le module partagé — mêmes règles
+# d'URL (nue sous pwsh POSIX) et pagination complète, sans gh cmd-layer.
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 function Get-ReviewData {
     param(
         [string] $Owner,
@@ -32,12 +36,25 @@ function Get-ReviewData {
     Write-Host "[*] Fetching reviews and comments for PR #$Number..." -ForegroundColor Cyan
 
     try {
-        $result = gh pr view $Number `
-            --repo "$Owner/$Name" `
-            --json reviews,comments `
-            --jq '.' | ConvertFrom-Json
+        # Lot 7b (#4150) : deux lectures REST paginées (0 point GraphQL),
+        # restituant la MÊME forme que `gh pr view --json reviews,comments`.
+        # Une seule page de 100 tronquait les PR à forte discussion (review
+        # #4645) : Invoke-GhApiJsonPaged poursuit jusqu'à la page courte.
+        $reviewsResult = Invoke-GhApiJsonPaged -Url "repos/$Owner/$Name/pulls/$Number/reviews" `
+            -Jq '.[] | {author: {login: .user.login}, state: .state, body: .body, submittedAt: .submitted_at}'
+        if (-not $reviewsResult.Ok) { throw "reviews: $($reviewsResult.Error)" }
+        $reviews = @($reviewsResult.Lines | ForEach-Object { $_ | ConvertFrom-Json })
 
-        return $result
+        # line/path : émis même absents (les commentaires de conversation n'en
+        # ont pas — jq rend la clé à null). `gh --json comments` émettait les
+        # clés ; ce fichier pose Set-StrictMode -Version Latest, où une lecture
+        # de propriété ABSENTE lève (mesuré au dry-run lot 7b).
+        $commentsResult = Invoke-GhApiJsonPaged -Url "repos/$Owner/$Name/issues/$Number/comments" `
+            -Jq '.[] | {author: {login: .user.login}, body: .body, createdAt: .created_at, line: .line, path: .path}'
+        if (-not $commentsResult.Ok) { throw "comments: $($commentsResult.Error)" }
+        $comments = @($commentsResult.Lines | ForEach-Object { $_ | ConvertFrom-Json })
+
+        return [pscustomobject]@{ reviews = $reviews; comments = $comments }
     }
     catch {
         Write-Host "[ERROR] Failed to fetch PR data: $_" -ForegroundColor Red

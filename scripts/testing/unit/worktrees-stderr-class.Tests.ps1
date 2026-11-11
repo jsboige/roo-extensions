@@ -39,13 +39,18 @@ Describe 'worktrees family stderr class, lot 2 (#3731)' {
         $script:parseErrors | Should -Be 0
     }
 
-    It 'create-worktree reads repo root, issue title and branch list via cmd-layer discard' {
+    It 'create-worktree reads repo root and branch list via cmd-layer discard; the issue title moved to the REST module (lot 7b)' {
         $s = $script:src.create
         $s | Should -Match 'cmd /c "git rev-parse --show-toplevel 2>nul"'
-        $s | Should -Match 'cmd /c "gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title 2>nul"'
+        # Lot 7b (#4150) : le site `gh issue view 2>nul` a vécu ici — il est
+        # converti en Get-IssueDetail (module REST). Pins de présence cmd-layer
+        # retirés avec leur porteur ; le pin négatif reste : la jambe ne doit
+        # pas revenir sous une autre forme.
+        $s | Should -Match 'Get-IssueDetail -Repo ''jsboige/roo-extensions'' -Number \$IssueNumber'
+        $s | Should -Match '\. "\$PSScriptRoot\\\.\.\\common\\gh-issues\.ps1"'
         $s | Should -Match 'cmd /c "git branch --list \$branchName 2>nul"'
         $s | Should -Not -Match 'git rev-parse --show-toplevel 2>\$null'
-        $s | Should -Not -Match 'gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title 2>\$null'
+        $s | Should -Not -Match 'gh issue view \$IssueNumber --repo jsboige/roo-extensions --json title'
         $s | Should -Not -Match 'git branch --list \$branchName 2>\$null'
     }
 

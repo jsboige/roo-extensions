@@ -299,7 +299,7 @@ Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour ident
 
 UNIQUEMENT si tu identifies des problemes concrets :
 - Tout verdict qui passe les HARD REJECT et le Test 3 Questions DOIT aboutir a une issue : un verdict qui ne vit que dans le rapport dashboard est perdu (#3347)
-- Avant CHAQUE creation, dedupliquer : ``gh issue list --state open --search "<mots-cles>"`` — si le probleme est deja tracke, commenter l'issue existante au lieu d'en creer une nouvelle
+- Avant CHAQUE creation, dedupliquer : ``gh api -X GET search/issues -f q='repo:jsboige/roo-extensions state:open <mots-cles>' -f per_page=10`` — si le probleme est deja tracke, commenter l'issue existante au lieu d'en creer une nouvelle (REST search — lot 7b #4150, le pool GraphQL flotte n'est plus sollicite)
 - Utilise ``gh issue create`` avec label ``needs-approval``
 - Si changement de harnais : ajouter label ``harness-change``
 - Maximum 3 issues par cycle

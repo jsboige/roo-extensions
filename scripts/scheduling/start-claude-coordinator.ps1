@@ -438,9 +438,9 @@ ETAPES (cible: <10 min, pas de boucle compaction) :
 
 2. Inbox unread: roosync_messages(action: "inbox", status: "unread", limit: 10). Repondre les [ASK]/[URGENT].
 
-3. PRs ouvertes:
-   - gh pr list --repo jsboige/roo-extensions --state open --json number,title,additions,deletions,author
-   - gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number,title,additions,deletions,author
+3. PRs ouvertes (REST — lot 7b #4150, le pool GraphQL flotte n'est plus sollicite):
+   - gh api "repos/jsboige/roo-extensions/pulls?state=open&per_page=100" --jq '.[] | {number: .number, title: .title, additions: .additions, deletions: .deletions, author: .user.login}'
+   - gh api "repos/jsboige/jsboige-mcp-servers/pulls?state=open&per_page=100" --jq '.[] | {number: .number, title: .title, additions: .additions, deletions: .deletions, author: .user.login}'
    TIER-GATE (#2565): Ce coordinator tourne sur ai-01 (Opus-class). Si ce script est invoque depuis une machine GLM-class (po-2023/24/25/26, web1), les PRs NON-triviales DOIVENT etre escalees (ne PAS merger). Trivial = pr-trivial-merge-policy.md criteria.
    Pour chaque PR <100 LOC, CI green, pas de suppression sans preuve, pas de stub, pas de console.log :
      gh pr merge {n} --squash --delete-branch

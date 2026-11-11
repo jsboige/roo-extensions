@@ -45,6 +45,12 @@ param(
     [switch]$Quiet
 )
 
+# Lot 7b (#4150) : la jambe issue passe par le module REST (0 point GraphQL) ;
+# la jambe PR est un détail REST 3 champs — Get-PullRequestDetail paierait
+# fichiers+revues+check-runs pour trois scalaires.
+. "$PSScriptRoot\..\common\gh-issues.ps1"
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 function Write-Line { param([string]$Msg, [string]$Color = "White")
     if (-not $Quiet) { Write-Host $Msg -ForegroundColor $Color }
 }
@@ -115,25 +121,32 @@ foreach ($num in $numMatches) {
     $verified = $false
     $kind = $null
 
-    $prJson = (gh pr view $num --repo $Repo --json state,url,title 2>$null) | Out-String
-    if ($LASTEXITCODE -eq 0 -and $prJson.Trim().Length -gt 0) {
+    # Lot 7b : détail REST (404 = pas une PR -> Ok = $false, comme gh pr view).
+    # MERGED reconstruit : REST rend open/closed + merged, gh rend MERGED.
+    # Le helper du module porte la règle d'URL par hôte (nue sous pwsh POSIX,
+    # citée sous PowerShell 5.1) — des guillemets littéraux faisaient 404 et
+    # la citation PR retombait à tort sur la jambe issue (review #4645).
+    $prResult = Invoke-GhApiJson -Url "repos/$Repo/pulls/$num" `
+        -Jq '{state: .state, merged: .merged, title: .title}'
+    # `--jq '{...}'` rend UN objet pretty-printé sur plusieurs lignes : joindre
+    # avant ConvertFrom-Json (ne lire que la première réduirait le document à `{`).
+    $prJson = if ($prResult.Ok) { (@($prResult.Lines) -join "`n") } else { '' }
+    if ($prResult.Ok -and $prJson.Trim().Length -gt 0) {
         try {
             $obj = $prJson | ConvertFrom-Json
-            $evidence = "[PR $($obj.state)] $($obj.title)"
+            $prState = if ($obj.merged) { 'MERGED' } elseif ("$($obj.state)" -eq 'open') { 'OPEN' } else { 'CLOSED' }
+            $evidence = "[PR $prState] $($obj.title)"
             $verified = $true
             $kind = "PR"
         } catch { }
     }
 
     if (-not $verified) {
-        $issueJson = (gh issue view $num --repo $Repo --json state,url,title 2>$null) | Out-String
-        if ($LASTEXITCODE -eq 0 -and $issueJson.Trim().Length -gt 0) {
-            try {
-                $obj = $issueJson | ConvertFrom-Json
-                $evidence = "[Issue $($obj.state)] $($obj.title)"
-                $verified = $true
-                $kind = "Issue"
-            } catch { }
+        $detail = Get-IssueDetail -Repo $Repo -Number $num
+        if ($detail.Ok) {
+            $evidence = "[Issue $($detail.Item.state)] $($detail.Item.title)"
+            $verified = $true
+            $kind = "Issue"
         }
     }
 

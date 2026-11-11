@@ -91,8 +91,12 @@ Describe 'Vibe queue multi-contrats (#16472, #13410)' {
             $refresher | Should -Match 'p not in claims'
         }
 
-        It 'limite la liste PR à 300 (100+ PRs ouvertes mesurées sur CoursIA)' {
-            $refresher | Should -Match '"--limit", "300"'
+        It 'pagine toute la liste PR (couvre le pool >300 sans plafond --limit)' {
+            # Lot 7b (#4150) : le `--limit 300` GraphQL est remplacé par des
+            # pages REST de 100, jusqu'à la page courte. Pin comportemental :
+            # TestOpenPrsRest.test_second_list_page_is_read prouve la 2e page.
+            $refresher | Should -Match 'pulls\?state=open&per_page=100&page=%d'
+            $refresher | Should -Not -Match '"--limit", "300"'
         }
     }
 

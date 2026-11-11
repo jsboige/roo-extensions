@@ -3,7 +3,8 @@
     Guard for the delivered-grain eviction in refresh-vibe-queue.py (#3643).
 .DESCRIPTION
     keepable() dropped a grain only when its branch carried an OPEN PR --
-    open_prs() reads `gh pr list --state open`, nothing else. A grain whose PR
+    open_prs() reads only the open-PR listing (REST since lot 7b #4150; the
+    `gh pr list --state open` leg it replaced at the time of #3643). A grain whose PR
     had been MERGED therefore fell out of that set and looked in-flight again:
     it SKIP-looped on its stale baseSha at every tick, the refresh re-kept it,
     and once its worktree was gone the feeder re-seeded the base and REPLAYED
@@ -69,13 +70,12 @@ Assert-Equal 'the union is what keepable() receives' $true ($src -match 'keepabl
 # only through the open list. Scoped to the function body -- an unanchored
 # search would pass on any `--state merged` anywhere in the file.
 $mbBody = [regex]::Match($src, '(?s)def merged_branches\(slug[^)]*\):(.*?)(?=\ndef )')
-Assert-Equal 'merged_branches reads --state merged' $true `
-    ($mbBody.Success -and $mbBody.Groups[1].Value -match '"--state",\s*"merged"')
-# Window independence (#3643 review): the merged answer must be an exact
-# per-branch `--head` lookup, never a bulk row window that history scrolls
-# past. Scoped to the function body for the same reason as above.
+Assert-Equal 'merged_branches reads REST closed state' $true `
+    ($mbBody.Success -and $mbBody.Groups[1].Value -match 'state=closed')
+# La migration REST conserve la lookup par branche ; le filtre `head=` sans
+# owner inclut aussi les têtes de fork (review #4645).
 Assert-Equal 'merged_branches queries --head per branch' $true `
-    ($mbBody.Success -and $mbBody.Groups[1].Value -match '"--head"')
+    ($mbBody.Success -and $mbBody.Groups[1].Value -match 'head=%s')
 
 # ============================================================================
 # Tests 2-4: the drop behaviour itself, exercised offline. keepable()'s git
