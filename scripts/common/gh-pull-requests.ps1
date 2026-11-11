@@ -121,11 +121,10 @@ function Get-PullRequestSummary {
     $page = 1
     $maxPages = if ($MaxCount -gt 0) { [Math]::Ceiling($MaxCount / $perPage) } else { 200 }
     while ($page -le $maxPages) {
-        # Guillemets EXPLICITES autour de l'URL : PowerShell ne cite que les arguments
-        # contenant un espace, or `&` (query string) est un métacaractère cmd.exe — sans
-        # ces guillemets, cmd coupe l'URL ; mesuré : sortie correcte mais exit code 1,
-        # donc la branche « échec » était prise à tort.
-        $quotedUrl = '"' + $url + '&page=' + $page + '"'
+        # Guillemets conditionnés à l'hôte : PowerShell 5.1 les consomme au
+        # re-parse Windows ; pwsh POSIX transmet au contraire des guillemets
+        # incorporés LITTÉRAUX à gh (404 mesuré sur deux hôtes, review #4645).
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $url + '&page=' + $page + '"' } else { $url + '&page=' + $page }
         try {
             # #3731 : sous EAP=Stop (powershell.exe 5.1), le stderr d'un natif redirigé
             # devient NativeCommandError TERMINANT avant tout check de $LASTEXITCODE.
@@ -243,8 +242,9 @@ function Invoke-GhApiJson {
         [Parameter(Mandatory)][string]$Jq
     )
 
-    # Guillemets EXPLICITES : `&` (query string) est un métacaractère cmd.exe (lot 2).
-    $quotedUrl = '"' + $Url + '"'
+    # Même condition d'hôte que Get-PullRequestSummary : l'URL doit être nue
+    # sous pwsh POSIX, jamais entourée de guillemets littéraux.
+    $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $Url + '"' } else { $Url }
     try {
         $out = & gh api $quotedUrl --jq $Jq 2>$null
     } catch {

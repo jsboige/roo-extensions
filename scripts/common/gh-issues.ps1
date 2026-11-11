@@ -131,7 +131,7 @@ function Get-IssueSummary {
     # --limit N` rendait N issues, pas N items bruts.
     $maxPages = 40
     while ($page -le $maxPages) {
-        $quotedUrl = '"' + $url + '&page=' + $page + '"'
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $url + '&page=' + $page + '"' } else { $url + '&page=' + $page }
         try {
             $out = & gh api $quotedUrl --jq $script:IssueSummaryJq 2>$null
         } catch {
@@ -188,7 +188,7 @@ function Get-IssueDetail {
         'assignees: [.assignees[] | {login: .login}], ' +
         'is_pr: (.pull_request != null)}')
 
-    $quotedUrl = '"' + "repos/$Repo/issues/$Number" + '"'
+    $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + "repos/$Repo/issues/$Number" + '"' } else { "repos/$Repo/issues/$Number" }
     try {
         $out = & gh api $quotedUrl --jq $jq 2>$null
     } catch {
@@ -230,7 +230,7 @@ function Get-IssueComments {
     $items = @()
     $page = 1
     while ($page -le $MaxPages) {
-        $quotedUrl = '"' + "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" + '"'
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" + '"' } else { "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" }
         try {
             $out = & gh api $quotedUrl --jq $jq 2>$null
         } catch {

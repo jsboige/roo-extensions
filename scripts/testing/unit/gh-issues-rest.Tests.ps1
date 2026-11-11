@@ -69,8 +69,10 @@ BeforeAll {
             $cmd = @(
                 '@echo off',
                 'if /I not "%~1"=="api" goto graphql',
+                'setlocal EnableDelayedExpansion',
                 'set "URL=%~2"',
-                ('>>"{0}" echo api "%URL%"' -f $log),
+                ('set "LOG={0}"' -f $log),
+                '>>"%LOG%" echo api !URL!',
                 'echo "%URL%" | findstr /I /C:"/comments" >nul',
                 'if not errorlevel 1 goto comments',
                 'echo "%URL%" | findstr /I /C:"/issues?" >nul',
@@ -206,9 +208,13 @@ Describe 'Get-IssueSummary (REST, #4150 lot 7)' {
         $shim = New-GhIssuesShim -Dir $dir -ListJson $script:ListFixture
         try {
             $null = Invoke-WithShim $shim.Dir { Get-IssueSummary -Repo jsboige/roo-extensions -State open }
-            $log = Get-CallLog $shim.Log
+            $log = @(Get-CallLog $shim.Log)
             @($log).Count | Should -BeGreaterThan 0
             @($log | Where-Object { $_ -notmatch '^api ' }).Count | Should -Be 0
+            # PowerShell n'a pas de couche cmd : aucun guillemet littéral dans
+            # l'argv de l'URL (review #4645 — 404 réel sous pwsh POSIX).
+            $log[0] | Should -Match '^api repos/jsboige/roo-extensions/issues\?'
+            @($log | Where-Object { $_.Contains('"') }).Count | Should -Be 0
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }

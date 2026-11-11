@@ -69,12 +69,18 @@ BeforeAll {
         if ($script:HostIsWindows) {
             $cmd = @(
                 '@echo off',
+                'setlocal EnableDelayedExpansion',
                 'if /I "%~1"=="api" goto rest',
                 ('>>"{0}" echo %~1' -f $log),
                 'echo GraphQL: API rate limit exceeded for user ID 999. 1>&2',
                 'exit /b 1',
                 ':rest',
-                ('>>"{0}" echo api' -f $log)
+                # Expansion retardée : sinon cmd développe %~2 au parse de
+                # toute la ligne et réinterprète les & de la query string.
+                'setlocal EnableDelayedExpansion',
+                'set "URL=%~2"',
+                ('set "LOG={0}"' -f $log),
+                '>>"%LOG%" echo api !URL!'
             )
             if ($NoisyStderr) { $cmd += 'echo warning: deprecation notice 1>&2' }
             $cmd += @($lines | ForEach-Object { 'echo ' + $_ })
@@ -90,7 +96,7 @@ BeforeAll {
                 '#!/bin/sh',
                 ('LOG=''{0}''' -f ($log -replace '\\', '/')),
                 'if [ "$1" = "api" ]; then',
-                '  printf ''%s\n'' ''api'' >> "$LOG"'
+                '  printf ''%s\n'' "api $2" >> "$LOG"'
             )
             if ($NoisyStderr) { $cmd += '  echo ''warning: deprecation notice'' 1>&2' }
             $cmd += @($lines | ForEach-Object { '  printf ''%s\n'' ''' + $_ + '''' })
@@ -253,11 +259,11 @@ Describe 'Get-PullRequestSummary — normalisation REST (#4150)' {
 
             $s.Ok | Should -BeTrue
             $s.Items[0].State | Should -Be 'OPEN'
-            # Preuve d'absence de jambe GraphQL : le shim échoue (exit 1) sur `pr list`,
-            # `issue view`, `graphql` — le seul appel tracé doit être `api`.
+            # Preuve d'absence de jambe GraphQL : le shim échoue (exit 1) sur
+            # `pr list`, `issue view`, `graphql`. Le log porte aussi l'argv URL.
             $calls = Get-CallLog -Log $shim.Log
             $calls.Count | Should -BeGreaterThan 0
-            @($calls | Where-Object { $_ -ne 'api' }) | Should -BeNullOrEmpty
+            @($calls | Where-Object { $_ -notmatch '^api ' }) | Should -BeNullOrEmpty
         }
         finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
@@ -677,6 +683,30 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
 }
 
 Describe 'Get-PullRequestSummary — extensions lot 8 (#4150 : worker hors GraphQL)' {
+    It 'transmet l URL nue sous PowerShell, sans guillemets littéraux (review #4645 point 1)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '[{"number":101,"state":"open","merged_at":null,"head_ref":"fix/101"}]'
+        try {
+            $s = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestSummary -Repo jsboige/roo-extensions -State open }
+            $s.Ok | Should -BeTrue
+            $calls = @(Get-CallLog -Log $shim.Log)
+            $calls[0] | Should -Match '^api repos/jsboige/roo-extensions/pulls\?state=open&'
+            $calls[0] | Should -Not -Match '"'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'transmet aussi l URL nue au détail REST (Invoke-GhApiJson)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '{"reviewers":[],"head_sha":"abc"}'
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestReviewState -Repo jsboige/roo-extensions -Number 4641 }
+            $r.Ok | Should -BeTrue
+            @(Get-CallLog -Log $shim.Log)[0] | Should -BeExactly 'api repos/jsboige/roo-extensions/pulls/4641'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
     # Url/CreatedAt (toujours rendus), IncludeBody (opt-in), CreatedSince (cutoff
     # de pagination created desc), Get-PullRequestReviewState (les deux anciennes
     # jambes `gh pr view` du worker en UN appel).

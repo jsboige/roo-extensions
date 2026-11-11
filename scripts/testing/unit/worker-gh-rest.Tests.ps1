@@ -114,6 +114,7 @@ BeforeAll {
                 '  case "$2" in',
                 '    */comments*) cat "$DIR/comments.json"; exit 0 ;;',
                 '    */commits/*) cat "$DIR/commit.json"; exit 0 ;;',
+                '    */reviews) cat "$DIR/reviews.json"; exit 0 ;;',
                 '    user) cat "$DIR/user.json"; exit 0 ;;',
                 '    */issues/*) cat "$DIR/detail.json"; exit 0 ;;',
                 '    */issues"?"*) cat "$DIR/list.json"; exit 0 ;;',
@@ -134,6 +135,7 @@ BeforeAll {
         # login pour user. Un test peut les écraser via les paramètres.
         $pairs = @(@{ f = 'list.json'; c = $ListJson }, @{ f = 'detail.json'; c = $DetailJson }, @{ f = 'comments.json'; c = $CommentsJson },
                    @{ f = 'commit.json'; c = ('{"commit":{"committer":{"date":"2026-11-10T00:00:00Z"}}}' + "`n") },
+                   @{ f = 'reviews.json'; c = ('[]' + "`n") },
                    @{ f = 'user.json'; c = ('{"login":"tester"}' + "`n") })
         foreach ($pair in $pairs) {
             [System.IO.File]::WriteAllText((Join-Path $Dir $pair.f), $pair.c, [System.Text.Encoding]::ASCII)

@@ -829,11 +829,12 @@ function Get-GitHubTask {
         # PT12H). Ce worker tire plus vite : #4306 a ete reclamee par une lane 2 h apres sa creation,
         # avant le premier tir du pont -- pool vide, AC0 non mesurable. Meme exclusion dans
         # pick_idle_grain.py et .roo/scheduler-workflow-executor.md.
-        # Lot 8 (#4150) : lecture REST via module. Parité de l'ancien
-        # `--search "is:open no:assignee -label:... --limit 30"` : NoAssignee
-        # écarte les assignées côté SERVEUR (assignee=none) et les exclusions de
-        # labels filtrent DANS la boucle de pagination — la fenêtre de 30 compte
-        # les candidates réelles, pas les 30 plus récentes re-filtrées ensuite.
+        # Sélecteur de parité (#622) : le garde lit l'appel REST et son tableau
+        # d'exclusions, pas une forme GraphQL conservée en commentaire.
+        # Lot 8 (#4150) : lecture REST via module. NoAssignee écarte les assignées
+        # côté SERVEUR (assignee=none) et les exclusions de labels filtrent DANS
+        # la boucle de pagination — la fenêtre de 30 compte les candidates
+        # réelles, pas les 30 plus récentes re-filtrées ensuite.
         $issuesResult = Get-IssueSummary -Repo 'jsboige/roo-extensions' -State open -NoAssignee `
             -ExcludeLabels @('harness-change', 'deferred', 'epic', 'frozen', 'copilot-target') -MaxCount 30
 
@@ -3796,10 +3797,19 @@ function Request-StaleReview {
 
         $HeadRefOid = $reviewState.HeadSha
         if (-not "$HeadRefOid".Trim()) { return }
-        $HeadDate = (& cmd /c "gh api ""repos/$Repo/commits/$($HeadRefOid.Trim())"" --jq "".commit.committer.date"" 2>&1") | Select-Object -First 1
-        if ($LASTEXITCODE -ne 0 -or -not "$HeadDate".Trim()) { return }
-        $ReviewsJson = (& cmd /c "gh api ""repos/$Repo/pulls/$PrNumber/reviews"" 2>&1") -join ''
-        $SelfLogin = (& cmd /c "gh api user --jq "".login"" 2>&1") | Select-Object -First 1
+        # Lecture REST native : pas de cmd.exe — absent sous PowerShell Core
+        # Linux (CI unit-pester). Invoke-GhApiJson garde les arguments séparés,
+        # donc aucune reconstruction de ligne de commande Windows n'est requise.
+        $HeadDateResult = Invoke-GhApiJson -Url "repos/$Repo/commits/$($HeadRefOid.Trim())" -Jq '.commit.committer.date'
+        if (-not $HeadDateResult.Ok) { return }
+        $HeadDate = @($HeadDateResult.Lines)[0]
+        if (-not "$HeadDate".Trim()) { return }
+        $ReviewsResult = Invoke-GhApiJson -Url "repos/$Repo/pulls/$PrNumber/reviews" -Jq '.'
+        if (-not $ReviewsResult.Ok) { return }
+        $ReviewsJson = @($ReviewsResult.Lines) -join ''
+        $SelfResult = Invoke-GhApiJson -Url 'user' -Jq '.login'
+        if (-not $SelfResult.Ok) { return }
+        $SelfLogin = @($SelfResult.Lines)[0]
 
         $Stale = Get-StaleReviewers -ReviewsJson $ReviewsJson -HeadCommitDate "$($HeadDate.Trim())" -SelfLogin "$($SelfLogin.Trim())"
         foreach ($login in @($Stale)) {

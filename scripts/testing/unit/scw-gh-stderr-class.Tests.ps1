@@ -81,9 +81,14 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
         @($offenders) | Should -Be @()
     }
 
-    It 'jq expressions inside gh cmd strings are quote-doubled (--jq ""..."" — pipes need double quotes)' {
-        $script:src | Should -Match '--jq "".+""'
-        $script:src | Should -Not -Match "--jq '"
+    It 'jq expressions inside gh cmd strings are quote-doubled when present (--jq ""..."" — pipes need double quotes)' {
+        # Les lectures REST passent par Invoke-GhApiJson : aucun --jq ne
+        # subsiste en cmd-layer. Le pin NÉGATIF couvre chaque site jusqu'à
+        # sa redirection, même si le --jq tombe à la ligne suivante (#4645).
+        $callSites = @([regex]::Matches($script:src,
+            '(?ms)^[ \t]*&[ \t]+cmd[ \t]+/c[ \t]+"gh .*?(?:2>&1|2>nul)"'))
+        $offenders = @($callSites | Where-Object { $_.Value -match "--jq '" })
+        @($offenders) | Should -Be @()
     }
 
     It 'no --search survives in an executable gh cmd string (lot 8: the class left with the last GraphQL leg)' {
