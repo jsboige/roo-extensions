@@ -261,3 +261,288 @@ else { [Console]::Out.WriteLine('stub: Invalid JSON, stdin starts with ' + (($bu
         $r.Log | Should -Match 'pre-flight FAILED.*stub-marker-4471'
     }
 }
+
+# --- #4651: Get-IssueProjectFields must run graphql under an identity WITH read:project ---
+#
+# Measured ai-01 11/11: the machine's ACTIVE gh account (jsboige) lacks read:project,
+# so every project-fields read died on INSUFFICIENT_SCOPES and the worker picked
+# NOTHING for 26 passes while reporting exit 0 « propre ». The SHIPPED functions are
+# extracted and driven in a powershell.exe 5.1 child (the worker's engine) against a
+# gh.cmd shim placed FIRST on PATH:
+#   - `gh auth status` lists an ACTIVE account WITHOUT the scope + others;
+#   - `gh api graphql` fails INSUFFICIENT_SCOPES unless GH_TOKEN carries the scoped
+#     account's token — so a green eligibility result PROVES the token was pinned;
+#   - `gh auth token --user X` serves the scoped token (or fails, per scenario).
+# On the pre-fix code (92688ada) the same harness gets INSUFFICIENT_SCOPES → NULL.
+
+Describe 'start-claude-worker.ps1 — #4651 project-fields identity (behavioral, PS 5.1 child + gh shim)' {
+    BeforeAll {
+        $script:ps51 = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $script:canRun = $env:WINDIR -and (Test-Path -LiteralPath $script:ps51)
+        $script:token = 'shim-ghp-project-reader-4651'
+        $script:envToken = 'shim-ghp-env-reader-4651'
+
+        # Extract by NEXT top-level 'function' boundary — Get-IssueProjectFields holds
+        # a column-0 '}' inside its GraphQL here-string, so a lazy 'first \n\}' regex
+        # would truncate it.
+        function script:Get-FunctionChunk([string]$Name, [string]$Source) {
+            $start = $Source.IndexOf("function $Name ")
+            if ($start -lt 0) { return $null }
+            $end = $Source.IndexOf("`nfunction ", $start + 10)
+            if ($end -lt 0) { return $null }
+            return $Source.Substring($start, $end - $start + 1)
+        }
+        $script:fnFields = Get-FunctionChunk 'Get-IssueProjectFields' $script:src
+        if (-not $script:fnFields) { throw 'Get-IssueProjectFields not found in start-claude-worker.ps1' }
+        # $null on the pre-fix base (92688ada) — the harness then runs the legacy
+        # function as-is and MUST go red behaviorally (INSUFFICIENT_SCOPES → NULL).
+        $script:fnResolver = Get-FunctionChunk 'Resolve-ProjectGhReader' $script:src
+        if ($null -eq $script:fnResolver) { $script:fnResolver = '' }
+
+        $script:fieldsJson = '{"data":{"repository":{"issue":{"projectItems":{"nodes":[{"fieldValues":{"nodes":[{"name":"myia-po-2024","field":{"name":"Machine"}},{"name":"worker","field":{"name":"Execution"}}]}}]}}}}}'
+
+        # Active account has NO scope; project-reader HAS it and serves a token.
+        # graphql only answers the token-bearing caller — everything else
+        # INSUFFICIENT_SCOPES, like the real API answers a scope-less token.
+        $script:shimEligible = @"
+@echo off
+if "%1"=="auth" goto auth
+goto api
+
+:auth
+if not "%2"=="status" goto token
+echo github.com
+echo   Logged in to github.com account active-no-scope ^(keyring^)
+echo   - Active account: true
+echo   - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+echo github.com
+echo   Logged in to github.com account project-reader ^(keyring^)
+echo   - Active account: false
+echo   - Token scopes: 'gist', 'read:org', 'read:project', 'repo', 'workflow'
+exit /b 0
+
+:token
+if not "%4"=="project-reader" goto tokenfail
+echo $script:token
+exit /b 0
+:tokenfail
+echo no token for user %4
+exit /b 1
+
+:api
+if not defined GH_TOKEN goto scopesfail
+if "%GH_TOKEN%"=="$script:token" goto gql
+goto scopesfail
+
+:gql
+echo $script:fieldsJson
+exit /b 0
+
+:scopesfail
+echo {"errors":[{"type":"INSUFFICIENT_SCOPES","message":"shim 4651: read:project required, got GH_TOKEN state mismatch"}]}
+exit /b 1
+"@
+
+        # No account carries read:project anywhere.
+        $script:shimNoScope = @"
+@echo off
+if "%1"=="auth" goto auth
+goto api
+
+:auth
+if not "%2"=="status" goto token
+echo github.com
+echo   Logged in to github.com account active-no-scope ^(keyring^)
+echo   - Active account: true
+echo   - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+echo github.com
+echo   Logged in to github.com account second-no-scope ^(keyring^)
+echo   - Active account: false
+echo   - Token scopes: 'gist', 'read:org', 'repo'
+exit /b 0
+
+:token
+echo no token for user %4
+exit /b 1
+
+:api
+echo {"errors":[{"type":"INSUFFICIENT_SCOPES","message":"shim 4651: read:project required"}]}
+exit /b 1
+"@
+
+        # Scan would find scan-scoped (token fetch FAILS); the env override names
+        # env-project-reader, whose token works. Proves the override outranks the scan.
+        $script:shimEnvOverride = @"
+@echo off
+if "%1"=="auth" goto auth
+goto api
+
+:auth
+if not "%2"=="status" goto token
+echo github.com
+echo   Logged in to github.com account active-no-scope ^(keyring^)
+echo   - Active account: true
+echo   - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+echo github.com
+echo   Logged in to github.com account scan-scoped ^(keyring^)
+echo   - Active account: false
+echo   - Token scopes: 'gist', 'read:org', 'read:project', 'repo'
+exit /b 0
+
+:token
+if not "%4"=="env-project-reader" goto tokenfail
+echo $script:envToken
+exit /b 0
+:tokenfail
+echo no token for user %4
+exit /b 1
+
+:api
+if not defined GH_TOKEN goto scopesfail
+if "%GH_TOKEN%"=="$script:envToken" goto gql
+goto scopesfail
+
+:gql
+echo {"data":{"repository":{"issue":{"projectItems":{"nodes":[{"fieldValues":{"nodes":[{"name":"via-env-override","field":{"name":"Machine"}}]}}]}}}}}
+exit /b 0
+
+:scopesfail
+echo {"errors":[{"type":"INSUFFICIENT_SCOPES","message":"shim 4651: read:project required"}]}
+exit /b 1
+"@
+
+        # po-204 measured case 11/11: the ACTIVE account carries the WRITE scope
+        # 'project' (implies read) — zero INSUFFICIENT_SCOPES emissions there.
+        # A scan matching only 'read:project' would find nobody and REGRESS this
+        # seat from working to fail-closed.
+        $script:shimWriteScope = @"
+@echo off
+if "%1"=="auth" goto auth
+goto api
+
+:auth
+if not "%2"=="status" goto token
+echo github.com
+echo   Logged in to github.com account active-write-scope ^(keyring^)
+echo   - Active account: true
+echo   - Token scopes: 'gist', 'project', 'read:org', 'repo', 'workflow'
+exit /b 0
+
+:token
+if not "%4"=="active-write-scope" goto tokenfail
+echo shim-ghp-active-project-4651
+exit /b 0
+:tokenfail
+echo no token for user %4
+exit /b 1
+
+:api
+if not defined GH_TOKEN goto scopesfail
+if "%GH_TOKEN%"=="shim-ghp-active-project-4651" goto gql
+goto scopesfail
+
+:gql
+echo {"data":{"repository":{"issue":{"projectItems":{"nodes":[{"fieldValues":{"nodes":[{"name":"via-active-project-scope","field":{"name":"Machine"}}]}}]}}}}}
+exit /b 0
+
+:scopesfail
+echo {"errors":[{"type":"INSUFFICIENT_SCOPES","message":"shim 4651: read:project required"}]}
+exit /b 1
+"@
+
+        # Runs the shipped functions in a PS 5.1 child with the shim first on PATH.
+        function script:Invoke-ProjectFieldsRead {
+            param([string]$GhCmdText, [int[]]$Issues = @(4651), [hashtable]$EnvSet = @{})
+
+            $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $bin = Join-Path $root 'bin'
+            New-Item -ItemType Directory -Path $bin -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $bin 'gh.cmd'), $GhCmdText, (New-Object System.Text.ASCIIEncoding))
+            $log = Join-Path $root 'worker.log'
+
+            $envLines = ($EnvSet.GetEnumerator() | ForEach-Object { '$env:{0} = ''{1}''' -f $_.Key, $_.Value }) -join "`r`n"
+            $harness = @'
+[Environment]::SetEnvironmentVariable('GH_TOKEN', $null, 'Process')
+$env:PATH = '{BIN};' + $env:PATH
+{ENV}
+function Write-Log { param([string]$Message, [string]$Level = 'INFO') Add-Content -LiteralPath '{LOG}' -Value "[$Level] $Message" -Encoding UTF8 }
+{RESOLVER}
+{FIELDS}
+foreach ($n in @({ISSUES})) {
+    $f = Get-IssueProjectFields -IssueNumber $n
+    if ($null -eq $f) { "FIELDS|$n|NULL" } else { "FIELDS|$n|" + (($f.GetEnumerator() | Sort-Object Key | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ',') }
+}
+if ($null -ne [Environment]::GetEnvironmentVariable('GH_TOKEN','Process')) { 'GH_TOKEN_AFTER=defined' } else { 'GH_TOKEN_AFTER=undefined' }
+'@
+            $harness = $harness.Replace('{BIN}', $bin).Replace('{LOG}', $log).Replace('{ENV}', $envLines).Replace('{RESOLVER}', $script:fnResolver).Replace('{FIELDS}', $script:fnFields).Replace('{ISSUES}', ($Issues -join ','))
+            $hp = Join-Path $root 'harness.ps1'
+            # BOM: powershell.exe 5.1 reads a BOM-less script as ANSI, and the
+            # shipped functions carry non-ASCII comments.
+            [System.IO.File]::WriteAllText($hp, $harness, (New-Object System.Text.UTF8Encoding $true))
+            $out = & $script:ps51 -NoProfile -ExecutionPolicy Bypass -File $hp 2>&1
+            [pscustomobject]@{
+                Out = ($out -join "`n")
+                Log = if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Raw } else { '' }
+            }
+        }
+    }
+
+    It 'AC1: active account lacks read:project, another carries it → fields read, issue ELIGIBLE (red on 92688ada)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimEligible -Issues @(4651)
+        $r.Out | Should -Match 'FIELDS\|4651\|.*Machine=myia-po-2024'
+        $r.Out | Should -Not -Match 'FIELDS\|4651\|NULL'
+        $r.Log | Should -Match 'Identité Project \(read:project\) : project-reader'
+        $r.Log | Should -Not -Match 'INSUFFICIENT_SCOPES'
+    }
+
+    It 'AC1 (pinning is per-call): GH_TOKEN is undefined again once the graphql call returns' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimEligible -Issues @(4651)
+        $r.Out | Should -Match 'FIELDS\|4651\|.*Machine=myia-po-2024'
+        $r.Out | Should -Match 'GH_TOKEN_AFTER=undefined'
+    }
+
+    It 'resolution happens ONCE per pass: two issues read, a single identity INFO line' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimEligible -Issues @(4651, 4652)
+        $r.Out | Should -Match 'FIELDS\|4651\|.*Machine=myia-po-2024'
+        $r.Out | Should -Match 'FIELDS\|4652\|.*Machine=myia-po-2024'
+        @([regex]::Matches($r.Log, 'Identité Project')).Count | Should -Be 1
+    }
+
+    It 'AC2: NO account with read:project → exactly ONE ERROR line per pass, issues stay skipped (fail-closed)' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimNoScope -Issues @(4651, 4652)
+        $r.Out | Should -Match 'FIELDS\|4651\|NULL'
+        $r.Out | Should -Match 'FIELDS\|4652\|NULL'
+        @([regex]::Matches($r.Log, '\[ERROR\]')).Count | Should -Be 1
+        $r.Log | Should -Match 'aucun compte gh avec read:project : le worker ne peut piocher aucune issue'
+        # The ERROR line REPLACES the per-issue WARN repetition, it does not stack on it
+        $r.Log | Should -Not -Match 'INSUFFICIENT_SCOPES'
+    }
+
+    It 'AC3: the pinned token never appears in any log line nor on stdout' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimEligible -Issues @(4651)
+        $r.Log | Should -Not -Match [regex]::Escape($script:token)
+        $r.Out | Should -Not -Match [regex]::Escape($script:token)
+    }
+
+    It 'CLAUDE_WORKER_PROJECT_GH_USER outranks the gh auth status scan' {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimEnvOverride -Issues @(4651) -EnvSet @{ CLAUDE_WORKER_PROJECT_GH_USER = 'env-project-reader' }
+        $r.Out | Should -Match 'FIELDS\|4651\|.*Machine=via-env-override'
+        $r.Log | Should -Match 'Identité Project \(read:project\) : env-project-reader'
+        $r.Log | Should -Not -Match 'scan-scoped'
+        $r.Log | Should -Not -Match [regex]::Escape($script:envToken)
+    }
+
+    It "scope 'project' (write, implies read) qualifies — po-204 measured case, 0 emission there" {
+        if (-not $script:canRun) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-ProjectFieldsRead -GhCmdText $script:shimWriteScope -Issues @(4651)
+        $r.Out | Should -Match 'FIELDS\|4651\|.*Machine=via-active-project-scope'
+        $r.Log | Should -Match 'Identité Project \(read:project\) : active-write-scope'
+        $r.Log | Should -Not -Match 'INSUFFICIENT_SCOPES'
+    }
+}

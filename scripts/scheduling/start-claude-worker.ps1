@@ -706,6 +706,72 @@ function Test-IssueAlreadyProcessed {
     }
 }
 
+function Resolve-ProjectGhReader {
+    <#
+    .SYNOPSIS
+    Resolves ONCE per pass (#4651) a gh account that carries read:project, and
+    caches its token in $script:ProjectGhReaderToken.
+
+    Get-IssueProjectFields passe par graphql, qui exige read:project. Le compte
+    ACTIF de la machine (hosts.yml commun, réécrit par d'autres processus, #3032)
+    ne le porte pas toujours : ai-01 a mesuré 26 passages du worker sans UNE
+    seule issue piquée, tous morts en INSUFFICIENT_SCOPES skip fail-closed
+    (#3896), en rendant exit 0 « propre ». Candidats, dans l'ordre :
+      1. $env:CLAUDE_WORKER_PROJECT_GH_USER s'il est posé ;
+      2. le premier compte connecte dont les scopes listes par `gh auth status`
+         contiennent 'read:project'.
+    Returns $true when a token is pinned. $false = aucun compte lisible : une
+    SEULE ligne ERROR par passage (remplace la repetition de WARN qui passait
+    inaperçue), le fail-closed par issue reste en aval.
+    Le jeton n'est jamais journalise ni affiche ; jamais de gh auth switch.
+    #>
+    if ($null -ne $script:ProjectGhReaderResolved) {
+        return ($null -ne $script:ProjectGhReaderToken)
+    }
+    $script:ProjectGhReaderResolved = $true
+    $script:ProjectGhReaderToken = $null
+
+    $Candidates = @()
+    if ($env:CLAUDE_WORKER_PROJECT_GH_USER) {
+        $Candidates += $env:CLAUDE_WORKER_PROJECT_GH_USER
+    }
+
+    # Scan gh auth status : "Logged in to github.com account X" ouvre un bloc,
+    # "- Token scopes: ..." le qualifie. Un compte sans ligne de scopes ne peut
+    # pas prouver le scope : ignore (fail-closed). '(read:)?project' : le scope
+    # écriture 'project' implique la lecture — po-204 tourne ainsi (mesuré
+    # 11/11, 0 émission INSUFFICIENT_SCOPES avec le scope 'project' seul).
+    $StatusLines = @(& cmd /c "gh auth status 2>&1")
+    $CurrentAccount = $null
+    foreach ($Line in $StatusLines) {
+        if ($Line -match 'Logged in to github\.com account (\S+)') {
+            $CurrentAccount = $Matches[1]
+        }
+        elseif ($CurrentAccount -and $Line -match 'Token scopes:' -and $Line -match "'(read:)?project'") {
+            if ($Candidates -notcontains $CurrentAccount) {
+                $Candidates += $CurrentAccount
+            }
+        }
+    }
+
+    foreach ($Account in $Candidates) {
+        # Sortie = le jeton brut sur stdout ; capturé, jamais journalisé.
+        # En cas d'échec la sortie est le message d'erreur gh (sans secret).
+        $TokenOut = @(& cmd /c "gh auth token --user $Account 2>&1")
+        $TokenLine = $TokenOut | Where-Object { "$_".Trim() } | Select-Object -Last 1
+        $Token = if ($LASTEXITCODE -eq 0 -and $TokenLine) { "$TokenLine".Trim() } else { $null }
+        if ($Token) {
+            $script:ProjectGhReaderToken = $Token
+            Write-Log "  Identité Project (read:project) : $Account" "INFO"
+            return $true
+        }
+        Write-Log "  Compte gh '$Account' (read:project) sans jeton lisible, candidat suivant" "WARN"
+    }
+
+    Write-Log "aucun compte gh avec read:project : le worker ne peut piocher aucune issue (CLAUDE_WORKER_PROJECT_GH_USER ou connexion d'un compte avec le scope)" "ERROR"
+    return $false
+}
+
 function Get-IssueProjectFields {
     <#
     .SYNOPSIS
@@ -718,6 +784,13 @@ function Get-IssueProjectFields {
     param([int]$IssueNumber)
 
     try {
+        # #4651 : sans identité qui porte read:project, graphql rend
+        # INSUFFICIENT_SCOPES à chaque issue. Une seule ligne ERROR par passage
+        # (Resolve-ProjectGhReader), pas de re-tentative bruyante ici.
+        if (-not (Resolve-ProjectGhReader)) {
+            return $null
+        }
+
         $Query = @"
 {
   repository(owner: "jsboige", name: "roo-extensions") {
@@ -747,7 +820,21 @@ function Get-IssueProjectFields {
         $RequestBody = @{ query = $Query } | ConvertTo-Json -Depth 2
         $TempFile = Join-Path $env:TEMP "gql-project-fields-$IssueNumber.json"
         [System.IO.File]::WriteAllText($TempFile, $RequestBody, [System.Text.UTF8Encoding]::new($false))
-        $ResultJson = & cmd /c "gh api graphql --input ""$TempFile"" 2>&1"
+        # #4651 : le jeton portant read:project est épinglé par GH_TOKEN pour
+        # CET appel seulement, puis l'environnement est restauré à l'identique.
+        $PrevGhToken = [Environment]::GetEnvironmentVariable('GH_TOKEN', 'Process')
+        try {
+            if ($script:ProjectGhReaderToken) {
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $script:ProjectGhReaderToken, 'Process')
+            }
+            $ResultJson = & cmd /c "gh api graphql --input ""$TempFile"" 2>&1"
+        } finally {
+            if ($null -eq $PrevGhToken) {
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $null, 'Process')
+            } else {
+                [Environment]::SetEnvironmentVariable('GH_TOKEN', $PrevGhToken, 'Process')
+            }
+        }
         Remove-Item $TempFile -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  GraphQL error for #$IssueNumber : $ResultJson" "WARN"
