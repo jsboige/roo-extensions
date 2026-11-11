@@ -925,8 +925,24 @@ function Initialize-CopilotWorktree {
     }
     if ([string]::IsNullOrWhiteSpace($base)) { $base = 'HEAD' }
 
-    & git -C $RepositoryRoot worktree add $worktreeDir -b $branch $base 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $worktreeDir)) {
+    # PS 5.1 + $ErrorActionPreference='Stop' (line 37) turns ANY native stderr
+    # write into a TERMINATING error — `2>$null` does NOT keep it
+    # non-terminating (same trap as the Phase C payload above). `git worktree
+    # add` writes "Preparing worktree (new branch '...')" to stderr on a
+    # SUCCESSFUL run, so the first real retargeted dispatch (#4649, po-2027
+    # 11/11) created the worktree and branch, then died on the
+    # NativeCommandError before any Copilot call: exit 1, no PR. Scope EAP to
+    # Continue around the call so stderr stays captured output; the exit code
+    # and Test-Path below remain the single success criterion.
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & git -C $RepositoryRoot worktree add $worktreeDir -b $branch $base 2>$null
+        $worktreeExit = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+    if ($worktreeExit -ne 0 -or -not (Test-Path $worktreeDir)) {
         Write-Log "Worktree creation failed in target repo (branch $branch, base $base)"
         return $null
     }
