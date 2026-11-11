@@ -1073,7 +1073,18 @@ if ($status -ne 'blocked') {
 
         if ($status -ne 'blocked') {
             $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
-            $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -PromptRepositoryRoot $repoRoot -DetectHeadMoves:$canDeliver
+            # The prompt file MUST live inside the work root: Copilot's sandbox
+            # refuses any read outside its working directory without an
+            # interactive approval, and the CLI's working directory IS the work
+            # root. The first retargeted dispatch on merged #4652 code (18:37Z
+            # run, #4649) wrote the pointer under the dispatcher repo and
+            # Copilot answered "path is outside the working directory ...
+            # Permission denied, no one to approve" — 17 premium requests
+            # burned, zero work. Passing no -PromptRepositoryRoot makes Phase C
+            # default the prompt root to $RepositoryRoot (the work root here,
+            # the dispatcher repo itself in local mode); outputs/ is
+            # gitignored, so the file never pollutes Copilot's commit.
+            $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -DetectHeadMoves:$canDeliver
             $status = [string]$dispatch.status
             if ($dispatch.exitCode -eq 0) {
                 Write-Log "Phase C execution success (exit=0)"
