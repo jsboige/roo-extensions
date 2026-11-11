@@ -79,6 +79,10 @@ $ErrorActionPreference = 'Continue'
 
 . "$PSScriptRoot\worktree-classify.ps1"
 . "$PSScriptRoot\..\common\path-guards.ps1"
+# Lot 7b (#4150) : index et résolution PR en REST — le module porte la
+# pagination, la normalisation d'état (MERGED = closed + merged) et le
+# re-filtre head= (placeholder « branch », #4616).
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
 
 $Machine = $env:COMPUTERNAME
 if (-not $Machine) { $Machine = 'unknown-machine' }
@@ -175,8 +179,10 @@ function Get-RepoSlug {
 
 function Get-PullRequestIndex {
     <#
-        One `gh pr list` per repository rather than one per branch: 40 branch
+        One PR listing per repository rather than one per branch: 40 branch
         worktrees would otherwise mean 40 network round-trips.
+        Lot 7b (#4150) : le listing passe par Get-PullRequestSummary (REST,
+        0 point GraphQL) — la fenêtre `--limit 500` devient -MaxCount 500.
         Returns @{ branchName = @{ Number; State; HeadOid } }, empty when gh is
         unavailable or the repo has no GitHub remote -- in which case branches
         simply fall through to PR-FORGOTTEN, which is reported, never deleted.
@@ -186,13 +192,13 @@ function Get-PullRequestIndex {
     $index = @{}
     if (-not $Slug) { return $index }
     try {
-        $json = & gh pr list --repo $Slug --state all --limit 500 --json number,state,headRefName,headRefOid 2>$null
-        if (-not $json) { return $index }
-        foreach ($pr in ($json | ConvertFrom-Json)) {
+        $summary = Get-PullRequestSummary -Repo $Slug -State all -MaxCount 500
+        if (-not $summary.Ok) { return $index }
+        foreach ($pr in $summary.Items) {
             # Keep the most decisive state when a branch carries several PRs:
             # a merged PR proves the content landed, whatever was closed later.
-            if ($index.ContainsKey($pr.headRefName) -and $index[$pr.headRefName].State -eq 'MERGED') { continue }
-            $index[$pr.headRefName] = @{ Number = $pr.number; State = $pr.state; HeadOid = $pr.headRefOid }
+            if ($index.ContainsKey($pr.HeadRefName) -and $index[$pr.HeadRefName].State -eq 'MERGED') { continue }
+            $index[$pr.HeadRefName] = @{ Number = $pr.Number; State = $pr.State; HeadOid = $pr.HeadSha }
         }
     } catch { }
     return $index
@@ -225,20 +231,25 @@ function Resolve-PullRequest {
     try {
         $byNumber = Get-PrNumberFromBranchName -Branch $Branch
         if ($byNumber -gt 0) {
-            $json = & gh pr view $byNumber --repo $Slug --json number,state,headRefOid 2>$null
-            if ($json) {
-                $pr = $json | ConvertFrom-Json
-                if ($pr) { $result = @{ Number = $pr.number; State = $pr.state; HeadOid = $pr.headRefOid } }
+            # Lot 7b : détail REST par numéro — jq de la même forme que le
+            # listing, ConvertFrom-RestPullRequest normalise l'état (MERGED).
+            $r = Invoke-GhApiJson -Url "repos/$Slug/pulls/$byNumber" `
+                -Jq '{number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, head_sha: .head.sha}'
+            if ($r.Ok) {
+                # -Raw explicite : le paramètre est Mandatory SANS
+                # ValueFromPipeline — un pipe ne le lie pas (mesuré au
+                # dry-run lot 7b : MissingMandatoryParameter). Ligne JSON
+                # -> objet d'abord, même style que le module.
+                $raw = @($r.Lines)[0] | ConvertFrom-Json
+                $pr = ConvertFrom-RestPullRequest -Raw $raw
+                if ($pr) { $result = @{ Number = $pr.Number; State = $pr.State; HeadOid = $pr.HeadSha } }
             }
         } else {
-            $json = & gh pr list --repo $Slug --head $Branch --state all --limit 10 --json number,state,headRefOid 2>$null
-            if ($json) {
-                $prs = @($json | ConvertFrom-Json)
-                if ($prs.Count -gt 0) {
-                    $merged = @($prs | Where-Object { $_.state -eq 'MERGED' })
-                    $chosen = if ($merged.Count -gt 0) { $merged[0] } else { $prs[0] }
-                    $result = @{ Number = $chosen.number; State = $chosen.state; HeadOid = $chosen.headRefOid }
-                }
+            $summary = Get-PullRequestSummary -Repo $Slug -Head $Branch -State all -MaxCount 10
+            if ($summary.Ok -and @($summary.Items).Count -gt 0) {
+                $merged = @($summary.Items | Where-Object { $_.State -eq 'MERGED' })
+                $chosen = if ($merged.Count -gt 0) { $merged[0] } else { $summary.Items[0] }
+                $result = @{ Number = $chosen.Number; State = $chosen.State; HeadOid = $chosen.HeadSha }
             }
         }
     } catch { }

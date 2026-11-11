@@ -212,8 +212,9 @@ execute_command(shell="powershell", command="Get-ChildItem '$env:USERPROFILE\.cl
 
 1. Récupérer les issues GitHub des 72 dernières heures :
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state all --since '72 hours ago' --json number,state,createdAt,closedAt --limit 50")
+execute_command(shell="powershell", command="gh api '"repos/jsboige/roo-extensions/issues?state=all&since=$([DateTime]::UtcNow.AddHours(-72).ToString('yyyy-MM-ddTHH:mm:ssZ'))&per_page=50"' --jq '[.[] | select(.pull_request == null) | {number: .number, state: (.state | ascii_upcase), createdAt: .created_at, closedAt: .closed_at}]'")
 ```
+(REST — quota core, pas GraphQL flotte ; `since` filtre sur updated_at comme le `--since` de gh ; les PRs de la même numérotation sont filtrées, parité `gh issue list`. Le timestamp est figé à la construction de l'instruction — même mécanisme que `$env:USERPROFILE` ci-dessus.)
 
 2. Calculer :
    - Issues créées vs fermées
@@ -480,8 +481,9 @@ DELEGUER à code-complex :
 
 1. Rechercher les issues existantes sur le sujet :
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search '{SUJET}' --state open --limit 10")
+execute_command(shell="powershell", command="gh api -X GET search/issues -f q='repo:jsboige/roo-extensions state:open {SUJET}' -f per_page=10 --jq '[.items[] | select(.pull_request == null) | {number: .number, title: .title, state: (.state | ascii_upcase)}]'")
 ```
+(API search REST — 30 req/min, pas le pool GraphQL flotte ; les PRs sont filtrées, parité `gh issue list`.)
 
 2. Ne créer une issue que si :
    - Aucune issue existante sur le même sujet

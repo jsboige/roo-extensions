@@ -22,6 +22,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Lot 7b (#4150) : lectures d'issues en REST (0 point GraphQL) — doctrine #4604.
+. "$PSScriptRoot\..\common\gh-issues.ps1"
+
 # --- Constants ---
 
 $Owner = "jsboige"
@@ -145,24 +148,22 @@ Write-Ok "Found $($issueItems.Count) issue items in project"
 Write-Status "Phase 2: Fetching issue details..."
 
 # Get all open issues
-$cmd = "gh issue list --repo $Owner/$Repo --state open --limit 500 --json number,title,labels"
-$result = Invoke-GhSafe $cmd
-if (-not $result) {
-    Write-Err "Failed to fetch issues"
+$summary = Get-IssueSummary -Repo "$Owner/$Repo" -State open -MaxCount 500
+if (-not $summary.Ok) {
+    Write-Err "Failed to fetch issues: $($summary.Error)"
     exit 1
 }
 
-$allIssues = @($result | ConvertFrom-Json)
+$allIssues = @($summary.Items)
 $issueMap = @{}
 foreach ($iss in $allIssues) {
     $issueMap[[int]$iss.number] = $iss
 }
 
 # Also get closed issues that might be in project
-$cmd = "gh issue list --repo $Owner/$Repo --state closed --limit 500 --json number,title,labels"
-$result = Invoke-GhSafe $cmd
-if ($result) {
-    $closedIssues = @($result | ConvertFrom-Json)
+$summary = Get-IssueSummary -Repo "$Owner/$Repo" -State closed -MaxCount 500
+if ($summary.Ok) {
+    $closedIssues = @($summary.Items)
     foreach ($iss in $closedIssues) {
         if (-not $issueMap.ContainsKey([int]$iss.number)) {
             $issueMap[[int]$iss.number] = $iss

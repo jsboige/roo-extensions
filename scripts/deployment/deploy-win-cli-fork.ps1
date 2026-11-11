@@ -244,5 +244,5 @@ Write-Host "IMPORTANT: Restart Visual Studio Code to apply changes." -Foreground
 Write-Host ""
 Write-Host "To verify after restart:" -ForegroundColor Gray
 Write-Host "  - Roo scheduler should run gh commands without operator errors" -ForegroundColor Gray
-Write-Host "  - Check: gh issue list --repo jsboige/roo-extensions --state open" -ForegroundColor Gray
+Write-Host "  - Check (REST): gh api 'repos/jsboige/roo-extensions/issues?state=open&per_page=30'" -ForegroundColor Gray
 Write-Host ""

@@ -820,3 +820,28 @@ Describe 'Get-PullRequestReviewState — lot 8 (reviewRequests + headRefOid en u
         finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
+
+Describe 'StrictMode : les appelants stricts lisent un jq partiel (#4150 lot 7b)' {
+    It 'ConvertFrom-RestPullRequest supporte un objet partiel sous Set-StrictMode -Version Latest' {
+        # audit-worktrees-fleet.ps1 hérite `Set-StrictMode -Version Latest` de
+        # worktree-classify.ps1 : une lecture de propriété ABSENTE y LÈVE, et le
+        # catch de Get-PullRequestIndex avalait l'erreur -> index vide, audit
+        # silencieusement dégradé (mesuré au dry-run lot 7b : 0 branche alors que
+        # le même listing rendait 498 hors contexte strict). Le convertisseur
+        # normalise désormais les champs optionnels avant lecture ; ce pin tient
+        # la classe pour tout futur jq partiel (détail 5 champs, listing sans
+        # -IncludeBody).
+        . $script:Helper
+        Set-StrictMode -Version Latest
+        try {
+            $partial = '{"number":4644,"state":"open","merged_at":null,"head_ref":"wt/x","head_sha":"75f874fc5a1bd0e248780ba0874465344b82bacd"}' | ConvertFrom-Json
+            $pr = ConvertFrom-RestPullRequest -Raw $partial
+            $pr.Number | Should -Be 4644
+            $pr.State | Should -Be 'OPEN'
+            $pr.HeadSha | Should -Be '75f874fc5a1bd0e248780ba0874465344b82bacd'
+            $pr.Body | Should -BeNullOrEmpty
+            $pr.Title | Should -BeNullOrEmpty
+        }
+        finally { Set-StrictMode -Off }
+    }
+}

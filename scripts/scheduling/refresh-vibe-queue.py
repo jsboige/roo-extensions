@@ -518,24 +518,17 @@ def open_prs(slug, issues):
     contrat actif est soustrait pour tous — deux PRs sur un meme fichier
     entrent en conflit quel que soit le contrat qui les a engendrees.
 
-    GraphQL d'abord (1 appel, champ files inclus) ; le pool GraphQL flotte
-    s'epuise par rafales (~1 h, reset horaire — mesure 17/10 11:10Z : organ
-    exit 1, file non rafraichie, famine artificielle pendant la fenetre).
-    Sur echec, collecte REST de secours (_open_prs_rest) ; si REST echoue
-    aussi, l'exception remonte — fail-closed preserve : mieux vaut organ
-    exit 1 qu'une deconfliction aveugle qui re-semerait des grains en
-    collision.
+    REST d'abord (lot 7b, #4150 — doctrine #4604) : l'ancien chemin GraphQL
+    (1 appel, champ files inclus) payait le pool GraphQL flotte qui s'epuise
+    par rafales (~1 h, reset horaire — mesure 17/10 11:10Z : organ exit 1,
+    file non rafraichie, famine artificielle pendant la fenetre). La collecte
+    REST (_open_prs_rest) etait deja la jambe de secours, validee en
+    production depuis #4239 ; elle devient le SEUL chemin. Si REST echoue,
+    l'exception remonte — fail-closed preserve : mieux vaut organ exit 1
+    qu'une deconfliction aveugle qui re-semerait des grains en collision.
     """
     pats = [re.compile(r"#%d([^0-9]|$)" % i) for i in issues]
-    try:
-        out = sh(["gh", "pr", "list", "--repo", slug, "--state", "open",
-                  "--limit", "300", "--json", "number,title,headRefName,files"])
-        prs = [(p.get("number"), p.get("headRefName") or "", p.get("title") or "",
-                [f["path"].replace("\\", "/") for f in p.get("files") or []])
-               for p in json.loads(out)]
-    except SystemExit:
-        sys.stderr.write("open_prs: GraphQL epuise, collecte REST de secours\n")
-        prs = _open_prs_rest(slug, pats)
+    prs = _open_prs_rest(slug, pats)
     held, branches = {}, set()
     for number, head, title, files in prs:
         branches.add(head)
@@ -546,13 +539,13 @@ def open_prs(slug, issues):
 
 
 def _open_prs_rest(slug, pats):
-    """Collecte REST de secours pour open_prs : liste paginee + fichiers.
+    """Collecte REST pour open_prs (chemin UNIQUE depuis le lot 7b, #4150) :
+    liste paginee + fichiers.
 
     GET /pulls n'expose pas les fichiers — une requete par PR Dont le titre
     matche un contrat (~35 PRs sur ~200 ouvertes, mesure 17/10) ; les autres
     ne contribuent que leur branche. per_page=100 partout, arret sur page
-    courte. Retourne les memes tuples (number, head, title, files) que le
-    chemin GraphQL.
+    courte. Retourne les tuples (number, head, title, files).
     """
     listed, page = [], 1
     while True:
@@ -607,16 +600,33 @@ def claimed_paths(bodies):
 
 
 def issue_claims(slug, issues):
+    """Commentaires [CLAIMED...] par issue — REST pagine (lot 7b, #4150).
+
+    Remplace `gh issue view N --json comments` (GraphQL) : l'endpoint de
+    commentaires pagine a 30 par defaut et l'ancienne forme plafonnait les
+    longues files — per_page=100 + boucle rendent tout, structurellement.
+    check=False : une issue illisible est SKIPPEE (parite de l'ancienne
+    jambe, qui `continue` sur sortie non-JSON) — la deconfliction perd au
+    pire ces claims-la, elle n'en fabrique pas.
+    """
     paths = set()
     for issue in issues:
-        out = sh(["gh", "issue", "view", str(issue), "--repo", slug,
-                  "--json", "comments"], check=False)
-        try:
-            comments = (json.loads(out) or {}).get("comments") or []
-        except ValueError:
-            continue
-        for c in comments:
-            paths |= claimed_paths([c.get("body") or ""])
+        page = 1
+        while True:
+            out = sh(["gh", "api",
+                      "repos/%s/issues/%s/comments?per_page=100&page=%d" % (slug, issue, page)],
+                     check=False)
+            try:
+                comments = json.loads(out) if out.strip() else []
+            except ValueError:
+                break
+            if not isinstance(comments, list):
+                break
+            for c in comments:
+                paths |= claimed_paths([c.get("body") or ""])
+            if len(comments) < 100:
+                break
+            page += 1
     return paths
 
 
@@ -646,17 +656,24 @@ def merged_branches(slug, branches):
     branch undelivered -- it drops nothing and never widens the drop.
     """
     delivered = set()
+    owner = slug.split("/")[0]
     for b in sorted(branches):
-        out = sh(["gh", "pr", "list", "--repo", slug, "--state", "merged",
-                  "--head", b, "--json", "number", "--limit", "1"], check=False)
+        # Lot 7b (#4150) : REST par branche — `state=merged` n'existe pas en
+        # REST : state=closed puis filtre merged_at (meme sémantique que
+        # l'ancien --state merged ; une PR fermée non mergée ne compte pas).
+        out = sh(["gh", "api",
+                  "repos/%s/pulls?state=closed&head=%s:%s&per_page=1" % (slug, owner, b)],
+                 check=False)
         if not out.strip():
             print("WARN: lookup merged sans reponse pour %s — branche traitee non livree" % b)
             continue
         try:
-            if json.loads(out):
-                delivered.add(b)
+            prs = json.loads(out)
         except ValueError:
             print("WARN: lookup merged illisible pour %s — branche traitee non livree" % b)
+            continue
+        if any(isinstance(p, dict) and p.get("merged_at") for p in prs or []):
+            delivered.add(b)
     return delivered
 
 

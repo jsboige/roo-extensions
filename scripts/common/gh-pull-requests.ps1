@@ -35,6 +35,20 @@
 function ConvertFrom-RestPullRequest {
     param([Parameter(Mandatory)]$Raw)
 
+    # Normalise les champs optionnels AVANT toute lecture : un jq partiel
+    # (détail 5 champs de Resolve-PullRequest, listing sans -IncludeBody)
+    # combiné à `Set-StrictMode -Version Latest` — audit-worktrees-fleet.ps1
+    # hérite celui de worktree-classify.ps1 — fait LEVER une lecture de
+    # propriété absente ; le catch de Get-PullRequestIndex avalait alors
+    # l'erreur et rendait un index vide (mesuré au dry-run lot 7b : 0 branche
+    # alors que le même listing marchait hors contexte strict).
+    $fields = [ordered]@{}
+    foreach ($n in 'number', 'state', 'merged_at', 'head_ref', 'head_sha',
+                     'title', 'login', 'labels', 'url', 'created_at', 'body') {
+        $fields[$n] = if ($Raw.PSObject.Properties[$n]) { $Raw.$n } else { $null }
+    }
+    $Raw = [pscustomobject]$fields
+
     $state = "$($Raw.state)".ToLowerInvariant()
     if ($state -eq 'open') { $state = 'OPEN' }
     elseif ($state -eq 'closed') { $state = if ($Raw.merged_at) { 'MERGED' } else { 'CLOSED' } }
@@ -63,6 +77,11 @@ function ConvertFrom-RestPullRequest {
         CreatedAt   = if ($Raw.created_at -is [datetime]) {
             $Raw.created_at.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
         } else { "$($Raw.created_at)" }
+        # Lot 7b (#4150) : head.sha pour audit-worktrees-fleet (headRefOid — le
+        # worktree HEAD doit être comparé à la SHA de tête de PR). Toujours
+        # rendu (léger) — un Get-PullRequestReviewState par PR serait un appel
+        # de plus pour la même donnée.
+        HeadSha     = "$($Raw.head_sha)"
     }
 }
 
@@ -112,7 +131,8 @@ function Get-PullRequestSummary {
     # title/login/labels (lot 3) : filter auteur côté client + labels restreints de
     # review-bot, qui listait via `gh pr list --json number,title,labels,author`.
     # url/created_at (lot 8) : worker — toujours rendus (légers).
-    $jq = ('.[] | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, ' +
+    # head_sha (lot 7b) : audit-worktrees-fleet (headRefOid) — idem.
+    $jq = ('.[] | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, head_sha: .head.sha, ' +
         'title: .title, login: .user.login, labels: [.labels[].name], url: .html_url, created_at: .created_at')
     if ($IncludeBody) { $jq += ', body: .body' }
     $jq += '}'

@@ -104,7 +104,12 @@ Write-Host @"
 # Test the workflow
 Write-Host "`n=== Test Workflow ===" -ForegroundColor Cyan
 
-$openPRs = gh pr list --repo $Repo --state open --limit 5 --json number,title,additions | ConvertFrom-Json
+# Lot 7b (#4150) : listing REST (0 point GraphQL). jq rend UN tableau sur une
+# ligne (pas un objet par ligne) — ConvertFrom-Json direct, forme affichage.
+# Guillemets INCORPORÉS : `&` est un métacaractère cmd.exe, PowerShell ne cite
+# pas un argument sans espace (module gh-pull-requests, même garde).
+$openPrUrl = '"repos/' + $Repo + '/pulls?state=open&per_page=5"'
+$openPRs = gh api $openPrUrl --jq '[.[] | {number: .number, title: .title, additions: .additions}]' | ConvertFrom-Json
 
 if ($openPRs) {
     Write-Host "`nOpen PRs ready for review:" -ForegroundColor Gray

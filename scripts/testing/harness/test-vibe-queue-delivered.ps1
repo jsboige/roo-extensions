@@ -3,7 +3,8 @@
     Guard for the delivered-grain eviction in refresh-vibe-queue.py (#3643).
 .DESCRIPTION
     keepable() dropped a grain only when its branch carried an OPEN PR --
-    open_prs() reads `gh pr list --state open`, nothing else. A grain whose PR
+    open_prs() reads only the open-PR listing (REST since lot 7b #4150; the
+    `gh pr list --state open` leg it replaced at the time of #3643). A grain whose PR
     had been MERGED therefore fell out of that set and looked in-flight again:
     it SKIP-looped on its stale baseSha at every tick, the refresh re-kept it,
     and once its worktree was gone the feeder re-seeded the base and REPLAYED

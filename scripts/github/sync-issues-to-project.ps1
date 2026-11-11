@@ -53,6 +53,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Lot 7b (#4150) : lectures d'issues en REST (0 point GraphQL) — doctrine #4604.
+. "$PSScriptRoot\..\common\gh-issues.ps1"
+
 # --- Constants ---
 
 $ProjectId = "PVT_kwHOADA1Xc4BLw3w"
@@ -218,14 +221,13 @@ $allIssues = @()
 
 Write-Host "  Fetching all open issues (single call)..."
 
-$cmd = "gh issue list --repo $Owner/$Repo --state open --limit 500 --json number,title,labels,url"
-$result = Invoke-GhSafe $cmd
-if (-not $result) {
-    Write-Err "Failed to fetch open issues"
+$summary = Get-IssueSummary -Repo "$Owner/$Repo" -State open -MaxCount 500
+if (-not $summary.Ok) {
+    Write-Err "Failed to fetch open issues: $($summary.Error)"
     exit 1
 }
 
-$allIssues = @($result | ConvertFrom-Json)
+$allIssues = @($summary.Items)
 Write-Host "  Fetched $($allIssues.Count) issues"
 
 Write-Ok "Found $($allIssues.Count) open issues"

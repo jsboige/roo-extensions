@@ -32,6 +32,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Lot 7b (#4150) : le titre d'issue passe par le module REST (0 point
+# GraphQL) — et le site cmd-layer `gh issue view 2>nul` disparaît avec lui.
+. "$PSScriptRoot\..\common\gh-issues.ps1"
+
 Write-Host "=== PR Submitter ===" -ForegroundColor Cyan
 
 # Verifier qu'on est dans un worktree (pas main)
@@ -118,10 +122,11 @@ $commitLog = & cmd /c "git log --oneline origin/main..$currentBranch 2>nul"
 
 # Recuperer le titre de l'issue
 $prTitle = ""
-try {
-    $issueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>nul" | ConvertFrom-Json
-    $prTitle = $issueJson.title -replace '^\[.*?\]\s*', ''
-} catch {
+$detail = Get-IssueDetail -Repo 'jsboige/roo-extensions' -Number $IssueNumber
+if ($detail.Ok) {
+    $prTitle = $detail.Item.title -replace '^\[.*?\]\s*', ''
+}
+if (-not $prTitle) {
     $prTitle = "Feature #$IssueNumber"
 }
 

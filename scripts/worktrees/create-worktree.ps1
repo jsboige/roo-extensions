@@ -34,6 +34,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Lot 7b (#4150) : le titre d'issue passe par le module REST (0 point
+# GraphQL) — et le site cmd-layer `gh issue view 2>nul` disparaît avec lui.
+. "$PSScriptRoot\..\common\gh-issues.ps1"
+
 # Detecter le repo racine
 # cmd-layer stderr discard (#3731 class, lot 2): a PS-level `2>$null`/`2>&1` still lets
 # PS 5.1 mint ErrorRecords from stderr; under the file-global EAP=Stop the first one
@@ -59,11 +63,11 @@ Write-Host ""
 # 1. Recuperer le titre de l'issue via gh cli
 Write-Host "[1/6] Recuperation titre issue #$IssueNumber..." -ForegroundColor Yellow
 $issueTitle = ""
-try {
-    $issueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>nul" | ConvertFrom-Json
-    $issueTitle = $issueJson.title
-} catch {
-    Write-Warning "Impossible de recuperer le titre de l'issue. Utilisation du numero seul."
+$detail = Get-IssueDetail -Repo 'jsboige/roo-extensions' -Number $IssueNumber
+if ($detail.Ok) {
+    $issueTitle = $detail.Item.title
+} else {
+    Write-Warning "Impossible de recuperer le titre de l'issue ($($detail.Error)). Utilisation du numero seul."
 }
 
 # Nettoyer le titre pour un nom de branche

@@ -5476,8 +5476,8 @@ Ta mission : nettoyer les worktrees et branches orphelines.
 2. Liste les branches wt/ locales :
    git branch --list 'wt/*'
 
-3. Pour chaque worktree/branche, verifie si la PR correspondante existe encore et est ouverte :
-   gh pr list --state open --json number,headRefName
+3. Pour chaque worktree/branche, verifie si la PR correspondante existe encore et est ouverte (REST — lot 7b #4150) :
+   gh api "repos/jsboige/roo-extensions/pulls?state=open&per_page=100" --jq '.[] | {number: .number, headRefName: .head.ref}'
 
 4. Pour les branches dont la PR est MERGED ou CLOSED, nettoie :
    git worktree remove <path> (si worktree existe encore)
@@ -5510,7 +5510,7 @@ Ta mission : detecter les branches stale (>14 jours sans commit) et rapporter.
 2. Pour chaque branche, calcule l'age en jours depuis le dernier commit.
 
 3. Pour les branches de plus de 14 jours :
-   - Verifie si une PR ouverte existe : `gh pr list --state open --head <branch>`
+   - Verifie si une PR ouverte existe (REST — lot 7b #4150) : `gh api "repos/jsboige/roo-extensions/pulls?state=open&head=jsboige:<branch>"` (branche source prefixee owner:)
    - Verifie si des commits uniques existent (pas dans main) : `git log main..HEAD --oneline`
 
 4. Rapporte tes trouvailles sur le dashboard workspace avec tag [INFO] :

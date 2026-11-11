@@ -32,12 +32,28 @@ function Get-ReviewData {
     Write-Host "[*] Fetching reviews and comments for PR #$Number..." -ForegroundColor Cyan
 
     try {
-        $result = gh pr view $Number `
-            --repo "$Owner/$Name" `
-            --json reviews,comments `
-            --jq '.' | ConvertFrom-Json
+        # Lot 7b (#4150) : deux appels REST (0 point GraphQL) restituant la
+        # MÊME forme que `gh pr view --json reviews,comments` : revues via
+        # pulls/N/reviews (state déjà MAJUSCULE côté REST), commentaires de
+        # CONVERSATION via issues/N/comments (le `--json comments` de gh est
+        # les commentaires d'issue, jamais les inline — parité). Guillemets
+        # incorporés dans les URL : `?` sans espace non cité par PowerShell
+        # casse l'argument (garde du module gh-pull-requests).
+        $reviewsUrl = '"repos/' + $Owner + '/' + $Name + '/pulls/' + $Number + '/reviews?per_page=100"'
+        $reviewLines = gh api $reviewsUrl --jq '.[] | {author: {login: .user.login}, state: .state, body: .body, submittedAt: .submitted_at}'
+        if ($LASTEXITCODE -ne 0) { throw "reviews: gh api exit $LASTEXITCODE" }
+        $reviews = @($reviewLines | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json })
 
-        return $result
+        $commentsUrl = '"repos/' + $Owner + '/' + $Name + '/issues/' + $Number + '/comments?per_page=100"'
+        # line/path : émis même absents (les commentaires de conversation n'en
+        # ont pas — jq rend la clé à null). `gh --json comments` émettait les
+        # clés ; ce fichier pose Set-StrictMode -Version Latest, où une lecture
+        # de propriété ABSENTE lève (mesuré au dry-run lot 7b).
+        $commentLines = gh api $commentsUrl --jq '.[] | {author: {login: .user.login}, body: .body, createdAt: .created_at, line: .line, path: .path}'
+        if ($LASTEXITCODE -ne 0) { throw "comments: gh api exit $LASTEXITCODE" }
+        $comments = @($commentLines | Where-Object { $_ } | ForEach-Object { $_ | ConvertFrom-Json })
+
+        return [pscustomobject]@{ reviews = $reviews; comments = $comments }
     }
     catch {
         Write-Host "[ERROR] Failed to fetch PR data: $_" -ForegroundColor Red
