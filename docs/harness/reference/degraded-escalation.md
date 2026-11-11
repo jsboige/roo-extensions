@@ -98,6 +98,17 @@ une source de repli. Plafond de fraîcheur du miroir : la plus récente entrée
 doit dater de moins d'un cycle, sinon `1` sans sonnerie (un G: gelé depuis le
 cut #4131 répond un faux « rien à signaler » sur des données mortes).
 
+**Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
+défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans `MCP_PROXY_BEARER`
+sort **1** avec le message « instrument incomplet : store PG non lu », quelles
+que soient les données du miroir : depuis #4131 le miroir n'est plus écrit, un
+verdict `0/2/3` y porterait sur une source morte. Le rapport du miroir reste
+affiché (act-then-degrade). Un `--dashboard-dir` ou `--dashboard-file`
+**explicite** garde son verdict — c'est le rejeu forensic, et c'est ce que les
+tests exercent. Conséquence de mandat : une lane non équipée du bearer ne voit
+plus de `2`, donc n'a plus à réveiller le user sur une mesure qu'elle n'a pas
+les moyens de faire.
+
 **Le store est lu en JSON, pas en markdown** (review ai-01 04/11, MUST) : le
 `read` markdown passe par `buildMarkdownOutput`, qui émet l'en-tête et le corps
 mais **aucune ligne `[tags: …]`**. Une lane qui déclarait par l'API canonique —

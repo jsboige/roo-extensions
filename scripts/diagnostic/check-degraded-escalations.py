@@ -25,15 +25,21 @@ Codes de sortie (un automate peut lire le code seul) :
     2   au moins une echeance depassee sans `[REPAIRED]`  -> SONNERIE DUE
     1   erreur d'instrument (dashboards illisibles, miroir gele, ou --ring
         demande et non poste) ; AUSSI la mesure DEGRADEE : miroir lu comme
-        source alors que PG etait configure (review #4519 point c)
+        source alors que PG etait configure (review #4519 point c), et —
+        depuis #4650 — la lecture PAR DEFAUT sans bearer (le miroir implicite
+        n'est plus ecrit depuis #4131 : l'organe dit qu'il ne sait pas au lieu
+        de rendre un verdict sur une source morte)
 
 Sources, dans l'ordre (review #4519 point c) :
     1. --dashboard-file    rejeu d'un fichier precis (forensic) — pas de plafond
     2. STORE PG            meme transport que la sonnerie (MCP_PROXY_BEARER),
                            fenetre des 200 dernieres entrees par dashboard
-    3. miroir G:           repli seulement ; si PG etait configure, la mesure est
-                           DEGRADEE (sortie 1) ; plafond de fraicheur : la plus
-                           recente entree doit dater de moins d'un cycle
+    3. miroir G:           repli seulement, et seulement vers un repertoire
+                           EXPLICITE (--dashboard-dir) ou avec bearer ; la
+                           lecture par defaut sans bearer est DEGRADEE (sortie
+                           1, #4650) car le miroir n'est plus ecrit depuis
+                           #4131. Plafond de fraicheur : la plus recente entree
+                           doit dater de moins d'un cycle
 
 Usage :
     python check-degraded-escalations.py                       # lit le store ( bearer requis )
@@ -857,6 +863,7 @@ def main(argv=None):
     # bien » confiant sur des donnees mortes).
     source = "replay"
     degraded_source = False
+    degraded_reason = None
     if args.dashboard_file:
         paths = [Path(p) for p in args.dashboard_file]
         entries, errors = load_entries(paths)
@@ -871,11 +878,31 @@ def main(argv=None):
             paths = []
             entries, errors = store
         else:
+            source = "mirror"
             if args.ring_bearer:
                 print("WARNING: store PG injoignable — repli miroir G:, la mesure "
                       "est DEGRADEE (sortie 1 quoi qu'il lise)", file=sys.stderr)
-            source = "mirror"
-            degraded_source = bool(args.ring_bearer)
+                degraded_source = True
+                degraded_reason = ("source = miroir G: alors que PG est configure "
+                                   "(store injoignable) — mesure incomplete, "
+                                   "codes 0/2/3 non fiables")
+            elif not args.dashboard_dir:
+                # #4650 : sans bearer, le miroir IMPLICITE n'est plus ecrit
+                # depuis #4131 (`gdriveSkipped` sur chaque append). Il peut
+                # paraitre frais et avoir perdu les `[REPAIRED]` : un verdict
+                # 0/2/3 porterait sur une source morte. Act-then-degrade : le
+                # rapport reste affiche, mais le code de sortie dit « je ne
+                # sais pas » — et une lane qui suit le mandat n'alerte pas le
+                # user sur un 2 qu'elle n'a pas les moyens de mesurer.
+                print("WARNING: MCP_PROXY_BEARER absent — le miroir G: n'est plus "
+                      "ecrit depuis #4131 ; mesure DEGRADEE (sortie 1 quoi qu'il "
+                      "lise). Rejeu explicite : --dashboard-dir ou --dashboard-file.",
+                      file=sys.stderr)
+                degraded_source = True
+                degraded_reason = ("instrument incomplet : store PG non lu "
+                                   "(MCP_PROXY_BEARER absent), le miroir G: n'est "
+                                   "plus ecrit depuis #4131 — codes 0/2/3 non "
+                                   "fiables")
             if args.dashboard_dir:
                 dash_dir = Path(args.dashboard_dir)
             else:
@@ -932,11 +959,9 @@ def main(argv=None):
 
     if degraded_source:
         # Meme logique act-then-degrade : ce que le miroir a dit est rapporte
-        # (et sonne) ci-dessus, mais la mesure est incomplete — le store PG
-        # etait configure et n'a pas repondu (review #4519 point c).
-        print("ERROR: source = miroir G: alors que PG est configure (store "
-              "injoignable) — mesure incomplete, codes 0/2/3 non fiables",
-              file=sys.stderr)
+        # (et sonne) ci-dessus, mais le code de sortie ne peut pas le
+        # consacrer — la mesure ne portait pas sur la source de verite.
+        print(f"ERROR: {degraded_reason}", file=sys.stderr)
         return 1
 
     return code
