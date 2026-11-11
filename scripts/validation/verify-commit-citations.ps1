@@ -49,6 +49,7 @@ param(
 # la jambe PR est un détail REST 3 champs — Get-PullRequestDetail paierait
 # fichiers+revues+check-runs pour trois scalaires.
 . "$PSScriptRoot\..\common\gh-issues.ps1"
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
 
 function Write-Line { param([string]$Msg, [string]$Color = "White")
     if (-not $Quiet) { Write-Host $Msg -ForegroundColor $Color }
@@ -120,16 +121,17 @@ foreach ($num in $numMatches) {
     $verified = $false
     $kind = $null
 
-    # Lot 7b : détail REST (404 = pas une PR -> exit non-nul, comme gh pr view).
+    # Lot 7b : détail REST (404 = pas une PR -> Ok = $false, comme gh pr view).
     # MERGED reconstruit : REST rend open/closed + merged, gh rend MERGED.
-    # Guillemets INCORPORÉS dans l'URL (le module les embédie aussi) : le `?`
-    # sans espace n'est pas cité par PowerShell et casse l'argument sous cmd.
-    $prUrl = '"repos/' + $Repo + '/pulls/' + $num + '"'
-    # 2>$null APRÈS le pipeline : couvre l'invocation entière (#3731 — un
-    # redirect DANS la parenthèse ne couvre pas l'erreur sous EAP=Stop 5.1,
-    # exactement comme l'ancienne jambe `(gh pr view ... 2>$null) | Out-String`).
-    $prJson = (gh api $prUrl --jq '{state: .state, merged: .merged, title: .title}') 2>$null | Out-String
-    if ($LASTEXITCODE -eq 0 -and $prJson.Trim().Length -gt 0) {
+    # Le helper du module porte la règle d'URL par hôte (nue sous pwsh POSIX,
+    # citée sous PowerShell 5.1) — des guillemets littéraux faisaient 404 et
+    # la citation PR retombait à tort sur la jambe issue (review #4645).
+    $prResult = Invoke-GhApiJson -Url "repos/$Repo/pulls/$num" `
+        -Jq '{state: .state, merged: .merged, title: .title}'
+    # `--jq '{...}'` rend UN objet pretty-printé sur plusieurs lignes : joindre
+    # avant ConvertFrom-Json (ne lire que la première réduirait le document à `{`).
+    $prJson = if ($prResult.Ok) { (@($prResult.Lines) -join "`n") } else { '' }
+    if ($prResult.Ok -and $prJson.Trim().Length -gt 0) {
         try {
             $obj = $prJson | ConvertFrom-Json
             $prState = if ($obj.merged) { 'MERGED' } elseif ("$($obj.state)" -eq 'open') { 'OPEN' } else { 'CLOSED' }
