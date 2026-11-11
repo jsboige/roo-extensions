@@ -129,7 +129,10 @@ try {
             # Lot 7b : module REST. Fail-safe AMÉLIORÉ — l'ancienne jambe, sur
             # gh en panne, rendait hasPR=$false et flaggait TOUTE branche stale
             # en suppression ; un fetch illisible ne conclut plus rien.
-            $prCheck = Get-PullRequestSummary -Repo 'jsboige/roo-extensions' -State open -Head $branch -MaxCount 1
+            # MaxCount=0 : le re-filtre Head est côté client. Une fenêtre de
+            # 1 limiterait le scan aux 100 PR ouvertes les plus récentes et
+            # pourrait classer « sans PR » une branche à supprimer (#4645).
+            $prCheck = Get-PullRequestSummary -Repo 'jsboige/roo-extensions' -State open -Head $branch -MaxCount 0
             if (-not $prCheck.Ok) { continue }
             $hasPR = @($prCheck.Items).Count -gt 0
             if (-not $hasPR) {

@@ -142,6 +142,8 @@ BeforeAll {
             [string]$FilesJson = '',
             [string]$ReviewsJson = '',
             [string]$RunsJson = '',
+            [string]$ListPage1Json = '',
+            [string]$ListPage2Json = '',
             [switch]$FailRuns,
             [int]$ExitCode = 0
         )
@@ -149,7 +151,8 @@ BeforeAll {
         $log = Join-Path $Dir 'calls.log'
         foreach ($pair in @(
             @{ f = 'pr.json'; c = $PrJson }, @{ f = 'files.json'; c = $FilesJson },
-            @{ f = 'reviews.json'; c = $ReviewsJson }, @{ f = 'runs.json'; c = $RunsJson }
+            @{ f = 'reviews.json'; c = $ReviewsJson }, @{ f = 'runs.json'; c = $RunsJson },
+            @{ f = 'list-page1.json'; c = $ListPage1Json }, @{ f = 'list-page2.json'; c = $ListPage2Json }
         )) {
             [System.IO.File]::WriteAllText((Join-Path $Dir $pair.f), $pair.c, [System.Text.Encoding]::ASCII)
         }
@@ -160,6 +163,8 @@ BeforeAll {
                 'if /I not "%~1"=="api" goto graphql',
                 'set "URL=%~2"',
                 ('>>"{0}" echo api "%URL%"' -f $log),
+                'echo "%URL%" | findstr /I /C:"pulls?" >nul',
+                'if not errorlevel 1 goto list',
                 'echo "%URL%" | findstr /I /C:"/files" >nul',
                 'if not errorlevel 1 goto files',
                 'echo "%URL%" | findstr /I /C:"/reviews" >nul',
@@ -167,6 +172,14 @@ BeforeAll {
                 'echo "%URL%" | findstr /I /C:"/check-runs" >nul',
                 'if not errorlevel 1 goto runs',
                 'goto pr',
+                ':list',
+                'echo "%URL%" | findstr /I /C:"page=2" >nul',
+                'if not errorlevel 1 goto list2',
+                ('type "{0}"' -f (Join-Path $Dir 'list-page1.json')),
+                'exit /b 0',
+                ':list2',
+                ('type "{0}"' -f (Join-Path $Dir 'list-page2.json')),
+                'exit /b 0',
                 ':files',
                 ('type "{0}"' -f (Join-Path $Dir 'files.json')),
                 ('exit /b {0}' -f $ExitCode),
@@ -196,6 +209,8 @@ BeforeAll {
                 'if [ "$1" = "api" ]; then',
                 '  printf ''%s\n'' "api $2" >> "$LOG"',
                 '  case "$2" in',
+                '    */pulls"?"*"page=2"*) cat "$DIR/list-page2.json"; exit 0 ;;',
+                '    */pulls"?"*) cat "$DIR/list-page1.json"; exit 0 ;;',
                 '    */files*) cat "$DIR/files.json"; exit $EXIT ;;',
                 '    */reviews*) cat "$DIR/reviews.json"; exit $EXIT ;;',
                 '    */check-runs*) if [ -f "$DIR/fail-runs.flag" ]; then exit 1; fi; cat "$DIR/runs.json"; exit $EXIT ;;',
@@ -259,11 +274,13 @@ Describe 'Get-PullRequestSummary — normalisation REST (#4150)' {
 
             $s.Ok | Should -BeTrue
             $s.Items[0].State | Should -Be 'OPEN'
-            # Preuve d'absence de jambe GraphQL : le shim échoue (exit 1) sur
-            # `pr list`, `issue view`, `graphql`. Le log porte aussi l'argv URL.
+            # Preuve d'absence de jambe GraphQL : le shim échoue (exit 1) sur `pr list`,
+            # `issue view`, `graphql` — chaque appel tracé commence par `api` et l'URL
+            # est nue (review #4645 : sous pwsh POSIX, des guillemets littéraux font 404).
             $calls = Get-CallLog -Log $shim.Log
             $calls.Count | Should -BeGreaterThan 0
             @($calls | Where-Object { $_ -notmatch '^api ' }) | Should -BeNullOrEmpty
+            @($calls | Where-Object { $_.Contains('"') }) | Should -BeNullOrEmpty
         }
         finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
@@ -679,6 +696,40 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match 'proceeding without CI gate'
         $bot | Should -Match 'no CI check-runs at all'
         $bot | Should -Match 'CI not certified \(empty rollup\)'
+    }
+}
+
+Describe 'Get-PullRequestSummary — pagination du re-filtre Head (#4645)' {
+    BeforeAll {
+        function New-HeadPaginationShim {
+            param([Parameter(Mandatory)][string]$Dir)
+            $page1 = (1..100 | ForEach-Object {
+                [pscustomobject]@{ number = $_; state = 'open'; merged_at = $null; head_ref = "wt/other-$_" } |
+                    ConvertTo-Json -Compress
+            }) -join "`n"
+            $page2 = [pscustomobject]@{ number = 101; state = 'open'; merged_at = $null; head_ref = 'wt/target' } |
+                ConvertTo-Json -Compress
+            return New-GhShimRouted -Dir $Dir -PrJson '{}' -ListPage1Json $page1 -ListPage2Json $page2
+        }
+    }
+
+    It 'trouve une PR de branche au-delà des 100 premières, puis re-filtre la réponse' {
+        $shim = New-HeadPaginationShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8)))
+        try {
+            $s = Invoke-WithShim -ShimDir $shim.Dir {
+                Get-PullRequestSummary -Repo jsboige/roo-extensions -State open -Head wt/target -MaxCount 0
+            }
+            $s.Ok | Should -BeTrue
+            @($s.Items).Count | Should -Be 1
+            $s.Items[0].HeadRefName | Should -Be 'wt/target'
+            @(Get-CallLog -Log $shim.Log).Count | Should -Be 2
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'l audit des branches à supprimer ne borne pas ce scan à la première page' {
+        $src = Get-Content (Join-Path $script:RepoRoot 'scripts/maintenance/audit-parasite.ps1') -Raw
+        $src | Should -Match 'Get-PullRequestSummary[^\r\n]*-Head \$branch -MaxCount 0'
     }
 }
 

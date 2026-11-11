@@ -12,6 +12,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Lot 7b : les deux lectures gardent le contrat échec ≠ absence du module —
+# un corps 403/404 n'est jamais un objet de configuration truthy.
+. "$PSScriptRoot\..\common\gh-pull-requests.ps1"
+
 Write-Host "`n=== Branch Protection Configuration ===" -ForegroundColor Cyan
 Write-Host "Repository: $Repo" -ForegroundColor Cyan
 Write-Host "Branch: main" -ForegroundColor Cyan
@@ -58,7 +62,13 @@ Write-Host "No GitHub API changes needed." -ForegroundColor Green
 # Verify CI checks are active
 Write-Host "`nVerifying CI status checks..." -ForegroundColor Cyan
 
-$protection = gh api repos/$Repo/branches/main/protection | ConvertFrom-Json
+$protectionResult = Invoke-GhApiJson -Url "repos/$Repo/branches/main/protection" -Jq '.'
+if (-not $protectionResult.Ok) {
+    throw "Cannot verify branch protection: $($protectionResult.Error)"
+}
+# `--jq '.'` rend un objet pretty-printé sur PLUSIEURS lignes : ne lire que
+# la première réduirait le document à `{` et casserait ConvertFrom-Json.
+$protection = (@($protectionResult.Lines) -join "`n") | ConvertFrom-Json
 $ciChecks = $protection.required_status_checks.contexts
 
 Write-Host "  Required contexts ($($ciChecks.Count)):" -ForegroundColor Gray
@@ -104,22 +114,28 @@ Write-Host @"
 # Test the workflow
 Write-Host "`n=== Test Workflow ===" -ForegroundColor Cyan
 
-# Lot 7b (#4150) : listing REST (0 point GraphQL). jq rend UN tableau sur une
-# ligne (pas un objet par ligne) — ConvertFrom-Json direct, forme affichage.
-# Guillemets INCORPORÉS : `&` est un métacaractère cmd.exe, PowerShell ne cite
-# pas un argument sans espace (module gh-pull-requests, même garde).
-$openPrUrl = '"repos/' + $Repo + '/pulls?state=open&per_page=5"'
-$openPRs = gh api $openPrUrl --jq '[.[] | {number: .number, title: .title, additions: .additions}]' | ConvertFrom-Json
-
-if ($openPRs) {
-    Write-Host "`nOpen PRs ready for review:" -ForegroundColor Gray
-    foreach ($pr in $openPRs) {
-        $needsReview = if ($pr.additions -gt 50) { " (needs sk-agent review)" } else { "" }
-        Write-Host "  PR #$($pr.number): $($pr.title)$needsReview" -ForegroundColor White
-        Write-Host "    Command: .\scripts\github\pr-review-and-merge.ps1 -PrNumber $($pr.number)" -ForegroundColor Gray
-    }
+# Listing REST avec statut d'échec explicite : l'ancienne forme inline
+# transformait un 404 {message,status} en objet truthy et affichait « PR #: ».
+$openPrResult = Get-PullRequestSummary -Repo $Repo -State open -MaxCount 5
+if (-not $openPrResult.Ok) {
+    Write-Host "  Open PRs unavailable: $($openPrResult.Error)" -ForegroundColor Yellow
 } else {
-    Write-Host "  No open PRs" -ForegroundColor Gray
+    $openPRs = @($openPrResult.Items)
+    if ($openPRs.Count -gt 0) {
+        Write-Host "`nOpen PRs ready for review:" -ForegroundColor Gray
+        foreach ($pr in $openPRs) {
+            $detail = Get-PullRequestDetail -Repo $Repo -Number $pr.Number
+            if (-not $detail.Ok) {
+                Write-Host "  PR #$($pr.Number): details unavailable ($($detail.Error))" -ForegroundColor Yellow
+                continue
+            }
+            $needsReview = if ($detail.Item.Additions -gt 50) { " (needs sk-agent review)" } else { "" }
+            Write-Host "  PR #$($pr.Number): $($detail.Item.Title)$needsReview" -ForegroundColor White
+            Write-Host "    Command: .\scripts\github\pr-review-and-merge.ps1 -PrNumber $($pr.Number)" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "  No open PRs" -ForegroundColor Gray
+    }
 }
 
 Write-Host "`n=== Configuration Complete ===" -ForegroundColor Green

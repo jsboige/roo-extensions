@@ -604,7 +604,7 @@ class TestMergedBranchesRest(unittest.TestCase):
     def _fake(self, rows):
         def fake(cmd, cwd=None, check=True):
             self.assertIn("state=closed", cmd[-1])
-            self.assertIn("head=jsboige:", cmd[-1])
+            self.assertIn("head=wt/g&per_page=100", cmd[-1])
             return json.dumps(rows)
         return fake
 
@@ -620,6 +620,13 @@ class TestMergedBranchesRest(unittest.TestCase):
             self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
                              set())
 
+    def test_newer_closed_pr_does_not_hide_older_merge(self):
+        with mock.patch.object(rvq, "sh", self._fake([
+                {"number": 2, "merged_at": None},
+                {"number": 1, "merged_at": "2026-10-01T00:00:00Z"}])):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             {"wt/g"})
+
     def test_empty_answer_is_warn_not_deliver(self):
         with mock.patch.object(rvq, "sh", self._fake([])):
             self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
@@ -627,6 +634,28 @@ class TestMergedBranchesRest(unittest.TestCase):
 
     def test_unreadable_answer_keeps_branch_undelivered(self):
         with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: "not json"):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             set())
+    def test_merge_on_a_later_page_delivers_branch(self):
+        """100 PR fermées non mergées ne doivent pas masquer un merge ancien."""
+        calls = []
+
+        def pages(cmd, cwd=None, check=True):
+            calls.append(cmd[-1])
+            if "page=2" in cmd[-1]:
+                return json.dumps([{"number": 1, "merged_at": "2026-10-01T00:00:00Z"}])
+            return json.dumps([
+                {"number": i, "merged_at": None} for i in range(2, 102)])
+
+        with mock.patch.object(rvq, "sh", pages):
+            self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
+                             {"wt/g"})
+        self.assertEqual(len(calls), 2)
+        self.assertIn("page=1", calls[0])
+        self.assertIn("page=2", calls[1])
+
+    def test_invalid_json_shape_keeps_branch_undelivered(self):
+        with mock.patch.object(rvq, "sh", lambda cmd, cwd=None, check=True: "{}"):
             self.assertEqual(rvq.merged_branches("jsboige/CoursIA", ["wt/g"]),
                              set())
 

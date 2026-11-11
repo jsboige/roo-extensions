@@ -656,24 +656,37 @@ def merged_branches(slug, branches):
     branch undelivered -- it drops nothing and never widens the drop.
     """
     delivered = set()
-    owner = slug.split("/")[0]
     for b in sorted(branches):
         # Lot 7b (#4150) : REST par branche — `state=merged` n'existe pas en
         # REST : state=closed puis filtre merged_at (meme sémantique que
         # l'ancien --state merged ; une PR fermée non mergée ne compte pas).
-        out = sh(["gh", "api",
-                  "repos/%s/pulls?state=closed&head=%s:%s&per_page=1" % (slug, owner, b)],
-                 check=False)
-        if not out.strip():
-            print("WARN: lookup merged sans reponse pour %s — branche traitee non livree" % b)
-            continue
-        try:
-            prs = json.loads(out)
-        except ValueError:
-            print("WARN: lookup merged illisible pour %s — branche traitee non livree" % b)
-            continue
-        if any(isinstance(p, dict) and p.get("merged_at") for p in prs or []):
-            delivered.add(b)
+        # state=closed + filtre merged_at, pagination complète de CETTE branche.
+        # Le filtre sans owner retrouve aussi les têtes de fork (review #4645) ;
+        # `any` évite qu'une fermeture non-mergée récente masque un merge ancien.
+        # Une page pleine de 100 PR fermées ne prouve pas l'absence de merge :
+        # continuer jusqu'à la page courte ou au merge, sans fenêtre implicite.
+        page = 1
+        while True:
+            out = sh(["gh", "api",
+                      "repos/%s/pulls?state=closed&head=%s&per_page=100&page=%d" % (slug, b, page)],
+                     check=False)
+            if not out.strip():
+                print("WARN: lookup merged sans reponse pour %s — branche traitee non livree" % b)
+                break
+            try:
+                prs = json.loads(out)
+            except ValueError:
+                print("WARN: lookup merged illisible pour %s — branche traitee non livree" % b)
+                break
+            if not isinstance(prs, list):
+                print("WARN: lookup merged inattendu pour %s — branche traitee non livree" % b)
+                break
+            if any(isinstance(p, dict) and p.get("merged_at") for p in prs):
+                delivered.add(b)
+                break
+            if len(prs) < 100:
+                break
+            page += 1
     return delivered
 
 
