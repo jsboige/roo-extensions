@@ -267,6 +267,16 @@ $inner = $body.Substring(1, $body.Length - 2)
 $sb = [ScriptBlock]::Create($inner)
 $script:ghJson = '[{"number":16136,"title":"x (#16120)","headRefName":"feature/16120-sw14-exercises"},{"number":16238,"title":"y","headRefName":"wt/vibe-g1"}]'
 function gh { return $script:ghJson }
+# Contract shim (review #4641 point d): Get-QueueOpenPrs (lot 7a #4150)
+# delegates to the gh-pull-requests module; the probe offers the same
+# gh-boundary it always did -- the shim reproduces the module contract
+# @{ Ok; Items; Error } over the stubbed gh, like the picker shims.
+function Get-PullRequestSummary {
+    param([string]$Repo, [string]$Head, [string]$State = 'all', [int]$MaxCount = 0)
+    $raw = gh api ('repos/{0}/pulls?state=open&per_page=100' -f $Repo) --jq '.[]'
+    $parsed = $raw | ConvertFrom-Json
+    return [pscustomobject]@{ Ok = $true; Items = @($parsed); Error = $null }
+}
 $prs = & $sb -Repo 'jsboige/CoursIA'
 "outerCount=$(@($prs).Count)"
 $castError = $false

@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # gh-issues.ps1 — lectures d'issues en REST (0 point GraphQL) — #4150 lot 7
 # ============================================================================
 # Même contrat que gh-pull-requests.ps1 (lots 2-5) : chaque fonction rend
@@ -42,6 +42,23 @@ $script:IssueSummaryJq = (
     'is_pr: (.pull_request != null)}'
 )
 
+function ConvertTo-IsoString {
+    # pwsh 7.4+ COERCE les timestamps ISO en [datetime] au ConvertFrom-Json ;
+    # PS 5.1 les laisse en chaîne (review #4641, point b : les assertions de
+    # forme échouaient sur tout hôte pwsh 7). Le contrat du module est
+    # gh-parité STRING (gh --json émet des chaînes ISO seconde-précision) —
+    # les deux hôtes rendent donc la même forme, consommateurs inchangés.
+    param($Value)
+
+    if ($Value -is [datetime]) {
+        return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+    }
+    if ($Value -is [datetimeoffset]) {
+        return $Value.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+    }
+    return "$Value"
+}
+
 function ConvertFrom-RestIssue {
     # Forme gh-parité : state MAJUSCULE (gh émet OPEN/CLOSED ; REST open/closed),
     # labels [{name}], assignees [{login}] — les objets, pas les scalaires
@@ -54,7 +71,7 @@ function ConvertFrom-RestIssue {
         body      = $Raw.body
         state     = "$($Raw.state)".ToUpperInvariant()
         url       = $Raw.url
-        updatedAt = $Raw.updatedAt
+        updatedAt = ConvertTo-IsoString $Raw.updatedAt
         labels    = @($Raw.labels | Where-Object { $_ })
         assignees = @($Raw.assignees | Where-Object { $_ })
     }
@@ -99,7 +116,13 @@ function Get-IssueSummary {
 
     $items = @()
     $page = 1
-    $maxPages = if ($MaxCount -gt 0) { [Math]::Ceiling($MaxCount / $perPage) } else { 40 }
+    # maxPages = plafond de SÉCURITÉ, pas un budget : l'arrêt pilote sur le
+    # compte d'issues FILTRÉES (PRs exclues, ci-dessous) et sur la page courte.
+    # Un budget dérivé de MaxCount compterait des items BRUTS (issues+PRs) et
+    # rétrécirait la fenêtre du reaper de la part de PRs (200 → ~170 à 15 % de
+    # PRs) — drift relevé par la review #4641 ; l'ancien `gh issue list
+    # --limit N` rendait N issues, pas N items bruts.
+    $maxPages = 40
     while ($page -le $maxPages) {
         $quotedUrl = '"' + $url + '&page=' + $page + '"'
         try {
@@ -209,7 +232,11 @@ function Get-IssueComments {
             return [pscustomobject]@{ Ok = $false; Items = @(); Error = "gh api exit $LASTEXITCODE" }
         }
         $pageItems = @($out | Where-Object { $_ -and $_.ToString().Trim() } | ForEach-Object { $_ | ConvertFrom-Json })
-        $items += $pageItems
+        # createdAt normalisé (ConvertTo-IsoString) : contrat string gh-parité
+        # sous les deux hôtes (review #4641, point b).
+        $items += @($pageItems | ForEach-Object {
+            [pscustomobject]@{ author = $_.author; body = $_.body; createdAt = (ConvertTo-IsoString $_.createdAt) }
+        })
         if ($pageItems.Count -lt 100) { break }
         $page++
     }

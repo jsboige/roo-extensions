@@ -1,4 +1,4 @@
-# gh-issues-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL (#4150 lot 7)
+﻿# gh-issues-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL (#4150 lot 7)
 #
 # Ce que ces tests prouvent (même grille que gh-pull-requests-rest.Tests.ps1,
 # lots 2-5, doctrine #4604) :
@@ -35,24 +35,33 @@ BeforeAll {
     # PAS « IsWindows » : variable AUTOMATIQUE read-only en pwsh 7 (CI).
     $script:HostIsWindows = ($PSVersionTable.PSEdition -eq 'Desktop') -or ($PSVersionTable.Platform -eq 'Win32NT')
 
-    # Shim gh ROUTÉ sur l'URL : /comments, /issues? (liste), /issues/{n} (détail).
-    # Fixtures FICHIERS rejoués par type/cat (jamais echo : les parenthèses des
-    # noms casseraient cmd). Tout ce qui n'est pas `gh api` simule un 403 GraphQL.
+    # Shim gh ROUTÉ sur l'URL : /comments, /issues? (liste, &page=2 si fournie),
+    # /issues/{n} (détail). Fixtures FICHIERS rejoués par type/cat (jamais echo :
+    # les parenthèses des noms casseraient cmd). Tout ce qui n'est pas `gh api`
+    # simule un 403 GraphQL.
+    # Review #4641 point a : dans un `case` POSIX, `?` est un GLOB (un caractère
+    # quelconque) — `*/issues?*` avalait `/issues/101` (détail servi en liste).
+    # Le routage teste le détail (`*/issues/*`) AVANT la liste, et le `?` de la
+    # liste est CITÉ (`*/issues"?"*`) pour redevenir littéral. findstr /C:
+    # (Windows) est littéral par nature — inchangé.
     function New-GhIssuesShim {
         param(
             [Parameter(Mandatory)][string]$Dir,
             [string]$ListJson = '',
             [string]$DetailJson = '',
             [string]$CommentsJson = '',
+            [string]$ListPage2Json = '',
             [switch]$FailList,
             [switch]$NoisyStderr
         )
         New-Item -ItemType Directory -Path $Dir -Force | Out-Null
         $log = Join-Path $Dir 'calls.log'
-        foreach ($pair in @(
+        $files = @(
             @{ f = 'list.json'; c = $ListJson }, @{ f = 'detail.json'; c = $DetailJson },
             @{ f = 'comments.json'; c = $CommentsJson }
-        )) {
+        )
+        if ($ListPage2Json) { $files += @{ f = 'list-page2.json'; c = $ListPage2Json } }
+        foreach ($pair in $files) {
             [System.IO.File]::WriteAllText((Join-Path $Dir $pair.f), $pair.c, [System.Text.Encoding]::ASCII)
         }
         if ($FailList) { New-Item -ItemType File -Path (Join-Path $Dir 'fail-list.flag') -Force | Out-Null }
@@ -72,6 +81,12 @@ BeforeAll {
                 'exit /b 0',
                 ':list',
                 ('if exist "{0}" exit /b 1' -f (Join-Path $Dir 'fail-list.flag')),
+                'echo "%URL%" | findstr /I /C:"&page=2" >nul',
+                'if errorlevel 1 goto list1',
+                ('if not exist "{0}" goto list1' -f (Join-Path $Dir 'list-page2.json')),
+                ('type "{0}"' -f (Join-Path $Dir 'list-page2.json')),
+                'exit /b 0',
+                ':list1',
                 ('type "{0}"' -f (Join-Path $Dir 'list.json')),
                 'exit /b 0',
                 ':detail',
@@ -94,7 +109,9 @@ BeforeAll {
                 '  printf ''%s\n'' "api $2" >> "$LOG"',
                 '  case "$2" in',
                 '    */comments*) cat "$DIR/comments.json"; exit 0 ;;',
-                '    */issues?*) if [ -f "$DIR/fail-list.flag" ]; then exit 1; fi; cat "$DIR/list.json"; exit 0 ;;',
+                '    */issues/*) cat "$DIR/detail.json"; exit 0 ;;',
+                '    *"&page=2"*) if [ -f "$DIR/fail-list.flag" ]; then exit 1; fi; if [ -f "$DIR/list-page2.json" ]; then cat "$DIR/list-page2.json"; exit 0; fi; cat "$DIR/list.json"; exit 0 ;;',
+                '    */issues"?"*) if [ -f "$DIR/fail-list.flag" ]; then exit 1; fi; cat "$DIR/list.json"; exit 0 ;;',
                 '    *) cat "$DIR/detail.json"; exit 0 ;;',
                 '  esac',
                 'else',
@@ -171,6 +188,11 @@ Describe 'Get-IssueSummary (REST, #4150 lot 7)' {
             $i.state | Should -Be 'CLOSED'
             $i.title | Should -Be 'Bug two'
             $i.updatedAt | Should -Be '2026-11-09T11:00:00Z'
+            # Review #4641 point b : le contrat est STRING gh-parité — pwsh 7
+            # coerce les ISO en [datetime] au parse, le module normalise
+            # (ConvertTo-IsoString) pour que les deux hôtes rendent la même
+            # chaîne ; ce pin tient la forme sur tout hôte.
+            ($i.updatedAt -is [string]) | Should -BeTrue
             @($i.labels).Count | Should -Be 2
             $i.labels[0].name | Should -Be 'copilot-target'
             $a = $r.Items | Where-Object { $_.number -eq 101 }
@@ -221,6 +243,38 @@ Describe 'Get-IssueSummary (REST, #4150 lot 7)' {
             @($r.Items).Count | Should -Be 2
             $r.Items[0].number | Should -Be 101
             $r.Items[1].number | Should -Be 102
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+    }
+
+    It 'MaxCount compte les issues FILTRÉES : la part de PRs ne rétrécit pas la fenêtre (review #4641)' {
+        # Dérive relevée par la review : un budget de pages dérivé de MaxCount
+        # compte des items BRUTS (issues+PRs) — une page 1 pleine à 40 % de PRs
+        # ne rendait que 60 issues pour MaxCount 100. La boucle doit poursuivre
+        # tant que le compte FILTRÉ n'a pas atteint MaxCount (parité
+        # `gh issue list --limit N`, qui a toujours rendu N issues).
+        # Page 1 : 60 issues (1-60) + 40 PRs (9001-9040) = page pleine (100 bruts).
+        # Page 2 : 40 issues (61-100), page courte → arrêt.
+        $mk = {
+            param([int]$From, [int]$To, [bool]$IsPr)
+            $lines = foreach ($n in $From..$To) {
+                $kind = if ($IsPr) { 'pull' } else { 'issues' }
+                $flag = if ($IsPr) { 'true' } else { 'false' }
+                '{"number": ' + $n + ', "title": "t' + $n + '", "body": "", "state": "open", "url": "https://github.com/jsboige/roo-extensions/' + $kind + '/' + $n + '", "updatedAt": "2026-11-09T10:00:00Z", "labels": [], "assignees": [], "is_pr": ' + $flag + '}'
+            }
+            ($lines -join "`n") + "`n"
+        }
+        $page1 = (& $mk 1 60 $false) + (& $mk 9001 9040 $true)
+        $page2 = & $mk 61 100 $false
+        $dir = Join-Path $script:TmpRoot ('gh-issues-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-GhIssuesShim -Dir $dir -ListJson $page1 -ListPage2Json $page2
+        try {
+            $r = Invoke-WithShim $shim.Dir { Get-IssueSummary -Repo jsboige/roo-extensions -MaxCount 100 }
+            $r.Ok | Should -BeTrue
+            # Avant le fix : 60 (une seule page). La fenêtre doit être pleine.
+            @($r.Items).Count | Should -Be 100
+            (@($r.Items) | Where-Object { $_.number -ge 9001 }).Count | Should -Be 0
+            (@($r.Items) | Where-Object { $_.number -ge 61 -and $_.number -le 100 }).Count | Should -Be 40
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }
@@ -297,6 +351,10 @@ Describe 'Get-IssueComments (REST, #4150 lot 7)' {
             $r.Items[0].author.login | Should -Be 'worker-a'
             $r.Items[0].body | Should -Match '\[CLAIMED\]'
             $r.Items[0].createdAt | Should -Be '2026-11-10T10:00:00Z'
+            # Même pin de forme que updatedAt (review #4641 point b) : STRING
+            # gh-parité sur tout hôte, la coercition [datetime] pwsh 7 est
+            # normalisée par le module.
+            ($r.Items[0].createdAt -is [string]) | Should -BeTrue
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }

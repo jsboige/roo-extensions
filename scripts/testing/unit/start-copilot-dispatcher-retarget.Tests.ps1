@@ -49,26 +49,32 @@ BeforeAll {
         $script:ghCalls += , @($Arguments)
         return '[{"number":7,"title":"T fix wording","labels":[],"updatedAt":"2026-11-10T00:00:00Z","url":"https://example.invalid/7"}]'
     }
+
+    # Lot 7a (#4150): Get-TargetIssue's discovery legs live in the REST module
+    # (gh-issues.ps1) — dot-source the REAL module so the extracted function
+    # exercises the production path over the stubbed gh (same philosophy as
+    # the extraction above: stub the gh boundary, not the module contract).
+    . (Join-Path $PSScriptRoot '../../common/gh-issues.ps1')
 }
 
 Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: issue pool follows -TargetRepoSlug' {
 
-    It 'passes the explicit slug to gh as -R (pool moves to the target repo)' {
+    It 'passes the explicit slug into the REST pool query (pool moves to the target repo)' {
+        # Lot 7a (#4150): the pool leg is `gh api repos/{slug}/issues?...&labels=copilot-target`
+        # (module gh-issues.ps1) — the slug lives in the URL, no `-R` flag anymore.
         $null = Get-TargetIssue -RepositoryRoot $TestDrive -PreferredIssueNumber 0 -RepoSlug 'jsboige/CoursIA'
-        $poolCall = $script:ghCalls | Where-Object { $_ -contains 'list' } | Select-Object -First 1
+        $poolCall = $script:ghCalls | Where-Object { ($_ -join ' ') -match 'repos/jsboige/CoursIA/issues\?' } | Select-Object -First 1
         $poolCall | Should -Not -BeNullOrEmpty
-        $idx = [array]::IndexOf($poolCall, '-R')
-        $idx | Should -BeGreaterOrEqual 0
-        $poolCall[$idx + 1] | Should -Be 'jsboige/CoursIA'
+        # Pool semantics ride along: the server-side label filter is part of the query.
+        ($poolCall -join ' ') | Should -Match 'labels=copilot-target'
     }
 
-    It 'without -RepoSlug, derives the slug from the repository root as before (no -R when none derivable)' {
+    It 'without -RepoSlug and none derivable, gh is never called (fail-closed at the module binding)' {
         $script:ghCalls = @()
         $null = Get-TargetIssue -RepositoryRoot $TestDrive -PreferredIssueNumber 0
-        $poolCall = $script:ghCalls | Where-Object { $_ -contains 'list' } | Select-Object -First 1
-        if ($null -ne $poolCall) {
-            ($poolCall -contains '-R') | Should -BeFalse
-        }
+        # Stronger than the pre-lot-7a "no -R" pin: with an empty slug the
+        # module's Mandatory -Repo binding refuses BEFORE any gh invocation.
+        @($script:ghCalls).Count | Should -Be 0
     }
 }
 
