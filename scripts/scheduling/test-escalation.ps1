@@ -434,10 +434,23 @@ Write-Host "=== Test: dispatch-guard jq expression is 5.1-safe ===" -ForegroundC
 # runner, which cannot reproduce the 5.1 argument-passing behaviour that causes
 # the defect. A test that could only fail on Windows would run nowhere.
 $WorkerText = Get-Content (Join-Path $RepoRoot 'scripts\scheduling\start-claude-worker.ps1') -Raw
+# Lot 8 (#4150) : les jambes jq inline du worker ($jqExpr, $jqCommentsExpr)
+# n'existent plus — les fenêtres commentaires viennent du module REST
+# gh-issues.ps1 (Get-IssueComments), le filtrage [DISPATCH]/[CLAIMED]/[RESULT]
+# vit dans la chaîne -match du worker. Les pins de forme suivent l'INTENTION :
+# la propriété 5.1 porte désormais sur les jq du module, servis via
+# `gh api <url> --jq <jq>` avec guillemets incorporés (sinon `?` casse
+# l'argument sous PowerShell). Un jq à double quote y mourrait pareil.
 $JqLine = ($WorkerText -split "`n" | Where-Object { $_ -match '^\s*\$jqExpr\s*=' })
 
-Assert-Equal "jqExpr is assigned exactly once" 1 @($JqLine).Count
-Assert-Equal "jqExpr contains no double quote (5.1 strips them)" $false ($JqLine -join '').Contains('"')
+Assert-Equal "worker: legacy inline `$jqExpr is gone (lot 8 moved the window to the REST module)" 0 @($JqLine).Count
+
+# Le contrat module : la fenêtre de commentaires est un SELECT jq sans aucune
+# double quote (5.1 les retire au passage d'argument — même défaut #3045).
+$ModuleText = Get-Content (Join-Path $RepoRoot 'scripts\common\gh-issues.ps1') -Raw
+$ModuleCommentsJqLines = ($ModuleText -split "`n" | Where-Object { $_ -match '^\s*\$jq\s*=' })
+Assert-Equal "module gh-issues: comments jq assignment present" $true (@($ModuleCommentsJqLines).Count -ge 1)
+Assert-Equal "module gh-issues: no double quote in its jq assignments" $false (($ModuleCommentsJqLines -join '').Contains('"'))
 
 # The line-scoped check above only sees a single-line assignment: a later refactor
 # to a continuation or a here-string would move the quote off the assignment line
@@ -445,8 +458,13 @@ Assert-Equal "jqExpr contains no double quote (5.1 strips them)" $false ($JqLine
 # file for the killer form, which is form-independent. jq's function is lowercase
 # `contains(`; PowerShell's method is `.Contains(` — case-sensitive matching keeps
 # them apart, so this does not fire on the `-match`/.Contains() code below.
-$BareQuoteJq = [regex]::Matches($WorkerText, 'contains\("', 'None').Count
-Assert-Equal "no bare-quote jq contains( anywhere in the worker" 0 $BareQuoteJq
+# The bare-quote form scan now covers BOTH the worker and the REST modules —
+# the jq moved there in lot 8, the killer form must be caught wherever it lives.
+foreach ($scanPath in @('scripts\scheduling\start-claude-worker.ps1', 'scripts\common\gh-issues.ps1', 'scripts\common\gh-pull-requests.ps1')) {
+    $scanText = Get-Content (Join-Path $RepoRoot $scanPath) -Raw
+    $bareCount = [regex]::Matches($scanText, 'contains\("', 'None').Count
+    Assert-Equal "no bare-quote jq contains( anywhere in $scanPath" 0 $bareCount
+}
 
 # The sibling claim expression (step 4 of Claim-GitHubIssue) was rewritten on
 # 2026-09-23 (#2428): it no longer emits a jq `contains(` clause at all — it
@@ -454,9 +472,15 @@ Assert-Equal "no bare-quote jq contains( anywhere in the worker" 0 $BareQuoteJq
 # it is replaced by the stronger property: that expression must carry NO double
 # quote at all for 5.1 to strip. Pin that — a rewrite back to bare quotes would
 # kill the claim check the same silent way.
+# The sibling claim expression (step 4 of Claim-GitHubIssue) also moved to the
+# module in lot 8: the claim window is Get-IssueComments + Select-Object -Last N
+# in the worker, zero inline jq left. Pin the structural property: no inline
+# claim-jq assignment survives in the worker, and the module's comments jq is
+# quote-free (asserted above) — a rewrite back to bare quotes would kill the
+# claim check the same silent way (#833).
 $JqClaimLine = ($WorkerText -split "`n" | Where-Object { $_ -match '^\s*\$jqCommentsExpr\s*=' })
-Assert-Equal "claim-guard jq expression is assigned exactly once" 1 @($JqClaimLine).Count
-Assert-Equal "claim-guard jq expression contains no double quote (5.1 strips them)" $false ($JqClaimLine -join '').Contains('"')
+Assert-Equal "worker: legacy inline `$jqCommentsExpr is gone (lot 8)" 0 @($JqClaimLine).Count
+Assert-Equal "worker: claim window still reads comments through the module" $true ($WorkerText.Contains('Get-IssueComments'))
 
 # Pin the DEFECT: the shipped-dead form must be recognised as unsafe by the same
 # checks, otherwise this only asserts that today's file happens to be clean.

@@ -50,6 +50,19 @@ function ConvertFrom-RestPullRequest {
         Title       = $Raw.title
         AuthorLogin = $Raw.login
         Labels      = @($Raw.labels | Where-Object { $_ })
+        # Lot 8 (#4150) : url + createdAt pour le worker (PR-exists par branche,
+        # réconciliation d'artefacts). CreatedAt en chaîne ISO seconde-précision —
+        # même contrat string que ConvertTo-IsoString (gh-issues.ps1, review #4641
+        # point b) : pwsh 7.4+ coerce les timestamps au ConvertFrom-Json, 5.1 les
+        # laisse en chaîne ; les deux hôtes rendent la même forme.
+        Url         = $Raw.url
+        # Body : mappé même absent du jq (sans -IncludeBody la propriété vaut $null —
+        # les listings standards ne paient pas des bodies multi-KB, seuls les
+        # consommateurs de réconciliation d'artefacts l'optent).
+        Body        = $Raw.body
+        CreatedAt   = if ($Raw.created_at -is [datetime]) {
+            $Raw.created_at.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+        } else { "$($Raw.created_at)" }
     }
 }
 
@@ -68,13 +81,24 @@ function Get-PullRequestSummary {
         Nombre maximum de PR à ramener (0 = tout, pagination complète).
         Utilisé quand l'appelant avait un `--limit N` : les mêmes PR les plus
         récentes (tri created desc) sont ramenées, à la page près.
+    .PARAMETER CreatedSince
+        Lot 8 : cutoff created (> = inclusif). Le tri étant created desc, la
+        pagination STOPPE dès qu'une PR plus vieille apparaît — parité
+        `--search created:>=X` (réconciliation d'artefacts du worker), sans le
+        `--limit 1000` arbitraire de l'ancienne jambe.
+    .PARAMETER IncludeBody
+        Lot 8 : ajoute le body aux items. Opt-in — seul consommateur : la
+        réconciliation d'artefacts (match `#N in:title,body`) ; les listings
+        standards ne paient pas des bodies multi-KB par ligne.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Repo,
         [string]$Head,
         [ValidateSet('open', 'closed', 'all')][string]$State = 'all',
-        [int]$MaxCount = 0
+        [int]$MaxCount = 0,
+        [datetime]$CreatedSince,
+        [switch]$IncludeBody
     )
 
     $perPage = 100
@@ -87,17 +111,20 @@ function Get-PullRequestSummary {
     # Une ligne JSON compacte par PR : même forme pour toutes les pages, sans --slurp.
     # title/login/labels (lot 3) : filter auteur côté client + labels restreints de
     # review-bot, qui listait via `gh pr list --json number,title,labels,author`.
-    $jq = '.[] | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, title: .title, login: .user.login, labels: [.labels[].name]}'
+    # url/created_at (lot 8) : worker — toujours rendus (légers).
+    $jq = ('.[] | {number: .number, state: .state, merged_at: .merged_at, head_ref: .head.ref, ' +
+        'title: .title, login: .user.login, labels: [.labels[].name], url: .html_url, created_at: .created_at')
+    if ($IncludeBody) { $jq += ', body: .body' }
+    $jq += '}'
 
     $items = @()
     $page = 1
     $maxPages = if ($MaxCount -gt 0) { [Math]::Ceiling($MaxCount / $perPage) } else { 200 }
     while ($page -le $maxPages) {
-        # Guillemets EXPLICITES autour de l'URL : PowerShell ne cite que les arguments
-        # contenant un espace, or `&` (query string) est un métacaractère cmd.exe — sans
-        # ces guillemets, cmd coupe l'URL ; mesuré : sortie correcte mais exit code 1,
-        # donc la branche « échec » était prise à tort.
-        $quotedUrl = '"' + $url + '&page=' + $page + '"'
+        # Guillemets conditionnés à l'hôte : PowerShell 5.1 les consomme au
+        # re-parse Windows ; pwsh POSIX transmet au contraire des guillemets
+        # incorporés LITTÉRAUX à gh (404 mesuré sur deux hôtes, review #4645).
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $url + '&page=' + $page + '"' } else { $url + '&page=' + $page }
         try {
             # #3731 : sous EAP=Stop (powershell.exe 5.1), le stderr d'un natif redirigé
             # devient NativeCommandError TERMINANT avant tout check de $LASTEXITCODE.
@@ -113,7 +140,20 @@ function Get-PullRequestSummary {
             return [pscustomobject]@{ Ok = $false; Items = @(); Error = "gh api exit $code" }
         }
         $pageItems = @($out | Where-Object { $_ -and $_.ToString().Trim() } | ForEach-Object { $_ | ConvertFrom-Json })
-        foreach ($raw in $pageItems) { $items += ConvertFrom-RestPullRequest -Raw $raw }
+        $reachedCutoff = $false
+        foreach ($raw in $pageItems) {
+            # Lot 8 : cutoff created. Tri created desc garanti — dès qu'une PR est
+            # plus vieille que $CreatedSince, toutes les suivantes le sont aussi :
+            # on retient celles de la page qui passent, puis on STOPPE.
+            if ($null -ne $CreatedSince) {
+                $created = if ($raw.created_at -is [datetime]) { $raw.created_at } else {
+                    [datetime]::Parse("$($raw.created_at)", [Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+                }
+                if ($created.ToUniversalTime() -lt $CreatedSince.ToUniversalTime()) { $reachedCutoff = $true; continue }
+            }
+            $items += ConvertFrom-RestPullRequest -Raw $raw
+        }
+        if ($reachedCutoff) { break }
         if ($MaxCount -gt 0 -and $items.Count -ge $MaxCount) { break }
         if ($pageItems.Count -lt $perPage) { break }
         $page++
@@ -129,6 +169,39 @@ function Get-PullRequestSummary {
 
     if ($MaxCount -gt 0 -and $items.Count -gt $MaxCount) { $items = $items[0..($MaxCount - 1)] }
     return [pscustomobject]@{ Ok = $true; Items = @($items); Error = $null }
+}
+
+function Get-PullRequestReviewState {
+    <#
+    .SYNOPSIS
+        Reviewers demandés + SHA de tête d'une PR en UN appel REST (lot 8, #4150).
+    .DESCRIPTION
+        Remplace les deux jambes `gh pr view --json reviewRequests` et
+        `gh pr view --json headRefOid` du worker (Request-StaleReview) : les deux
+        champs vivent dans la même réponse GET /pulls/{n}. REST :
+        requested_reviewers[].login (équivalent gh reviewRequests — un reviewer
+        qui soumet une review est retiré des requested dans les deux API) et
+        head.sha (= headRefOid).
+    .OUTPUTS
+        @{ Ok = bool; ReviewerLogins = string[]; HeadSha = string; Error }
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Repo,
+        [Parameter(Mandatory)][int]$Number
+    )
+
+    $r = Invoke-GhApiJson -Url "repos/$Repo/pulls/$Number" -Jq '{reviewers: [.requested_reviewers[].login], head_sha: .head.sha}'
+    if (-not $r.Ok) {
+        return [pscustomobject]@{ Ok = $false; ReviewerLogins = @(); HeadSha = $null; Error = $r.Error }
+    }
+    $raw = @($r.Lines)[0] | ConvertFrom-Json
+    return [pscustomobject]@{
+        Ok             = $true
+        ReviewerLogins = @($raw.reviewers | Where-Object { $_ })
+        HeadSha        = "$($raw.head_sha)"
+        Error          = $null
+    }
 }
 
 function Get-MergedPullRequestHeads {
@@ -169,8 +242,9 @@ function Invoke-GhApiJson {
         [Parameter(Mandatory)][string]$Jq
     )
 
-    # Guillemets EXPLICITES : `&` (query string) est un métacaractère cmd.exe (lot 2).
-    $quotedUrl = '"' + $Url + '"'
+    # Même condition d'hôte que Get-PullRequestSummary : l'URL doit être nue
+    # sous pwsh POSIX, jamais entourée de guillemets littéraux.
+    $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $Url + '"' } else { $Url }
     try {
         $out = & gh api $quotedUrl --jq $Jq 2>$null
     } catch {

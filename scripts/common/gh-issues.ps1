@@ -90,7 +90,12 @@ function Get-IssueSummary {
         Filtre ET côté serveur (`labels=a,b`), équivalent `--label`.
     .PARAMETER ExcludeLabels
         Négation côté CLIENT (équivalent `-label:x` dans --search) : une issue
-        portant UN de ces labels est exclue.
+        portant UN de ces labels est exclue. Le filtre vit DANS la boucle de
+        pagination (lot 8) : la fenêtre MaxCount compte les issues non exclues —
+        parité `--search -label:x --limit N`, où le filtre servait AVANT la fenêtre.
+    .PARAMETER NoAssignee
+        Écart serveur des issues assignées (`assignee=none`, lot 8) — parité
+        `--search no:assignee` : la fenêtre MaxCount compte les NON-ASSIGNÉES.
     .PARAMETER MaxCount
         Nombre maximum d'issues (0 = tout, pagination complète). Tri REST par
         created desc = même ordre que gh, les plus récentes d'abord.
@@ -103,11 +108,13 @@ function Get-IssueSummary {
         [ValidateSet('open', 'closed', 'all')][string]$State = 'open',
         [string[]]$Labels,
         [string[]]$ExcludeLabels,
-        [int]$MaxCount = 0
+        [int]$MaxCount = 0,
+        [switch]$NoAssignee
     )
 
     $perPage = 100
     $url = "repos/$Repo/issues?state=$State&per_page=$perPage&sort=created&direction=desc"
+    if ($NoAssignee) { $url += '&assignee=none' }
     if ($Labels -and $Labels.Count -gt 0) {
         # Encodage minimal : les labels fleet sont alphanumériques + tirets,
         # mais un `:` ou espace ne doit pas casser la query string.
@@ -124,7 +131,7 @@ function Get-IssueSummary {
     # --limit N` rendait N issues, pas N items bruts.
     $maxPages = 40
     while ($page -le $maxPages) {
-        $quotedUrl = '"' + $url + '&page=' + $page + '"'
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + $url + '&page=' + $page + '"' } else { $url + '&page=' + $page }
         try {
             $out = & gh api $quotedUrl --jq $script:IssueSummaryJq 2>$null
         } catch {
@@ -137,20 +144,21 @@ function Get-IssueSummary {
         foreach ($raw in $pageItems) {
             # Une PR est une issue côté REST — jamais rendue par `gh issue list`.
             if ($raw.is_pr) { continue }
-            $items += ConvertFrom-RestIssue -Raw $raw
+            $item = ConvertFrom-RestIssue -Raw $raw
+            # Exclusion de labels DANS la boucle (lot 8 — même classe que la dérive
+            # #4641) : en post-boucle, la fenêtre MaxCount comptait des items exclus
+            # ensuite et le pool du worker recevait moins de N candidates réelles.
+            if ($ExcludeLabels -and $ExcludeLabels.Count -gt 0) {
+                $names = @($item.labels | ForEach-Object { "$($_.name)" })
+                $hit = $false
+                foreach ($x in $ExcludeLabels) { if ($names -contains "$x") { $hit = $true; break } }
+                if ($hit) { continue }
+            }
+            $items += $item
         }
         if ($MaxCount -gt 0 -and $items.Count -ge $MaxCount) { break }
         if ($pageItems.Count -lt $perPage) { break }
         $page++
-    }
-
-    if ($ExcludeLabels -and $ExcludeLabels.Count -gt 0) {
-        $items = @($items | Where-Object {
-            $names = @($_.labels | ForEach-Object { "$($_.name)" })
-            $hit = $false
-            foreach ($x in $ExcludeLabels) { if ($names -contains "$x") { $hit = $true; break } }
-            -not $hit
-        })
     }
 
     if ($MaxCount -gt 0 -and $items.Count -gt $MaxCount) { $items = $items[0..($MaxCount - 1)] }
@@ -180,7 +188,7 @@ function Get-IssueDetail {
         'assignees: [.assignees[] | {login: .login}], ' +
         'is_pr: (.pull_request != null)}')
 
-    $quotedUrl = '"' + "repos/$Repo/issues/$Number" + '"'
+    $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + "repos/$Repo/issues/$Number" + '"' } else { "repos/$Repo/issues/$Number" }
     try {
         $out = & gh api $quotedUrl --jq $jq 2>$null
     } catch {
@@ -222,7 +230,7 @@ function Get-IssueComments {
     $items = @()
     $page = 1
     while ($page -le $MaxPages) {
-        $quotedUrl = '"' + "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" + '"'
+        $quotedUrl = if ($PSVersionTable.PSEdition -eq 'Desktop') { '"' + "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" + '"' } else { "repos/$Repo/issues/$Number/comments?per_page=100&page=$page" }
         try {
             $out = & gh api $quotedUrl --jq $jq 2>$null
         } catch {

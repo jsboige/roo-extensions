@@ -69,8 +69,10 @@ BeforeAll {
             $cmd = @(
                 '@echo off',
                 'if /I not "%~1"=="api" goto graphql',
+                'setlocal EnableDelayedExpansion',
                 'set "URL=%~2"',
-                ('>>"{0}" echo api "%URL%"' -f $log),
+                ('set "LOG={0}"' -f $log),
+                '>>"%LOG%" echo api !URL!',
                 'echo "%URL%" | findstr /I /C:"/comments" >nul',
                 'if not errorlevel 1 goto comments',
                 'echo "%URL%" | findstr /I /C:"/issues?" >nul',
@@ -206,9 +208,13 @@ Describe 'Get-IssueSummary (REST, #4150 lot 7)' {
         $shim = New-GhIssuesShim -Dir $dir -ListJson $script:ListFixture
         try {
             $null = Invoke-WithShim $shim.Dir { Get-IssueSummary -Repo jsboige/roo-extensions -State open }
-            $log = Get-CallLog $shim.Log
+            $log = @(Get-CallLog $shim.Log)
             @($log).Count | Should -BeGreaterThan 0
             @($log | Where-Object { $_ -notmatch '^api ' }).Count | Should -Be 0
+            # PowerShell n'a pas de couche cmd : aucun guillemet littéral dans
+            # l'argv de l'URL (review #4645 — 404 réel sous pwsh POSIX).
+            $log[0] | Should -Match '^api repos/jsboige/roo-extensions/issues\?'
+            @($log | Where-Object { $_.Contains('"') }).Count | Should -Be 0
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }
@@ -400,6 +406,66 @@ Describe 'Get-IssueComments (REST, #4150 lot 7)' {
             $r = Invoke-WithShim $dir { Get-IssueComments -Repo jsboige/roo-extensions -Number 101 }
             $r.Ok | Should -BeFalse
             $r.Error | Should -Match 'exit 1'
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+    }
+}
+
+Describe 'Get-IssueSummary — extensions lot 8 (#4150 worker : no:assignee + fenêtre ExcludeLabels)' {
+    # Le pool du worker (Get-GitHubTask) appelait `--search "no:assignee -label:x
+    # --limit 30"` : la fenêtre comptait les issues NI assignées NI exclues. Les
+    # deux extensions du lot 8 restaurent cette parité côté module.
+
+    It '-NoAssignee pousse assignee=none côté SERVEUR (l URL loguée en porte trace)' {
+        $dir = Join-Path $script:TmpRoot ('gh-issues-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-GhIssuesShim -Dir $dir -ListJson $script:ListFixture
+        try {
+            $null = Invoke-WithShim $shim.Dir { Get-IssueSummary -Repo jsboige/roo-extensions -NoAssignee }
+            (Get-CallLog $shim.Log) -match 'assignee=none' | Should -Not -BeNullOrEmpty
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+
+        # Et l appel standard n ajoute JAMAIS le paramètre (le pool assignable
+        # du reaper, lui, veut tout le monde).
+        $dir2 = Join-Path $script:TmpRoot ('gh-issues-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim2 = New-GhIssuesShim -Dir $dir2 -ListJson $script:ListFixture
+        try {
+            $null = Invoke-WithShim $shim2.Dir { Get-IssueSummary -Repo jsboige/roo-extensions }
+            @(Get-CallLog $shim2.Log) | Where-Object { $_ -match 'assignee=' } | Should -BeNullOrEmpty
+        }
+        finally { Remove-Item -Recurse -Force $dir2 -ErrorAction SilentlyContinue }
+    }
+
+    It 'ExcludeLabels vit DANS la boucle : MaxCount compte les NON-exclues (fenêtre pleine)' {
+        # Même classe que la dérive #4641 (part de PRs) : en post-boucle, la fenêtre
+        # MaxCount comptait des items exclus ENSUITE — un pool demandé à 80 sur une
+        # page à 30 % de frozen ne rendait que 70 candidates réelles.
+        # Page 1 : issues 1-70 (sans label) + 71-100 (frozen) = 100 bruts, page pleine.
+        # Page 2 : issues 101-110, page courte -> arrêt. Attendu : 80 non-exclues,
+        # pagination poursuivie (&page=2 dans le log).
+        $mk = {
+            param([int]$From, [int]$To, [string]$Label)
+            $lines = foreach ($n in $From..$To) {
+                $labels = if ($Label) { '[{"name": "' + $Label + '"}]' } else { '[]' }
+                '{"number": ' + $n + ', "title": "t' + $n + '", "body": "", "state": "open", "url": "https://github.com/jsboige/roo-extensions/issues/' + $n + '", "updatedAt": "2026-11-09T10:00:00Z", "labels": ' + $labels + ', "assignees": [], "is_pr": false}'
+            }
+            ($lines -join "`n") + "`n"
+        }
+        $page1 = (& $mk 1 70 '') + (& $mk 71 100 'frozen')
+        $page2 = & $mk 101 110 ''
+        $dir = Join-Path $script:TmpRoot ('gh-issues-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-GhIssuesShim -Dir $dir -ListJson $page1 -ListPage2Json $page2
+        try {
+            $r = Invoke-WithShim $shim.Dir {
+                Get-IssueSummary -Repo jsboige/roo-extensions -MaxCount 80 -ExcludeLabels @('frozen')
+            }
+            $r.Ok | Should -BeTrue
+            # Avant le fix (filtre post-boucle) : 70. La fenêtre doit être pleine.
+            @($r.Items).Count | Should -Be 80
+            (@($r.Items) | Where-Object { $_.number -ge 71 -and $_.number -le 100 }).Count | Should -Be 0
+            (@($r.Items) | Where-Object { $_.number -ge 101 }).Count | Should -Be 10
+            # La pagination a bien continué après une page 1 pleine d exclues.
+            (Get-CallLog $shim.Log) -match '&page=2' | Should -Not -BeNullOrEmpty
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }

@@ -13,6 +13,8 @@ counts of /coordinate, nor the README of scripts/scheduling.
 
 A selector is a line whose `--search` query carries `no:assignee`: the
 server-side filter every picker needs, which a keyword lookup does not carry.
+The worker's REST conversion (#4150) represents the same exclusions as a
+PowerShell array; the guard reads that real call, not a legacy-search comment.
 """
 
 import re
@@ -38,9 +40,22 @@ SHARED_EXCLUSIONS = ("-label:epic", "-label:frozen", "-label:copilot-target")
 
 
 def selectors(path):
-    lines = path.read_text(encoding="utf-8").splitlines()
-    return [(n, line) for n, line in enumerate(lines, 1)
-            if "--search" in line and "no:assignee" in line]
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    found = [(n, line) for n, line in enumerate(lines, 1)
+             if "--search" in line and "no:assignee" in line]
+    if path.name == "start-claude-worker.ps1":
+        # The executable selector after the REST conversion (#4150). Match the
+        # whole call including its array: neither a comment nor a single label
+        # on another line can satisfy the shared-exclusion requirement.
+        for match in re.finditer(
+                r"Get-IssueSummary\s+-Repo[^\r\n]*-NoAssignee\s*`?\s*"
+                r"-ExcludeLabels\s+@\(([^)]*)\)", text):
+            excluded = re.findall(r"'([^']+)'", match.group(1))
+            line = "--search no:assignee " + " ".join(
+                "-label:" + label for label in excluded)
+            found.append((text.count("\n", 0, match.start()) + 1, line))
+    return found
 
 
 def missing_exclusions(line):

@@ -31,15 +31,18 @@ Describe 'Worker artifact reconciliation (#3560)' {
 
         $script:observedSearches = @()
         $script:prListProvider = {
+            # Lot 8 (#4150) : le provider rend des items AU CONTRAT DU MODULE
+            # gh-pull-requests.ps1 (PascalCase, AuthorLogin scalaire, CreatedAt
+            # string ISO) — même forme que la jambe par défaut Get-PullRequestSummary.
             param($repository, $searchQuery)
             $script:observedSearches += $searchQuery
             if ($repository -eq 'jsboige/roo-extensions') {
                 return @(
-                    [PSCustomObject]@{ number = 101; url = 'https://example.test/pr/101'; title = 'fix: reconcile worker result'; body = 'Relates to #3560'; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:05:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
-                    [PSCustomObject]@{ number = 102; url = 'https://example.test/pr/102'; title = 'fix: unrelated #35601 result'; body = ''; headRefName = 'fix/35601'; createdAt = '2026-09-10T12:06:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
-                    [PSCustomObject]@{ number = 103; url = 'https://example.test/pr/103'; title = 'fix: foreign-author #3560 result'; body = ''; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:07:00Z'; author = [PSCustomObject]@{ login = 'other-account' } },
-                    [PSCustomObject]@{ number = 104; url = 'https://example.test/pr/104'; title = 'fix: foreign-branch #3560 result'; body = ''; headRefName = 'fix/foreign'; createdAt = '2026-09-10T12:08:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
-                    [PSCustomObject]@{ number = 99; url = 'https://example.test/pr/99'; title = 'fix: old #3560 result'; body = ''; headRefName = 'fix/old'; createdAt = '2026-09-10T10:00:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } }
+                    [PSCustomObject]@{ Number = 101; Url = 'https://example.test/pr/101'; Title = 'fix: reconcile worker result'; Body = 'Relates to #3560'; HeadRefName = 'fix/3560'; CreatedAt = '2026-09-10T12:05:00Z'; AuthorLogin = 'worker-account' },
+                    [PSCustomObject]@{ Number = 102; Url = 'https://example.test/pr/102'; Title = 'fix: unrelated #35601 result'; Body = ''; HeadRefName = 'fix/35601'; CreatedAt = '2026-09-10T12:06:00Z'; AuthorLogin = 'worker-account' },
+                    [PSCustomObject]@{ Number = 103; Url = 'https://example.test/pr/103'; Title = 'fix: foreign-author #3560 result'; Body = ''; HeadRefName = 'fix/3560'; CreatedAt = '2026-09-10T12:07:00Z'; AuthorLogin = 'other-account' },
+                    [PSCustomObject]@{ Number = 104; Url = 'https://example.test/pr/104'; Title = 'fix: foreign-branch #3560 result'; Body = ''; HeadRefName = 'fix/foreign'; CreatedAt = '2026-09-10T12:08:00Z'; AuthorLogin = 'worker-account' },
+                    [PSCustomObject]@{ Number = 99; Url = 'https://example.test/pr/99'; Title = 'fix: old #3560 result'; Body = ''; HeadRefName = 'fix/old'; CreatedAt = '2026-09-10T10:00:00Z'; AuthorLogin = 'worker-account' }
                 )
             }
             return @()
@@ -56,16 +59,21 @@ Describe 'Worker artifact reconciliation (#3560)' {
         $code | Should -Match "jsboige/roo-extensions"
         $code | Should -Match "jsboige/jsboige-mcp-servers"
         $code | Should -Match "\(\[\^0-9\]\|\$\)"
-        $code | Should -Match "gh pr list"
-        $code | Should -Match "--search"
-        $code | Should -Match "created:>="
+        # Lot 8 (#4150) : la jambe par défaut est le module REST (0 point GraphQL) —
+        # listing created desc coupé à $RunStart (parité created:>= du search d'origine).
+        $code | Should -Match "Get-PullRequestSummary"
+        $code | Should -Match "-IncludeBody"
+        $code | Should -Match '-CreatedSince \$RunStart'
         $code | Should -Match 'git -C ""\$WorktreePath"" config --get user\.name'
-        $code | Should -Match 'headRefName -eq \$ExpectedRef'
+        $code | Should -Match 'HeadRefName\)" -eq \$ExpectedRef'
         $code | Should -Match '\$SubmoduleTop -ne \$ParentTop'
         $code | Should -Not -Match "gh api user"
         $code | Should -Not -Match "--limit 100(?!0)"
         $code | Should -Not -Match "gh pr (create|merge|close|edit|comment)"
         $code | Should -Not -Match "gh issue (edit|close|comment)"
+        # Anti-régression lot 8 : plus AUCUNE sous-commande GraphQL-consommatrice dans
+        # cette fonction (la doctrine #4604 est le motif du lot).
+        $code | Should -Not -Match "gh (pr|issue) (list|view)"
     }
 
     It 'retains only a recent exact issue reference from the expected author and branch' {
@@ -93,23 +101,23 @@ Describe 'Worker artifact reconciliation (#3560)' {
 
             $rows = @(1..150 | ForEach-Object {
                 [PSCustomObject]@{
-                    number = $_
-                    url = "https://example.test/pr/$_"
-                    title = 'unrelated pull request'
-                    body = ''
-                    headRefName = "other/$_"
-                    createdAt = '2026-09-10T12:01:00Z'
-                    author = [PSCustomObject]@{ login = 'worker-account' }
+                    Number = $_
+                    Url = "https://example.test/pr/$_"
+                    Title = 'unrelated pull request'
+                    Body = ''
+                    HeadRefName = "other/$_"
+                    CreatedAt = '2026-09-10T12:01:00Z'
+                    AuthorLogin = 'worker-account'
                 }
             })
             $rows += [PSCustomObject]@{
-                number = 151
-                url = 'https://example.test/pr/151'
-                title = 'fix: delivered #3560 artifact'
-                body = ''
-                headRefName = 'fix/3560-late-in-list'
-                createdAt = '2026-09-10T12:02:00Z'
-                author = [PSCustomObject]@{ login = 'worker-account' }
+                Number = 151
+                Url = 'https://example.test/pr/151'
+                Title = 'fix: delivered #3560 artifact'
+                Body = ''
+                HeadRefName = 'fix/3560-late-in-list'
+                CreatedAt = '2026-09-10T12:02:00Z'
+                AuthorLogin = 'worker-account'
             }
             return $rows
         }

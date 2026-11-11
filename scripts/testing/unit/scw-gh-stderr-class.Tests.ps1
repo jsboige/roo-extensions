@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Drift-guard for the gh binary-family conversion of the #3731 PS-5.1
     stderr class in start-claude-worker.ps1 (lot 2, delivered 2026-09-20
@@ -22,6 +22,16 @@
       subexpressions in a string ($($Task.issueNumber)) — a bare
       $Obj.prop in a double-quoted string interpolates the object, not the
       property.
+
+    Lot 8 (#4150, doctrine #4604) retire deux sous-classes ENTIERES : les
+    lectures du worker passent par les modules REST (gh-issues.ps1,
+    gh-pull-requests.ps1), il ne reste en cmd-layer gh que des MUTATIONS
+    (claim, [RESULT], POST reviewers — toutes 2>&1). Les tests « discard
+    form present » (gh ... 2>nul) et « --search quote-doubled » gardaient
+    la présence de formes dont le DERNIER PORTEUR était une jambe convertie
+    — supprimés avec le lot ; les gardes de CLASSE (pas de redirect gh hors
+    cmd-layer, pas de simple quote, jq doublé, sous-expressions) restent
+    et mordent toujours sur les sites survivants.
 
     Assertions are engine-independent (regex over raw text) because the
     drift-guard itself runs under pwsh/Pester 6 — the engine where the
@@ -49,11 +59,12 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
     }
 
     It 'merge form present: gh stderr merged at the cmd.exe layer (2>&1 inside the cmd string)' {
+        # Lot 8 : les mutations cmd-layer restantes (claim, [RESULT], POST
+        # reviewers) fusionnent toutes en 2>&1 — le discard gh (2>nul) n a
+        # plus de porteur depuis la conversion REST des lectures (mesuré :
+        # les 2>nul survivants sont tous des appels git). Un futur site gh
+        # en 2>nul resterait conforme #3731 — rien ne l interdit ici.
         $script:src | Should -Match 'cmd /c "gh [^\r\n]*2>&1"'
-    }
-
-    It 'discard form present: gh stderr discarded at the cmd.exe layer (2>nul)' {
-        $script:src | Should -Match 'cmd /c "gh [^\r\n]*2>nul"'
     }
 
     It 'no single-quoted argument inside a gh cmd string (single quotes survive cmd literally)' {
@@ -70,14 +81,23 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
         @($offenders) | Should -Be @()
     }
 
-    It 'jq expressions inside gh cmd strings are quote-doubled (--jq ""..."" — pipes need double quotes)' {
-        $script:src | Should -Match '--jq "".+""'
-        $script:src | Should -Not -Match "--jq '"
+    It 'jq expressions inside gh cmd strings are quote-doubled when present (--jq ""..."" — pipes need double quotes)' {
+        # Les lectures REST passent par Invoke-GhApiJson : aucun --jq ne
+        # subsiste en cmd-layer. Le pin NÉGATIF couvre chaque site jusqu'à
+        # sa redirection, même si le --jq tombe à la ligne suivante (#4645).
+        $callSites = @([regex]::Matches($script:src,
+            '(?ms)^[ \t]*&[ \t]+cmd[ \t]+/c[ \t]+"gh .*?(?:2>&1|2>nul)"'))
+        $offenders = @($callSites | Where-Object { $_.Value -match "--jq '" })
+        @($offenders) | Should -Be @()
     }
 
-    It 'search values inside gh cmd strings are quote-doubled (--search ""..."")' {
-        $script:src | Should -Match '--search "".+""'
-        $script:src | Should -Not -Match "--search '"
+    It 'no --search survives in an executable gh cmd string (lot 8: the class left with the last GraphQL leg)' {
+        # Lot 8 (#4150) : le dernier `--search` exécutable (réconciliation
+        # d artefacts, `#N in:title,body created:>=X`) vit désormais dans le
+        # module REST (Get-PullRequestSummary -CreatedSince). Un --search
+        # qui reparaîtrait en cmd-layer serait une jambe GraphQL de retour.
+        $script:lines | Where-Object { $_ -match '--search' -and -not $_.TrimStart().StartsWith('#') } |
+            Should -Be @()
     }
 
     It 'the multiline [RESULT] comment path uses a temp body-file (a multiline --body cannot cross cmd)' {
