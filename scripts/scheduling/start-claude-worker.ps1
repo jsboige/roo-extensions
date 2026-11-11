@@ -719,7 +719,8 @@ function Resolve-ProjectGhReader {
     (#3896), en rendant exit 0 « propre ». Candidats, dans l'ordre :
       1. $env:CLAUDE_WORKER_PROJECT_GH_USER s'il est posé ;
       2. le premier compte connecte dont les scopes listes par `gh auth status`
-         contiennent 'read:project'.
+         contiennent '(read:)?project' (le scope ecriture 'project' implique
+         la lecture).
     Returns $true when a token is pinned. $false = aucun compte lisible : une
     SEULE ligne ERROR par passage (remplace la repetition de WARN qui passait
     inaperçue), le fail-closed par issue reste en aval.
