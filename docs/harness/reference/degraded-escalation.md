@@ -98,6 +98,19 @@ une source de repli. Plafond de fraîcheur du miroir : la plus récente entrée
 doit dater de moins d'un cycle, sinon `1` sans sonnerie (un G: gelé depuis le
 cut #4131 répond un faux « rien à signaler » sur des données mortes).
 
+**#4643 — les archives de condensation sont lues aussi.** La condensation
+retire les messages du vif sur les deux surfaces ; un `[REPAIRED]` ou une
+escalade consommés par une condensation entre deux passages de l'organe
+restaient invisibles (sonnerie récurrente après réparation documentée — cas du
+10/11 — et faux négatif pour l'escalade archivée — cas du 03/11). En mode
+store, l'organe lit en plus chaque archive posée dans la fenêtre
+`--archive-window-hours` (défaut **48 h** : 2 cycles d'échéance + la
+re-sonnerie quotidienne ; `0` désactive). Listing d'archives illisible =
+erreur d'instrument (« fenêtre d'archives AVEUGLE »), jamais « aucune
+archive » ; une archive sans horodatage parsable reste lue. Les déclarations
+crossPostées (même auteur, même horodatage) se dédoublonnent sur
+`(lane, poste)`.
+
 **Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
 défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans `MCP_PROXY_BEARER`
 sort **1** avec le message « instrument incomplet : store PG non lu », quelles
@@ -137,7 +150,11 @@ réparé. Le texte de la sonnerie ne porte **aucun token de declaration**
 ouvrir une nouvelle. Le transport est celui de `detect-approval-stalls.py`
 (`call_dashboard_tool`, importé, pas recopié — le même pour LIRE le store et
 POSTER la sonnerie). Un `--ring` qui échoue sort **1** : une sonnerie qui n'est
-pas partie ne se présente jamais comme un succès.
+pas partie ne se présente jamais comme un succès. Elle est de plus **annulée
+sur mesure partielle** (W3, review #4655) : dashboard(s) illisible(s) ⇒ pas de
+sonnerie — la fenêtre aveugle peut cacher le `[REPAIRED]` qui ferait taire
+l'escalade mesurée, et un faux réveil coûte une intervention humaine ; le
+cycle suivant re-sonne sur une lecture complète.
 
 ---
 
