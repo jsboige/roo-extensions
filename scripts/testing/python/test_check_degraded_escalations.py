@@ -283,7 +283,14 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     # --- Review Hermes 04/11 : bornes de la lecture store ----------------
 
-    def fake_store(self, dashboards, keys=None, structured=None, raw=None):
+    # Pieds de page REELS que l'hote RSM ajoute apres l'enveloppe (releve
+    # 11/11 ai-01, #4517 reouverte) : un `json.loads` du texte entier leve.
+    RSM_TRAILERS = ("\n[NOTIF] 3 message(s) non lu(s) en inbox. myia-ai-01:roo-extensions. "
+                    "Use roosync_messages action:\"inbox\".\n\n[⏱ roosync_dashboard 478ms]")
+    HOST_MACHINE = "myia-host"
+
+    def fake_store(self, dashboards, keys=None, structured=None, raw=None,
+                   trailer=""):
         """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
         (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
         les arguments `read` dans self.reads pour les assertions par-cle.
@@ -296,6 +303,12 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         `raw` = {id: texte} : servi TEL QUEL pour `format: json`, pour exercer
         une enveloppe en echec (`success: false`) ou une forme inattendue --
         le serveur reel les rend sans `isError` (review ai-01 04/11, SHOULD-1).
+
+        Fidele au serveur reel (#4517 reouverte 11/11) : un `read` machine lit
+        `machineId` et, sans lui, sert le dashboard machine de l'HOTE
+        (`args.machineId ?? getLocalMachineId()`, dashboard.ts) -- `machine`
+        est ignore. `trailer` est ajoute apres CHAQUE reponse, comme les pieds
+        de page `[NOTIF]`/`[⏱]` de l'hote.
         """
         if keys is None:
             keys = list(dashboards)
@@ -307,8 +320,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                                    "dashboards": [{"key": k} for k in keys]})
             elif arguments.get("action") == "read":
                 self.reads.append(arguments)
-                ident = (arguments.get("workspace") or arguments.get("machine")
-                         or "global")
+                if arguments.get("type") == "machine":
+                    ident = arguments.get("machineId") or self.HOST_MACHINE
+                else:
+                    ident = arguments.get("workspace") or "global"
                 if raw is not None and arguments.get("format") == "json" \
                         and ident in raw:
                     body = raw[ident]
@@ -321,7 +336,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                     body = dashboards.get(ident, "")
             else:
                 return None
-            return {"content": [{"type": "text", "text": body}]}
+            return {"content": [{"type": "text", "text": body + trailer}]}
 
         original = cde._load_transport
         cde._load_transport = lambda: call
@@ -351,7 +366,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         }, keys=["global", "machine-myia-x", "workspace-y"])
         code = self.run_store_main()
         self.assertEqual(code, 0)
-        by_type = {(r.get("type"), r.get("machine"), r.get("workspace"))
+        by_type = {(r.get("type"), r.get("machineId"), r.get("workspace"))
                    for r in self.reads}
         self.assertIn(("global", None, None), by_type)
         self.assertIn(("machine", "myia-x", None), by_type)
@@ -417,6 +432,59 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"]),
             self.message("2026-11-03T02:00:00.000Z", tags=["REPAIRED"])]})
         self.assertEqual(self.run_store_main(), 0)
+
+    # --- #4517 reouverte 11/11 : pieds de page RSM et parametre machineId --
+
+    def test_listing_behind_rsm_trailers_is_parsed(self):
+        # Avant : `Extra data` -> None -> « store injoignable » -> miroir G:.
+        listing = ('{"success": true, "dashboards": [{"key": "global"}, '
+                   '{"key": "workspace-y"}]}' + self.RSM_TRAILERS)
+        self.assertEqual(cde.store_keys_from_listing(
+            {"content": [{"type": "text", "text": listing}]}),
+            ["global", "workspace-y"])
+        # Contre-temoin : un texte qui ne COMMENCE pas par du JSON reste
+        # illisible (fail-closed), pieds de page ou non.
+        self.assertIsNone(cde.store_keys_from_listing(
+            {"content": [{"type": "text", "text": "## Intercom" + self.RSM_TRAILERS}]}))
+
+    def test_store_json_behind_rsm_trailers_is_parsed(self):
+        body = json.dumps({"success": True, "data": {"intercom": {"messages": [
+            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]}}})
+        entries = cde.entries_from_store_json(body + self.RSM_TRAILERS)
+        self.assertEqual(len(entries), 1)
+        # Le markdown d'un hote ancien reste « pas du JSON » -> repli legitime.
+        self.assertIsNone(cde.entries_from_store_json("## Intercom" + self.RSM_TRAILERS))
+
+    def test_repaired_behind_rsm_trailers_closes_by_the_store(self):
+        # Le cas mesure : [REPAIRED] present dans le store, pieds de page sur
+        # chaque reponse. Avant : repli miroir, exit 1 (bearer configure) --
+        # et exit 2 sans bearer, sur une escalade fermee.
+        self.fake_store({}, keys=["workspace-y"], trailer=self.RSM_TRAILERS,
+                        structured={"y": [
+                            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"]),
+                            self.message("2026-11-03T02:00:00.000Z", tags=["REPAIRED"])]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_overdue_behind_rsm_trailers_still_rings(self):
+        # Contre-temoin : lire a travers les pieds de page ne doit pas rendre
+        # muet -- une escalade vraiment ouverte et echue sonne toujours.
+        self.fake_store({}, keys=["workspace-y"], trailer=self.RSM_TRAILERS,
+                        structured={"y": [
+                            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]})
+        self.assertEqual(self.run_store_main(), 2)
+
+    def test_repaired_on_another_machine_dashboard_closes(self):
+        # `machine` etait ignore par le serveur : chaque cle machine-* relisait
+        # le dashboard de l'HOTE, et un [REPAIRED] poste sur machine-myia-x
+        # restait invisible -> exit 2 sur une escalade fermee.
+        self.fake_store({}, keys=["global", "machine-myia-x"], structured={
+            "global": [self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])],
+            "myia-x": [self.message("2026-11-03T02:00:00.000Z", tags=["REPAIRED"])],
+            self.HOST_MACHINE: []})
+        self.assertEqual(self.run_store_main(), 0)
+        machine_reads = [r for r in self.reads if r.get("type") == "machine"]
+        self.assertEqual([r.get("machineId") for r in machine_reads], ["myia-x"])
+        self.assertNotIn("machine", machine_reads[0])
 
     def test_store_json_prose_without_tags_stays_clean(self):
         # Temoin NEGATIF : la meme prose sans le tag n'est pas une escalade.
