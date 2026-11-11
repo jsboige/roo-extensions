@@ -13,11 +13,13 @@ scripts/testing/python` tourne en CI sur ubuntu.
 
 import importlib.util
 import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[2] / "diagnostic" / "check-degraded-escalations.py"
 
@@ -255,6 +257,43 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         code = self.run_mirror_main(self.root / "dashboards",
                                     extra=["--ring-bearer", ""])
         self.assertEqual(code, 1)
+
+    def test_default_read_without_bearer_cannot_verdict_on_the_mirror(self):
+        # #4650, le faux verdict du 11/11 : sans bearer, le miroir IMPLICITE
+        # n'est plus ecrit depuis #4131 (`gdriveSkipped`). Ici il est FRAIS et
+        # porte une escalade echue — un 2 ferait sonner le user sur une source
+        # morte. L'instrument doit dire qu'il ne sait pas (1), pas verdict.
+        self.root.joinpath("dashboards").mkdir()
+        self.dashboard("dashboards/overdue.md", """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T08:30:00.000Z] b|ws
+
+[DONE] rien de degrade
+""")
+        with mock.patch.dict(os.environ, {"ROOSYNC_SHARED_PATH": str(self.root),
+                                          "MCP_PROXY_BEARER": ""}):
+            code = cde.main(["--now", NOW])
+        # Tueur : sur 92688ada ce chemin rend 2 (verdict confiant sur le miroir).
+        self.assertEqual(code, 1)
+
+    def test_explicit_dashboard_dir_without_bearer_keeps_its_verdict(self):
+        # Contre-temoin : seule la lecture IMPLICITE degrade (#4650). Un
+        # --dashboard-dir explicite reste un rejeu lisible sans bearer, verdict
+        # inchange — meme escalade echue, meme miroir frais -> 2.
+        self.root.joinpath("dashboards").mkdir()
+        self.dashboard("dashboards/overdue.md", """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T08:30:00.000Z] b|ws
+
+[DONE] rien de degrade
+""")
+        code = self.run_mirror_main(self.root / "dashboards",
+                                    extra=["--ring-bearer", ""])
+        self.assertEqual(code, 2)
 
     def test_replay_file_has_no_freshness_ceiling(self):
         # --dashboard-file = rejeu forensic : des donnees vieilles restent
