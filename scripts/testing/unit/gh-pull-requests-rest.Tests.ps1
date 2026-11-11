@@ -1,4 +1,4 @@
-# gh-pull-requests-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL
+﻿# gh-pull-requests-rest.Tests.ps1 — Pester 5 : contrat REST + sentinelle GraphQL
 #
 # Ce que ces tests prouvent (#4150 lots 2-3, doctrine #4604) :
 #   1. la normalisation REST -> contrat historique : `state = closed` + `merged_at`
@@ -673,5 +673,120 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match 'proceeding without CI gate'
         $bot | Should -Match 'no CI check-runs at all'
         $bot | Should -Match 'CI not certified \(empty rollup\)'
+    }
+}
+
+Describe 'Get-PullRequestSummary — extensions lot 8 (#4150 : worker hors GraphQL)' {
+    # Url/CreatedAt (toujours rendus), IncludeBody (opt-in), CreatedSince (cutoff
+    # de pagination created desc), Get-PullRequestReviewState (les deux anciennes
+    # jambes `gh pr view` du worker en UN appel).
+
+    It 'rend Url et CreatedAt — CreatedAt en chaîne ISO seconde-précision (parité ConvertTo-IsoString, review #4641 point b)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '[{"number":101,"state":"open","merged_at":null,"head_ref":"fix/101","title":"t","login":"u","labels":[],"url":"https://example.test/pr/101","created_at":"2026-09-10T12:05:00Z"}]'
+        try {
+            $s = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestSummary -Repo jsboige/roo-extensions -State open }
+            $s.Ok | Should -BeTrue
+            $s.Items[0].Url | Should -Be 'https://example.test/pr/101'
+            # pwsh 7.4+ coerce l'ISO en [datetime] au ConvertFrom-Json ; 5.1 garde la
+            # chaîne — le contrat du module est STRING, les deux hôtes rendent la même forme.
+            ($s.Items[0].CreatedAt -is [string]) | Should -BeTrue
+            $s.Items[0].CreatedAt | Should -Be '2026-09-10T12:05:00Z'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'le body n est demandé (jq) et mappé (converter) QUE sous -IncludeBody' {
+        # Le shim ne filtre pas par jq : il rend la fixture TELLE QUE le jq l aurait
+        # rendue. Deux fixtures, donc : sans body (appel standard — le jq ne le
+        # sélectionne pas) et avec body (appel -IncludeBody).
+        $shimNoBody = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '[{"number":102,"state":"open","merged_at":null,"head_ref":"fix/102","title":"t","login":"u","labels":[],"url":"https://example.test/pr/102","created_at":"2026-09-10T12:06:00Z"}]'
+        $shimWithBody = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '[{"number":102,"state":"open","merged_at":null,"head_ref":"fix/102","title":"t","login":"u","labels":[],"url":"https://example.test/pr/102","created_at":"2026-09-10T12:06:00Z","body":"Refs #3560"}]'
+        try {
+            # Appel STANDARD : la réponse (filtre jq appliqué) ne contient pas body —
+            # la propriété rendue est vide, les listings ne paient pas de bodies.
+            $s = Invoke-WithShim -ShimDir $shimNoBody.Dir { Get-PullRequestSummary -Repo jsboige/roo-extensions -State open }
+            $s.Ok | Should -BeTrue
+            $s.Items[0].Body | Should -BeNullOrEmpty
+
+            # Appel -IncludeBody : le jq sélectionne body, le converter le mappe —
+            # la réconciliation d artefacts du worker matche `#N in:title,body`.
+            $s2 = Invoke-WithShim -ShimDir $shimWithBody.Dir { Get-PullRequestSummary -Repo jsboige/roo-extensions -State open -IncludeBody }
+            $s2.Ok | Should -BeTrue
+            $s2.Items[0].Body | Should -Be 'Refs #3560'
+        }
+        finally {
+            Remove-Item $shimNoBody.Dir -Recurse -Force -ErrorAction SilentlyContinue
+            Remove-Item $shimWithBody.Dir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        # Pin de l OPT-IN (le shim ne peut pas simuler le filtrage jq) : le body
+        # n entre dans l expression jq que sous le switch — sans ce pin, un
+        # `body: .body` inconditionnel resterait vert aux tests tout en faisant
+        # payer des bodies multi-KB à chaque listing de la flotte.
+        $moduleSource = Get-Content $script:Helper -Raw
+        # Single-quoted (les $ sont LITTÉRAUX ici) ; les ' internes doublées.
+        ($moduleSource -match 'if \(\$IncludeBody\) \{ \$jq \+= '', body: \.body'' \}') | Should -BeTrue
+    }
+
+    It 'CreatedSince écarte les PR plus vieilles que le cutoff (parité created:>= du search d origine)' {
+        # Tri created desc dans la page (contrat REST sort=created&direction=desc) :
+        # la PR 10:00 est plus vieille que le cutoff 12:00 — elle n est ni rendue,
+        # ni ne peut être suivie de quoi que ce soit de plus récent.
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '[{"number":202,"state":"open","merged_at":null,"head_ref":"fix/newer","title":"t","login":"u","labels":[],"url":"https://example.test/pr/202","created_at":"2026-09-10T12:06:00Z"},{"number":201,"state":"open","merged_at":null,"head_ref":"fix/new","title":"t","login":"u","labels":[],"url":"https://example.test/pr/201","created_at":"2026-09-10T12:05:00Z"},{"number":99,"state":"open","merged_at":null,"head_ref":"fix/old","title":"t","login":"u","labels":[],"url":"https://example.test/pr/99","created_at":"2026-09-10T10:00:00Z"}]'
+        try {
+            $s = Invoke-WithShim -ShimDir $shim.Dir {
+                Get-PullRequestSummary -Repo jsboige/roo-extensions -State all -CreatedSince ([datetime]'2026-09-10T12:00:00Z')
+            }
+            $s.Ok | Should -BeTrue
+            @($s.Items).Count | Should -Be 2
+            @($s.Items | Where-Object { $_.Number -eq 99 }) | Should -BeNullOrEmpty
+            # Inclusion stricte : une PR CRÉÉE exactement au cutoff passe (created:>= est inclusif).
+            $s2 = Invoke-WithShim -ShimDir $shim.Dir {
+                Get-PullRequestSummary -Repo jsboige/roo-extensions -State all -CreatedSince ([datetime]'2026-09-10T12:05:00Z')
+            }
+            @($s2.Items).Count | Should -Be 2
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+Describe 'Get-PullRequestReviewState — lot 8 (reviewRequests + headRefOid en un appel)' {
+    It 'rend les reviewers demandés et la SHA de tête (les deux anciennes jambes gh pr view du worker)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '{"reviewers":["alice","bob"],"head_sha":"87460acb11111111111111111111111111111111"}'
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestReviewState -Repo jsboige/roo-extensions -Number 4641 }
+            $r.Ok | Should -BeTrue
+            @($r.ReviewerLogins).Count | Should -Be 2
+            $r.ReviewerLogins -contains 'alice' | Should -BeTrue
+            $r.HeadSha | Should -Be '87460acb11111111111111111111111111111111'
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'zéro reviewer demandé = tableau vide, pas null (le caller teste le Count)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '{"reviewers":[],"head_sha":"abc"}'
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestReviewState -Repo jsboige/roo-extensions -Number 7 }
+            $r.Ok | Should -BeTrue
+            @($r.ReviewerLogins).Count | Should -Be 0
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
+    It 'échec gh -> Ok = $false (fail-safe : Request-StaleReview return sans POST)' {
+        $shim = New-GhShim -Dir (Join-Path $script:TmpRoot ("ghshim-" + [guid]::NewGuid().ToString('N').Substring(0, 8))) `
+            -Json '{"message":"Not Found"}' -ExitCode 1
+        try {
+            $r = Invoke-WithShim -ShimDir $shim.Dir { Get-PullRequestReviewState -Repo jsboige/roo-extensions -Number 404 }
+            $r.Ok | Should -BeFalse
+            $r.HeadSha | Should -BeNullOrEmpty
+        }
+        finally { Remove-Item $shim.Dir -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
