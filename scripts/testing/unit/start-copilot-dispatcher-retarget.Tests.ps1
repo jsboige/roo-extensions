@@ -99,7 +99,10 @@ Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: isolated per-issue
         }
     }
 
-    It 'creates .claude/worktrees/wt-copilot-<issue> on a wt/copilot-* branch' {
+    # NIT 3 (ai-01): the name said `wt-copilot-<issue>`, which reads as Pester
+    # data-driven interpolation (`<param>` with -TestCases) — it is a literal.
+    # Named with the concrete issue number the test actually uses instead.
+    It 'creates .claude/worktrees/wt-copilot-42 on a wt/copilot-* branch' {
         $wt = Initialize-CopilotWorktree -RepositoryRoot $script:tmpRepo -IssueNumber 42
         $wt | Should -Not -BeNullOrEmpty
         $wt.Path | Should -Be "$script:tmpRepo/.claude/worktrees/wt-copilot-42"
@@ -181,6 +184,12 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         $script:src | Should -Match '\$state\.lastWorktreePath = \$workRoot'
         $script:src | Should -Match '\$state\.lastWorkBranch = \$copilotWt\.Branch'
         $script:src | Should -Match '\$state\.lastTargetRepoSlug = \$queueSlug'
+        # NIT 2 pin: $workRoot/$copilotWt are initialized BEFORE the guard so the
+        # bookkeeping above never reads an undefined variable on an early
+        # blocked path (ai-01 approve review).
+        $initPos = $script:src.IndexOf('$workRoot = $null')
+        $guardPos = $script:src.IndexOf('Invoke-PhaseCDispatch -Profile')
+        ($initPos -ge 0 -and $initPos -lt $guardPos) | Should -BeTrue
     }
 }
 

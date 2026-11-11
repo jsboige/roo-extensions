@@ -988,6 +988,12 @@ $state = Load-State
 # inside that worktree only.
 $queueRepoRoot = $repoRoot
 $queueSlug = ''
+# NIT 2 (ai-01 approve review): $workRoot/$copilotWt are only assigned when a
+# target issue is found; the state bookkeeping below reads them on EVERY exit
+# path (early guard blocks, missing copilot config, idle no-issue). Initialize
+# both so no path reads an undefined variable.
+$workRoot = $null
+$copilotWt = $null
 if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {
     if ([string]::IsNullOrWhiteSpace($TargetRepoPath) -or -not (Test-Path $TargetRepoPath)) {
         Write-Log "TargetRepoSlug '$TargetRepoSlug' given without a usable -TargetRepoPath - blocking before any Copilot call (fail-closed, zero premium burn)"
@@ -1043,26 +1049,26 @@ if ($status -ne 'blocked') {
             $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
             $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -PromptRepositoryRoot $repoRoot -DetectHeadMoves:$canDeliver
             $status = [string]$dispatch.status
-        if ($dispatch.exitCode -eq 0) {
-            Write-Log "Phase C execution success (exit=0)"
-            if ($dispatch.premiumRequests -ge 0) {
-                Write-Log "Observed Copilot premium requests: $($dispatch.premiumRequests)"
+            if ($dispatch.exitCode -eq 0) {
+                Write-Log "Phase C execution success (exit=0)"
+                if ($dispatch.premiumRequests -ge 0) {
+                    Write-Log "Observed Copilot premium requests: $($dispatch.premiumRequests)"
+                } else {
+                    Write-Log "Copilot output did not expose premium usage metric"
+                }
+                Save-Report -Content $dispatch.report
             } else {
-                Write-Log "Copilot output did not expose premium usage metric"
-            }
-            Save-Report -Content $dispatch.report
-        } else {
-            Write-Log "Phase C execution failed (exit=$($dispatch.exitCode))"
-            if ($dispatch.error) {
-                Write-Log "Dispatch error: $($dispatch.error)"
-            }
-            if ($dispatch.output.Count -gt 0) {
-                $tailLines = $dispatch.output | Select-Object -Last 6
-                foreach ($line in $tailLines) {
-                    Write-Log "Dispatch output: $line"
+                Write-Log "Phase C execution failed (exit=$($dispatch.exitCode))"
+                if ($dispatch.error) {
+                    Write-Log "Dispatch error: $($dispatch.error)"
+                }
+                if ($dispatch.output.Count -gt 0) {
+                    $tailLines = $dispatch.output | Select-Object -Last 6
+                    foreach ($line in $tailLines) {
+                        Write-Log "Dispatch output: $line"
+                    }
                 }
             }
-        }
         }
     }
 }
