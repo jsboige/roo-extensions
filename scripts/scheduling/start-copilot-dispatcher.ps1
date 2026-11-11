@@ -36,6 +36,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+# #4150 lot 7 (doctrine #4604) : lectures GitHub en REST — le quota GraphQL
+# partage flotte tombe en ~60 s des qu'une lane liste des issues ; ces helpers
+# consomment le budget core, jamais epuise en pratique.
+. (Join-Path $scriptDir '..\common\gh-issues.ps1')
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $logDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_DISPATCHER_LOG_DIR)) {
     $env:COPILOT_DISPATCHER_LOG_DIR
@@ -813,7 +817,10 @@ function Get-TargetIssue {
 
     if ($PreferredIssueNumber -gt 0) {
         try {
-            $preferred = & gh issue view $PreferredIssueNumber @repoArgs --json number,title,state,url,labels 2>$null | ConvertFrom-Json
+            # #4150 lot 7 : jambe REST (doctrine #4604) — champs en casse gh
+            # (number/title/state/url/labels), le branchement aval ne change pas.
+            $prefR = Get-IssueDetail -Repo $repoSlug -Number $PreferredIssueNumber
+            $preferred = if ($prefR.Ok) { $prefR.Item } else { $null }
             if ($preferred) {
                 if (-not (Test-IsActionableIssue -Issue $preferred)) {
                     return $null
@@ -852,10 +859,13 @@ function Get-TargetIssue {
         # premium burn). The pinned -IssueNumber path above is unaffected
         # (explicit provisioning beats the pool).
         # `-label:frozen` (#3381): an issue frozen by decision leaves the pool even if provisioned.
-        # Both terms live in --search on purpose: when --search is given, `gh issue list` drops
-        # --label silently (measured 23/09: `--label epic --search "-label:epic"` returned 25
-        # issues, not 0), which would turn this pool into every open issue.
-        $items = & gh issue list @repoArgs --state open --search "label:copilot-target -label:frozen" --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        # Both terms live in distinct filters on purpose: gh drops --label when
+        # --search is given (measured 23/09: `--label epic --search "-label:epic"`
+        # returned 25 issues, not 0). REST separates them cleanly: -Labels is the
+        # server-side `labels=` query param, -ExcludeLabels the client-side
+        # negation `gh --search "-label:"` used to express (#4150 lot 7).
+        $poolR = Get-IssueSummary -Repo $repoSlug -Labels @('copilot-target') -ExcludeLabels @('frozen') -MaxCount 25
+        $items = if ($poolR.Ok) { @($poolR.Items) } else { $null }
         if ($null -eq $items -or $items.Count -eq 0) {
             return $null
         }

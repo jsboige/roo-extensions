@@ -78,6 +78,19 @@ Describe 'Copilot dispatcher DryRun invariants' {
             $scriptCopy = Join-Path $scriptDir 'start-copilot-dispatcher.ps1'
             [System.IO.File]::WriteAllText($scriptCopy, $ScriptText, $script:utf8Bom)
 
+            # The dispatcher dot-sources ..\common\gh-issues.ps1 (lot 7a, #4150):
+            # the module must exist in the sandbox or the child dies at the
+            # dot-source, before any DryRun semantics (review #4641 point c —
+            # 6 dryrun red on pwsh 7/Linux + CI, 8/8 green at base). The
+            # destination mirrors the script's OWN path math, like the state
+            # fixture below: Join-Path with '..\common\gh-issues.ps1' resolves
+            # through ..\ on Windows and yields a literal oddly-named dir on
+            # Linux -- portable both ways.
+            $moduleSrc = Join-Path $PSScriptRoot '../../common/gh-issues.ps1'
+            $moduleDst = Join-Path $scriptDir '..\common\gh-issues.ps1'
+            New-Item -ItemType Directory -Path (Split-Path -Parent $moduleDst) -Force | Out-Null
+            Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
+
             # State fixture at the exact path the script computes
             # (Join-Path $repoRoot ".claude\scheduler"): on Linux the literal
             # backslash yields a single oddly-named directory -- mirroring the
@@ -91,6 +104,16 @@ Describe 'Copilot dispatcher DryRun invariants' {
             # deterministically instead of relying on stderr suppression.
             & git -C $repo init -q
             if ($LASTEXITCODE -ne 0) { throw "git init failed in harness at $repo" }
+            # A production repo HAS an origin -- Get-RepoSlug derives the pool
+            # slug from it (#3641 §3). Without one, the sandbox repo's slug is
+            # empty and target discovery short-circuits at the module's
+            # Mandatory -Repo binding BEFORE any gh call (the pre-lot-7a
+            # `gh issue view` was invoked even with an empty -R, which is what
+            # the positive control used to observe). With the origin, the
+            # mutated run exercises the REAL REST discovery leg:
+            # gh api repos/jsboige/sandbox-fixture/issues/4242 (review #4641).
+            & git -C $repo remote add origin https://github.com/jsboige/sandbox-fixture.git
+            if ($LASTEXITCODE -ne 0) { throw "git remote add failed in harness at $repo" }
 
             # Copilot MCP config candidate -- same expression as the script
             # (Join-Path $env:APPDATA "Code\User\mcp.json"). APPDATA points at
@@ -359,8 +382,12 @@ exit 0
         # (?s): the work prompt is one multi-line argument, so the recorded
         # invocation spans several physical lines before the flags.
         $records | Should -Match '(?s)copilot :: -p .*--allow-all-tools --no-ask-user'
-        # gh was called for target discovery:
-        $records | Should -Match ([regex]::Escape('gh :: issue view'))
+        # gh was called for target discovery — through the REST module (lot 7a,
+        # #4150): `gh api repos/{owner}/{repo}/issues...`, never the GraphQL
+        # `gh issue view` subcommand this control pinned pre-conversion. The
+        # leading quote is optional: the module embeds explicit quotes in the
+        # URL argument and the fake's record layer may or may not keep them.
+        $records | Should -Match 'gh\s::\sapi\s"?repos/[\w.-]+/[\w.-]+/issues'
         # The state file was rewritten (bytes differ from the fixture):
         Get-FileSha256Hex -Path $script:harness.StateFile | Should -Not -Be $script:harness.StateSha256
         # A work report was written:

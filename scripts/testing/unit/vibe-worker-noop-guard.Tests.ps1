@@ -243,9 +243,21 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
             ($codeOnly -match ',\@\(') | Should -Be $false
         }
 
-        It "parse dans une variable puis rend la collection" {
-            ($content -match '\$parsed\s*=\s*\$raw\s*\|\s*ConvertFrom-Json') | Should -Be $true
-            ($content -match 'return\s+@\(\$parsed\)') | Should -Be $true
+        It "delegue au module REST puis rend la collection (lot 7a)" {
+            # Lot 7a (#4150) : Get-QueueOpenPrs delegue a Get-PullRequestSummary
+            # (module gh-pull-requests.ps1, contracts lots 2-5) ; l'INVARIANT
+            # reste le meme — la collection rendue est @(...) sur une variable,
+            # jamais un pipeline ConvertFrom-Json brut (enumeration divergente
+            # selon l'hote, mesure 15/09). Le pin suit le corps converti ; la
+            # sonde comportementale equivalente vit dans le Test 8 du harness
+            # (stub Get-PullRequestSummary, review #4641 point d).
+            ($content -match 'Get-PullRequestSummary\s+-Repo\s+\$Repo') | Should -Be $true
+            ($content -match 'return\s+@\(\$summary\.Items\)') | Should -Be $true
+            # Garde-fou anti-rechute : l'idiome brut (parse gh inline) ne doit
+            # plus exister dans le CODE (les commentaires sont ecartes, comme
+            # le pin ,@( ci-dessus).
+            $codeOnly = (@($content -split "`n" | Where-Object { $_ -notmatch '^\s*#' })) -join "`n"
+            ($codeOnly -match '\$raw\s*\|\s*ConvertFrom-Json') | Should -Be $false
         }
     }
 }
