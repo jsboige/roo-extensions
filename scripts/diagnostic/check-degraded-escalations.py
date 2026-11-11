@@ -288,7 +288,12 @@ def read_arguments_for_key(key, intercom_limit):
         arguments["type"] = "global"
     elif key.startswith("machine-"):
         arguments["type"] = "machine"
-        arguments["machine"] = key[len("machine-"):]
+        # #4517 (reouverte 11/11) : le parametre de l'outil est `machineId`.
+        # `machine` est ignore -- le serveur lisait alors SON dashboard
+        # machine pour chaque cle machine-* (sonde 11/11 : machine=po-2024
+        # -> machine-myia-ai-01), et une escalade postee sur un autre
+        # dashboard machine restait invisible.
+        arguments["machineId"] = key[len("machine-"):]
     elif key.startswith("workspace-"):
         arguments["type"] = "workspace"
         arguments["workspace"] = key[len("workspace-"):]
@@ -352,6 +357,27 @@ def unrecognized_headers(text):
     return hits
 
 
+_JSON_DECODER = json.JSONDecoder()
+
+
+def leading_json(text):
+    """La valeur JSON en TETE du texte d'outil ; leve ValueError/TypeError
+    si le texte ne commence pas par du JSON.
+
+    #4517 (reouverte 11/11) : l'hote RSM ajoute des pieds de page APRES
+    l'enveloppe -- `[NOTIF] N message(s) non lu(s)...`, `[⏱ roosync_dashboard
+    NNNms]`. Un `json.loads` du texte entier levait « Extra data » : listing
+    illisible, store declare injoignable, repli miroir G: -- le miroir ne
+    recoit plus les appends depuis le cut #4131, donc chaque [REPAIRED]
+    poste depuis etait invisible et l'organe sonnait une escalade fermee.
+    On lit la valeur de tete et on ignore la suite, quelle qu'elle soit.
+    """
+    if not isinstance(text, str):
+        raise TypeError("texte d'outil non chaine")
+    payload, _end = _JSON_DECODER.raw_decode(text.lstrip())
+    return payload
+
+
 def entries_from_store_json(text):
     """Entrees depuis l'enveloppe JSON d'un `read` store, ou None.
 
@@ -390,7 +416,7 @@ def entries_from_store_json(text):
     escalade », sur une lecture qui n'a jamais eu lieu.
     """
     try:
-        payload = json.loads(text)
+        payload = leading_json(text)
     except (TypeError, ValueError):
         return None  # pas du JSON : hote ancien, le repli markdown est du
     if not isinstance(payload, dict):
@@ -452,7 +478,7 @@ def store_keys_from_listing(result):
     if text is None:
         return None
     try:
-        payload = json.loads(text)
+        payload = leading_json(text)
     except ValueError:
         return None
     if not isinstance(payload, dict) or payload.get("success") is False:
