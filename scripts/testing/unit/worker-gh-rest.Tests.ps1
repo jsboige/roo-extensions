@@ -62,10 +62,9 @@ BeforeAll {
         )
         New-Item -ItemType Directory -Path $Dir -Force | Out-Null
         $log = Join-Path $Dir 'calls.log'
-        foreach ($pair in @(@{ f = 'list.json'; c = $ListJson }, @{ f = 'detail.json'; c = $DetailJson }, @{ f = 'comments.json'; c = $CommentsJson })) {
-            [System.IO.File]::WriteAllText((Join-Path $Dir $pair.f), $pair.c, [System.Text.Encoding]::ASCII)
-        }
         if ($script:HostIsWindows) {
+            # Routage par URL : Request-StaleReview appelle aussi `user` et
+            # `commits/<sha>` (lot 8) — chaque jambe a SON fichier de réponse.
             $cmd = @(
                 '@echo off',
                 'if /I not "%~1"=="api" goto graphql',
@@ -75,12 +74,21 @@ BeforeAll {
                 'if not errorlevel 1 goto comments',
                 'echo "%URL%" | findstr /I /C:"/issues?" >nul',
                 'if not errorlevel 1 goto list',
+                'echo "%URL%" | findstr /I /C:"/commits/" >nul',
+                'if not errorlevel 1 goto commits',
+                'if /I "%URL%"=="user" goto user',
                 'goto detail',
                 ':comments',
                 ('type "{0}"' -f (Join-Path $Dir 'comments.json')),
                 'exit /b 0',
                 ':list',
                 ('type "{0}"' -f (Join-Path $Dir 'list.json')),
+                'exit /b 0',
+                ':commits',
+                ('type "{0}"' -f (Join-Path $Dir 'commit.json')),
+                'exit /b 0',
+                ':user',
+                ('type "{0}"' -f (Join-Path $Dir 'user.json')),
                 'exit /b 0',
                 ':detail',
                 ('type "{0}"' -f (Join-Path $Dir 'detail.json')),
@@ -94,6 +102,9 @@ BeforeAll {
         }
         else {
             # `?` cité dans le case POSIX (glob sinon — review #4641 point a).
+            # user / commits routés comme sous Windows : sinon les 2 jambes de
+            # Request-StaleReview recevaient detail.json (JSON brut au lieu
+            # d'une date / d'un login) — mesuré CI unit-pester : Expected 4, got 1.
             $cmd = @(
                 '#!/bin/sh',
                 ('LOG=''{0}''' -f ($log -replace '\\', '/')),
@@ -102,6 +113,8 @@ BeforeAll {
                 '  printf ''%s\n'' "api $2" >> "$LOG"',
                 '  case "$2" in',
                 '    */comments*) cat "$DIR/comments.json"; exit 0 ;;',
+                '    */commits/*) cat "$DIR/commit.json"; exit 0 ;;',
+                '    user) cat "$DIR/user.json"; exit 0 ;;',
                 '    */issues/*) cat "$DIR/detail.json"; exit 0 ;;',
                 '    */issues"?"*) cat "$DIR/list.json"; exit 0 ;;',
                 '    *) cat "$DIR/detail.json"; exit 0 ;;',
@@ -115,6 +128,15 @@ BeforeAll {
             $ghPath = Join-Path $Dir 'gh'
             [System.IO.File]::WriteAllText($ghPath, ($cmd -join "`n") + "`n", [System.Text.Encoding]::ASCII)
             & chmod +x $ghPath
+        }
+        # Réponses par défaut des jambes Request-StaleReview (lot 8) : une date
+        # ISO pour commits/<sha> (jq du worker : .commit.committer.date), un
+        # login pour user. Un test peut les écraser via les paramètres.
+        $pairs = @(@{ f = 'list.json'; c = $ListJson }, @{ f = 'detail.json'; c = $DetailJson }, @{ f = 'comments.json'; c = $CommentsJson },
+                   @{ f = 'commit.json'; c = ('{"commit":{"committer":{"date":"2026-11-10T00:00:00Z"}}}' + "`n") },
+                   @{ f = 'user.json'; c = ('{"login":"tester"}' + "`n") })
+        foreach ($pair in $pairs) {
+            [System.IO.File]::WriteAllText((Join-Path $Dir $pair.f), $pair.c, [System.Text.Encoding]::ASCII)
         }
         return [pscustomobject]@{ Dir = $Dir; Log = $log }
     }
