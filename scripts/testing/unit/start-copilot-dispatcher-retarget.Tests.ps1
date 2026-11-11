@@ -129,6 +129,39 @@ Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: isolated per-issue
         $wt43.Path | Should -Be "$script:tmpRepo/.claude/worktrees/wt-copilot-43"
         (Test-Path "$script:tmpRepo/.claude/worktrees/wt-copilot-43") | Should -BeTrue
     }
+
+    It 'survives git stderr under ErrorActionPreference=Stop (PS 5.1 native trap)' {
+        # The production script runs under EAP=Stop (line 37). `git worktree
+        # add` writes "Preparing worktree (...)" to stderr on a SUCCESSFUL run;
+        # in PS 5.1 that is a TERMINATING NativeCommandError even with
+        # `2>$null` (measured 11/11 on the first retargeted dispatch: worktree
+        # branched, script dead before any Copilot call).
+        #
+        # HONEST LIMIT: the behavioral half only discriminates on a PS 5.1
+        # host. CI's unit-pester job runs pwsh on ubuntu, where native stderr
+        # never terminates — the pre-fix code passes it too (measured). The
+        # source pin below is what reddens in CI; the true pre-fix
+        # discriminator was a manual PS 5.1 run (PR body of the fix).
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Stop'
+        try {
+            $wt = Initialize-CopilotWorktree -RepositoryRoot $script:tmpRepo -IssueNumber 77
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
+        $wt | Should -Not -BeNullOrEmpty
+        $wt.Path | Should -Be "$script:tmpRepo/.claude/worktrees/wt-copilot-77"
+        (Test-Path $wt.Path) | Should -BeTrue
+
+        # Source pin (host-independent): the worktree-add call site must stay
+        # EAP-scoped — guard before it, restore after it.
+        $fnPos = $script:src.IndexOf('function Initialize-CopilotWorktree')
+        $guardPos = $script:src.IndexOf("`$ErrorActionPreference = 'Continue'", $fnPos)
+        $addPos = $script:src.IndexOf('worktree add $worktreeDir', $fnPos)
+        $restorePos = $script:src.IndexOf('$ErrorActionPreference = $prevEap', $addPos)
+        ($fnPos -ge 0 -and $guardPos -gt $fnPos -and $guardPos -lt $addPos) | Should -BeTrue
+        ($restorePos -gt $addPos) | Should -BeTrue
+    }
 }
 
 Describe 'start-copilot-dispatcher.ps1 — #622 re-targeting: delivery mandate in the prompt' {
