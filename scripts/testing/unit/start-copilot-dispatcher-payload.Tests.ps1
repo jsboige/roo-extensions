@@ -109,7 +109,12 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (payload never in argv)' 
     }
 
     It 'the payload is written to a file, then the argv is derived from that file' {
-        $script:src | Should -Match '\$promptFile = Write-CopilotPromptFile -RepositoryRoot \$RepositoryRoot -Prompt \$Prompt -Stamp \(Get-Date\)'
+        # #622 re-targeting: the root is an explicit indirection ($promptRoot,
+        # defaulting to the work root, overridable to the dispatcher's own
+        # repoRoot when work runs in a foreign repo's worktree) so the prompt
+        # file never lands untracked in the target repo.
+        $script:src | Should -Match '\$promptRoot = if \(\[string\]::IsNullOrWhiteSpace\(\$PromptRepositoryRoot\)\) \{ \$RepositoryRoot \} else \{ \$PromptRepositoryRoot \}'
+        $script:src | Should -Match '\$promptFile = Write-CopilotPromptFile -RepositoryRoot \$promptRoot -Prompt \$Prompt -Stamp \(Get-Date\)'
         $script:src | Should -Match '\$dispatchArgv = Get-DispatchArgv -PromptFilePath \$promptFile'
     }
 

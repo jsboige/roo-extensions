@@ -22,6 +22,15 @@ param(
     [int]$MaxConsecutiveIdle = 4,
     [int]$MinEscalationIntervalMinutes = 180,
     [int]$MaxEscalationsPerDay = 3,
+    # #622 harness-change (directive user 05/11): re-target the dispatcher at a
+    # fleet repo OTHER than roo-extensions (e.g. CoursIA). -TargetRepoSlug is the
+    # owner/name the issue pool is drawn from AND the repo worked on;
+    # -TargetRepoPath is that repo's local clone (work happens in a throwaway
+    # worktree of it, never in its main checkout). Without -TargetRepoPath a
+    # -TargetRepoSlug run is BLOCKED before any Copilot call (fail-closed, zero
+    # premium burn) — a slug alone names a repo we have no working clone of.
+    [string]$TargetRepoSlug = '',
+    [string]$TargetRepoPath = '',
     [switch]$DryRun
 )
 
@@ -437,7 +446,21 @@ function Invoke-PhaseCDispatch {
     param(
         [string]$Profile,
         [string]$RepositoryRoot,
-        [string]$Prompt
+        [string]$Prompt,
+        # #622: bookkeeping root for the prompt FILE. Defaults to the work root;
+        # when work runs in a foreign repo's worktree, the dispatcher passes its
+        # own repoRoot so the prompt file never lands untracked in the target
+        # repo (it would pollute the PR and false-positive repositoryChanges).
+        [string]$PromptRepositoryRoot = '',
+        # #622 review point 1 (ai-01, 10/11): in DELIVERY mode the mandate is
+        # edit-then-commit, and a fresh worktree goes clean -> clean — the
+        # porcelain diff alone reads a delivered commit as "no repository
+        # change" and a successful delivery lands idle (cadence escalation at
+        # 4, AC3 pilot counts successes as no-ops). A moved HEAD is work.
+        # Scoped to the isolated worktree, where nothing else commits: NOT the
+        # home checkout, where concurrent lanes move HEAD for their own
+        # reasons and a bare HEAD diff would credit their work to Copilot.
+        [switch]$DetectHeadMoves
     )
 
     $result = @{
@@ -453,8 +476,13 @@ function Invoke-PhaseCDispatch {
     try {
         $beforeStatus = ''
         $afterStatus = ''
+        $beforeHead = ''
+        $afterHead = ''
         Push-Location $RepositoryRoot
         $beforeStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
+        if ($DetectHeadMoves) {
+            $beforeHead = (& git -C $RepositoryRoot rev-parse HEAD 2>$null | Out-String).Trim()
+        }
         # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
         # Copilot cannot execute any tool (shell/file/git) and falls back to a
         # conversational "ready, standing by" no-op instead of doing real work
@@ -491,7 +519,8 @@ function Invoke-PhaseCDispatch {
             # the CLI receives a short pointer to it. Both lengths are logged, so a
             # future regression shows in the run's OWN log instead of surfacing only
             # as a bare "La ligne de commande est trop longue."
-            $promptFile = Write-CopilotPromptFile -RepositoryRoot $RepositoryRoot -Prompt $Prompt -Stamp (Get-Date)
+            $promptRoot = if ([string]::IsNullOrWhiteSpace($PromptRepositoryRoot)) { $RepositoryRoot } else { $PromptRepositoryRoot }
+            $promptFile = Write-CopilotPromptFile -RepositoryRoot $promptRoot -Prompt $Prompt -Stamp (Get-Date)
             $dispatchArgv = Get-DispatchArgv -PromptFilePath $promptFile
             Write-Log ("Phase C prompt payload: {0} chars -> {1}" -f $Prompt.Length, $promptFile)
             Write-Log ("Phase C argv: {0} chars" -f $dispatchArgv.Length)
@@ -506,6 +535,9 @@ function Invoke-PhaseCDispatch {
             $ErrorActionPreference = $prevEap
         }
         $afterStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
+        if ($DetectHeadMoves) {
+            $afterHead = (& git -C $RepositoryRoot rev-parse HEAD 2>$null | Out-String).Trim()
+        }
         Pop-Location
 
         $result.exitCode = $exit
@@ -515,7 +547,16 @@ function Invoke-PhaseCDispatch {
         if ([string]::IsNullOrWhiteSpace($result.report)) {
             $result.report = Get-SanitizedReport -Lines $cmdOutput
         }
-        $result.repositoryChanges = ($beforeStatus -ne $afterStatus)
+        # Review point 1 (ai-01): a delivered commit leaves the worktree clean
+        # (clean -> clean), so in delivery mode a moved HEAD is the evidence of
+        # work that the porcelain diff cannot see.
+        $headMoved = (
+            $DetectHeadMoves -and
+            -not [string]::IsNullOrWhiteSpace($beforeHead) -and
+            -not [string]::IsNullOrWhiteSpace($afterHead) -and
+            ($beforeHead -ne $afterHead)
+        )
+        $result.repositoryChanges = ($beforeStatus -ne $afterStatus) -or $headMoved
 
         $joined = ($cmdOutput | Out-String)
         $usageMatch = [regex]::Match(
@@ -559,7 +600,14 @@ function Get-WorkPrompt {
         [string]$Profile,
         [hashtable]$State,
         [string]$RepositoryRoot,
-        [psobject]$TargetIssue
+        [psobject]$TargetIssue,
+        # #622 (item 3 of the 05/11 roadmap): when work runs in a dedicated
+        # copilot worktree, the dispatcher LIFTS the commit/PR ban there —
+        # a branch + pull request is the only delivery path that makes the
+        # run's production visible (0 PR measured over the pilot). The ban
+        # stays in force on the default work root (roo-extensions checkout),
+        # where an uncontrolled branch would be blast radius, not delivery.
+        [bool]$CanDeliver = $false
     )
 
     $gitSummary = ''
@@ -580,6 +628,14 @@ function Get-WorkPrompt {
     # work on that one, not re-select from the unfiltered seed — otherwise the premium
     # spend the gate avoids can land right back on the noise it just excluded.
     $targetIssueLine = if ($null -ne $TargetIssue) { "#$($TargetIssue.number) — $($TargetIssue.title)" } else { 'none' }
+
+    $deliveryMandate = if ($CanDeliver) {
+@("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue).",
+"- Then open a pull request from that branch: gh pr create with a short title and a body describing the change and the issue it addresses.",
+"- Never push to, rebase onto, or mutate a default branch directly. If the pull request command fails, keep the commit and report the exact error in next_action.") -join "`n"
+    } else {
+        "- Do not run mutating GitHub commands. Do not create commits or pull requests."
+    }
 
     return @"
 TARGET ISSUE — work on this one and no other: $targetIssueLine
@@ -607,7 +663,7 @@ Constraints:
 Execution mandate:
 - Work ONLY on the target issue below. Do not re-select, assign, label, comment on, or dispatch any issue.
 - Perform one concrete LOCAL repository action now (edit/add/delete in a file under the repository root).
-- Do not run mutating GitHub commands. Do not create commits or pull requests.
+$deliveryMandate
 - Prefer the smallest useful change directly supported by the target issue's existing evidence.
 - If no safe local action is possible, output a blocker with the exact reason and still include the issue_id attempted.
 - evidence must mention either a changed file path or a validation command/result.
@@ -738,7 +794,10 @@ function Test-IsActionableIssue {
 function Get-TargetIssue {
     param(
         [string]$RepositoryRoot,
-        [int]$PreferredIssueNumber = 0
+        [int]$PreferredIssueNumber = 0,
+        # #622: explicit pool repo (owner/name). When set, the pool is queried
+        # there instead of deriving the slug from $RepositoryRoot's origin.
+        [string]$RepoSlug = ''
     )
 
     # #3641 §3: pin the queue repo explicitly. The scheduled task runs with
@@ -746,7 +805,10 @@ function Get-TargetIssue {
     # query roo-extensions regardless of the lane's target repo. Deriving the
     # slug from the target repo's own origin keeps cwd irrelevant.
     $repoArgs = @()
-    $repoSlug = Get-RepoSlug -RepositoryRoot $RepositoryRoot
+    $repoSlug = $RepoSlug
+    if ([string]::IsNullOrWhiteSpace($repoSlug)) {
+        $repoSlug = Get-RepoSlug -RepositoryRoot $RepositoryRoot
+    }
     if ($repoSlug) { $repoArgs = @('-R', $repoSlug) }
 
     if ($PreferredIssueNumber -gt 0) {
@@ -819,10 +881,54 @@ function Get-TargetIssue {
     }
 }
 
+function Initialize-CopilotWorktree {
+    # #622 (item 2 of the 05/11 roadmap): the dispatcher NEVER edits a target
+    # repo's main checkout — on a foreign repo that would be fatal (the host
+    # lane lives there). Work lands in a per-issue worktree
+    # <RepositoryRoot>/.claude/worktrees/wt-copilot-<issue> on a dedicated
+    # wt/copilot-* branch, mirroring the fleet worktree lifecycle: the worktree
+    # OUTLIVES the dispatch (the PR is the delivery unit), and its removal
+    # belongs to the host lane (.claude/rules/worktree-lifecycle.md) — never
+    # to this dispatcher.
+    param(
+        [string]$RepositoryRoot,
+        [int]$IssueNumber
+    )
+
+    $worktreeDir = "$RepositoryRoot/.claude/worktrees/wt-copilot-$IssueNumber"
+    if (Test-Path $worktreeDir) {
+        # Reuse: a later dispatch on the same issue continues where the last
+        # one left off (uncommitted work or an open PR branch).
+        $existingBranch = (& git -C $worktreeDir branch --show-current 2>$null | Out-String).Trim()
+        Write-Log "Reusing existing copilot worktree: $worktreeDir (branch $existingBranch)"
+        return @{ Path = $worktreeDir; Branch = $existingBranch; Reused = $true }
+    }
+
+    $branch = "wt/copilot-$IssueNumber-" + (Get-Date -Format 'yyyyMMdd-HHmmss')
+
+    # Base the throwaway branch on the remote default when resolvable, else on
+    # origin/main, else on the current HEAD — in that order.
+    $base = (& git -C $RepositoryRoot symbolic-ref -q --short refs/remotes/origin/HEAD 2>$null | Out-String).Trim()
+    if ([string]::IsNullOrWhiteSpace($base)) {
+        & git -C $RepositoryRoot rev-parse -q --verify origin/main 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { $base = 'origin/main' }
+    }
+    if ([string]::IsNullOrWhiteSpace($base)) { $base = 'HEAD' }
+
+    & git -C $RepositoryRoot worktree add $worktreeDir -b $branch $base 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $worktreeDir)) {
+        Write-Log "Worktree creation failed in target repo (branch $branch, base $base)"
+        return $null
+    }
+
+    Write-Log "Copilot worktree created: $worktreeDir (branch $branch, base $base)"
+    return @{ Path = $worktreeDir; Branch = $branch; Reused = $false }
+}
+
 Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
-Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay"
+Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay TargetRepoSlug=$TargetRepoSlug TargetRepoPath=$TargetRepoPath"
 
 # DryRun MUST terminate here — BEFORE the first external call of the script
 # (the `copilot --version` probe below, gh target discovery, the paid
@@ -874,9 +980,36 @@ if ($copilotConfig) {
 
 $state = Load-State
 
+# #622 harness-change (directive user 05/11): resolve the queue repo and the
+# work root. Default keeps the historical behavior — queue and work both in
+# this roo-extensions checkout, ban on commits/PRs in force. With an explicit
+# target, the issue pool moves to the target repo and work moves to a
+# per-issue worktree of its local clone, with delivery (branch + PR) unlocked
+# inside that worktree only.
+$queueRepoRoot = $repoRoot
+$queueSlug = ''
+if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {
+    if ([string]::IsNullOrWhiteSpace($TargetRepoPath) -or -not (Test-Path $TargetRepoPath)) {
+        Write-Log "TargetRepoSlug '$TargetRepoSlug' given without a usable -TargetRepoPath - blocking before any Copilot call (fail-closed, zero premium burn)"
+        $status = 'blocked'
+    } else {
+        $queueSlug = $TargetRepoSlug
+        $queueRepoRoot = $TargetRepoPath
+        Write-Log "Retargeted: queue+work repo $queueSlug (clone $TargetRepoPath)"
+    }
+} elseif (-not [string]::IsNullOrWhiteSpace($TargetRepoPath)) {
+    # Review point 2 (ai-01, 10/11): the guard used to protect only one half of
+    # the pair — a -TargetRepoPath without -TargetRepoSlug was silently
+    # ignored and the dispatcher fell back to roo-extensions while the caller
+    # believed it had retargeted. Fail closed in both directions: the pair is
+    # required together.
+    Write-Log "-TargetRepoPath '$TargetRepoPath' given without -TargetRepoSlug - blocking before any Copilot call (the pair is required together, fail-closed)"
+    $status = 'blocked'
+}
+
 $dispatch = $null
 if ($status -ne 'blocked') {
-    $targetIssue = Get-TargetIssue -RepositoryRoot $repoRoot -PreferredIssueNumber $IssueNumber
+    $targetIssue = Get-TargetIssue -RepositoryRoot $queueRepoRoot -PreferredIssueNumber $IssueNumber -RepoSlug $queueSlug
     if ($null -eq $targetIssue) {
         Write-Log "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
         $status = 'idle'
@@ -890,9 +1023,26 @@ if ($status -ne 'blocked') {
             repositoryChanges = $false
         }
     } else {
-        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $repoRoot -TargetIssue $targetIssue
-        $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $repoRoot -Prompt $workPrompt
-        $status = [string]$dispatch.status
+        # #622 item 2: on a foreign repo, work NEVER lands in the main checkout
+        # (the host lane lives there) — an isolated worktree or nothing.
+        $workRoot = $repoRoot
+        $canDeliver = $false
+        if ($queueRepoRoot -ne $repoRoot) {
+            $copilotWt = Initialize-CopilotWorktree -RepositoryRoot $queueRepoRoot -IssueNumber ([int]$targetIssue.number)
+            if ($null -eq $copilotWt) {
+                Write-Log "Blocking: isolated worktree unavailable, and the main checkout of a foreign repo is off-limits - no Copilot call"
+                $status = 'blocked'
+            } else {
+                $workRoot = $copilotWt.Path
+                $canDeliver = $true
+                Write-Log "Work root (isolated worktree): $workRoot"
+            }
+        }
+
+        if ($status -ne 'blocked') {
+            $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
+            $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $workRoot -Prompt $workPrompt -PromptRepositoryRoot $repoRoot -DetectHeadMoves:$canDeliver
+            $status = [string]$dispatch.status
         if ($dispatch.exitCode -eq 0) {
             Write-Log "Phase C execution success (exit=0)"
             if ($dispatch.premiumRequests -ge 0) {
@@ -912,6 +1062,7 @@ if ($status -ne 'blocked') {
                     Write-Log "Dispatch output: $line"
                 }
             }
+        }
         }
     }
 }
@@ -955,6 +1106,16 @@ if ($dispatch) {
 if ($targetIssue) {
     $state.lastTargetIssueNumber = [int]$targetIssue.number
     $state.lastTargetIssueTitle = [string]$targetIssue.title
+}
+
+# #622: record where work landed so the host lane can find the worktree and
+# the branch its PR should come from.
+$state.lastTargetRepoSlug = $queueSlug
+if ($workRoot -and $workRoot -ne $repoRoot) {
+    $state.lastWorktreePath = $workRoot
+}
+if ($copilotWt -and $copilotWt.Branch) {
+    $state.lastWorkBranch = $copilotWt.Branch
 }
 
 if ($target -ne 'none') {
