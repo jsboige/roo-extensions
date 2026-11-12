@@ -796,9 +796,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.fake_store({}, keys=["global", "machine-m", "workspace-w"],
                         structured={"global": [msg], "m": [msg], "w": [msg]})
         self.assertEqual(self.run_store_main(), 2)
-        entries, errors = cde.load_entries_from_store(
+        entries, errors, keys = cde.load_entries_from_store(
             "http://x", "b", now=cde.parse_ts(NOW))
         self.assertEqual(errors, [])
+        self.assertEqual(keys, ["global", "machine-m", "workspace-w"])
         escalations = cde.collect_escalations(entries, cde.parse_ts(NOW))
         self.assertEqual(len(escalations), 1, escalations)
 
@@ -848,6 +849,82 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                          ["m", "m"])
         for call in machine_calls:
             self.assertNotIn("machine", call)
+
+    # --- #4643 (dispatch ai-01 12/11) : budget, coques vides, denominateur --
+
+    def test_default_archive_budget_covers_measured_healthy_pass(self):
+        # Item 1 du dispatch : 120 s epuisait le budget au bout de 3 min d'une
+        # passe SAINE ; une passe complete mesuree prend 669 s. Le defaut doit
+        # couvrir la mesure, sinon l'organe ne rend jamais 0/2/3.
+        self.assertGreaterEqual(cde.DEFAULT_ARCHIVE_TIME_BUDGET_S, 669.0)
+
+    def test_empty_husk_archive_is_not_an_instrument_error(self):
+        # Item 2 : une coque de 0 octet est rejete par le serveur avec
+        # « frontmatter manquant ». Elle n'a jamais porte de messages : WARN
+        # non bloquant — PAS une erreur d'instrument (exit 0 sur live sain),
+        # et le WARN est visible sur stderr.
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={"y": []},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_raw={"workspace-y-2026-11-03T04-00-00.md": json.dumps({
+                "success": False,
+                "error": "Format archive invalide: frontmatter manquant "
+                         "dans G:/Mon Drive/.../workspace-y-2026-11-03T04-00-00.md"})})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+        self.assertEqual(code, 0)
+        self.assertIn("coque", err.getvalue())
+
+    def test_muted_archive_read_recovers_on_retry(self):
+        # Items 2+3 : lecture muette = timeout client sporadique (5 releves
+        # sur des archives saines de 32-39 Ko) OU coque vide que le serveur
+        # rejette en ~35 s — au-dela du timeout de 10 s. UNE relance a timeout
+        # etendu tranche : ici l'archive SAINE servie a la relance porte le
+        # [REPAIRED] qui ferme l'escalade vivante (exit 0, pas d'erreur).
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_files={"workspace-y-2026-11-03T04-00-00.md": [
+                self.message("2026-11-03T03:00:00.000Z",
+                             content="[REPAIRED] tout est revenu")]})
+        inner = cde._load_transport()
+        muted = set()
+        archive_timeouts = []
+
+        def call(arguments, url, bearer, timeout=10.0, client="x"):
+            name = arguments.get("archiveFile")
+            if name and name not in muted:
+                muted.add(name)
+                archive_timeouts.append(timeout)
+                return None  # premier essai : timeout client
+            if name:
+                archive_timeouts.append(timeout)
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client)
+
+        cde._load_transport = lambda: call
+        self.assertEqual(self.run_store_main(), 0)
+        # Le premier essai au timeout client, la relance au timeout ETENDU
+        # qui couvre le rejet de coque a ~35 s.
+        self.assertEqual(archive_timeouts,
+                         [10.0, cde.ARCHIVE_READ_RETRY_TIMEOUT_S])
+
+    def test_store_error_denominator_counts_dashboards(self):
+        # Item 3 : en source store, paths restait vide — le rapport disait
+        # « 1 dashboard(s) illisible(s) sur 0 ». Le denominateur est le
+        # nombre de dashboards lus (cles du listing).
+        self.fake_store(
+            {}, keys=["workspace-a", "workspace-b", "workspace-y"],
+            structured={"a": [], "b": [], "y": []},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_raw={"workspace-y-2026-11-03T04-00-00.md": json.dumps({
+                "success": False, "error": "fichier absent"})})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+        self.assertEqual(code, 1)
+        self.assertIn("sur 3", err.getvalue())
 
 
 if __name__ == "__main__":
