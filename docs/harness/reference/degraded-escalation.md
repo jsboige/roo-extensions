@@ -125,17 +125,22 @@ par le fail-closed existant (la sonnerie reste annulée sur mesure partielle,
 W3 #4655) — une mesure partielle rendue en temps borné plutôt qu'un organe
 muet.
 
-**#4643 — coques vides et timeouts clients (dispatch ai-01 12/11).**
-Une lecture d'archive **muette** est relancée **une fois** à timeout étendu
-(45 s) : un timeout client sporadique frappe aussi des archives **saines**
-(5 relevés sur des fichiers de 32-39 Ko), et le serveur rejette une **coque
-vide** (0 octet, writer interrompu d'avant le correctif temp+rename) en ~35 s
-— au-delà du timeout client de 10 s. Si la relance rend l'enveloppe de rejet
-« frontmatter manquant », la coque est un **WARN non bloquant** (une coque
-n'a jamais porté de messages, ce n'est pas une panne d'instrument) ; les
-entrées vivantes restent intactes et le verdict peut être 0/2/3. En source
-store, le dénominateur du rapport d'erreurs (« N illisible(s) sur M ») est le
-nombre de **dashboards lus** (clés du listing) — il disait « sur 0 ».
+**#4643 — coques vides et timeouts clients (dispatch ai-01 12/11 ; reprise
+c.6823202164).** Une lecture d'archive **muette** (le transport rend `None`)
+est relancée **une fois** à timeout étendu (45 s) — un timeout client
+sporadique frappe aussi des archives **saines** (5 relevés sur des fichiers
+de 32-39 Ko). Un **rejet serveur `isError` ne se relance pas** : il est
+déterministe (7 ms mesurés post-gel — les ~35 s venaient du gel de G:, pas
+du rejet), et le transport rend son **texte** à l'organe via l'opt-in
+`return_rejected_text` (les autres appelants gardent le `None` fail-closed).
+Le texte est alors **classifié** : la signature « frontmatter manquant »
+désigne une **coque vide** (0 octet, writer interrompu d'avant le correctif
+temp+rename) → **WARN non bloquant** (une coque n'a jamais porté de messages,
+ce n'est pas une panne d'instrument) ; tout **autre rejet** → erreur
+d'instrument. Les entrées vivantes restent intactes et le verdict peut être
+0/2/3. En source store, le dénominateur du rapport d'erreurs (« N
+illisible(s) sur M ») est le nombre de **dashboards lus** (clés du listing) —
+il disait « sur 0 ».
 
 **Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
 défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans `MCP_PROXY_BEARER`
