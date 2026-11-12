@@ -35,7 +35,10 @@ Sources, dans l'ordre (review #4519 point c) :
     2. STORE PG            meme transport que la sonnerie (MCP_PROXY_BEARER),
                            fenetre des 200 dernieres entrees par dashboard,
                            PLUS les archives de condensation recentes (#4643,
-                           --archive-window-hours, defaut 48 h)
+                           --archive-window-hours, defaut 48 h) ; la passe
+                           d'archives est bornee par --archive-time-budget
+                           (defaut 120 s, #4661) : au-dela, archives restantes
+                           sautees et signalees, sortie 1
     3. miroir G:           repli seulement, et seulement vers un repertoire
                            EXPLICITE (--dashboard-dir) ou avec bearer ; la
                            lecture par defaut sans bearer est DEGRADEE (sortie
@@ -92,6 +95,14 @@ DEFAULT_CYCLE_HOURS = 4.0
 # couvre l'horizon reel d'une escalade saine (2 cycles d'echeance + la
 # re-sonnerie quotidienne de build_ring_id) ; 0 desactive la lecture.
 DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
+# #4661 : budget de temps GLOBAL de la passe d'archives (secondes). Mesure
+# motivante (ai-01, 12/11, G: gele en profondeur) : 929 s dont 68 timeouts
+# read_archive de 10 s SEQUENTIELS — la passe n'etait pas bornee. Au-dela du
+# budget, les archives restantes sont sautees et signalees (fenetre
+# partiellement aveugle -> erreur d'instrument -> sortie 1 par le fail-closed
+# existant) ; les lectures VIVANTES des dashboards restants continuent.
+# 0 ou negatif = illimite (comportement d'avant #4661).
+DEFAULT_ARCHIVE_TIME_BUDGET_S = 120.0
 
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
@@ -647,7 +658,8 @@ def store_keys_from_listing(result):
 
 def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                             now=None, window_hours=None,
-                            archive_window_hours=DEFAULT_ARCHIVE_WINDOW_HOURS):
+                            archive_window_hours=DEFAULT_ARCHIVE_WINDOW_HOURS,
+                            archive_time_budget=DEFAULT_ARCHIVE_TIME_BUDGET_S):
     """Dashboards servis par le STORE (PG), meme transport que la sonnerie
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
     gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
@@ -675,6 +687,15 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     est exactement l'angle mort, jamais un « aucune archive ». Limite connue,
     asymetrique : une declaration plus vieille que la fenetre ET archivee
     reste invisible.
+
+    #4661 : la passe d'archives est bornee par `archive_time_budget`
+    (defaut 120 s ; 0/negatif = illimite). Le budget est GLOBAL a la passe,
+    initialise au premier appel d'archive — les lectures vivantes ne le
+    consomment pas. Au-dela, les archives restantes sont SAUTEES et la
+    fenetre est declaree partiellement aveugle (erreur d'instrument, sortie 1
+    par le fail-closed) : mieux vaut une mesure partielle rendue en temps
+    borne qu'un organe muet pendant 15 minutes de lectures sequentielles
+    (mesure motivante : 68 timeouts x 10 s sur un G: gele).
     """
     call = _load_transport()
     keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
@@ -685,6 +706,9 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     errors = []
     window_start = (now - timedelta(hours=window_hours)
                     if now is not None and window_hours else None)
+    # #4661 : echeance du budget d'archives, construite paresseusement au
+    # premier appel d'archive (None = illimite ou passe non encore entamee).
+    archive_deadline = None
     for key in keys:
         result = call(read_arguments_for_key(key, intercom_limit),
                       url, bearer, timeout=timeout)
@@ -730,7 +754,24 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     f"invisible")
         # #4643 : le vif condense n'est qu'une PARTIE de la verite — les
         # archives recentes portent les declarations evacuees.
+        # #4661 : la passe d'archives est BORNEE. Le budget est initialise au
+        # PREMIER appel d'archive de la passe (pas a l'entree de la fonction) :
+        # les lectures vivantes qui precedent ne le consomment pas, et une
+        # execution sans archives ne construit aucun chronometre.
         if archive_window_hours:
+            if archive_deadline is None:
+                archive_deadline = (
+                    time.monotonic() + archive_time_budget
+                    if archive_time_budget and archive_time_budget > 0
+                    else None)
+            if (archive_deadline is not None
+                    and time.monotonic() > archive_deadline):
+                errors.append(
+                    f"{key}: budget d'archives epuise "
+                    f"({archive_time_budget:.0f} s) — archives sautees ; la "
+                    f"fenetre d'archives est PARTIELLEMENT AVEUGLE, un "
+                    f"[REPAIRED] ou une escalade archivee serait invisible")
+                continue
             listing = call(read_archive_arguments_for_key(key),
                            url, bearer, timeout=timeout)
             names = archive_names_from_listing(listing)
@@ -739,7 +780,19 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                               f"fenetre d'archives est AVEUGLE, un [REPAIRED] "
                               f"ou une escalade archivee serait invisible")
                 continue
-            for name in select_recent_archives(names, now, archive_window_hours):
+            recent_archives = select_recent_archives(names, now,
+                                                     archive_window_hours)
+            for index, name in enumerate(recent_archives):
+                if (archive_deadline is not None
+                        and time.monotonic() > archive_deadline):
+                    skipped = len(recent_archives) - index
+                    errors.append(
+                        f"{key}: budget d'archives epuise "
+                        f"({archive_time_budget:.0f} s) — {skipped} archive(s) "
+                        f"restante(s) sauteee(s) ; la fenetre d'archives est "
+                        f"PARTIELLEMENT AVEUGLE, un [REPAIRED] ou une escalade "
+                        f"archivee serait invisible")
+                    break
                 archive_result = call(
                     read_archive_arguments_for_key(key, archive_file=name),
                     url, bearer, timeout=timeout)
@@ -1067,6 +1120,56 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             "action": "read_archive", "type": "workspace", "workspace": "y",
             "archiveFile": "workspace-y-2026-11-03T04-00-00.md"}
 
+        # #4661 — budget GLOBAL de la passe d'archives : un transport dont
+        # chaque lecture d'archive depasse le budget laisse (a) les entrees
+        # VIVANTES intactes, (b) une erreur nommant le budget (fenetre
+        # partiellement aveugle), (c) moins d'appels d'archives que
+        # d'archives disponibles. Le transport est injecte comme en
+        # production (aucun reseau).
+        live_envelope = json.dumps({
+            "success": True,
+            "data": {"intercom": {"messages": [{
+                "id": "live-1", "timestamp": "2026-11-03T10:00:00Z",
+                "author": {"machineId": "myia-a", "workspace": "ws"},
+                "content": "[DONE] cycle normal", "tags": []}]}}})
+        budget_names = [f"workspace-x-2026-11-03T04-0{i}-00.md"
+                        for i in range(3)]
+        budget_calls = {"archive_files": 0}
+
+        def budget_fake_call(arguments, url, bearer, timeout=10.0):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True, "archives": budget_names})}]}
+            time.sleep(0.05)  # chaque lecture d'archive depasse le budget
+            budget_calls["archive_files"] += 1
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": True, "archiveData": {"messages": []}})}]}
+
+        saved_transport = _load_transport
+        try:
+            # Injecte la FABRIQUE (load_entries_from_store appelle
+            # `_load_transport()` pour obtenir `call`), pas la fonction.
+            globals()["_load_transport"] = lambda: budget_fake_call
+            budget_entries, budget_errors = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0,
+                archive_window_hours=48.0, archive_time_budget=0.01)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert (len(budget_entries) == 1
+                and budget_entries[0]["body"] == "[DONE] cycle normal"), \
+            budget_entries
+        assert any("budget d'archives" in err for err in budget_errors), \
+            budget_errors
+        assert budget_calls["archive_files"] < len(budget_names), \
+            budget_calls
+
     print("selftest OK: [DEGRADED] ouvert/depasse/repare, [DONE] ne ferme rien, "
           "forme voisine ignoree, echeance derivee du poste, erreur d'instrument "
           "non confondue avec 'rien a signaler', idempotence quotidienne, "
@@ -1075,7 +1178,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
           "token de declaration ; #4643 : crossPost dedoublonne sur (lane, poste), "
           "enveloppe archive archiveData parsee et fail-closed, listing "
           "d'archives None != [], fenetre 48 h par le nom, identification "
-          "d'archive = celle du read vivant.")
+          "d'archive = celle du read vivant ; #4661 : budget d'archives "
+          "global — saut signale, entrees vivantes intactes, appels bornees.")
 
 
 def main(argv=None):
@@ -1098,6 +1202,13 @@ def main(argv=None):
                              f"(#4643 : un [REPAIRED] ou une escalade archives "
                              f"reste visible ; defaut {DEFAULT_ARCHIVE_WINDOW_HOURS:g} h, "
                              f"0 desactive)")
+    parser.add_argument("--archive-time-budget", type=float,
+                        default=DEFAULT_ARCHIVE_TIME_BUDGET_S, metavar="SECONDS",
+                        help=f"budget GLOBAL (s) de la passe d'archives : au-dela, "
+                             f"les archives restantes sont sautees et signalees "
+                             f"(fenetre partiellement aveugle, sortie 1) ; les "
+                             f"lectures vivantes continuent. Defaut "
+                             f"{DEFAULT_ARCHIVE_TIME_BUDGET_S:g} s, 0 = illimite (#4661)")
     parser.add_argument("--now", default=None, metavar="ISO8601",
                         help="instant de reference (rejeu) ; defaut : maintenant")
     parser.add_argument("--json", action="store_true", help="sortie machine")
@@ -1136,7 +1247,8 @@ def main(argv=None):
         store = (loader(args.ring_url, args.ring_bearer,
                         timeout=args.ring_timeout, now=now,
                         window_hours=args.cycles * args.cycle_hours,
-                        archive_window_hours=args.archive_window_hours)
+                        archive_window_hours=args.archive_window_hours,
+                        archive_time_budget=args.archive_time_budget)
                  if args.ring_bearer else None)
         if store is not None:
             source = "store"
