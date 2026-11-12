@@ -207,12 +207,19 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         @($slugGuard).Count | Should -BeGreaterThan 0
     }
 
-    It 'the dispatch hands the CLI the work root but keeps the prompt file in the dispatcher repo' {
-        $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -PromptRepositoryRoot \$repoRoot'
+    It 'the prompt file lives in the WORK root — Copilot sandbox cannot read outside its working directory' {
+        # Measured 18:37Z on the first retargeted dispatch post-#4652 (#4649):
+        # the pointer written under the dispatcher repo was refused ("path is
+        # outside the working directory ... Permission denied, no one to
+        # approve"), 17 premium requests for zero work. The call site passes NO
+        # -PromptRepositoryRoot, so Phase C defaults the prompt root to
+        # $workRoot — inside Copilot's working directory.
+        $script:src | Should -Not -Match 'Invoke-PhaseCDispatch [^\r\n]*-PromptRepositoryRoot \$repoRoot'
+        $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -DetectHeadMoves:\$canDeliver'
     }
 
     It 'delivery mode arms HEAD-move detection (review point 1 wiring)' {
-        $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -PromptRepositoryRoot \$repoRoot -DetectHeadMoves:\$canDeliver'
+        $script:src | Should -Match 'Invoke-PhaseCDispatch -Profile \$effectiveProfile -RepositoryRoot \$workRoot -Prompt \$workPrompt -DetectHeadMoves:\$canDeliver'
     }
 
     It 'foreign-repo work only ever runs through Initialize-CopilotWorktree (never the target main checkout)' {
