@@ -332,7 +332,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def fake_store(self, dashboards, keys=None, structured=None, raw=None,
                    trailer="", archives=None, archive_files=None,
-                   archive_raw=None, archive_listing_raw=None):
+                   archive_raw=None, archive_listing_raw=None,
+                   archive_rejected=None):
         """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
         (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
         les arguments `read` dans self.reads pour les assertions par-cle.
@@ -351,8 +352,11 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         echec) ; `archive_files` = {nom: [messages]} (fichier servi en
         enveloppe archiveData, comme le serveur reel) ; `archive_raw` =
         {nom: texte} servi tel quel (enveloppe en echec) ;
-        `archive_listing_raw` = texte servi pour TOUT listing illisible.
-        Les appels read_archive sont enregistres dans self.archive_reads.
+        `archive_listing_raw` = texte servi pour TOUT listing illisible ;
+        `archive_rejected` = {nom: texte} : rejet serveur isError — le texte
+        est rendu UNIQUEMENT avec l'opt-in return_rejected_text (contrat
+        transport #4643, c.6823202164), None sinon (fail-closed). Les appels
+        read_archive sont enregistres dans self.archive_reads.
 
         Fidele au serveur reel (#4517 reouverte 11/11) : un `read` machine lit
         `machineId` et, sans lui, sert le dashboard machine de l'HOTE
@@ -365,7 +369,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.reads = []
         self.archive_reads = []
 
-        def call(arguments, url, bearer, timeout=10.0, client="x"):
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False):
             if arguments.get("action") == "list":
                 body = json.dumps({"success": True,
                                    "dashboards": [{"key": k} for k in keys]})
@@ -384,6 +389,11 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                             "success": True, "action": "read_archive",
                             "key": ident,
                             "archives": (archives or {}).get(ident, [])})
+                elif archive_rejected is not None and name in archive_rejected:
+                    # Contrat transport #4643 : rejet isError — texte rendu
+                    # UNIQUEMENT avec l'opt-in, None sinon.
+                    return (archive_rejected[name]
+                            if return_rejected_text else None)
                 elif archive_raw is not None and name in archive_raw:
                     body = archive_raw[name]
                 else:
@@ -859,28 +869,69 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertGreaterEqual(cde.DEFAULT_ARCHIVE_TIME_BUDGET_S, 669.0)
 
     def test_empty_husk_archive_is_not_an_instrument_error(self):
-        # Item 2 : une coque de 0 octet est rejete par le serveur avec
-        # « frontmatter manquant ». Elle n'a jamais porte de messages : WARN
-        # non bloquant — PAS une erreur d'instrument (exit 0 sur live sain),
-        # et le WARN est visible sur stderr.
+        # Item 2 (c.6823202164) : une coque de 0 octet est rejete par le
+        # serveur en isError VERBATIM — le texte est rendu par le transport
+        # (opt-in). Elle n'a jamais porte de messages : WARN non bloquant,
+        # PAS une erreur d'instrument (exit 0 sur live sain), AUCUNE relance
+        # (le rejet est deterministe : 7 ms mesures post-gel).
+        husk_text = ("Error: Format archive invalide: frontmatter manquant "
+                     "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
+                     "workspace-y-2026-11-03T04-00-00.md")
         self.fake_store(
             {}, keys=["workspace-y"], structured={"y": []},
             archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
-            archive_raw={"workspace-y-2026-11-03T04-00-00.md": json.dumps({
-                "success": False,
-                "error": "Format archive invalide: frontmatter manquant "
-                         "dans G:/Mon Drive/.../workspace-y-2026-11-03T04-00-00.md"})})
+            archive_rejected={"workspace-y-2026-11-03T04-00-00.md": husk_text})
         with contextlib.redirect_stderr(io.StringIO()) as err:
             code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
         self.assertEqual(code, 0)
         self.assertIn("coque", err.getvalue())
+        # Un rejet isError ne se relance PAS : une seule lecture de FICHIER
+        # (self.archive_reads inclut aussi l'appel de listing).
+        file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
+        self.assertEqual(len(file_reads), 1)
+
+    def test_other_iserror_rejection_is_instrument_error(self):
+        # #4643 : tout rejet isError SANS la signature coque reste une erreur
+        # d'instrument — « rejet serveur » dans les erreurs, exit 1.
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={"y": []},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_rejected={"workspace-y-2026-11-03T04-00-00.md":
+                              "Error: something else entirely (EACCES)"})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+        self.assertEqual(code, 1)
+        self.assertIn("rejet serveur", err.getvalue())
+        file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
+        self.assertEqual(len(file_reads), 1)  # pas de relance non plus
+
+    def test_transport_rejected_text_from_verbatim_envelope(self):
+        # Le helper du transport rend le texte de l'enveloppe isError VERBATIM
+        # mesuree par ai-01 (c.6823202164) — le selftest et l'organe parlent
+        # exactement la forme que le serveur produit, pas une forme reinventee.
+        spec = importlib.util.spec_from_file_location(
+            "das_verbatim", Path(cde.__file__).parent / "detect-approval-stalls.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        envelope = {
+            "_meta": {"durationMs": 7, "toolName": "roosync_dashboard"},
+            "content": [{"type": "text", "text":
+                         "Error: Format archive invalide: frontmatter "
+                         "manquant dans G:\\Mon Drive\\...md"}],
+            "isError": True,
+        }
+        text = module.rejected_text_from_result(envelope)
+        self.assertIsNotNone(text)
+        self.assertIn(cde.ARCHIVE_HUSK_SIGNATURE, text.lower())
+        # Pas isError -> None : le helper ne classify que les rejets.
+        self.assertIsNone(module.rejected_text_from_result(
+            {"content": [{"type": "text", "text": "Error: mais pas isError"}]}))
 
     def test_muted_archive_read_recovers_on_retry(self):
-        # Items 2+3 : lecture muette = timeout client sporadique (5 releves
-        # sur des archives saines de 32-39 Ko) OU coque vide que le serveur
-        # rejette en ~35 s — au-dela du timeout de 10 s. UNE relance a timeout
-        # etendu tranche : ici l'archive SAINE servie a la relance porte le
-        # [REPAIRED] qui ferme l'escalade vivante (exit 0, pas d'erreur).
+        # Items 2+3 : lecture MUETTE (None du transport) = timeout client
+        # sporadique (5 releves sur des archives saines de 32-39 Ko). UNE
+        # relance a timeout etendu tranche : ici l'archive SAINE servie a la
+        # relance porte le [REPAIRED] qui ferme l'escalade vivante (exit 0).
         self.fake_store(
             {}, keys=["workspace-y"],
             structured={"y": [self.message("2026-11-03T00:30:00.000Z",
@@ -893,21 +944,22 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         muted = set()
         archive_timeouts = []
 
-        def call(arguments, url, bearer, timeout=10.0, client="x"):
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False):
             name = arguments.get("archiveFile")
             if name and name not in muted:
                 muted.add(name)
                 archive_timeouts.append(timeout)
-                return None  # premier essai : timeout client
+                return None  # premier essai : timeout client (transport muet)
             if name:
                 archive_timeouts.append(timeout)
             return inner(arguments, url, bearer, timeout=timeout,
-                         client=client)
+                         client=client, return_rejected_text=return_rejected_text)
 
         cde._load_transport = lambda: call
         self.assertEqual(self.run_store_main(), 0)
-        # Le premier essai au timeout client, la relance au timeout ETENDU
-        # qui couvre le rejet de coque a ~35 s.
+        # Le premier essai au timeout client, la relance au timeout ETENDU —
+        # la relance ne concerne QUE la lecture muette, jamais un rejet.
         self.assertEqual(archive_timeouts,
                          [10.0, cde.ARCHIVE_READ_RETRY_TIMEOUT_S])
 

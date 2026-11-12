@@ -734,11 +734,31 @@ def build_note_content(stalls, workspace):
     return "\n".join(lines)
 
 
-def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-detector"):
+def rejected_text_from_result(result):
+    """Concatenated text of an isError MCP result, or None (#4643).
+
+    Verbatim production shape (ai-01 measurement 12/11, c.6823202164):
+    {'_meta': {...}, 'content': [{'type': 'text', 'text': 'Error: ...'}],
+     'isError': True}. The organ classifies server rejections (0-byte husk
+    vs real error); this helper is the ONE place the envelope becomes text,
+    so tests can feed the verbatim envelope straight in.
+    """
+    if not (isinstance(result, dict) and result.get("isError")):
+        return None
+    return "".join(item.get("text", "") for item in result.get("content", [])
+                   if isinstance(item, dict))
+
+
+def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-detector",
+                        return_rejected_text=False):
     """One `roosync_dashboard` tools/call over the bots' JSON-RPC path.
 
     Returns the JSON-RPC result dict (the MCP tool result -- `content` list
     included), or None on any failure. The bool append wrapper lives below.
+
+    #4643 opt-in: with return_rejected_text=True, a server-side isError
+    rejection returns its text (str) instead of None, so the organ can
+    classify it. Every other caller keeps the fail-closed None.
 
     Generic transport, deliberately argument-agnostic: the CALLER decides what
     is worth a note and what goes in `arguments`; this function only moves the
@@ -805,9 +825,15 @@ def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-dete
             post(b'{"jsonrpc":"2.0","method":"notifications/initialized"}', extra)
         _call_headers, call_raw = post(call_body, extra)
         result = result_payload(call_raw)
-        if result is not None and result.get("isError"):
+        rejected = rejected_text_from_result(result)
+        if rejected is not None:
             print(f"WARNING: dashboard call rejected server-side (isError) -- "
                   f"result NOT usable: {str(result)[:200]}", file=sys.stderr)
+            if return_rejected_text:
+                # #4643 : l'organe degraded classe les rejets serveur (coque
+                # 0 octet vs vraie erreur) — le texte lui est rendu. Les
+                # autres appelants gardent le None fail-closed.
+                return rejected
             return None
         return result
     except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:

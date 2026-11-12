@@ -110,13 +110,14 @@ DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
 # bout de 3 min d'une passe SAINE : l'organe ne rendait jamais 0/2/3.
 # 900 s = 669 s + la marge des relances de coques vides ci-dessous.
 DEFAULT_ARCHIVE_TIME_BUDGET_S = 900.0
-# #4643 : relance d'une lecture d'archive muette (timeout client). Le serveur
-# rejette une COQUE VIDE (0 octet) en ~35 s — au-dela du timeout client de
-# 10 s : sans relance a timeout etendu, la signature de coque ci-dessous est
-# invisible et la coque parait etre une panne de lecture.
+# #4643 : relance d'une lecture d'archive MUETTE (le transport rend None —
+# timeout client sporadique ; 5 releves sur des archives saines de 32-39 Ko).
+# Un rejet serveur isError ne se relance PAS : deterministe (7 ms mesures
+# post-gel, c.6823202164 — les ~35 s venaient du gel de G:, pas du rejet).
 ARCHIVE_READ_RETRY_TIMEOUT_S = 45.0
 # #4643 : signature du rejet d'une coque vide par read_archive (dashboard.ts,
-# « Format archive invalide: frontmatter manquant dans ... »). Une coque de
+# « Format archive invalide: frontmatter manquant dans ... ») — rejet isError
+# dont le transport rend le texte (opt-in return_rejected_text). Une coque de
 # 0 octet n'a jamais porte de messages : WARN non bloquant, pas un echec
 # d'instrument (mesure ai-01 12/11 : 5 coques vides sur G: ; le writer
 # corrige temp+rename n'en pose plus).
@@ -657,6 +658,14 @@ def tool_result_text(result):
     return None
 
 
+def archive_rejected_text(result):
+    """Texte du rejet serveur (isError) rendu par le transport (#4643),
+    ou None. Contrat : avec return_rejected_text=True, call_dashboard_tool
+    rend une str SI ET SEULEMENT SI la lecture a ete rejettee en isError —
+    le rejet deterministe ne se relance pas, il se classifie."""
+    return result if isinstance(result, str) else None
+
+
 def store_keys_from_listing(result):
     """Cles de dashboards depuis un `action: list`, ou None (fail-closed :
     une liste illisible ne se sert jamais comme « zero dashboard »)."""
@@ -722,13 +731,14 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     borne qu'un organe muet pendant 15 minutes de lectures sequentielles
     (mesure motivante : 68 timeouts x 10 s sur un G: gele).
 
-    #4643 (coques vides + timeouts clients) : une lecture d'archive muette
-    est relancee UNE fois a timeout etendu — le serveur rejette une coque de
-    0 octet en ~35 s, au-dela du timeout client de 10 s, et un timeout
-    sporadique peut aussi frapper une archive saine (5 releves sur des
-    fichiers de 32-39 Ko). L'enveloppe de rejet portant la signature d'une
-    coque vide est un WARN non bloquant : une coque n'a jamais porte de
-    messages, ce n'est pas une panne d'instrument.
+    #4643 (coques vides + timeouts clients) : une lecture d'archive MUETTE
+    (transport None) est relancee UNE fois a timeout etendu — timeout client
+    sporadique sur une archive saine (5 releves sur des fichiers de 32-39 Ko).
+    Un rejet serveur isError ne se relance pas (deterministe, 7 ms mesures
+    post-gel, c.6823202164) : son texte, rendu par le transport avec
+    return_rejected_text, se classifie — signature de coque vide = WARN non
+    bloquant (une coque n'a jamais porte de messages), tout autre rejet =
+    erreur d'instrument.
     """
     call = _load_transport()
     keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
@@ -828,20 +838,40 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     break
                 archive_result = call(
                     read_archive_arguments_for_key(key, archive_file=name),
-                    url, bearer, timeout=timeout)
-                archive_text = tool_result_text(archive_result)
-                if archive_text is None:
-                    # #4643 (mesure ai-01 12/11) : une lecture muette peut
-                    # etre un timeout client sporadique sur une archive
-                    # SAINE (5 releves sur des fichiers de 32-39 Ko) ou la
-                    # coque vide que le serveur met ~35 s a rejeter —
-                    # au-dela du timeout de 10 s. UNE relance a timeout
-                    # etendu tranche : le contenu arrive, ou la signature
-                    # « coque » devient visible.
+                    url, bearer, timeout=timeout,
+                    return_rejected_text=True)
+                rejected = archive_rejected_text(archive_result)
+                if rejected is None and archive_result is None:
+                    # #4643 (mesure ai-01 12/11) : lecture MUETTE — timeout
+                    # client sporadique sur une archive SAINE (5 releves sur
+                    # des fichiers de 32-39 Ko). UNE relance a timeout etendu
+                    # tranche : le contenu arrive, ou le rejet devient
+                    # visible. Un rejet isError ne passe PAS ici :
+                    # deterministe (7 ms mesures post-gel, c.6823202164), la
+                    # relance relirait le meme rejet pour rien.
                     archive_result = call(
                         read_archive_arguments_for_key(key, archive_file=name),
-                        url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S)
-                    archive_text = tool_result_text(archive_result)
+                        url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S,
+                        return_rejected_text=True)
+                    rejected = archive_rejected_text(archive_result)
+                if rejected is not None:
+                    # #4643 : rejet serveur isError, texte rendu par le
+                    # transport (opt-in). Coque de 0 octet = signature
+                    # « frontmatter manquant » — elle n'a jamais porte de
+                    # messages, ce n'est pas un echec d'instrument : WARN
+                    # non bloquant (les coques viennent du writer d'avant le
+                    # correctif temp+rename, ms#1740). Tout autre rejet =
+                    # erreur d'instrument.
+                    if ARCHIVE_HUSK_SIGNATURE in rejected.lower():
+                        print(f"WARNING: {key}/{name}: coque d'archive "
+                              f"vide ignoree ({rejected[:120]}) — sans "
+                              f"contenu, rien a lire : non bloquant",
+                              file=sys.stderr)
+                    else:
+                        errors.append(f"{key}/{name}: rejet serveur "
+                                      f"({rejected[:120]})")
+                    continue
+                archive_text = tool_result_text(archive_result)
                 if archive_text is None:
                     errors.append(f"{key}/{name}: lecture archive sans "
                                   f"contenu (relance incluse)")
@@ -850,11 +880,9 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     structured = entries_from_archive_json(archive_text)
                 except ValueError as exc:
                     if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
-                        # #4643 : coque vide (0 octet) — elle n'a jamais
-                        # porte de messages, ce n'est pas un echec
-                        # d'instrument : WARN non bloquant. Les coques
-                        # viennent du writer d'avant le correctif
-                        # temp+rename ; le writer corrige n'en pose plus.
+                        # #4643, couche JSON : une enveloppe succes portant
+                        # l'erreur (rejet non-isError) garde le meme
+                        # traitement coque que la couche transport.
                         print(f"WARNING: {key}/{name}: coque d'archive "
                               f"vide ignoree ({exc}) — sans contenu, rien "
                               f"a lire : non bloquant", file=sys.stderr)
@@ -1192,7 +1220,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                         for i in range(3)]
         budget_calls = {"archive_files": 0}
 
-        def budget_fake_call(arguments, url, bearer, timeout=10.0):
+        def budget_fake_call(arguments, url, bearer, timeout=10.0,
+                             client="x", return_rejected_text=False):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -1226,13 +1255,35 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         assert budget_calls["archive_files"] < len(budget_names), \
             budget_calls
 
-        # #4643 — coque vide : lecture muette RELANCEE a timeout etendu
-        # (premier appel = timeout client, relance = enveloppe de rejet
-        # « frontmatter manquant »). La coque est un WARN non bloquant —
-        # pas d'erreur d'instrument, entrees vivantes intactes.
+        # #4643 (c.6823202164) — coque vide : rejet serveur isError VERBATIM,
+        # texte rendu par le transport (opt-in return_rejected_text) au
+        # PREMIER appel — deterministe (7 ms mesures post-gel), la relance
+        # relirait le meme rejet. WARN non bloquant, pas d'erreur
+        # d'instrument, entrees vivantes intactes, AUCUNE relance.
+        _spec = importlib.util.spec_from_file_location(
+            "detect_approval_stalls_selftest",
+            Path(__file__).resolve().parent / "detect-approval-stalls.py")
+        transport_module = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(transport_module)
+        VERBATIM_HUSK_ENVELOPE = {
+            "_meta": {"durationMs": 7, "toolName": "roosync_dashboard"},
+            "content": [{"type": "text", "text":
+                         "Error: Format archive invalide: frontmatter "
+                         "manquant dans G:\\Mon Drive\\RooSync\\dashboards\\"
+                         "archives\\workspace-x-2026-11-03T04-00-00.md"}],
+            "isError": True,
+        }
+        # Le helper du transport rend bien le texte de l'enveloppe verbatim :
+        # le selftest exerce la VRAIE extraction, pas une forme reinventee.
+        verbatim_husk_text = transport_module.rejected_text_from_result(
+            VERBATIM_HUSK_ENVELOPE)
+        assert verbatim_husk_text is not None and \
+            ARCHIVE_HUSK_SIGNATURE in verbatim_husk_text.lower(), \
+            verbatim_husk_text
         husk_reads = []
 
-        def husk_fake_call(arguments, url, bearer, timeout=10.0, client="x"):
+        def husk_fake_call(arguments, url, bearer, timeout=10.0, client="x",
+                           return_rejected_text=False):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -1244,13 +1295,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 return {"content": [{"type": "text", "text": json.dumps(
                     {"success": True,
                      "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
-            husk_reads.append(timeout)
-            if len(husk_reads) == 1:
-                return None  # timeout client : le rejet arrive a ~35 s
-            return {"content": [{"type": "text", "text": json.dumps({
-                "success": False,
-                "error": "Format archive invalide: frontmatter manquant "
-                         "dans G:/Mon Drive/.../workspace-x-2026-11-03T04-00-00.md"})}]}
+            husk_reads.append((timeout, return_rejected_text))
+            # Contrat transport #4643 : avec l'opt-in, un rejet isError rend
+            # son TEXTE (str) — la forme exacte que le serveur produit.
+            return verbatim_husk_text
 
         try:
             globals()["_load_transport"] = lambda: husk_fake_call
@@ -1265,16 +1313,42 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 and husk_entries[0]["body"] == "[DONE] cycle normal"), \
             husk_entries
         assert "coque" in husk_err.getvalue(), husk_err.getvalue()
-        # La relance porte le timeout ETENDU, pas le timeout client.
-        assert husk_reads[0] == 1.0 and husk_reads[1] == ARCHIVE_READ_RETRY_TIMEOUT_S, \
-            husk_reads
+        # UN SEUL appel, avec l'opt-in — le rejet deterministe ne se relance
+        # PAS (mesure ai-01 : 7 ms, la relance relirait le meme rejet).
+        assert husk_reads == [(1.0, True)], husk_reads
+
+        # #4643 — tout AUTRE rejet isError reste une erreur d'instrument :
+        # pas la signature coque -> « rejet serveur » dans les erreurs.
+        def other_reject_fake_call(arguments, url, bearer, timeout=10.0,
+                                   client="x", return_rejected_text=False):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
+            return "Error: something else entirely (EACCES)"
+
+        try:
+            globals()["_load_transport"] = lambda: other_reject_fake_call
+            _o_entries, other_errors, _o_keys = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert len(other_errors) == 1 and "rejet serveur" in other_errors[0], \
+            other_errors
 
         # #4643 — timeout client sporadique sur archive SAINE : la relance
         # sert le contenu, l'entree archivee est vue (ici : [REPAIRED]).
         recover_reads = []
 
         def recover_fake_call(arguments, url, bearer, timeout=10.0,
-                              client="x"):
+                              client="x", return_rejected_text=False):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -1317,9 +1391,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
           "token de declaration ; #4643 : crossPost dedoublonne sur (lane, poste), "
           "enveloppe archive archiveData parsee et fail-closed, listing "
           "d'archives None != [], fenetre 48 h par le nom, identification "
-          "d'archive = celle du read vivant, coque vide WARN non bloquant via "
-          "relance a timeout etendu, timeout client sporadique recouvre par "
-          "la relance ; #4661 : budget d'archives global — saut signale, "
+          "d'archive = celle du read vivant, coque vide isError (enveloppe "
+          "verbatim) classee WARN sans relance, autre rejet isError = erreur, "
+          "timeout client sporadique recouvre par la relance ; #4661 : "
+          "budget d'archives global — saut signale, "
           "entrees vivantes intactes, appels bornes.")
 
 
