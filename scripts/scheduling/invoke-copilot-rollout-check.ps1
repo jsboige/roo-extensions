@@ -27,6 +27,11 @@ param(
     [int]$MaxConsecutiveIdle = 4,
     [int]$MinEscalationIntervalMinutes = 180,
     [int]$MaxEscalationsPerDay = 3,
+    # #4669: the install leg registers the worker with the retarget pair --
+    # without it setup-copilot-dispatcher.ps1 refuses (a local-mode task can
+    # never deliver). The pair is passed through to the installer unchanged.
+    [string]$TargetRepoSlug = '',
+    [string]$TargetRepoPath = '',
     [switch]$SkipBootstrap,
     [switch]$ValidateOnly,
     [switch]$PostIssueComment,
@@ -276,6 +281,15 @@ $installArgs = @(
     '-MinEscalationIntervalMinutes',$MinEscalationIntervalMinutes,
     '-MaxEscalationsPerDay',$MaxEscalationsPerDay
 )
+# #4669: forward the retarget pair so the registered task can deliver; the
+# installer itself refuses a pairless install (fail-closed), which the catch
+# below records as a blocker.
+if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {
+    $installArgs += @('-TargetRepoSlug', $TargetRepoSlug)
+}
+if (-not [string]::IsNullOrWhiteSpace($TargetRepoPath)) {
+    $installArgs += @('-TargetRepoPath', $TargetRepoPath)
+}
 
 if (-not $ValidateOnly) {
     try {

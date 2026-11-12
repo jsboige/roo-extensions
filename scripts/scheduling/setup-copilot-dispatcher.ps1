@@ -43,6 +43,16 @@
 .PARAMETER MaxEscalationsPerDay
     Max escalation events allowed in a rolling 24h window.
 
+.PARAMETER TargetRepoSlug
+    owner/name of the repo the dispatcher works on (issue pool + delivery).
+    Required together with -TargetRepoPath: without the pair the worker runs
+    in local mode, which fail-closes with zero Copilot calls (#4669) — a
+    task registered that way could never deliver, so install refuses.
+
+.PARAMETER TargetRepoPath
+    Local clone of the target repo. Work happens in a throwaway worktree of
+    it, never in its main checkout.
+
 .PARAMETER DryRun
     Preview only.
 #>
@@ -63,6 +73,8 @@ param(
     [int]$MaxConsecutiveIdle = 4,
     [int]$MinEscalationIntervalMinutes = 180,
     [int]$MaxEscalationsPerDay = 3,
+    [string]$TargetRepoSlug = '',
+    [string]$TargetRepoPath = '',
     [switch]$DryRun
 )
 
@@ -84,15 +96,35 @@ function Show-Task {
 }
 
 function Install-Task {
+    # #4669: the task command line must carry the retarget pair or the
+    # registered worker runs in local mode — no delivery geometry, the worker
+    # fail-closes with zero Copilot calls and a blocked streak. Refuse rather
+    # than register a task that could never deliver a PR.
+    $slugGiven = -not [string]::IsNullOrWhiteSpace($TargetRepoSlug)
+    $pathGiven = -not [string]::IsNullOrWhiteSpace($TargetRepoPath)
+    if ($slugGiven -xor $pathGiven) {
+        throw "install refused: -TargetRepoSlug and -TargetRepoPath must be given TOGETHER - half a retarget cannot deliver (worker fail-closes on local mode, #4669)"
+    }
+    if (-not $slugGiven) {
+        throw "install refused: no delivery geometry - pass -TargetRepoSlug <owner/repo> and -TargetRepoPath <local clone>; without the pair the worker skips every Copilot call (local mode, #4669)"
+    }
+    if (-not (Test-Path $TargetRepoPath)) {
+        throw "install refused: -TargetRepoPath '$TargetRepoPath' does not exist - the worker needs the target repo's local clone"
+    }
+
+    # A trailing \ or / would escape the closing quote in the interpolated
+    # command line below and mangle the task's argument parsing.
+    $targetPathNorm = $TargetRepoPath.TrimEnd('\', '/')
+    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -TargetRepoSlug $TargetRepoSlug -TargetRepoPath `"$targetPathNorm`""
+
     if ($DryRun) {
         Write-Host "[DRY-RUN] Would install $taskName" -ForegroundColor Yellow
+        Write-Host "[DRY-RUN] Task args: $taskCli"
         return
     }
 
     $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
-
-    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay"
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
         -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
         -RepetitionDuration (New-TimeSpan -Days 365)
@@ -131,7 +163,14 @@ function Remove-Task {
 function Test-Task {
     Write-Host "Running dispatcher in dry-run mode..." -ForegroundColor Cyan
     $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
-    & $psExe -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
+    # #4669: forward the retarget pair so the dry-run exercises the same
+    # geometry the scheduled task would run (a dry-run of local mode proves
+    # nothing about delivery).
+    $retargetArgs = @()
+    if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug) -and -not [string]::IsNullOrWhiteSpace($TargetRepoPath)) {
+        $retargetArgs = @('-TargetRepoSlug', $TargetRepoSlug, '-TargetRepoPath', $TargetRepoPath)
+    }
+    & $psExe -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay @retargetArgs -DryRun
 }
 
 switch ($Action) {

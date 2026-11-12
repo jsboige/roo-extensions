@@ -46,20 +46,22 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 # List
 .\setup-copilot-dispatcher.ps1 -Action list
 
-# Test
-.\setup-copilot-dispatcher.ps1 -Action test
+# Test (worker dry-run; forwards the retarget pair when given)
+.\setup-copilot-dispatcher.ps1 -Action test -TargetRepoSlug jsboige/CoursIA -TargetRepoPath D:\Dev\CoursIA
 
-# Install
-.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3
+# Install — the retarget pair is MANDATORY (#4669): without it the worker
+# would run in local mode (work root = the host lane's main checkout) and
+# fail-closes with zero Copilot calls, so install refuses.
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -TargetRepoSlug jsboige/CoursIA -TargetRepoPath D:\Dev\CoursIA
 
 # Install with explicit budget/escalation profile
-.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -MaxConsecutiveBlocked 2 -MaxConsecutiveIdle 4
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -TargetRepoSlug jsboige/CoursIA -TargetRepoPath D:\Dev\CoursIA -BudgetProfile balanced -MaxConsecutiveBlocked 2 -MaxConsecutiveIdle 4
 
 # Install with premium usage guard (example with current usage)
-.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -PremiumUsagePercent 4.5 -SoftUsageCapPercent 70 -HardUsageCapPercent 90
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -TargetRepoSlug jsboige/CoursIA -TargetRepoPath D:\Dev\CoursIA -BudgetProfile balanced -PremiumUsagePercent 4.5 -SoftUsageCapPercent 70 -HardUsageCapPercent 90
 
 # Install with issue hooks + escalation guardrails
-.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -IssueNumber 622 -MinEscalationIntervalMinutes 180 -MaxEscalationsPerDay 3
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -TargetRepoSlug jsboige/CoursIA -TargetRepoPath D:\Dev\CoursIA -IssueNumber 622 -MinEscalationIntervalMinutes 180 -MaxEscalationsPerDay 3
 
 # Run full rollout gate on the current machine (recommended)
 .\invoke-copilot-rollout-check.ps1 -IssueNumber 622 -BudgetProfile balanced
