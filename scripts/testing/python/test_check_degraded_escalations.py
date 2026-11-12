@@ -11,7 +11,9 @@ Stdlib `unittest` seulement, sans G: ni reseau : `unittest discover -s
 scripts/testing/python` tourne en CI sur ubuntu.
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import sys
@@ -329,7 +331,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
     HOST_MACHINE = "myia-host"
 
     def fake_store(self, dashboards, keys=None, structured=None, raw=None,
-                   trailer=""):
+                   trailer="", archives=None, archive_files=None,
+                   archive_raw=None, archive_listing_raw=None):
         """Transport store hors-ligne : {id: texte intercom}, `keys` = listing
         (cles PREFIXEES machine-/workspace-, comme le vrai store). Enregistre
         les arguments `read` dans self.reads pour les assertions par-cle.
@@ -343,6 +346,14 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         une enveloppe en echec (`success: false`) ou une forme inattendue --
         le serveur reel les rend sans `isError` (review ai-01 04/11, SHOULD-1).
 
+        #4643 : `archives` = {id: [noms]} (listing read_archive ; un dashboard
+        absent est un dashboard SANS archive — reponse legitime `[]`, pas un
+        echec) ; `archive_files` = {nom: [messages]} (fichier servi en
+        enveloppe archiveData, comme le serveur reel) ; `archive_raw` =
+        {nom: texte} servi tel quel (enveloppe en echec) ;
+        `archive_listing_raw` = texte servi pour TOUT listing illisible.
+        Les appels read_archive sont enregistres dans self.archive_reads.
+
         Fidele au serveur reel (#4517 reouverte 11/11) : un `read` machine lit
         `machineId` et, sans lui, sert le dashboard machine de l'HOTE
         (`args.machineId ?? getLocalMachineId()`, dashboard.ts) -- `machine`
@@ -352,11 +363,37 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         if keys is None:
             keys = list(dashboards)
         self.reads = []
+        self.archive_reads = []
 
         def call(arguments, url, bearer, timeout=10.0, client="x"):
             if arguments.get("action") == "list":
                 body = json.dumps({"success": True,
                                    "dashboards": [{"key": k} for k in keys]})
+            elif arguments.get("action") == "read_archive":
+                self.archive_reads.append(arguments)
+                if arguments.get("type") == "machine":
+                    ident = arguments.get("machineId") or self.HOST_MACHINE
+                else:
+                    ident = arguments.get("workspace") or "global"
+                name = arguments.get("archiveFile")
+                if name is None:
+                    if archive_listing_raw is not None:
+                        body = archive_listing_raw
+                    else:
+                        body = json.dumps({
+                            "success": True, "action": "read_archive",
+                            "key": ident,
+                            "archives": (archives or {}).get(ident, [])})
+                elif archive_raw is not None and name in archive_raw:
+                    body = archive_raw[name]
+                else:
+                    messages = (archive_files or {}).get(name, [])
+                    body = json.dumps({
+                        "success": True, "action": "read_archive",
+                        "archiveData": {"key": ident,
+                                        "archivedAt": "2026-11-03T04:00:00.001Z",
+                                        "messageCount": len(messages),
+                                        "messages": messages}})
             elif arguments.get("action") == "read":
                 self.reads.append(arguments)
                 if arguments.get("type") == "machine":
@@ -684,6 +721,133 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                          cde.build_ring_id([item], now=1750000100))
         self.assertNotEqual(cde.build_ring_id([item], now=1750000000),
                             cde.build_ring_id([item], now=1750100000))
+
+    # --- #4643 : la condensation ne doit plus aveugler l'organe -------------
+
+    def test_archived_repaired_closes_the_live_escalation(self):
+        # Le cas mesure du 10/11 : [REPAIRED] 17:32Z consomme par la
+        # condensation de 21:00Z -- avant #4643, sonnerie 23:54Z sur une
+        # escalade fermee depuis 6 h 22.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_files={"workspace-y-2026-11-03T04-00-00.md": [
+                self.message("2026-11-03T02:00:00.000Z",
+                             content="[REPAIRED] tout est revenu")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_archived_escalation_still_rings(self):
+        # Sens symetrique (cas du 03/11) : l'ESCALADE archivee quitte le vif
+        # -- elle doit continuer a sonner, pas disparaitre en faux negatif.
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={"y": []},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_files={"workspace-y-2026-11-03T04-00-00.md": [
+                self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]})
+        self.assertEqual(self.run_store_main(), 2)
+
+    def test_archive_listing_failure_is_an_instrument_error(self):
+        # « Je ne vois pas les archives » EST l'angle mort : jamais servi comme
+        # « aucune archive » (exit 0 confiant) ni comme sonnerie aveugle.
+        self.fake_store({}, keys=["workspace-y"], structured={"y": []},
+                        archive_listing_raw="## pas du json")
+        self.assertEqual(self.run_store_main(), 1)
+
+    def test_ring_cancelled_on_partial_measure(self):
+        # W3 (review #4655) : un --ring du alors qu'un instrument est illisible
+        # ne part PAS — la fenêtre aveugle peut cacher le [REPAIRED] qui
+        # fermerait l'escalade mesurée ; un faux réveil coûte une intervention
+        # humaine. Exit 1, le cycle suivant re-sonnera sur une lecture complète.
+        # Preuve : publish_ring JAMAIS appelé (l'annulation précède le transport).
+        self.fake_store({}, keys=["workspace-y"], structured={"y": [
+            self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]},
+                        archive_listing_raw="## pas du json")
+        rings = []
+        original = cde.publish_ring
+        cde.publish_ring = lambda *a, **k: rings.append(a) or True
+        self.addCleanup(setattr, cde, "publish_ring", original)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring",
+                             "--ring-bearer", "test-bearer"])
+        self.assertEqual(code, 1)
+        self.assertEqual(rings, [])
+        self.assertIn("ANNULEE", err.getvalue())
+
+    def test_archive_file_failure_is_an_instrument_error(self):
+        # Une archive de la fenetre ILLISIBLE n'est pas sautee en silence :
+        # elle aurait pu porter le [REPAIRED] qui ferme l'escalade vivante.
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={
+                "y": [self.message("2026-11-03T00:30:00.000Z",
+                                   tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_raw={"workspace-y-2026-11-03T04-00-00.md":
+                         json.dumps({"success": False,
+                                     "error": "fichier absent"})})
+        self.assertEqual(self.run_store_main(), 1)
+
+    def test_crossposted_declaration_counts_once(self):
+        # crossPost (global + machine + workspace) : meme auteur, meme
+        # horodatage -- UNE escalade, pas trois (mesure 11/11 : la sonnerie
+        # comptait chaque echeance N fois).
+        msg = self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])
+        self.fake_store({}, keys=["global", "machine-m", "workspace-w"],
+                        structured={"global": [msg], "m": [msg], "w": [msg]})
+        self.assertEqual(self.run_store_main(), 2)
+        entries, errors = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW))
+        self.assertEqual(errors, [])
+        escalations = cde.collect_escalations(entries, cde.parse_ts(NOW))
+        self.assertEqual(len(escalations), 1, escalations)
+
+    def test_old_archive_outside_window_is_not_read(self):
+        # La fenetre (48 h par defaut) borne le cout : une archive d'un mois
+        # n'est pas relue -- l'assertion porte sur les appels EMIS, la seule
+        # preuve qu'elle n'a pas servie.
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={"y": []},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md",
+                            "workspace-y-2026-10-01T00-00-00.md"]},
+            archive_files={"workspace-y-2026-10-01T00-00-00.md": [
+                self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]})
+        self.assertEqual(self.run_store_main(), 0)
+        file_reads = [a["archiveFile"] for a in self.archive_reads
+                      if a.get("archiveFile")]
+        self.assertEqual(file_reads, ["workspace-y-2026-11-03T04-00-00.md"])
+
+    def test_archive_window_zero_disables_archive_reads(self):
+        self.fake_store({}, keys=["workspace-y"], structured={"y": []},
+                        archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]})
+        code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                         "--archive-window-hours", "0"])
+        self.assertEqual(code, 0)
+        self.assertEqual(self.archive_reads, [])
+
+    def test_undated_archive_name_is_still_read(self):
+        # Impossible de prouver qu'un nom sans horodatage est vieux : il est
+        # lu (couverture conservatrice -- l'angle mort est l'archive non lue).
+        self.fake_store(
+            {}, keys=["workspace-y"], structured={"y": []},
+            archives={"y": ["workspace-y-sans-date.md"]},
+            archive_files={"workspace-y-sans-date.md": [
+                self.message("2026-11-03T00:30:00.000Z", tags=["DEGRADED"])]})
+        self.assertEqual(self.run_store_main(), 2)
+
+    def test_archive_read_addresses_machine_dashboards_by_machine_id(self):
+        # #4647 vaut pour les DEUX lecteurs : un read_archive machine sans
+        # machineId servirait le dashboard machine de l'HOTE.
+        self.fake_store({}, keys=["machine-m"], structured={},
+                        archives={"m": ["machine-m-2026-11-03T04-00-00.md"]})
+        self.run_store_main()
+        machine_calls = [a for a in self.archive_reads
+                         if a.get("type") == "machine"]
+        # Listing PUIS fichier : deux appels, tous deux adresses par machineId.
+        self.assertEqual([a.get("machineId") for a in machine_calls],
+                         ["m", "m"])
+        for call in machine_calls:
+            self.assertNotIn("machine", call)
 
 
 if __name__ == "__main__":

@@ -33,13 +33,29 @@ Codes de sortie (un automate peut lire le code seul) :
 Sources, dans l'ordre (review #4519 point c) :
     1. --dashboard-file    rejeu d'un fichier precis (forensic) — pas de plafond
     2. STORE PG            meme transport que la sonnerie (MCP_PROXY_BEARER),
-                           fenetre des 200 dernieres entrees par dashboard
+                           fenetre des 200 dernieres entrees par dashboard,
+                           PLUS les archives de condensation recentes (#4643,
+                           --archive-window-hours, defaut 48 h)
     3. miroir G:           repli seulement, et seulement vers un repertoire
                            EXPLICITE (--dashboard-dir) ou avec bearer ; la
                            lecture par defaut sans bearer est DEGRADEE (sortie
                            1, #4650) car le miroir n'est plus ecrit depuis
                            #4131. Plafond de fraicheur : la plus recente entree
                            doit dater de moins d'un cycle
+
+#4643 — la condensation ne doit plus aveugler l'organe. Elle retire les messages
+du vif sur les DEUX surfaces (miroir G: vers dashboards/archive/, store PG :
+compteur 47 -> 12 mesure le 11/11), ce qui jouait dans les deux sens : un
+`[REPAIRED]` consomme par une condensation entre deux passages d'organe etait
+definitivement invisible (sonnerie ASK-USER RECURRENTE apres une reparation
+documentee — cas du 10/11 : [REPAIRED] 17:32Z archive a 21:00Z, sonnerie
+23:54Z, 6 h 22 apres la reparation), et une ESCALADE archivee quittait le champ
+sans jamais sonner (faux negatif — cas du 03/11). La condensation POSE une
+archive des messages retires (`read_archive` la sert depuis les fichiers .md
+ecrits sur l'hote RSM ; en PG, `archived_at` passe non-NULL) : le lecteur store
+lit donc AUSSI les archives creees dans la fenetre. Un message crossPoste (global +
+machine + workspace) porte le meme auteur et le meme horodatage partout : les
+declarations se dedoublonnent sur (lane, poste).
 
 Usage :
     python check-degraded-escalations.py                       # lit le store ( bearer requis )
@@ -72,6 +88,10 @@ from pathlib import Path
 DEFAULT_SHARED = Path("G:/Mon Drive/Synchronisation/RooSync/.shared-state")
 DEFAULT_CYCLES = 2
 DEFAULT_CYCLE_HOURS = 4.0
+# #4643 : fenetre de lecture des archives de condensation (heures). 48 h
+# couvre l'horizon reel d'une escalade saine (2 cycles d'echeance + la
+# re-sonnerie quotidienne de build_ring_id) ; 0 desactive la lecture.
+DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
 
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
@@ -96,6 +116,10 @@ DECLARATION_TOKEN_RE = re.compile(r"\[(DEGRADED|REPAIRED)\](?![A-Za-z0-9_-])")
 # Tag porte par la sonnerie elle-meme (tags ASK-USER + DEGRADED-ESCALATION) :
 # une entree qui le porte n'est jamais une declaration ni une reparation.
 RING_TAG = "degraded-escalation"
+# Nom d'un fichier d'archive de condensation (#4643) :
+# `workspace-roo-extensions-2026-11-10T21-00-47.md` — l'horodatage du nom est
+# l'instant de la condensation (les millisecondes ne sont pas ecrites).
+ARCHIVE_NAME_TS_RE = re.compile(r"-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})\.md$")
 
 
 def parse_ts(text):
@@ -206,13 +230,24 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
     escalades anterieures — c'est une declaration de lane, pas d'incident, et
     exiger un identifiant d'incident rendrait le mecanisme inutilisable pour
     l'agent qui poste sous pression.
+
+    #4643 : un message crossPoste existe sous plusieurs dashboards avec le
+    MEME auteur et le MEME horodatage — chaque copie ouvrait une escalade, la
+    sonnerie comptait N fois la meme echeance. Les declarations se
+    dedoublonnent sur (lane, poste) ; deux declarations d'une meme lane a deux
+    instants differents restent deux escalades distinctes.
     """
     ordered = sorted(entries, key=lambda e: e["ts"])
     window = timedelta(hours=cycles * cycle_hours)
     found = []
+    seen_declarations = set()
     for index, entry in enumerate(ordered):
         if not is_degraded(entry):
             continue
+        declaration_key = (entry["lane"], entry["ts"])
+        if declaration_key in seen_declarations:
+            continue
+        seen_declarations.add(declaration_key)
         repaired_at = None
         for later in ordered[index + 1:]:
             if later["lane"] == entry["lane"] and is_repaired(later):
@@ -308,6 +343,73 @@ def read_arguments_for_key(key, intercom_limit):
         arguments["type"] = "workspace"
         arguments["workspace"] = key
     return arguments
+
+
+def read_archive_arguments_for_key(key, archive_file=None):
+    """Arguments `read_archive` pour la cle (#4643). L'identification est
+    CELLE du `read` vivant, par construction : la correction #4647 (`machineId`,
+    pas `machine`) doit valoir pour les DEUX lecteurs — dupliquer le dispatch
+    d'identite referait un jour la faute corrigee. On part donc des arguments
+    du read et on ne change que l'action (et le fichier demande).
+    """
+    arguments = read_arguments_for_key(key, 0)
+    arguments.pop("intercomLimit", None)
+    arguments.pop("format", None)
+    arguments.pop("section", None)
+    arguments["action"] = "read_archive"
+    if archive_file is not None:
+        arguments["archiveFile"] = archive_file
+    return arguments
+
+
+def select_recent_archives(names, now, window_hours):
+    """Noms d'archives crees dans la fenetre, par l'horodatage du NOM (#4643).
+
+    Un nom sans horodatage parsable est CONSERVE : impossible de prouver qu'il
+    est vieux, et une archive non lue est exactement l'angle mort que ce
+    lecteur existe pour fermer.
+    """
+    if not window_hours:
+        return list(names)
+    cutoff = (now - timedelta(hours=window_hours)) if now is not None else None
+    if cutoff is None:
+        return list(names)
+    kept = []
+    for name in names:
+        match = ARCHIVE_NAME_TS_RE.search(name)
+        stamp = None
+        if match is not None:
+            try:
+                stamp = datetime.strptime(match.group(1),
+                                          "%Y-%m-%dT%H-%M-%S"
+                                          ).replace(tzinfo=timezone.utc)
+            except ValueError:
+                stamp = None
+        if stamp is None or stamp >= cutoff:
+            kept.append(name)
+    return kept
+
+
+def archive_names_from_listing(result):
+    """Noms de fichiers d'archives depuis un `read_archive` sans fichier, ou
+    None si illisible (fail-closed #4643 : un listing illisible ne se sert
+    JAMAIS comme « aucune archive » — ce serait rouvrir le faux negatif que
+    ce lecteur ferme). Une liste VIDE est legitime (dashboard sans archive)
+    et se distingue de None.
+    """
+    text = tool_result_text(result)
+    if text is None:
+        return None
+    try:
+        payload = leading_json(text)
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or payload.get("success") is False:
+        return None
+    archives = payload.get("archives")
+    if not isinstance(archives, list):
+        return None
+    return [a for a in archives if isinstance(a, str) and a]
 
 
 def unrecognized_headers(text):
@@ -435,6 +537,16 @@ def entries_from_store_json(text):
     messages = intercom.get("messages") if isinstance(intercom, dict) else None
     if not isinstance(messages, list):
         raise ValueError("enveloppe sans data.intercom.messages[]")
+    return entries_from_messages(messages)
+
+
+def entries_from_messages(messages):
+    """Entrees depuis une liste `messages[]` serveur — extraction PARTAGEE par
+    le store vivant et les archives (#4643) : le meme corps doit rendre le
+    meme verdict sur les TROIS surfaces (miroir, store, archive), sinon une
+    forme declaree sur l'une serait muette sur l'autre — exactement la famille
+    SHOULD-2 que l'union ci-dessous a fermee entre miroir et store.
+    """
     entries = []
     for message in messages:
         if not isinstance(message, dict):
@@ -465,6 +577,42 @@ def entries_from_store_json(text):
                      | tags_from_text(content)),
         })
     return entries
+
+
+def entries_from_archive_json(text):
+    """Entrees depuis l'enveloppe JSON d'un `read_archive` fichier (#4643) —
+    miroir exact d'`entries_from_store_json` pour la forme `archiveData` : le
+    serveur sert les messages archives dans le MEME format IntercomMessage que
+    le vivant, lus depuis le fichier .md pose par la condensation.
+
+    Pas de repli markdown ici : `read_archive` n'a jamais servi de corps nu sur
+    ce transport, une reponse non-JSON est une erreur d'instrument (levee),
+    jamais un « dashboard propre ».
+
+    Limite mesuree (writer `buildArchiveMessagesMarkdown`, dashboard.ts) :
+    l'archive ne serialise PAS la ligne `[tags: ...]` — une declaration faite
+    UNIQUEMENT par le parametre `tags` de l'API (sans token ni ligne `[tags:]`
+    dans le corps) perd son tag en etant archivee. Les deux formes documentees
+    (token premier du corps, ligne `[tags:]` ecrite dans le corps) survivent :
+    le contenu est servi verbatim. La fenetre vivante couvre les declarations
+    fraiches ; l'echeance (2 cycles) reste bornee par elle.
+    """
+    try:
+        payload = leading_json(text)
+    except (TypeError, ValueError):
+        raise ValueError("reponse archive non-JSON (pas de repli pour read_archive)")
+    if not isinstance(payload, dict):
+        raise ValueError("enveloppe archive sans objet racine")
+    if payload.get("success") is False:
+        detail = payload.get("error") or "sans motif"
+        raise ValueError(f"enveloppe archive en echec ({detail})")
+    archive_data = payload.get("archiveData")
+    if not isinstance(archive_data, dict):
+        raise ValueError("enveloppe sans archiveData")
+    messages = archive_data.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("enveloppe sans archiveData.messages[]")
+    return entries_from_messages(messages)
 
 
 def tool_result_text(result):
@@ -498,7 +646,8 @@ def store_keys_from_listing(result):
 
 
 def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
-                            now=None, window_hours=None):
+                            now=None, window_hours=None,
+                            archive_window_hours=DEFAULT_ARCHIVE_WINDOW_HOURS):
     """Dashboards servis par le STORE (PG), meme transport que la sonnerie
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
     gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
@@ -516,9 +665,16 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     Hermes 04/11 (debits reels/nuit : CoursIA 12,85/h, cluster 7,25/h,
     roo-extensions 3,9/h) -> 200 entrees couvrent > 8 h partout ; la verif
     de couverture rend la constante auto-prouvee, pas crue sur parole.
-    Une escalade archivee par condensation AVANT son echeance reste le
-    plafond connu (review NanoClaw 03/11) — le store a au moins le merite
-    de ne pas geler.
+
+    #4643 : la fenetre vivante ne suffit plus des qu'une condensation passe —
+    elle retirait du vif un `[REPAIRED]` (sonnerie recurrente apres reparation
+    documentee) ou l'escalade elle-meme (faux negatif). Chaque dashboard lit
+    donc AUSSI ses archives de condensation creees dans
+    `archive_window_hours` (defaut 48 h ; 0 desactive). Un listing d'archives
+    illisible est une erreur d'instrument : « je ne vois pas les archives »
+    est exactement l'angle mort, jamais un « aucune archive ». Limite connue,
+    asymetrique : une declaration plus vieille que la fenetre ET archivee
+    reste invisible.
     """
     call = _load_transport()
     keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
@@ -572,6 +728,32 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     f"{window_start.isoformat()} (intercom_limit="
                     f"{intercom_limit}) ; une escalade anterieure serait "
                     f"invisible")
+        # #4643 : le vif condense n'est qu'une PARTIE de la verite — les
+        # archives recentes portent les declarations evacuees.
+        if archive_window_hours:
+            listing = call(read_archive_arguments_for_key(key),
+                           url, bearer, timeout=timeout)
+            names = archive_names_from_listing(listing)
+            if names is None:
+                errors.append(f"{key}: listing des archives illisible — la "
+                              f"fenetre d'archives est AVEUGLE, un [REPAIRED] "
+                              f"ou une escalade archivee serait invisible")
+                continue
+            for name in select_recent_archives(names, now, archive_window_hours):
+                archive_result = call(
+                    read_archive_arguments_for_key(key, archive_file=name),
+                    url, bearer, timeout=timeout)
+                archive_text = tool_result_text(archive_result)
+                if archive_text is None:
+                    errors.append(f"{key}/{name}: lecture archive sans contenu")
+                    continue
+                try:
+                    structured = entries_from_archive_json(archive_text)
+                except ValueError as exc:
+                    errors.append(f"{key}/{name}: enveloppe archive "
+                                  f"inexploitable ({exc})")
+                    continue
+                entries.extend(structured)
     return entries, errors
 
 
@@ -812,12 +994,88 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         assert build_ring_id(overdue, now=1750000000) == build_ring_id(overdue, now=1750000100)
         assert build_ring_id(overdue, now=1750000000) != build_ring_id(overdue, now=1750100000)
 
+        # #4643 — dedoublonnage crossPost : la MEME declaration (meme lane,
+        # meme horodatage) servie par deux dashboards n'ouvre QU'UNE escalade.
+        crossposted = (load_entries([root / "overdue.md"])[0]
+                       + load_entries([root / "overdue.md"])[0])
+        doubled = collect_escalations(crossposted, now)
+        assert len(doubled) == 1, doubled
+        # Et deux declarations d'une meme lane a deux instants differents
+        # restent deux escalades distinctes (le dedup ne fusionne pas tout).
+        twice = (load_entries([root / "overdue.md"])[0]
+                 + load_entries([root / "waiting.md"])[0])
+        assert len(collect_escalations(twice, now)) == 2
+
+        # #4643 — enveloppe archive : la forme archiveData se parse comme le
+        # vivant (champs + union des tags du corps), l'echec est fail-closed.
+        archive_envelope = json.dumps({
+            "success": True, "action": "read_archive",
+            "archiveData": {"key": "workspace-x",
+                            "archivedAt": "2026-11-03T04:00:00.001Z",
+                            "messageCount": 1,
+                            "messages": [{
+                                "id": "m-1", "timestamp": "2026-11-03T02:00:00Z",
+                                "author": {"machineId": "myia-a", "workspace": "ws"},
+                                "content": "[REPAIRED] tout est revenu"}]}})
+        archived = entries_from_archive_json(archive_envelope)
+        assert len(archived) == 1 and is_repaired(archived[0]), archived
+        try:
+            entries_from_archive_json(
+                json.dumps({"success": False, "error": "store inaccessible"}))
+            raise AssertionError("enveloppe archive en echec doit lever")
+        except ValueError:
+            pass
+        try:
+            entries_from_archive_json("## Intercom (pas du JSON)")
+            raise AssertionError("reponse archive non-JSON doit lever")
+        except ValueError:
+            pass
+
+        # #4643 — listing d'archives : None (illisible) se distingue de []
+        # (dashboard sans archive, legitime).
+        listing = json.dumps({"success": True, "archives": [
+            "workspace-x-2026-11-03T04-00-00.md",
+            "workspace-x-2026-10-01T00-00-00.md"]})
+        assert archive_names_from_listing(
+            {"content": [{"type": "text", "text": listing}]}) == [
+            "workspace-x-2026-11-03T04-00-00.md",
+            "workspace-x-2026-10-01T00-00-00.md"]
+        assert archive_names_from_listing(
+            {"content": [{"type": "text", "text": json.dumps(
+                {"success": True, "archives": []})}]}) == []
+        assert archive_names_from_listing(None) is None
+
+        # #4643 — fenetre d'archives : le nom horodate hors fenetre est
+        # ecarte, le nom sans horodatage parsable reste lu (couverture
+        # conservatrice), 0 desactive tout filtrage.
+        names = ["workspace-x-2026-11-03T04-00-00.md",
+                 "workspace-x-2026-10-01T00-00-00.md",
+                 "workspace-x-sans-date.md"]
+        assert select_recent_archives(names, now, 48.0) == [
+            "workspace-x-2026-11-03T04-00-00.md",
+            "workspace-x-sans-date.md"]
+        assert select_recent_archives(names, now, 0) == names
+
+        # #4643 — l'identification des lectures d'archives est CELLE du read
+        # vivant : machineId pour machine-*, workspace pour workspace-*.
+        assert read_archive_arguments_for_key("machine-myia-x") == {
+            "action": "read_archive", "type": "machine", "machineId": "myia-x"}
+        assert read_archive_arguments_for_key("global") == {
+            "action": "read_archive", "type": "global"}
+        assert read_archive_arguments_for_key(
+            "workspace-y", archive_file="workspace-y-2026-11-03T04-00-00.md") == {
+            "action": "read_archive", "type": "workspace", "workspace": "y",
+            "archiveFile": "workspace-y-2026-11-03T04-00-00.md"}
+
     print("selftest OK: [DEGRADED] ouvert/depasse/repare, [DONE] ne ferme rien, "
           "forme voisine ignoree, echeance derivee du poste, erreur d'instrument "
           "non confondue avec 'rien a signaler', idempotence quotidienne, "
           "mentions en prose ignorees (posts reels du 03/11), declaration par "
           "[tags:] seule, sonnerie sans effet sur sa propre alarme et sans "
-          "token de declaration.")
+          "token de declaration ; #4643 : crossPost dedoublonne sur (lane, poste), "
+          "enveloppe archive archiveData parsee et fail-closed, listing "
+          "d'archives None != [], fenetre 48 h par le nom, identification "
+          "d'archive = celle du read vivant.")
 
 
 def main(argv=None):
@@ -834,6 +1092,12 @@ def main(argv=None):
     parser.add_argument("--cycle-hours", type=float, default=DEFAULT_CYCLE_HOURS,
                         help=f"duree d'un cycle en heures (defaut {DEFAULT_CYCLE_HOURS}, "
                              "cadence des crons flotte `41 */4`)")
+    parser.add_argument("--archive-window-hours", type=float,
+                        default=DEFAULT_ARCHIVE_WINDOW_HOURS, metavar="HOURS",
+                        help=f"fenetre de lecture des archives de condensation "
+                             f"(#4643 : un [REPAIRED] ou une escalade archives "
+                             f"reste visible ; defaut {DEFAULT_ARCHIVE_WINDOW_HOURS:g} h, "
+                             f"0 desactive)")
     parser.add_argument("--now", default=None, metavar="ISO8601",
                         help="instant de reference (rejeu) ; defaut : maintenant")
     parser.add_argument("--json", action="store_true", help="sortie machine")
@@ -871,7 +1135,8 @@ def main(argv=None):
         loader = _store_loader or load_entries_from_store
         store = (loader(args.ring_url, args.ring_bearer,
                         timeout=args.ring_timeout, now=now,
-                        window_hours=args.cycles * args.cycle_hours)
+                        window_hours=args.cycles * args.cycle_hours,
+                        archive_window_hours=args.archive_window_hours)
                  if args.ring_bearer else None)
         if store is not None:
             source = "store"
@@ -935,6 +1200,23 @@ def main(argv=None):
               file=sys.stderr)
         return 1
 
+    if errors:
+        # Fail-closed : une moitie de dashboards illisible peut cacher une
+        # escalade — ou le [REPAIRED] qui ferait taire celle mesuree. Ce qui a
+        # ete mesure est rapporte ci-dessus, mais l'instrument ne peut pas
+        # annoncer un 0 ou un 2 confiant.
+        if code == 2 and args.ring:
+            # W3 (review #4655) : la sonnerie est ANNULEE sur mesure partielle —
+            # une fenetre aveugle peut cacher la clôture ; un faux reveil coute
+            # une intervention humaine. Le cycle suivant re-sonnera sur une
+            # lecture complete.
+            print("ERROR: sonnerie ANNULEE — mesure partielle (dashboard(s) "
+                  "illisible(s)) ; l'echeance mesuree reste due, relancer au "
+                  "cycle suivant sur une lecture complete", file=sys.stderr)
+        print(f"ERROR: {len(errors)} dashboard(s) illisible(s) sur {len(paths)} — "
+              f"mesure partielle, codes 0/2/3 non fiables", file=sys.stderr)
+        return 1
+
     if code == 2 and args.ring:
         overdue = [e for e in escalations if e["status"] == "overdue"]
         if not args.ring_bearer:
@@ -948,14 +1230,6 @@ def main(argv=None):
             return 1
         print(f"ring: sonnerie ASK-USER postee sur le dashboard global "
               f"({len(overdue)} escalade(s))", file=sys.stderr)
-
-    if errors:
-        # Fail-closed : une moitie de dashboards illisible peut cacher une
-        # escalade. Ce qui a ete mesure est agi (rapport + sonnerie ci-dessus),
-        # mais l'instrument ne peut pas annoncer un 0 ou un 2 confiant.
-        print(f"ERROR: {len(errors)} dashboard(s) illisible(s) sur {len(paths)} — "
-              f"mesure partielle, codes 0/2/3 non fiables", file=sys.stderr)
-        return 1
 
     if degraded_source:
         # Meme logique act-then-degrade : ce que le miroir a dit est rapporte
