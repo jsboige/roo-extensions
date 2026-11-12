@@ -234,8 +234,8 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         # bookkeeping above never reads an undefined variable on an early
         # blocked path (ai-01 approve review).
         $initPos = $script:src.IndexOf('$workRoot = $null')
-        $guardPos = $script:src.IndexOf('Invoke-PhaseCDispatch -Profile')
-        ($initPos -ge 0 -and $initPos -lt $guardPos) | Should -BeTrue
+        $guardPos = $script:src.IndexOf('if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {')
+        ($initPos -ge 0 -and $guardPos -ge 0 -and $initPos -lt $guardPos) | Should -BeTrue
     }
 }
 
