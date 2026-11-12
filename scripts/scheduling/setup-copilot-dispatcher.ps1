@@ -99,17 +99,26 @@ function Install-Task {
     # #4669: the task command line must carry the retarget pair or the
     # registered worker runs in local mode — no delivery geometry, the worker
     # fail-closes with zero Copilot calls and a blocked streak. Refuse rather
-    # than register a task that could never deliver a PR.
+    # than register a task that could never deliver a PR. Each refusal is
+    # ALSO printed as a plain line: the pwsh error-record renderer wraps
+    # throw text across lines with pipe prefixes and ANSI codes, which
+    # scrambles the message for scripts and humans grepping logs.
     $slugGiven = -not [string]::IsNullOrWhiteSpace($TargetRepoSlug)
     $pathGiven = -not [string]::IsNullOrWhiteSpace($TargetRepoPath)
     if ($slugGiven -xor $pathGiven) {
-        throw "install refused: -TargetRepoSlug and -TargetRepoPath must be given TOGETHER - half a retarget cannot deliver (worker fail-closes on local mode, #4669)"
+        $refusal = "install refused: -TargetRepoSlug and -TargetRepoPath must be given TOGETHER - half a retarget cannot deliver (worker fail-closes on local mode, #4669)"
+        Write-Host "[REFUSED] $refusal" -ForegroundColor Red
+        throw $refusal
     }
     if (-not $slugGiven) {
-        throw "install refused: no delivery geometry - pass -TargetRepoSlug <owner/repo> and -TargetRepoPath <local clone>; without the pair the worker skips every Copilot call (local mode, #4669)"
+        $refusal = "install refused: no delivery geometry - pass -TargetRepoSlug <owner/repo> and -TargetRepoPath <local clone>; without the pair the worker skips every Copilot call (local mode, #4669)"
+        Write-Host "[REFUSED] $refusal" -ForegroundColor Red
+        throw $refusal
     }
     if (-not (Test-Path $TargetRepoPath)) {
-        throw "install refused: -TargetRepoPath '$TargetRepoPath' does not exist - the worker needs the target repo's local clone"
+        $refusal = "install refused: -TargetRepoPath '$TargetRepoPath' does not exist - the worker needs the target repo's local clone"
+        Write-Host "[REFUSED] $refusal" -ForegroundColor Red
+        throw $refusal
     }
 
     # A trailing \ or / would escape the closing quote in the interpolated

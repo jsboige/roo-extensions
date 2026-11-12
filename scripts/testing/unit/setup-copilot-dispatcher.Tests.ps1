@@ -89,9 +89,15 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
             } finally {
                 $ErrorActionPreference = $prevEap
             }
+            # Strip ANSI SGR codes from the merged stream: pwsh 7 ConciseView
+            # on Linux colors the child's error records, and the escape codes
+            # sit BETWEEN words of the message. Refusal assertions anchor on
+            # the installer's plain [REFUSED] Write-Host line (unwrapped on
+            # every host); the strip keeps the remaining text comparable.
+            $ansiPattern = ([string][char]27) + '\[[0-9;]*m'
             return @{
                 ExitCode = $exitCode
-                Output = ((@($output) | ForEach-Object { [string]$_ }) -join "`n")
+                Output = (((@($output) | ForEach-Object { [string]$_ }) -join "`n") -replace $ansiPattern, '')
             }
         }
 
@@ -152,8 +158,11 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
 
         $result.ExitCode | Should -Not -Be 0
         $out = $result.Output
-        $out | Should -Match 'install refused: no delivery geometry'
-        $out | Should -Match '-TargetRepoSlug'
+        # Anchor on the plain [REFUSED] line: the throw's error record is
+        # re-wrapped by the engine's renderer (pipe prefixes, line breaks
+        # mid-message on Linux pwsh), the Write-Host line is not.
+        $out | Should -Match '\[REFUSED\] install refused: no delivery geometry'
+        $out | Should -Match '\[REFUSED\].*-TargetRepoSlug'
     }
 
     It 'install with HALF the pair: refused (the pair is required together)' {
@@ -162,13 +171,13 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
             '-Action', 'install', '-DryRun', '-TargetRepoSlug', 'jsboige/CoursIA'
         )
         $slugOnly.ExitCode | Should -Not -Be 0
-        ($slugOnly.Output) | Should -Match 'must be given TOGETHER'
+        ($slugOnly.Output) | Should -Match '\[REFUSED\].*must be given TOGETHER'
 
         $pathOnly = Invoke-InstallerChild -Harness $harness -ExtraArgs @(
             '-Action', 'install', '-DryRun', '-TargetRepoPath', $harness.Clone
         )
         $pathOnly.ExitCode | Should -Not -Be 0
-        ($pathOnly.Output) | Should -Match 'must be given TOGETHER'
+        ($pathOnly.Output) | Should -Match '\[REFUSED\].*must be given TOGETHER'
     }
 
     It 'install with a nonexistent -TargetRepoPath: refused' {
@@ -180,8 +189,7 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
         )
 
         $result.ExitCode | Should -Not -Be 0
-        # (?s): the throw's error record wraps mid-message across lines.
-        ($result.Output) | Should -Match '(?s)install refused: .+ does not exist'
+        ($result.Output) | Should -Match '\[REFUSED\].*does not exist'
     }
 
     It 'POSITIVE CONTROL 1: with the forwarding stripped, the task args LOSE the pair (the defect)' {
