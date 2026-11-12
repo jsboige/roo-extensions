@@ -37,7 +37,8 @@ Sources, dans l'ordre (review #4519 point c) :
                            PLUS les archives de condensation recentes (#4643,
                            --archive-window-hours, defaut 48 h) ; la passe
                            d'archives est bornee par --archive-time-budget
-                           (defaut 120 s, #4661) : au-dela, archives restantes
+                           (defaut 900 s, #4661/#4643 — couvre la passe saine
+                           mesuree a 669 s) : au-dela, archives restantes
                            sautees et signalees, sortie 1
     3. miroir G:           repli seulement, et seulement vers un repertoire
                            EXPLICITE (--dashboard-dir) ou avec bearer ; la
@@ -77,8 +78,10 @@ La sonnerie, elle, n'est pas prouvee ici : l'append est best-effort, et un
 """
 
 import argparse
+import contextlib
 import hashlib
 import importlib.util
+import io
 import json
 import os
 import re
@@ -102,7 +105,22 @@ DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
 # partiellement aveugle -> erreur d'instrument -> sortie 1 par le fail-closed
 # existant) ; les lectures VIVANTES des dashboards restants continuent.
 # 0 ou negatif = illimite (comportement d'avant #4661).
-DEFAULT_ARCHIVE_TIME_BUDGET_S = 120.0
+# #4643 (dispatch ai-01 12/11) : le defaut doit COUVRIR une passe saine
+# mesuree — 669 s releves le 12/11. L'ancien 120 s epuisait le budget au
+# bout de 3 min d'une passe SAINE : l'organe ne rendait jamais 0/2/3.
+# 900 s = 669 s + la marge des relances de coques vides ci-dessous.
+DEFAULT_ARCHIVE_TIME_BUDGET_S = 900.0
+# #4643 : relance d'une lecture d'archive muette (timeout client). Le serveur
+# rejette une COQUE VIDE (0 octet) en ~35 s — au-dela du timeout client de
+# 10 s : sans relance a timeout etendu, la signature de coque ci-dessous est
+# invisible et la coque parait etre une panne de lecture.
+ARCHIVE_READ_RETRY_TIMEOUT_S = 45.0
+# #4643 : signature du rejet d'une coque vide par read_archive (dashboard.ts,
+# « Format archive invalide: frontmatter manquant dans ... »). Une coque de
+# 0 octet n'a jamais porte de messages : WARN non bloquant, pas un echec
+# d'instrument (mesure ai-01 12/11 : 5 coques vides sur G: ; le writer
+# corrige temp+rename n'en pose plus).
+ARCHIVE_HUSK_SIGNATURE = "frontmatter manquant"
 
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
@@ -600,12 +618,15 @@ def entries_from_archive_json(text):
     ce transport, une reponse non-JSON est une erreur d'instrument (levee),
     jamais un « dashboard propre ».
 
-    Limite mesuree (writer `buildArchiveMessagesMarkdown`, dashboard.ts) :
-    l'archive ne serialise PAS la ligne `[tags: ...]` — une declaration faite
-    UNIQUEMENT par le parametre `tags` de l'API (sans token ni ligne `[tags:]`
-    dans le corps) perd son tag en etant archivee. Les deux formes documentees
-    (token premier du corps, ligne `[tags:]` ecrite dans le corps) survivent :
-    le contenu est servi verbatim. La fenetre vivante couvre les declarations
+    Limite HERITEE, corrigee cote writer (#4643) : les archives ecrites
+    AVANT le correctif ne serialisaient pas la ligne `[tags: ...]` — une
+    declaration faite UNIQUEMENT par le parametre `tags` de l'API (sans token
+    ni ligne `[tags:]` dans le corps) y perd son tag en etant archivee. Le
+    writer corrige (`buildArchiveMessagesMarkdown`) EMET la ligne, et
+    `read_archive` la remonte dans le champ `tags` en epurant le contenu ;
+    l'union champ + tags du corps (entries_from_messages) rend ce lecteur
+    robuste aux DEUX formes. Les archives legacy restent muettes pour les
+    declarations API-seules : la fenetre vivante couvre les declarations
     fraiches ; l'echeance (2 cycles) reste bornee par elle.
     """
     try:
@@ -664,9 +685,12 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
     gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
 
-    Rend (entries, errors) — la meme signature que load_entries — ou None si
-    le store est injoignable en entree (list illisible) : l'appelant decide
-    alors du repli miroir, qui DEGRADE le verdict quand PG etait configure.
+    Rend (entries, errors, keys) — la meme signature que load_entries PLUS
+    les cles lues (denominateur du rapport d'erreurs, #4643 : `paths`
+    restait vide en source store et le message disait « sur 0 ») — ou None
+    si le store est injoignable en entree (list illisible) : l'appelant
+    decide alors du repli miroir, qui DEGRADE le verdict quand PG etait
+    configure.
 
     Fenetre : les `intercom_limit` dernieres entrees PAR dashboard, et la
     couverture est VERIFIEE, pas supposee (review Hermes 04/11, reserve 1) :
@@ -689,13 +713,22 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     reste invisible.
 
     #4661 : la passe d'archives est bornee par `archive_time_budget`
-    (defaut 120 s ; 0/negatif = illimite). Le budget est GLOBAL a la passe,
+    (defaut 900 s — couvre la passe saine mesuree a 669 s, #4643 ;
+    0/negatif = illimite). Le budget est GLOBAL a la passe,
     initialise au premier appel d'archive — les lectures vivantes ne le
     consomment pas. Au-dela, les archives restantes sont SAUTEES et la
     fenetre est declaree partiellement aveugle (erreur d'instrument, sortie 1
     par le fail-closed) : mieux vaut une mesure partielle rendue en temps
     borne qu'un organe muet pendant 15 minutes de lectures sequentielles
     (mesure motivante : 68 timeouts x 10 s sur un G: gele).
+
+    #4643 (coques vides + timeouts clients) : une lecture d'archive muette
+    est relancee UNE fois a timeout etendu — le serveur rejette une coque de
+    0 octet en ~35 s, au-dela du timeout client de 10 s, et un timeout
+    sporadique peut aussi frapper une archive saine (5 releves sur des
+    fichiers de 32-39 Ko). L'enveloppe de rejet portant la signature d'une
+    coque vide est un WARN non bloquant : une coque n'a jamais porte de
+    messages, ce n'est pas une panne d'instrument.
     """
     call = _load_transport()
     keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
@@ -798,16 +831,39 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     url, bearer, timeout=timeout)
                 archive_text = tool_result_text(archive_result)
                 if archive_text is None:
-                    errors.append(f"{key}/{name}: lecture archive sans contenu")
+                    # #4643 (mesure ai-01 12/11) : une lecture muette peut
+                    # etre un timeout client sporadique sur une archive
+                    # SAINE (5 releves sur des fichiers de 32-39 Ko) ou la
+                    # coque vide que le serveur met ~35 s a rejeter —
+                    # au-dela du timeout de 10 s. UNE relance a timeout
+                    # etendu tranche : le contenu arrive, ou la signature
+                    # « coque » devient visible.
+                    archive_result = call(
+                        read_archive_arguments_for_key(key, archive_file=name),
+                        url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S)
+                    archive_text = tool_result_text(archive_result)
+                if archive_text is None:
+                    errors.append(f"{key}/{name}: lecture archive sans "
+                                  f"contenu (relance incluse)")
                     continue
                 try:
                     structured = entries_from_archive_json(archive_text)
                 except ValueError as exc:
+                    if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
+                        # #4643 : coque vide (0 octet) — elle n'a jamais
+                        # porte de messages, ce n'est pas un echec
+                        # d'instrument : WARN non bloquant. Les coques
+                        # viennent du writer d'avant le correctif
+                        # temp+rename ; le writer corrige n'en pose plus.
+                        print(f"WARNING: {key}/{name}: coque d'archive "
+                              f"vide ignoree ({exc}) — sans contenu, rien "
+                              f"a lire : non bloquant", file=sys.stderr)
+                        continue
                     errors.append(f"{key}/{name}: enveloppe archive "
                                   f"inexploitable ({exc})")
                     continue
                 entries.extend(structured)
-    return entries, errors
+    return entries, errors, keys
 
 
 def mirror_is_stale(entries, now, cycle_hours=DEFAULT_CYCLE_HOURS):
@@ -1157,7 +1213,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             # Injecte la FABRIQUE (load_entries_from_store appelle
             # `_load_transport()` pour obtenir `call`), pas la fonction.
             globals()["_load_transport"] = lambda: budget_fake_call
-            budget_entries, budget_errors = load_entries_from_store(
+            budget_entries, budget_errors, _ = load_entries_from_store(
                 None, "bearer", timeout=1.0, now=now, window_hours=8.0,
                 archive_window_hours=48.0, archive_time_budget=0.01)
         finally:
@@ -1170,6 +1226,89 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         assert budget_calls["archive_files"] < len(budget_names), \
             budget_calls
 
+        # #4643 — coque vide : lecture muette RELANCEE a timeout etendu
+        # (premier appel = timeout client, relance = enveloppe de rejet
+        # « frontmatter manquant »). La coque est un WARN non bloquant —
+        # pas d'erreur d'instrument, entrees vivantes intactes.
+        husk_reads = []
+
+        def husk_fake_call(arguments, url, bearer, timeout=10.0, client="x"):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
+            husk_reads.append(timeout)
+            if len(husk_reads) == 1:
+                return None  # timeout client : le rejet arrive a ~35 s
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False,
+                "error": "Format archive invalide: frontmatter manquant "
+                         "dans G:/Mon Drive/.../workspace-x-2026-11-03T04-00-00.md"})}]}
+
+        try:
+            globals()["_load_transport"] = lambda: husk_fake_call
+            with contextlib.redirect_stderr(io.StringIO()) as husk_err:
+                husk_entries, husk_errors, husk_keys = load_entries_from_store(
+                    None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert husk_errors == [] and husk_keys == ["workspace-x"], \
+            (husk_errors, husk_keys)
+        assert (len(husk_entries) == 1
+                and husk_entries[0]["body"] == "[DONE] cycle normal"), \
+            husk_entries
+        assert "coque" in husk_err.getvalue(), husk_err.getvalue()
+        # La relance porte le timeout ETENDU, pas le timeout client.
+        assert husk_reads[0] == 1.0 and husk_reads[1] == ARCHIVE_READ_RETRY_TIMEOUT_S, \
+            husk_reads
+
+        # #4643 — timeout client sporadique sur archive SAINE : la relance
+        # sert le contenu, l'entree archivee est vue (ici : [REPAIRED]).
+        recover_reads = []
+
+        def recover_fake_call(arguments, url, bearer, timeout=10.0,
+                              client="x"):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
+            recover_reads.append(timeout)
+            if len(recover_reads) == 1:
+                return None  # timeout client sporadique
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": True,
+                "archiveData": {"messages": [{
+                    "id": "r-1", "timestamp": "2026-11-03T03:00:00Z",
+                    "author": {"machineId": "myia-a", "workspace": "ws"},
+                    "content": "[REPAIRED] tout est revenu", "tags": []}]}})}]}
+
+        try:
+            globals()["_load_transport"] = lambda: recover_fake_call
+            recover_entries, recover_errors, _ = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert recover_errors == [], recover_errors
+        repaired = [e for e in recover_entries if is_repaired(e)]
+        assert len(repaired) == 1, recover_entries
+        # Le defaut du budget couvre la passe saine mesuree (669 s, ai-01
+        # 12/11) : l'ancien 120 s epuisait le budget sur une passe SAINE.
+        assert DEFAULT_ARCHIVE_TIME_BUDGET_S >= 669.0
+
     print("selftest OK: [DEGRADED] ouvert/depasse/repare, [DONE] ne ferme rien, "
           "forme voisine ignoree, echeance derivee du poste, erreur d'instrument "
           "non confondue avec 'rien a signaler', idempotence quotidienne, "
@@ -1178,8 +1317,10 @@ environnement degrade : jupyter-papermill muet depuis le preflight
           "token de declaration ; #4643 : crossPost dedoublonne sur (lane, poste), "
           "enveloppe archive archiveData parsee et fail-closed, listing "
           "d'archives None != [], fenetre 48 h par le nom, identification "
-          "d'archive = celle du read vivant ; #4661 : budget d'archives "
-          "global — saut signale, entrees vivantes intactes, appels bornees.")
+          "d'archive = celle du read vivant, coque vide WARN non bloquant via "
+          "relance a timeout etendu, timeout client sporadique recouvre par "
+          "la relance ; #4661 : budget d'archives global — saut signale, "
+          "entrees vivantes intactes, appels bornes.")
 
 
 def main(argv=None):
@@ -1252,8 +1393,11 @@ def main(argv=None):
                  if args.ring_bearer else None)
         if store is not None:
             source = "store"
-            paths = []
-            entries, errors = store
+            # #4643 : les cles lues deviennent le denominateur du rapport
+            # d'erreurs (« N illisible(s) sur M ») — paths restait vide en
+            # source store et le message disait « sur 0 ».
+            entries, errors, store_keys = store
+            paths = [f"store:{k}" for k in store_keys]
         else:
             source = "mirror"
             if args.ring_bearer:
