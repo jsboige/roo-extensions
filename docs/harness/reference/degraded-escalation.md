@@ -111,6 +111,18 @@ archive » ; une archive sans horodatage parsable reste lue. Les déclarations
 crossPostées (même auteur, même horodatage) se dédoublonnent sur
 `(lane, poste)`.
 
+**#4661 — la passe d'archives est bornée par un budget global.** Mesure
+motivante (ai-01, 12/11, G: gelé en profondeur) : **929 s** dont **68 timeouts
+`read_archive` de 10 s séquentiels** — la passe n'était pas bornée et l'organe
+devenait muet pendant 15 minutes. `--archive-time-budget` (défaut **120 s**,
+`0` = illimité) borne l'ensemble listing + lectures d'archives, toutes clés
+confondues ; les lectures **vivantes** ne consomment pas le budget et
+continuent après épuisement. Au-delà : archives restantes **sautées**,
+erreur d'instrument « fenêtre d'archives PARTIELLEMENT AVEUGLE », sortie **1**
+par le fail-closed existant (la sonnerie reste annulée sur mesure partielle,
+W3 #4655) — une mesure partielle rendue en temps borné plutôt qu'un organe
+muet.
+
 **Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
 défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans `MCP_PROXY_BEARER`
 sort **1** avec le message « instrument incomplet : store PG non lu », quelles
