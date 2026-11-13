@@ -27,7 +27,15 @@ différente réapparaît dans `.claude/` (commandes, skills, règles, agents, co
 **Ce que la garde ne voit pas :** une cadence écrite en prose (« 12 h », « toutes les douze
 heures ») ou un pas seul (`*/12`) sans la minute. Une phrase qui donne la cadence du coordinateur
 en clair ailleurs que dans ce tableau reste donc à la charge de la relecture : y mettre un renvoi
-vers la ligne canonique, pas une valeur.
+vers la ligne canonique, pas une valeur. La garde ne lit ni `.roo/` ni les scripts.
+
+**« Source unique » vaut pour le cron de session, pas pour toute cadence.** D'autres cadences
+restent écrites en clair au 13/11/2026, et elles désignent un autre objet : les tâches planifiées
+Windows. Leurs valeurs par défaut sont les `DefaultInterval` de
+`scripts/scheduling/setup-scheduler.ps1` (worker, coordinateur planifié, méta-audit), reprises en
+prose dans `docs/harness/coordinator-specific/scheduled-coordinator.md`, `.roo/README.md` et
+`.roo/rules/18-meta-analysis.md`. Ce document ne les réconcilie pas entre elles. Ne pas les lire comme
+la cadence du job `/coordinate`, et ne pas aligner l'une sur l'autre.
 
 ## Invariants qui ne changent pas avec la cadence
 
