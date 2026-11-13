@@ -6,6 +6,13 @@
 > Les one-liners correspondants restent dans le MEMORY.md §Lessons Learned de po-2023.
 > Les références croisées « cf. lesson-X » ci-dessous pointent des fichiers mémoire privés de
 > po-2023 (`~/.claude/projects/d--Dev-roo-extensions/memory/`) — pas d'équivalent docs.
+>
+> **Voir aussi (2026-11-13)** : les leçons de terrain du coordinateur, classées par geste —
+> [mesurer et prouver](field-lessons-measurement.md) ·
+> [relire, fermer, tester](field-lessons-review-tests.md) ·
+> [GitHub, gh et la CI](field-lessons-github-ci.md) ·
+> [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
+> [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
 ---
 
