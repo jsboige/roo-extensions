@@ -1,4 +1,4 @@
-# Pester tests for purge-msal.ps1 / purge-msal-cache.py / install-msal-purge-watch.ps1
+﻿# Pester tests for purge-msal.ps1 / purge-msal-cache.py / install-msal-purge-watch.ps1
 # Issue #1422 point 3 — the purge fires unattended, so its guard is the only thing
 # standing between a controlled write and a locked VS Code database. Every assertion
 # below runs on a THROWAWAY sqlite fixture: the real state.vscdb is never opened.

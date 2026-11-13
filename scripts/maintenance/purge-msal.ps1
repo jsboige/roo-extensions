@@ -1,4 +1,4 @@
-# Purge MSAL - issue #1422 (Q15, GO user 04/11/2026) - lane myia-po-2023:roo-extensions
+﻿# Purge MSAL - issue #1422 (Q15, GO user 04/11/2026) - lane myia-po-2023:roo-extensions
 #
 # Lanceur. PowerShell 5.1 natif (plancher flotte), AUCUNE elevation requise.
 #

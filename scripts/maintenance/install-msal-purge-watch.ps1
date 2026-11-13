@@ -1,4 +1,4 @@
-# Installation de la veille de purge MSAL - issue #1422, point 3.
+﻿# Installation de la veille de purge MSAL - issue #1422, point 3.
 #
 # Objectif : « le faire partir seul quand la derniere fenetre de VS Code se ferme ».
 # Une tache planifiee SANS elevation, dans le contexte de l'utilisateur courant, sonde
@@ -92,6 +92,9 @@ try {
     exit 1
 }
 
+# ASCII volontairement : ce fichier est lu par powershell.exe ; sans BOM, un tiret
+# cadratin UTF-8 se decode 0x94 = guillemet courbe et FERME la chaine (ParserError
+# mesure sur marshall-scripts-pester). Ne pas reintroduire d'em-dash en chaine.
 $t = Get-ScheduledTask -TaskName $TaskName
-Write-Host "[OK] tache '$TaskName' enregistree — State=$($t.State), prochaine sonde $($start.ToString('HH:mm'))"
+Write-Host "[OK] tache '$TaskName' enregistree - State=$($t.State), prochaine sonde $($start.ToString('HH:mm'))"
 exit 0
