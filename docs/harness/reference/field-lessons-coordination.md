@@ -45,11 +45,12 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 
 ### « Pool vide » déclaré par les lanes avec un inventaire plein : défaut du sélecteur, pas manque de travail
 <!-- src: reference_idle_lanes_with_a_full_pool_is_a_picker_defect -->
-- **Quand :** plusieurs lanes rapportent « aucun grain actionnable » alors que l'inventaire des
-  issues ouvertes compte du travail faisable.
+- **Quand :** plusieurs lanes rapportent « aucun grain actionnable » (un grain est l'issue que le
+  sélecteur `pick_idle_grain.py` propose à une lane au repos) alors que l'inventaire des issues
+  ouvertes compte du travail faisable.
 - **Règle :** compter soi-même les issues actionnables (REST, les deux dépôts), puis comparer à ce que le
   sélecteur rend (`pick_idle_grain.py --dry-run --json`) avant de croire le « pool vide ». Graine par
-  défaut fixe, urne de labels étroite, claims non sautés (état du sélecteur mesuré le 07/10, avant son
+  défaut fixe, urne de labels étroite (le sélecteur ne tire que parmi quelques labels), claims non sautés (état du sélecteur mesuré le 07/10, avant son
   correctif) : le défaut est côté sélecteur. Levier rapide : étiqueter `approved` les issues actionnables.
   Le correctif structurel (#4103 : graine dérivée par lane, saut des claims) est entré depuis ; l'urne de
   labels reste étroite, et une file explicite par lane dans le dispatch reste le moyen sûr de répartir le
@@ -374,7 +375,7 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 - **Cas mesuré :** 02/09, condensation du dashboard — le repli cloud vivait après la ligne que
   le disjoncteur court-circuitait ; une fois ouvert, plus aucun appel n'était émis, donc plus
   aucune statistique de repli : « le failover n'a pas mordu » était indécidable de l'extérieur.
-  Corrigé le 22/09 (ms#1194 : disjoncteur ouvert, seul le primaire est sauté et le palier cloud
+  Corrigé le 22/09 (ms#1194, une PR du sous-module `jsboige-mcp-servers` : disjoncteur ouvert, seul le primaire est sauté et le palier cloud
   est tenté).
 
 ## Harmoniser les réglages de la flotte
@@ -403,7 +404,7 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 - **Quand :** classer un siège « non proxifié » parce que son URL de base est locale, ou décréter
   qu'une consigne hub ne s'applique pas à ai-01.
 - **Règle :** sur ai-01, l'URL de base locale pointe vers le conteneur `claudish-sidecar`, qui relaie vers
-  le hub — ai-01 est derrière le hub, et les consignes flotte sur les rôles du hub s'y appliquent. Avant
+  le hub (le relais de modèles commun à la flotte) — ai-01 est derrière le hub, et les consignes flotte sur les rôles du hub s'y appliquent. Avant
   de classer un siège « non proxifié », identifier ce qui écoute sur le port (connexion TCP vers
   processus, conteneurs) et lire l'amont du relais ; ne jamais déduire la route de la seule adresse
   locale. Second fait du siège : le modèle de sous-agent par défaut est un modèle local au contexte servi
@@ -447,10 +448,11 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
   Claude Code et bots. Extensions VS Code désactivées (liste non inventoriée). Ne pas réactiver
   zoo ni réinstaller ses MCP par harmonisation. »
 - **Cas mesuré :** avant le 31/10, le statut du dashboard créditait le leader d'indexation de la
-  production des `ws-*` (faux) ; le 31/10, la décision de décommission avait d'abord été citée depuis le
-  mauvais fichier d'archive, corrigée ensuite. Pour les autres sièges, la réponse est venue après : l'état désactivé d'ai-01
-  s'y est recopié par la synchronisation des réglages VS Code (mesuré sur deux sièges, #4025),
-  et le user a confirmé le 08/11/2026 que cet arrêt est voulu pour l'instant.
+  production des `ws-*` (faux) ; le 31/10, la décision de décommission avait d'abord été citée
+  depuis le mauvais fichier d'archive, corrigée ensuite. Pour les autres sièges, la réponse est
+  venue après : l'état désactivé d'ai-01 s'y est recopié par la synchronisation des réglages
+  VS Code (mesuré sur deux sièges, #4025), et le user a confirmé le 08/11/2026 que cet arrêt est
+  voulu pour l'instant.
 - **Déjà dans le dépôt :** `.claude/commands/coordinate.md` (section Qdrant : `ws-*` vides,
   cause d'environnement) — ce texte ajoute le fait d'unique écrivain et la décision de
   décommission ; l'état décrit dans la commande est antérieur.
@@ -458,7 +460,8 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 ### Un `index` délégué sur une tâche saine est un no-op silencieux — demander `repair:"headless"`
 <!-- src: reference_delegated_index_on_healthy_task_is_a_noop -->
 - **Quand :** une session suiveuse demande la réindexation d'une tâche que le leader tient en
-  état de succès.
+  état de succès (le leader est le processus roo-state-manager qui détient le verrou
+  d'indexation ; les autres sessions, suiveuses, lui écrivent des requêtes).
 - **Règle :** la requête `index` d'un suiveur réinitialise sa propre copie et écrit une requête ;
   le leader ne réinitialise que les états d'échec et de nouvelle tentative — sur une tâche en
   succès sous TTL, elle est mise en file puis sautée sans trace, alors que la réponse du suiveur
@@ -469,8 +472,8 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 
 ### Une requête d'indexation consommée n'est pas une indexation en cours — elle peut mourir de faim
 <!-- src: reference_operator_index_request_starves_behind_backlog -->
-- **Quand :** remettre une tâche en file d'indexation après un déploiement (hot-swap) et la
-  rapporter « en cours ».
+- **Quand :** remettre une tâche en file d'indexation après un déploiement à chaud du serveur (hot-swap : le
+  processus du serveur est remplacé par le nouveau build) et la rapporter « en cours ».
 - **Règle :** la requête consommée part en queue de file, traitée par passes de 5 tâches toutes
   les 5 minutes ; avec k éléments devant elle, elle attend environ k/5 passes, et une passe sur
   de grosses sessions prend environ 5 heures. Remettre en file reste nécessaire après un hot-swap
