@@ -116,7 +116,7 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 - **Déjà dans le dépôt :** `docs/harness/reference/zoo-migration-runbook.md` (la migration est
   documentée, pas la règle de nommage). Le `CLAUDE.md` du projet garde la ligne « Claude DIRIGE,
   Roo ASSISTE » ; depuis le 13/11/2026 (#4682) il précise que « Roo » y désigne l'extension
-  compagnon, Zoo Code aujourd'hui, et que son scheduler est désactivé sur toute la flotte.
+  compagnon, Zoo Code aujourd'hui, et que cette extension est désactivée sur la flotte.
 
 ## Claims et registre des questions
 
@@ -448,8 +448,9 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
   zoo ni réinstaller ses MCP par harmonisation. »
 - **Cas mesuré :** avant le 31/10, le statut du dashboard créditait le leader d'indexation de la
   production des `ws-*` (faux) ; le 31/10, la décision de décommission avait d'abord été citée depuis le
-  mauvais fichier d'archive, corrigée ensuite. Zoo tournait alors encore sur les autres sièges ;
-  depuis le 08/11/2026 son scheduler est désactivé sur toute la flotte (décision user).
+  mauvais fichier d'archive, corrigée ensuite. Pour les autres sièges, la réponse est venue après : l'état désactivé d'ai-01
+  s'y est recopié par la synchronisation des réglages VS Code (mesuré sur deux sièges, #4025),
+  et le user a confirmé le 08/11/2026 que cet arrêt est voulu pour l'instant.
 - **Déjà dans le dépôt :** `.claude/commands/coordinate.md` (section Qdrant : `ws-*` vides,
   cause d'environnement) — ce texte ajoute le fait d'unique écrivain et la décision de
   décommission ; l'état décrit dans la commande est antérieur.
