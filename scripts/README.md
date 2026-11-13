@@ -39,7 +39,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 |------------|---------|-------------|
 | `mcp/` | 18 | Gestion et validation des serveurs MCP (build, validate, deploy, env backup/restore, zombie cleanup) |
 | `mcp-watchdog/` | 7 | Surveillance et redémarrage automatique des MCP (+ vérificateur de déploiement #3394) |
-| `qdrant/` | 6 | Gestion Qdrant (backup, restore, diagnostics) |
+| `qdrant/` | 6 | Gestion Qdrant (backup, restore, diagnostics) — **gabarit template, pas le producteur servi** du flux snapshot quotidien (producteur réel : `qdrant_snapshot_backup.ps1`, lane `ai-01:qdrant`, keep-3 ; mesuré #3893) |
 | `postgres/` | 3 | Sauvegarde Postgres (backup dump, schtask install) |
 | `pg/` | 2 | Sonde divergence dashboards GDrive↔PG (#3230/RX14 — read-only, plancher `--expect-files` miroir chaud) ; sonde de latence du store de conversations (#2191 — lectures, écritures en `ROLLBACK`, fraîcheur) |
 | `copilot/` | 1 | Configuration VS Code Copilot MCP |
