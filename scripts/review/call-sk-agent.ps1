@@ -31,6 +31,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Model id for vLLM direct mode — claudish routing alias (#3401 étape 4, #4698).
+# Single source of truth: change it here only.
+$VllmModelId = "local-coding"
+
 # System prompt for code review (matches sk-agent critic agent)
 $CriticSystemPrompt = @"
 You are a rigorous quality reviewer. Stress-test code changes for bugs, logical gaps, edge cases, and security issues. Rate each finding as Critical/Major/Minor. If approved, say APPROVED with a brief note. Otherwise, list improvements by severity.
@@ -115,7 +119,7 @@ function Invoke-VllmDirect {
     param([string]$Prompt, [string]$Url, [int]$MaxTokens)
 
     $bodyObj = @{
-        model = "qwen3.5-35b-a3b"
+        model = $VllmModelId
         messages = @(
             @{ role = "system"; content = $CriticSystemPrompt }
             @{ role = "user"; content = $Prompt }
@@ -134,7 +138,7 @@ function Invoke-VllmDirect {
         if (Test-Path $configFile) {
             try {
                 $config = Get-Content $configFile -Raw | ConvertFrom-Json
-                $qwenModel = $config.models | Where-Object { $_.id -eq "qwen3.5-35b-a3b" } | Select-Object -First 1
+                $qwenModel = $config.models | Where-Object { $_.id -eq $VllmModelId } | Select-Object -First 1
                 if ($qwenModel -and $qwenModel.api_key) {
                     $vllmApiKey = $qwenModel.api_key
                 }
