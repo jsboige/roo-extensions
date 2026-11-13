@@ -140,7 +140,7 @@ VERDICT: APPROVE / REQUEST_CHANGES / COMMENT.
 **Skip for:** Doc-only, config-only, or harness-only PRs (<50 LOC).
 **Blocking:** If sk-agent identifies critical issues (security, data loss, integration bugs), the PR MUST NOT be merged until resolved.
 
-**Note:** Since all agents use the same GitHub account (`jsboige`), GitHub cannot enforce approval via PR reviews. sk-agent review as PR comment is the enforcement mechanism (Option E, approved 2026-03-30, Issue #958). The coordinator MUST run `pr-review-and-merge.ps1` before merging any PR. This script enforces the review workflow. Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
+**Note (corrected 2026-11-13):** the premise of Option E — all agents sharing the `jsboige` account, so GitHub could not enforce approval — no longer holds. The fleet has separate identities (`.github/CODEOWNERS`) and `main` requires one approving review from an account other than the author (measured values in §8). The sk-agent review stays REQUIRED above 50 LOC of code as an **input** to that approval; it does not replace it (Option E was approved 2026-03-30, Issue #958). The coordinator MUST run `pr-review-and-merge.ps1` before merging any PR. This script enforces the review workflow. Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
 
 ### Warning Checks (NON-BLOCKING)
 
@@ -306,27 +306,34 @@ All PRs with checklists in body MUST follow [`docs/harness/reference/github-chec
 
 ### Branch Protection (Current Configuration)
 
-**On `main` branch (as of 2026-03-30):**
+**On `main` branch — measured 2026-11-13** (`gh api repos/jsboige/roo-extensions/branches/main/protection`, read as the repository owner; no repository ruleset applies to `main`):
 
 ```
-- Require pull requests before merging: YES (enforced)
-- Require approving reviews: NO (0 required - see note below)
-- Require status checks pass: YES (build-and-test)
-- Enforce admins: YES
+- Require pull requests before merging: YES
+- Require approving reviews: YES (required_approving_review_count: 1)
+- Require review from Code Owners: NO (require_code_owner_reviews: false)
+- Dismiss stale reviews on new commits: NO
+- Require status checks pass: NO (required_status_checks: null)
+- Enforce admins: NO
 - Allow force pushes: NO
 - Allow deletions: NO
 ```
 
-**Why 0 required reviews?** All agents use the same GitHub account (`jsboige`). GitHub prevents self-approval, so requiring reviews would create a deadlock. Instead, we use **Option E: Hybrid CI + sk-agent review**.
+**What this means in practice:**
+
+- GitHub blocks a merge until **one account other than the author** has approved. Which accounts carry review authority, and on which tier, is the policy written in `.github/CODEOWNERS` — the protection itself does not check it.
+- **GitHub does not block a merge on a red or pending CI.** "No merge on red CI" is a discipline held by the reviewer and by `pr-review-and-merge.ps1`, not a lock. Read the checks before approving, and merge with `--match-head-commit` on the head that was read.
+- An approval is **not** dismissed by a later push: after any new commit, re-read the diff before merging on an earlier approval.
+
+The block this replaces (dated 2026-03-30) listed 0 required reviews, a required `build-and-test` check and enforced admins, on the premise that all agents shared the `jsboige` account. None of the three matched the 2026-11-13 measurement. The self-authored case (author = the coordinator's own identity) is handled by `.claude/commands/coordinate.md` § « Self-Authored PR Merge Protocol ».
 
 ### Enforcement Mechanism (Option E)
 
 **Three-layer protection:**
 
-1. **GitHub CI Gate (Automatic)**
-   - `build-and-test` status check must pass
-   - Blocks merge if CI fails
-   - Configured in branch protection
+1. **CI Gate (read by the reviewer — not a GitHub lock)**
+   - Every check of the PR must be green on the head being merged
+   - Branch protection does not require any check (see the measurement above): a red or pending CI does not block the merge button, the reviewer does
 
 2. **sk-agent Code Review (Coordinator-triggered)**
    - Run automatically by `pr-review-and-merge.ps1` for PRs >50 LOC
@@ -387,7 +394,7 @@ detect-secrets scan --all-files --only-whitelist
 
 ### Automated Enforcement
 
-- **CI Gate:** GitHub Actions block merge if build-and-test fail
+- **CI Gate:** checks read green on the merged head by the reviewer (GitHub does not block on them — §8, measured 2026-11-13)
 - **Review Script:** Coordinator MUST use `pr-review-and-merge.ps1`
 - **Dashboard Reporting:** All merges logged to workspace dashboard
 - **Audit Trail:** PR comments + dashboard + git log provide traceability
@@ -652,5 +659,5 @@ gh pr merge {N} --squash --delete-branch
 
 ---
 
-**Last updated:** 2026-05-20 (Tiered review_pr tool — Issue #1587)
+**Last updated:** 2026-11-13 (§8 branch protection re-measured; shared-account premise corrected) — previous: 2026-05-20 (Tiered review_pr tool — Issue #1587)
 **Maintainer:** Coordinateur RooSync (myia-ai-01)
