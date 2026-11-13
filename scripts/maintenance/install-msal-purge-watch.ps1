@@ -51,8 +51,9 @@ function New-Step([string]$what, [scriptblock]$build) {
 
 $action = New-Step 'New-ScheduledTaskAction' { New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argLine }
 
-# Sonde toutes les minutes pendant la fenetre declaree ; le lanceur sort en ~50 ms
-# quand VS Code est ouvert, donc le cout est nul tant que l'utilisateur travaille.
+# Sonde toutes les minutes pendant la fenetre declaree ; sous -Watch, le lanceur
+# boucle toutes les 20 s et c'est ExecutionTimeLimit (2 min) qui borne chaque
+# instance, donc le cout reste negligeable tant que l'utilisateur travaille.
 $start = (Get-Date).AddMinutes(1)
 $trigger = New-Step 'New-ScheduledTaskTrigger' {
     New-ScheduledTaskTrigger -Once -At $start `

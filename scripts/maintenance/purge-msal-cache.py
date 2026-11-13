@@ -6,7 +6,7 @@ cle n'est touchee. N'imprime JAMAIS de valeur de secret : seulement des comptes 
 des compteurs.
 
 Le jeton fautif est identifie dans les journaux par `AADSTS700082: The refresh token
-has expired due to inactivity` (compte `jsboige@hotmail.com`, portee
+has expired due to inactivity` (le compte de synchronisation, voir #1422 ; portee
 `499b84ac-1321-427f-aa17-267ca6975798`, emis le 2026-05-21). Il ne se renouvelle pas
 tout seul : seule une purge suivie d'une reconnexion le remplace.
 
