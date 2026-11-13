@@ -52,7 +52,9 @@ class EscalationContract(unittest.TestCase):
         argv = []
         for path in paths:
             argv += ["--dashboard-file", str(path)]
-        return cde.main(argv + ["--now", NOW])
+        # #4672 : le fichier d'environnement par defaut est celui du siege ;
+        # un test ne doit jamais lire la config reelle ni partir en reseau.
+        return cde.main(argv + ["--now", NOW, "--env-file", ""])
 
     def test_clean_dashboard_is_zero(self):
         path = self.dashboard("clean.md", """### [2026-11-03T08:00:00.000Z] a|ws
@@ -146,7 +148,7 @@ class EscalationContract(unittest.TestCase):
 [DEGRADED] mcp muet
 """)
         code = cde.main(["--dashboard-file", str(path), "--now", NOW, "--ring",
-                         "--ring-bearer", ""])
+                         "--ring-bearer", "", "--env-file", ""])
         # La sonnerie n'est pas partie : 1, jamais un 2 qui laisserait croire
         # que le user a ete prevenu.
         self.assertEqual(code, 1)
@@ -228,7 +230,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def run_mirror_main(self, dashboard_dir, extra=()):
         return cde.main(["--dashboard-dir", str(dashboard_dir), "--now", NOW,
-                         *extra])
+                         "--env-file", "", *extra])
 
     def test_mirror_source_degrades_exit_when_pg_is_configured(self):
         # Store configure (bearer) mais injoignable (loader -> None) : le
@@ -276,7 +278,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 """)
         with mock.patch.dict(os.environ, {"ROOSYNC_SHARED_PATH": str(self.root),
                                           "MCP_PROXY_BEARER": ""}):
-            code = cde.main(["--now", NOW])
+            code = cde.main(["--now", NOW, "--env-file", ""])
         # Tueur : sur 92688ada ce chemin rend 2 (verdict confiant sur le miroir).
         self.assertEqual(code, 1)
 
@@ -436,7 +438,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 "content": content, "tags": list(tags or [])}
 
     def run_store_main(self):
-        return cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+        return cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                         "--env-file", ""])
 
     def entry(self, ts, lane="a|ws", body="[DONE] rien de degrade"):
         return f"### [{ts}] {lane}\n\n{body}\n"
@@ -780,7 +783,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.addCleanup(setattr, cde, "publish_ring", original)
         with contextlib.redirect_stderr(io.StringIO()) as err:
             code = cde.main(["--now", NOW, "--ring",
-                             "--ring-bearer", "test-bearer"])
+                             "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
         self.assertEqual(code, 1)
         self.assertEqual(rings, [])
         self.assertIn("ANNULEE", err.getvalue())
@@ -832,7 +836,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.fake_store({}, keys=["workspace-y"], structured={"y": []},
                         archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]})
         code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
-                         "--archive-window-hours", "0"])
+                         "--archive-window-hours", "0", "--env-file", ""])
         self.assertEqual(code, 0)
         self.assertEqual(self.archive_reads, [])
 
@@ -882,7 +886,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
             archive_rejected={"workspace-y-2026-11-03T04-00-00.md": husk_text})
         with contextlib.redirect_stderr(io.StringIO()) as err:
-            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
         self.assertEqual(code, 0)
         self.assertIn("coque", err.getvalue())
         # Un rejet isError ne se relance PAS : une seule lecture de FICHIER
@@ -899,7 +904,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             archive_rejected={"workspace-y-2026-11-03T04-00-00.md":
                               "Error: something else entirely (EACCES)"})
         with contextlib.redirect_stderr(io.StringIO()) as err:
-            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
         self.assertEqual(code, 1)
         self.assertIn("rejet serveur", err.getvalue())
         file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
@@ -974,7 +980,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             archive_raw={"workspace-y-2026-11-03T04-00-00.md": json.dumps({
                 "success": False, "error": "fichier absent"})})
         with contextlib.redirect_stderr(io.StringIO()) as err:
-            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer"])
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
         self.assertEqual(code, 1)
         self.assertIn("sur 3", err.getvalue())
 

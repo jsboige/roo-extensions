@@ -62,11 +62,14 @@ machine + workspace) porte le meme auteur et le meme horodatage partout : les
 declarations se dedoublonnent sur (lane, poste).
 
 Usage :
-    python check-degraded-escalations.py                       # lit le store ( bearer requis )
+    python check-degraded-escalations.py                       # commande canonique : lit le store PG
+                                                               # (bearer : --ring-bearer, MCP_PROXY_BEARER,
+                                                               #  puis ~/.roo-state-manager/stall-detector.env)
     python check-degraded-escalations.py --cycles 2 --cycle-hours 4
     python check-degraded-escalations.py --json
     python check-degraded-escalations.py --ring                # poste ASK-USER sur le dashboard global
     python check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu hors store
+    python check-degraded-escalations.py --env-file <chemin>   # autre fichier CLE=valeur (vide = aucun)
     python check-degraded-escalations.py --selftest
 
 Plafond dit explicitement : l'organe ne voit que les escalades **postees**. Une
@@ -960,6 +963,88 @@ def _load_transport():
     return module.call_dashboard_tool
 
 
+# #4672 : le fichier d'environnement deploye par le lanceur compagnon
+# (run-approval-stall-detector.ps1 / install-approval-stall-detector-task.ps1
+# -BotEnvFile). L'organe le lit lui-meme : la commande canonique ne doit
+# exiger aucun sourcing manuel du bearer.
+ORGAN_ENV_FILE = Path.home() / ".roo-state-manager" / "stall-detector.env"
+
+# Seules ces cles sont lues : un fichier d'environnement peut porter bien
+# d'autres secrets, l'organe ne materialise jamais les valeurs inutilisees.
+_ORGAN_ENV_KEYS = ("MCP_PROXY_BEARER", "MCP_PROXY_BASE_URL", "MCP_PROXY_URL")
+
+
+def load_organ_env_file(path):
+    """Lit le fichier d'environnement de l'organe — rend (values, warning).
+
+    Analyse uniquement des lignes nommees `CLE=valeur` (guillemets optionnels),
+    jamais de sourcing shell. Fichier absent : pas un echec (#4672 — ai-01 n'a
+    pas ce fichier, son bearer vient de l'environnement de son lanceur) : dict
+    vide, pas de warning. Fichier present mais illisible, mal decode ou porteur
+    de lignes inexploitables : warning, pour que l'appelant ne rende pas un
+    « sain » confiant sur une configuration qu'il n'a pas pu lire ; le
+    fail-closed existant (sans bearer, pas de lecture store) reste la garantie.
+    Aucune valeur — lue ou non — n'apparait dans le warning ni dans une
+    exception.
+    """
+    if path is None or not str(path).strip():
+        return {}, None
+    p = Path(path)
+    try:
+        text = p.read_text(encoding="utf-8-sig")
+    except FileNotFoundError:
+        return {}, None
+    except (OSError, UnicodeDecodeError) as exc:
+        return {}, (f"fichier d'environnement illisible ({p}) : "
+                    f"{type(exc).__name__} — aucun secret n'en a ete lu")
+    values = {}
+    malformed = 0
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$", line)
+        if not m:
+            if "=" in line:
+                malformed += 1
+            continue
+        key, value = m.group(1), m.group(2).strip()
+        if key not in _ORGAN_ENV_KEYS:
+            continue
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        if not value:
+            malformed += 1
+            continue
+        values.setdefault(key, value)
+    if malformed:
+        return values, (f"fichier d'environnement partiellement inexploitable "
+                        f"({p}) : {malformed} ligne(s) sans CLE=valeur valide")
+    return values, None
+
+
+def resolve_proxy_config(cli_url, cli_bearer, file_values):
+    """Resolution de la config proxy (#4672), precedence explicite :
+
+        CLI > environnement du processus > fichier d'environnement > defaut
+
+    Accepte `MCP_PROXY_URL` et `MCP_PROXY_BASE_URL` (l'un comme l'autre, dans
+    cet ordre) a chaque etage ou la cle existe. Bearer et URL se resolvent
+    independamment : un CLI partiel garde la provenance du reste de la chaine.
+    """
+    file_values = file_values or {}
+    bearer = (cli_bearer
+              or os.environ.get("MCP_PROXY_BEARER")
+              or file_values.get("MCP_PROXY_BEARER"))
+    url = (cli_url
+           or os.environ.get("MCP_PROXY_URL")
+           or os.environ.get("MCP_PROXY_BASE_URL")
+           or file_values.get("MCP_PROXY_URL")
+           or file_values.get("MCP_PROXY_BASE_URL")
+           or "https://mcp-tools.myia.io")
+    return url, bearer
+
+
 def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
     arguments = {
         "action": "append",
@@ -1399,6 +1484,17 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
 
 def main(argv=None):
+    # #4672 : la console Windows et les sorties redirigees sont en cp1252 par
+    # defaut, et les extraits d'escalade portent des caracteres hors cp1252
+    # (fleche U+2192 mesuree sur po-2028) : `report()` levait
+    # UnicodeEncodeError et le crash rendait exit 1 a la place du verdict
+    # semantique 2. Meme boucle que probe-semantic-known-answer.py et
+    # g6-pass-bound.py ; errors="replace" pour ne jamais echouer sur une
+    # sortie exotique.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Sonde les escalades [DEGRADED] des dashboards et dit si la "
                     "sonnerie est due (#4517).")
@@ -1431,12 +1527,17 @@ def main(argv=None):
     parser.add_argument("--ring", action="store_true",
                         help="poste la sonnerie ASK-USER sur le dashboard GLOBAL "
                              "(bearer : --ring-bearer ou MCP_PROXY_BEARER)")
-    parser.add_argument("--ring-url", default=os.environ.get("MCP_PROXY_URL",
-                                                            "https://mcp-tools.myia.io"),
-                        help="base URL du mcp-proxy (defaut : MCP_PROXY_URL ou "
+    parser.add_argument("--ring-url", default=None,
+                        help="base URL du mcp-proxy (defaut : MCP_PROXY_URL, "
+                             "MCP_PROXY_BASE_URL, fichier --env-file, puis "
                              "https://mcp-tools.myia.io)")
-    parser.add_argument("--ring-bearer", default=os.environ.get("MCP_PROXY_BEARER"),
-                        help="bearer du mcp-proxy (defaut : env MCP_PROXY_BEARER)")
+    parser.add_argument("--ring-bearer", default=None,
+                        help="bearer du mcp-proxy (defaut : MCP_PROXY_BEARER, "
+                             "puis fichier --env-file)")
+    parser.add_argument("--env-file", default=str(ORGAN_ENV_FILE), metavar="PATH",
+                        help="fichier CLE=valeur lu pour MCP_PROXY_BEARER / "
+                             "MCP_PROXY_BASE_URL (defaut : "
+                             f"{ORGAN_ENV_FILE} ; valeur vide = aucun fichier)")
     parser.add_argument("--ring-timeout", type=float, default=10.0, metavar="SECONDS")
     parser.add_argument("--selftest", action="store_true", help="fixtures locales + sortie")
     args = parser.parse_args(argv)
@@ -1446,6 +1547,16 @@ def main(argv=None):
         return 0
 
     now = parse_ts(args.now) if args.now else datetime.now(timezone.utc)
+
+    # #4672 : le fichier d'environnement deploye par le lanceur compagnon est
+    # lu ici — la commande canonique ne demande aucun sourcing manuel.
+    file_values, file_warning = load_organ_env_file(args.env_file)
+    if file_warning:
+        print(f"WARNING: {file_warning} — poursuite ; sans bearer lisible, la "
+              f"mesure reste fail-closed (pas de lecture store)",
+              file=sys.stderr)
+    args.ring_url, args.ring_bearer = resolve_proxy_config(
+        args.ring_url, args.ring_bearer, file_values)
 
     # Chaine de sources (review #4519 point c) : rejeu explicite -> fichiers ;
     # sinon STORE PG via le meme transport que la sonnerie ; sinon repli miroir
