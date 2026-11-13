@@ -681,8 +681,18 @@ def main(argv=None) -> int:
         # read as "this marker needs repair" by a coordinator (#4481, 02/11)
         # and dispatched a repair task for a well-formed claim.
         if any(str(lane).startswith("<UNOWNED") for lane, _, _ in blocking):
-            print("Repair hint (unowned marker): re-post ONE comment with only "
-                  "'[CLAIMED] <machine[:workspace]> -- ...' on its first line.")
+            # The gesture has TWO lines. A close marker closes the entry of
+            # the lane named on ITS line (#4114, symmetric): only a close that
+            # names no machine reaches the unowned entry. A well-formed
+            # [CLAIMED] posted alone opens a second claim and leaves the
+            # unowned one active -- the issue stays blocked. Until 2026-11-13
+            # the hint named that half only.
+            print("Repair hint (unowned marker): its author posts one comment "
+                  "whose first line is '[RELEASED]' with NO machine name on "
+                  "that line -- it closes the unowned marker -- and only then "
+                  "'[CLAIMED] <machine[:workspace]> -- ...' on the first line "
+                  "of another comment. A well-formed [CLAIMED] posted alone "
+                  "does not unblock the issue.")
         return 1
 
     active = [l for l, e in state.items() if e["state"] == "active"]

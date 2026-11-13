@@ -194,6 +194,44 @@ class TestReduceClaims(unittest.TestCase):
         state = reduce_claims(comments)
         self.assertEqual(state[None]["state"], "released")
 
+    def test_wellformed_claim_alone_leaves_unowned_claim_active(self):
+        # Mesuré 13/11 : re-poster un [CLAIMED] bien formé ne répare PAS un
+        # marqueur sans propriétaire -- il ouvre un second claim, l'entrée
+        # sans propriétaire reste active et l'issue reste bloquée.
+        comments = [
+            comment("[CLAIMED] starting now", T0),
+            comment("[CLAIMED] myia-po-2025 -- taking over", T0 + timedelta(hours=2)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state[None]["state"], "active")
+        self.assertEqual(state["myia-po-2025"]["state"], "active")
+
+    def test_named_release_does_not_close_unowned_claim(self):
+        # La levée porte l'identité de la pose (#4114, symétrique) : un
+        # [RELEASED] qui nomme une machine ferme l'entrée de CETTE lane,
+        # jamais l'entrée sans propriétaire.
+        comments = [
+            comment("[CLAIMED] starting now", T0),
+            comment("[RELEASED] myia-ai-01:roo-extensions -- repair", T0 + timedelta(hours=2)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state[None]["state"], "active")
+
+    def test_off_fleet_lane_token_is_unowned(self):
+        # Une lane sans machine de la flotte (session cloud hors flotte) n'a
+        # pas de jeton reconnu : son [CLAIMED] tombe dans la sentinelle. Le
+        # protocole docs/harness/reference/off-fleet-cloud-sessions.md en
+        # dépend (le verrou est posé par la lane qui parraine) : changer ce
+        # comportement, c'est mettre ce document à jour.
+        state = reduce_claims(
+            [comment("[CLAIMED] lane astra:roo-extensions -- triage", T0)]
+        )
+        self.assertEqual(list(state), [None])
+        sponsored = reduce_claims(
+            [comment("[CLAIMED] myia-ai-01:roo-extensions -- reserved for off-fleet session astra", T0)]
+        )
+        self.assertEqual(list(sponsored), ["myia-ai-01:roo-extensions"])
+
     def test_machines_independent(self):
         comments = [
             comment("[CLAIMED] myia-po-2023 -- a", T0),
@@ -449,6 +487,15 @@ class TestClassify(unittest.TestCase):
         self.assertEqual(len(blocking), 1)
         self.assertIn("UNOWNED", blocking[0][0])
 
+    def test_unowned_claim_never_goes_stale(self):
+        # La sentinelle n'a pas de péremption : au-delà du seuil elle bloque
+        # encore, là où un claim nommé passerait en STALE_CLAIM.
+        blocking, warnings, _n = classify(
+            self._state(None, T0), "myia-po-2026", 24.0, now=T0 + timedelta(hours=72)
+        )
+        self.assertEqual(len(blocking), 1)
+        self.assertEqual(warnings, [])
+
     def test_released_claim_never_blocks(self):
         state = {"myia-po-2025": {"state": "released", "since": T0, "line": "x"}}
         blocking, warnings, notes = classify(
@@ -682,6 +729,47 @@ class TestMain(unittest.TestCase):
                     rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 1)
         self.assertIn("Repair hint (unowned marker)", out.getvalue())
+
+    def test_unowned_repair_hint_names_the_release_line_first(self):
+        # Mesuré 13/11 : le hint ne nommait que le re-post d'un [CLAIMED] bien
+        # formé, qui laisse l'entrée sans propriétaire active. Le geste
+        # complet commence par un [RELEASED] sans nom de machine.
+        issue = self._issue([comment("[CLAIMED] -- fixing the thing", T0)])
+        out = io.StringIO()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                with contextlib.redirect_stdout(out):
+                    main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        hint = out.getvalue()
+        self.assertIn("[RELEASED]", hint)
+        self.assertIn("NO machine name", hint)
+        self.assertLess(hint.index("[RELEASED]"), hint.index("[CLAIMED] <machine"))
+
+    def test_following_the_repair_hint_unblocks(self):
+        # Bout en bout : marqueur sans propriétaire, puis les deux lignes du
+        # hint dans l'ordre -> la lane qui a re-posé son claim repart.
+        issue = self._issue([
+            comment("[CLAIMED] -- fixing the thing", T0),
+            comment("[RELEASED] unowned marker closed by its author", T0 + timedelta(minutes=5)),
+            comment("[CLAIMED] myia-po-2026 -- fixing the thing", T0 + timedelta(minutes=6)),
+        ])
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 0)
+
+    def test_the_old_half_gesture_stays_blocked(self):
+        # Témoin du défaut : le seul geste que l'ancien hint nommait (un
+        # [CLAIMED] bien formé, sans fermer l'entrée sans propriétaire) laisse
+        # l'issue bloquée, y compris pour la lane qui vient de le poser.
+        issue = self._issue([
+            comment("[CLAIMED] -- fixing the thing", T0),
+            comment("[CLAIMED] myia-po-2026 -- fixing the thing", T0 + timedelta(minutes=6)),
+        ])
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 1)
 
     def test_clear_exit_0(self):
         issue = self._issue([])
