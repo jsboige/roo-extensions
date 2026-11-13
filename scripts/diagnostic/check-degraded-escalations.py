@@ -936,16 +936,21 @@ def build_ring_content(overdue):
 
 
 def build_ring_id(overdue, now=None):
-    """Cle d'idempotence (#3276) : hote + empreinte du lot + tranche de 24 h.
+    """Cle d'idempotence (#3276) : empreinte du lot + tranche de 24 h.
 
     Meme lot -> UNE sonnerie par jour, pas une par tick ; un lot qui change
     produit un id neuf ; le lendemain re-sonne tant que rien n'est repare.
+
+    La cle ne porte PAS l'hote, et le lot est trie avant l'empreinte : deux
+    sieges qui mesurent le meme lot le meme jour calculent le meme id, et
+    l'append du dashboard ignore un id deja present. La regle demande a CHAQUE
+    lane de sonner sur un exit 2 ; avec l'hote dans la cle, chaque siege
+    postait sa propre entree (review #4677).
     """
     now = now or time.time()
-    payload = "|".join(f"{i['lane']}:{i['posted']}" for i in overdue)
+    payload = "|".join(sorted(f"{i['lane']}:{i['posted']}" for i in overdue))
     digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
-    host = os.environ.get("COMPUTERNAME") or os.environ.get("HOSTNAME") or "unknown-host"
-    return f"degraded-escalation-{host}-{digest}-{int(now // 86400)}"
+    return f"degraded-escalation-{digest}-{int(now // 86400)}"
 
 
 def _load_transport():
@@ -1031,11 +1036,19 @@ def resolve_proxy_config(cli_url, cli_bearer, file_values):
     Accepte `MCP_PROXY_URL` et `MCP_PROXY_BASE_URL` (l'un comme l'autre, dans
     cet ordre) a chaque etage ou la cle existe. Bearer et URL se resolvent
     independamment : un CLI partiel garde la provenance du reste de la chaine.
+
+    Un `--ring-bearer ""` EXPLICITE veut dire « aucun bearer » : il masque
+    l'environnement ET le fichier. Une chaine de `or` sautait la valeur vide et
+    reprenait le bearer ambiant — une suite de tests lancee dans un shell qui
+    exporte un vrai bearer pouvait alors publier pour de bon (review #4677).
+    Seul l'argument ABSENT (None) laisse parler les etages suivants.
     """
     file_values = file_values or {}
-    bearer = (cli_bearer
-              or os.environ.get("MCP_PROXY_BEARER")
-              or file_values.get("MCP_PROXY_BEARER"))
+    if cli_bearer is not None:
+        bearer = cli_bearer or None
+    else:
+        bearer = (os.environ.get("MCP_PROXY_BEARER")
+                  or file_values.get("MCP_PROXY_BEARER"))
     url = (cli_url
            or os.environ.get("MCP_PROXY_URL")
            or os.environ.get("MCP_PROXY_BASE_URL")
@@ -1046,6 +1059,12 @@ def resolve_proxy_config(cli_url, cli_bearer, file_values):
 
 
 def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
+    """Poste la sonnerie. Rend `"posted"`, `"deduplicated"` ou None.
+
+    `"deduplicated"` : le serveur a reconnu l'id (un autre passage, ou un autre
+    siege, a deja sonne ce lot aujourd'hui) et n'a rien ecrit — la sonnerie
+    EXISTE, c'est un succes. None : la sonnerie n'est pas partie.
+    """
     arguments = {
         "action": "append",
         "type": "global",
@@ -1053,8 +1072,17 @@ def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
         "content": build_ring_content(overdue),
         "messageId": build_ring_id(overdue, now=now),
     }
-    return _load_transport()(arguments, url, bearer, timeout=timeout,
-                             client="degraded-escalations") is not None
+    result = _load_transport()(arguments, url, bearer, timeout=timeout,
+                               client="degraded-escalations")
+    if result is None:
+        return None
+    try:
+        envelope = leading_json(tool_result_text(result))
+    except (TypeError, ValueError):
+        return "posted"
+    if isinstance(envelope, dict) and envelope.get("deduplicated") is True:
+        return "deduplicated"
+    return "posted"
 
 
 def verdict(escalations):
@@ -1526,14 +1554,16 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="sortie machine")
     parser.add_argument("--ring", action="store_true",
                         help="poste la sonnerie ASK-USER sur le dashboard GLOBAL "
-                             "(bearer : --ring-bearer ou MCP_PROXY_BEARER)")
+                             "(bearer : --ring-bearer, MCP_PROXY_BEARER, puis "
+                             "fichier --env-file)")
     parser.add_argument("--ring-url", default=None,
                         help="base URL du mcp-proxy (defaut : MCP_PROXY_URL, "
                              "MCP_PROXY_BASE_URL, fichier --env-file, puis "
                              "https://mcp-tools.myia.io)")
     parser.add_argument("--ring-bearer", default=None,
                         help="bearer du mcp-proxy (defaut : MCP_PROXY_BEARER, "
-                             "puis fichier --env-file)")
+                             "puis fichier --env-file ; une valeur vide "
+                             "explicite = aucun bearer, sans repli)")
     parser.add_argument("--env-file", default=str(ORGAN_ENV_FILE), metavar="PATH",
                         help="fichier CLE=valeur lu pour MCP_PROXY_BEARER / "
                              "MCP_PROXY_BASE_URL (defaut : "
@@ -1662,16 +1692,23 @@ def main(argv=None):
     if code == 2 and args.ring:
         overdue = [e for e in escalations if e["status"] == "overdue"]
         if not args.ring_bearer:
-            print("ERROR: --ring demande sans bearer (--ring-bearer ou MCP_PROXY_BEARER) "
-                  "— la sonnerie N'EST PAS partie", file=sys.stderr)
+            print("ERROR: --ring demande sans bearer (--ring-bearer, MCP_PROXY_BEARER "
+                  "ou fichier --env-file) — la sonnerie N'EST PAS partie",
+                  file=sys.stderr)
             return 1
-        if not publish_ring(overdue, args.ring_url, args.ring_bearer,
-                            timeout=args.ring_timeout, now=now.timestamp()):
+        outcome = publish_ring(overdue, args.ring_url, args.ring_bearer,
+                               timeout=args.ring_timeout, now=now.timestamp())
+        if not outcome:
             print("ERROR: la sonnerie N'EST PAS partie (transport) — l'echeance "
                   "reste depassee, relancer au cycle suivant", file=sys.stderr)
             return 1
-        print(f"ring: sonnerie ASK-USER postee sur le dashboard global "
-              f"({len(overdue)} escalade(s))", file=sys.stderr)
+        if outcome == "deduplicated":
+            print(f"ring: sonnerie deja presente sur le dashboard global pour "
+                  f"ce lot aujourd'hui ({len(overdue)} escalade(s)) — aucune "
+                  f"nouvelle entree", file=sys.stderr)
+        else:
+            print(f"ring: sonnerie ASK-USER postee sur le dashboard global "
+                  f"({len(overdue)} escalade(s))", file=sys.stderr)
 
     if degraded_source:
         # Meme logique act-then-degrade : ce que le miroir a dit est rapporte

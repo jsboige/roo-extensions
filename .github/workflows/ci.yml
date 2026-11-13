@@ -195,6 +195,12 @@ on:
       # the waiting/abandoned classification would land silently on a fleet of
       # seats that consume the WARN it emits.
       - 'scripts/diagnostic/detect-approval-stalls.py'
+      # Same gap, eleventh instance (review of #4677): the escalation organ is
+      # exercised by test_check_degraded_escalations.py and
+      # test_degraded_escalations_env_utf8.py in scripts/testing/python/, and it
+      # imports its transport from the detector above. A main push touching ONLY
+      # the organ re-ran nothing -- and this organ decides whether the user is rung.
+      - 'scripts/diagnostic/check-degraded-escalations.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
