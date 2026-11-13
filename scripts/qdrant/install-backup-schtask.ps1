@@ -3,6 +3,11 @@
     Install Qdrant-Snapshot-Daily Windows Task Scheduler entry.
 
 .DESCRIPTION
+    TEMPLATE installer — NOT for the served fleet snapshot flow (measured 27/09-29/09,
+    #3893). The served daily snapshot is produced by qdrant_snapshot_backup.ps1
+    (ai-01:qdrant lane, another workspace) with keep-3 retention. Registering this
+    template's task alongside it would create a second, divergent snapshot flow.
+
     Validates Qdrant reachability and $ROOSYNC_SHARED_PATH writability, then registers
     the schtask from the XML template, substituting machine-specific placeholders.
 

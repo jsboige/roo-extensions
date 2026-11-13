@@ -1,6 +1,14 @@
 # Qdrant Backup Layer 1 — Daily Snapshots to GDrive
 
-**Status:** Approved 2026-05-18 (user mandate post data-loss incident 2026-05-16)
+> **⚠️ This template is NO LONGER the served implementation (measured 27/09–29/09, #3893).**
+> The fleet's daily `roo_tasks_semantic_index` snapshot is produced by `qdrant_snapshot_backup.ps1`,
+> owned by the `ai-01:qdrant` lane (another workspace — asked, not modified from here). The served
+> task runs **keep-3 retention** (verified 23/10, 10/11, 13/11 — exactly 3 live units) into the
+> `Backups-Cloud\qdrant-snapshots\` tree, NOT this template's `qdrant-backups` default. Installing
+> this template alongside the served task would create a second, divergent snapshot flow — do not.
+> Everything below documents **this repo's template**, kept as the generic Layer-1 implementation.
+
+**Status:** Approved 2026-05-18 (user mandate post data-loss incident 2026-05-16); superseded as served producer for the semantic-index flow (see banner above, #3893)
 **Owner:** myia-ai-01 (primary), portable to po-2024 / po-2026 later
 **Scope:** Single-collection snapshots pushed to a cloud-only GDrive path (sibling of `.shared-state`, jsboige/jsboige-mcp-servers#608)
 

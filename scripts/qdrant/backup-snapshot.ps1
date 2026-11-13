@@ -3,6 +3,14 @@
     Qdrant Backup Layer 1 — daily snapshots to GDrive shared folder.
 
 .DESCRIPTION
+    TEMPLATE — NOT the served fleet producer (measured 27/09-29/09, #3893).
+    The served daily snapshot of roo_tasks_semantic_index is produced by
+    qdrant_snapshot_backup.ps1 (ai-01:qdrant lane, another workspace) with
+    keep-3 retention into Backups-Cloud\qdrant-snapshots\. This script's
+    derived destination (qdrant-backups\) is absent from the served tree.
+    Kept as the generic Layer-1 implementation; do not install alongside
+    the served task.
+
     Triggers a Qdrant snapshot via REST API, downloads the binary .snapshot file,
     and pushes it to a cloud-only GDrive path (sibling of .shared-state).
     Applies retention: 7 daily + 4 weekly (Mondays). Idempotent per day.
