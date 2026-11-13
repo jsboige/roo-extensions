@@ -686,13 +686,16 @@ def main(argv=None) -> int:
             # names no machine reaches the unowned entry. A well-formed
             # [CLAIMED] posted alone opens a second claim and leaves the
             # unowned one active -- the issue stays blocked. Until 2026-11-13
-            # the hint named that half only.
-            print("Repair hint (unowned marker): its author posts one comment "
-                  "whose first line is '[RELEASED]' with NO machine name on "
-                  "that line -- it closes the unowned marker -- and only then "
-                  "'[CLAIMED] <machine[:workspace]> -- ...' on the first line "
-                  "of another comment. A well-formed [CLAIMED] posted alone "
-                  "does not unblock the issue.")
+            # the hint named that half only. The release line is written by
+            # hand: --release composes '[RELEASED] <lane>', which names a
+            # machine and therefore cannot reach the unowned entry.
+            print("Repair hint (unowned marker): after reading who posted it, "
+                  "post one comment by hand (--release always appends your "
+                  "lane name) whose first line is '[RELEASED]' with NO machine "
+                  "name on that line -- it closes the unowned marker -- and "
+                  "only then '[CLAIMED] <machine[:workspace]> -- ...' on the "
+                  "first line of another comment. A well-formed [CLAIMED] "
+                  "posted alone does not unblock the issue.")
         return 1
 
     active = [l for l, e in state.items() if e["state"] == "active"]

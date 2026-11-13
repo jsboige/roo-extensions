@@ -127,7 +127,8 @@ repo. Budget state lives beside the dispatcher state, not in git.
    the `myia-*` machines reads neither the MCP nor the dashboards and writes under the
    maintainer's gh account. The claim guard cannot represent it: a `[CLAIMED]` line naming no
    fleet machine reduces to the unowned sentinel, which blocks every lane and never goes stale
-   (probe 2026-11-13, pinned by `test_off_fleet_lane_token_is_unowned`). Until a lane token
+   (probe 2026-11-13, pinned by `test_off_fleet_lane_token_is_unowned` and
+   `test_unowned_claim_never_goes_stale`). Until a lane token
    exists for it, the contract is conventional: frame issue, sponsor-posed locks, fleet-side
    review and merge — [`off-fleet-cloud-sessions.md`](../harness/reference/off-fleet-cloud-sessions.md).
 

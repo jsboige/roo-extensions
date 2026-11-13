@@ -13,8 +13,9 @@ Le protocole ne dépend ni du fournisseur ni du modèle. Il dépend de deux fait
 l'identité du mainteneur**.
 
 **D'où viennent les mesures.** Deux chantiers hors flotte menés en novembre 2026 sur le dépôt
-voisin `jsboige/CoursIA` (issues CoursIA#25670 et CoursIA#26070), lus en lecture seule le
-2026-11-13 ; et une sonde locale de notre garde de claim, le même jour. À cette date, aucune PR
+voisin `jsboige/CoursIA` (issues CoursIA#25670 et CoursIA#26070, et le body d'une PR qui en est
+sortie, CoursIA#26097), lus en lecture seule le 2026-11-13 ; et une sonde locale de notre garde
+de claim, le même jour. À cette date, aucune PR
 des deux dépôts de la portée ne porte la marque d'une session hors flotte : les règles
 ci-dessous n'ont pas encore été exercées ici.
 
@@ -37,8 +38,9 @@ l'issue qui porte le mandat de la session.
 
 Ces six lignes sont lues dans les textes des deux chantiers : aucune mention d'un dashboard ; un
 lecteur de la flotte « non monté dans cet espace » ; un service local dont la sonde rend
-« connexion refusée » ; des systèmes « documentés mais [qui] n'ont pas été exécutés dans cette
-session » ; des dossiers de preuve conservés dans l'espace de la session, jamais commités.
+« connexion refusée » ; « Windows/macOS sont documentés mais n'ont pas été exécutés dans cette
+session » (body de CoursIA#26097) ; des preuves gardées dans l'espace de la session, jamais
+ajoutées au dépôt.
 
 Dans l'[échelle des canaux](user-channel-doctrine.md), une session hors flotte n'atteint que les
 niveaux 4 à 6 : les issues, les documents et règles du dépôt, la CI. Tout ce que la flotte veut
@@ -96,7 +98,7 @@ du garde, aucun appel GitHub) :
 | `[CLAIMED] lane astra:roo-extensions — …` (aucune machine `myia-*`) | Verrou **sans propriétaire**. Il bloque toutes les lanes, **sans péremption** (encore bloquant à 72 h), y compris la session qui l'a posé |
 | puis `[RELEASED] myia-ai-01:roo-extensions` | **Ne le lève pas** : une levée ferme le verrou de la lane nommée sur sa propre ligne |
 | puis un `[CLAIMED] <machine:workspace>` bien formé, seul | **Ne le lève pas** : un second verrou s'ouvre, le premier reste actif |
-| puis `[RELEASED] …` sans aucun nom de machine sur la ligne | Le lève |
+| puis un marqueur de fermeture (`[RELEASED]`, `[DONE]`, `[RESULT]`) sans aucun nom de machine sur sa ligne | Le lève |
 | `[CLAIMED] myia-ai-01:roo-extensions — réservé à la session hors flotte … (cadre #N)` | Verrou ordinaire du parrain : bloque les autres lanes 24 h, puis `STALE_CLAIM` (avertit sans bloquer) |
 | le même mot au milieu d'une phrase | Rien : seul un marqueur en début de ligne est un événement |
 
@@ -112,8 +114,10 @@ D'où la règle :
 - **Le parrain lève** (`--release`) à la livraison ou à l'abandon.
 - **Un marqueur sans propriétaire posé par erreur** se répare en deux lignes, dans cet ordre :
   un commentaire dont la première ligne est `[RELEASED]` suivi d'un texte **sans nom de
-  machine**, puis le verrou du parrain. Le faire seulement après avoir lu qui a posé le
-  marqueur : lever le verrou d'un inconnu n'est pas une réparation.
+  machine**, puis le verrou du parrain. Le premier commentaire s'écrit à la main : `--release`
+  compose toujours `[RELEASED] <lane>`, qui nomme une machine et n'atteint donc pas l'entrée
+  sans propriétaire. Le faire seulement après avoir lu qui a posé le marqueur : lever le verrou
+  d'un inconnu n'est pas une réparation.
 
 ---
 
@@ -173,7 +177,9 @@ Rien dans la flotte n'attend une session cloud.
   telles quelles ; le verrou est celui de la lane.
 - **Avec.** La session est une capacité en plus, pas un maillon. Un grain de sa partition resté
   sans activité 72 h est repris : le parrain lève le verrou et le redistribue, comme pour tout
-  claim qui dort.
+  claim qui dort (seuil du balayage des dettes de
+  [`coordinate.md`](../../../.claude/commands/coordinate.md) ; le garde, lui, cesse de bloquer
+  sur un verrou nommé dès 24 h).
 - **À l'arrêt de la session**, tout ce qu'elle seule savait doit déjà être dans GitHub
   (règle 9). Une lane qui reprend ne lit que l'issue-cadre et les PRs.
 
