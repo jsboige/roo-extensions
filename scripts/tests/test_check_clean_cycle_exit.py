@@ -167,6 +167,31 @@ class TestPass(unittest.TestCase):
             self.assertEqual(state["behind"], 0)
 
 
+class TestStash(unittest.TestCase):
+    def test_stash_is_informational(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "stashed"
+            p.mkdir()
+            init_repo(p)
+            write(p / "README.md", "changed\n")
+            git(["stash"], cwd=p)
+            state = collect_state(p)
+            self.assertEqual(state["verdict"], VERDICTS_PASS)
+            self.assertTrue(state["ready_for_close"])
+            self.assertIn({"kind": "stash", "count": 1}, state["signals"])
+            self.assertIn("stash", render_human(state))
+            self.assertEqual(main(["--path", str(p), "--json"]), 0)
+
+    def test_no_stash_no_signal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "nostash"
+            p.mkdir()
+            init_repo(p)
+            state = collect_state(p)
+            self.assertEqual(state["verdict"], VERDICTS_PASS)
+            self.assertFalse([s for s in state["signals"] if s["kind"] == "stash"])
+
+
 class TestWrongBranch(unittest.TestCase):
     def test_on_feature_branch(self):
         with tempfile.TemporaryDirectory() as tmp:
