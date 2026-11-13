@@ -74,6 +74,11 @@ même** — stderr affiche l'erreur, **l'exit code reste 0** — avec un corps �
 
 **Incident fondateur :** review `CHANGES_REQUESTED` au body tronqué, PR #2864.
 
+**Mesure du 13/11/2026 :** la PR #4703, ouverte par le pont Copilot avec un corps passé en ligne
+(RAPPORTÉ par le coordinateur), a perdu deux fois le nom de variable `$copilotWt` (corps d'origine
+relu dans l'historique d'édition : `` ` = $null` ``) ; le même corps a gardé `$TargetRepoSlug`, et
+la cause exacte n'est pas établie.
+
 Règles qui en découlent (dans la règle auto-chargée) : toujours `--body-file` ; `gh issue close`
 n'expose pas `--comment-file`, donc commenter d'abord puis fermer ; un stderr montrant une erreur
 shell impose de **vérifier via l'API avant de retenter**.

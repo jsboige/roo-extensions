@@ -115,6 +115,25 @@ par un outil MCP.
   interdits y sont ; manquent la relecture en posture de réfutation et le taux mesuré (22 propositions sur
   31 tombent, soit 71 %).
 
+### Un pré-examen peut se tromper par son instrument : des octets se jugent sur les octets bruts
+<!-- src: session 13/11/2026 -->
+- **Quand :** un pré-examen (agent de relecture, sous-agent, bot) rend un verdict sur un encodage, une
+  taille de fichier, un BOM ou des fins de ligne, et on s'apprête à agir dessus.
+- **Règle :** juger des octets sur les octets bruts, jamais à travers un shell, un outil ou une API
+  qui convertit le texte. En Git Bash : `git show <tête>:<chemin> | head -c 4 | od -An -tx1` pour
+  l'en-tête, `git cat-file -s <tête>:<chemin>` pour la taille, sur la tête et sur la base. Avant
+  d'agir sur un pré-examen, le coordinateur re-mesure la preuve qui décide du verdict.
+- **Cas mesuré :** 13/11/2026, PR #4700, fichier `scripts/qdrant/Qdrant-Snapshot-Daily.xml`. Le
+  pré-examen a conclu à un ré-encodage d'UTF-16 LE en UTF-8 (il avait lu 2 254 octets) et rendu
+  CHANGES (RAPPORTÉ par le coordinateur). Mesure brute, refaite le même jour : `ff fe 3c 00` en tête
+  sur la tête `991c18df` comme sur la base `6d5157a5`, 4 496 octets contre 4 256 ; décodés en
+  UTF-16, les deux textes ne diffèrent que sur la ligne `<Description>`. La passe du coordinateur sur
+  la PR (12:43Z) le dit, et nomme l'erreur du pré-examen ; la PR a été mergée à 12:43:33Z.
+- **Déjà dans le dépôt :** la leçon précédente (relire une proposition d'audit en posture de
+  réfutation) et, dans `field-lessons-github-ci.md`, « Une lecture `gh` groupée peut rendre un récit
+  cohérent et entièrement faux » — ce texte ajoute le cas où c'est l'instrument du relecteur qui
+  convertit.
+
 ### L'accord de plusieurs agents ne réfute que la formulation d'un ticket
 <!-- src: feedback_converging_refutations_of_a_misframed_ticket -->
 - **Quand :** un ticket porte une inquiétude venue du user, le code conteste le mécanisme qu'il

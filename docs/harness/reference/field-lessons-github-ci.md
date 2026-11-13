@@ -235,38 +235,79 @@ par un outil MCP.
   le commit `690e4a5a8` y est vérifié dans la liste de commits. Le troisième niveau apprend en plus que
   CoursIA #15975 est OPEN et bloquée.
 
+### Un verbe de fermeture suivi de `#N` ferme l'issue, où qu'il soit dans le corps d'une PR
+<!-- src: session 13/11/2026 -->
+- **Quand :** on retire `Closes #N` du corps d'une PR pour que l'issue reste ouverte au merge, ou on
+  y écrit une phrase sur la fermeture future d'une issue.
+- **Règle :** dans le corps d'une PR, un mot-clé de fermeture suivi de `#N` arme la fermeture, même
+  au milieu d'une phrase. La liste que le dépôt recopie de la documentation GitHub
+  (`.github/workflows/pr-negation-autoclose.yml`, lignes 6-8) : `close`, `closes`, `closed`, `fix`,
+  `fixes`, `fixed`, `resolve`, `resolves`, `resolved`. La garde de ce workflow ne refuse qu'un
+  mot-clé voisin d'une négation (lignes 117-133) : une phrase affirmative passe. Après une édition
+  du corps, relire `closingIssuesReferences`, et ne merger que quand il rend ce qu'on attend.
+- **Cas mesuré :** 13/11/2026, PR #4703 (historique des éditions relu par `userContentEdits`). Corps
+  d'origine, 12:38:58Z : `Closes #4666`. Édition de 12:56:37Z : `Refs #4666`, plus une note qui dit
+  « The coordinator closes #4666 after re-reading it at the next cycle ». Édition de 12:57:07Z : la
+  note devient « Issue #4666 stays open after this merge ». Selon le coordinateur,
+  `closingIssuesReferences` listait encore #4666 après la première édition, et encore juste après la
+  seconde ; une lecture GraphQL quelques secondes plus tard était vide (RAPPORTÉ ; une seule mesure
+  de ce délai). Merge à 12:57:28Z ; relue le même jour, #4666 est `OPEN` et la liste de la PR est
+  vide.
+- **Déjà dans le dépôt :** `pr-negation-autoclose.yml` (#3626) traite la négation (« Closes NOT #N »
+  ferme quand même) — ce texte ajoute la phrase affirmative et le délai avant que la liste suive le
+  corps.
+
 ## Écrire dans le corps et les labels d'une issue
 
 ### Le bot de checklist compte les cases dans tout le corps, pastilles comprises
 <!-- src: session 13/11/2026 -->
 - **Quand :** on ajoute au corps d'une issue un bloc d'état, un tableau de suivi ou un extrait recopié.
-- **Règle :** `checklist-enforce.yml` cherche ses motifs dans le corps entier, sans ancrage de ligne et
-  sans exception pour une citation ou un bloc de code. Il compte `- [ ]` et la pastille ⬜ comme cases
-  ouvertes, `- [x]`, ✅ et ❌ comme cases fermées. À la fermeture, une seule case ouverte fait rouvrir
-  l'issue (sauf `[FORCE-CLOSE]` en commentaire, ou après trois réouvertures, #1487). Dans un texte
-  ajouté au corps, numéroter les étapes (`1.`), ne pas les cocher, et n'écrire aucune de ces pastilles.
-  Après l'écriture, vérifier que le nombre de cases du corps n'a pas changé.
-- **Cas mesuré :** 13/11/2026, le jour où un bloc d'état a été posé en tête de 71 issues, lecture du
-  workflow : les motifs sont aux lignes 24-29 et s'appliquent à `issue.body` entier. L'outil
-  d'écriture des blocs (PR #4702, ouverte ce jour-là) refuse la syntaxe `- [ ]` et compare le nombre
-  de cases avant et après l'écriture. Il ne refuse pas la pastille ⬜, que le bot compte pourtant.
-- **Déjà dans le dépôt :** `.claude/rules/issue-closure.md` (cocher avant de fermer) et
-  `docs/harness/reference/issue-closure-detailed.md` (réouverture par le bot) — cette leçon ajoute que
-  le bot lit tout le corps, texte ajouté compris, et qu'il compte aussi les pastilles.
+- **Règle :** `checklist-enforce.yml` cherche `- [ ]` et la pastille ⬜ dans le corps entier, citations
+  et blocs de code compris. Dans un bloc d'état, l'outil `scripts/github/apply_issue_state_block.py`
+  refuse les cases et la pastille ([`issue-state-block.md`](issue-state-block.md), règle 1). Un texte
+  écrit dans le corps sans passer par l'outil n'a pas cette garde : numéroter les étapes (`1.`), ne
+  rien cocher, n'écrire aucune pastille, et vérifier après l'écriture que le nombre de cases n'a pas
+  changé.
+- **Cas mesuré :** 13/11/2026, le jour où un bloc d'état a été posé en tête de 71 issues : les motifs
+  du workflow sont aux lignes 24-29 et s'appliquent à `issue.body` entier. À la tête `ea6e12de` de la
+  PR #4702, l'outil ne refusait pas la pastille ⬜ ; la version mergée (`7cbe388f`) la refuse.
+- **Déjà dans le dépôt :** `.claude/rules/issue-closure.md` (cocher avant de fermer),
+  `docs/harness/reference/issue-closure-detailed.md` (réouverture par le bot) et
+  [`issue-state-block.md`](issue-state-block.md) (règle 1, pour les blocs d'état) — cette leçon
+  ajoute que le bot lit aussi le texte écrit hors d'un bloc.
 
 ### Modifier le corps d'une issue ne déclenche aucun workflow du dépôt
 <!-- src: session 13/11/2026 -->
 - **Quand :** on écrit une décision, un état ou une consigne dans le corps d'une issue, et on compte
   qu'un automate ou une lane la verra.
-- **Règle :** deux workflows seulement réagissent aux événements d'issue : `checklist-enforce.yml`
-  (`issues: closed`) et `sync-project.yml` (`issues: opened`). Aucun n'écoute `edited`, `labeled` ni
-  `issue_comment` ; le seul `edited` du dossier, dans `pr-negation-autoclose.yml`, écoute les pull
-  requests. Une édition de corps n'ajoute rien non plus au fil des commentaires, que les lanes et le
-  garde de claim (`scripts/github/check_issue_claim.py`) lisent. Une décision écrite dans le corps se
-  double donc d'un commentaire court qui la nomme.
+- **Règle :** doubler la décision d'un commentaire court qui la nomme. Une édition de corps ne
+  déclenche aucun workflow et n'ajoute rien au fil des commentaires, que les lanes et le garde de
+  claim (`scripts/github/check_issue_claim.py`) lisent. Le relevé des workflows et la règle sont dans
+  [`issue-state-block.md`](issue-state-block.md) (§ Pourquoi, règle 6).
 - **Cas mesuré :** 13/11/2026, le jour où les blocs d'état ont été posés, lecture des cinq fichiers
   de `.github/workflows/`. Le même jour, sept décisions du coordinateur (#1587, #2307, #2566, #4343,
   #4503, #4565, #4657) ont été écrites dans le bloc de l'issue et dans un commentaire.
+
+### L'organe des chantiers longs lit les commentaires, pas le corps
+<!-- src: session 13/11/2026 -->
+- **Quand :** on écrit dans le bloc d'état d'un chantier (issue `epic` ou `approved` ouverte depuis
+  30 jours ou plus) la décision qui le fait avancer.
+- **Règle :** doubler la décision d'un commentaire qui porte une marque de décision et une date.
+  L'organe D4 de `scripts/scheduling/test_cycle_end.py` (`classify_chantier`, lignes 225-251) ne lit
+  que les commentaires. Il signale « sans decision datee » quand aucun commentaire ne porte à la fois
+  une marque (`_DECISION_MARK`, ligne 215 : `[DÉCISION`, `[ARBITRAGE`, `[GO`, `[D4`, « Décision
+  datée », « Arbitrage user ») et une date (`_DATE`, ligne 218 : `JJ/MM` ou `AAAA-MM-JJ`). Il signale
+  « dormant » quand le dernier commentaire, hors verrous et rapports vides, a plus de 14 jours
+  (`DORMANT_DAYS`, ligne 208). Un bloc d'état, même du jour, ne change aucun des deux signaux.
+- **Cas mesuré :** 13/11/2026 : les blocs d'état de #1297 et #4149 ont été posés vers 11:57Z. À
+  12:38Z, l'organe signalait #1297 « dormant 32 j » et #4149 « sans decision datee ». Un commentaire
+  `[DÉCISION] coordinateur, 13/11/2026` a été posé sur chacune (12:41:00Z et 12:40:58Z) ; à 12:41Z,
+  l'organe ne signalait plus rien (deux sorties RAPPORTÉES par le coordinateur). Rejoué le même jour
+  avec `classify_chantier` sur les commentaires réels : avant ces deux commentaires, ces deux mêmes
+  signaux ; après, aucun.
+- **Déjà dans le dépôt :** la leçon précédente et [`issue-state-block.md`](issue-state-block.md)
+  (règle 6) — ce texte ajoute que l'organe D4 ne voit pas le corps, et la forme de commentaire qu'il
+  reconnaît.
 
 ### Retirer le seul label d'une issue la déplace dans les deux sélecteurs
 <!-- src: session 13/11/2026 -->
