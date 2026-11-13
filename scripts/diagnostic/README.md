@@ -36,6 +36,18 @@ Pour cibler le diagnostic sur un aspect spécifique (si le script le supporte vi
 
 ## Scanners de sessions Claude Code
 
+### `session-view.py`
+
+Lit le registre des sessions vivantes (`~/.claude/sessions/*.json` — un fichier par pid Claude Code, champs `pid`, `procStart`, `cwd`, `status`…) et classe chaque session : `actif` / `repos-recent` / `repos-ancien` / `mort`. Un pid réutilisé par un autre processus (`procStart` différent) est classé mort. `--write` écrase atomiquement un fichier d'état par machine sous `$ROOSYNC_SHARED_PATH/session-view/<machine>.json` (pas d'append dashboard — #3833 veut un canal silencieux). Étape 1 de #3833, livré par #4694.
+
+```powershell
+# Lecture seule : une ligne par session (machine, workspace, statut, âge)
+python scripts/diagnostic/session-view.py --dry-run
+
+# Écriture du fichier d'état partagé (idempotent, écrase à chaque passage)
+python scripts/diagnostic/session-view.py --write
+```
+
 ### `scan-duplicate-tool-use.py`
 
 Détecte la signature du bug harness #3276 (même `tool_use` émis puis exécuté deux fois — fork en deux nœuds transcript distincts) qui produit des effets de bord dupliqués (ex. 2 issues GitHub créées pour 1 seule intendue : CoursIA #13089/#13090, récidive #13108/#13109).
