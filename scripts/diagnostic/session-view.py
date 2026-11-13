@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import ntpath
 import os
 import socket
 import sys
@@ -119,7 +120,11 @@ def _workspace_of(record):
     cwd = record.get("cwd")
     if not isinstance(cwd, str) or not cwd:
         return "?"
-    return os.path.basename(cwd.rstrip("/\\")) or cwd
+    # ``cwd`` enregistre un chemin Windows (separateurs ``\``) : ``ntpath.basename``
+    # sait le couper sur les deux separateurs quel que soit l'OS hote (CI Linux
+    # comprise), la ou ``os.path.basename`` (posixpath sous Linux) laisserait la
+    # chaine entiere.
+    return ntpath.basename(cwd.rstrip("/\\")) or cwd
 
 
 def _age_reference_ms(record):
