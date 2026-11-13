@@ -17,7 +17,8 @@ Classification (one of four statuses per session):
   time (a pid can be reused; only a matching ``procStart`` proves identity)
 
 A defensive fifth status ``invalide`` covers session files that are not valid
-JSON objects (the line still appears; it is never counted as a session state).
+JSON objects: the line still appears, and ``counts`` gains an ``invalide`` key
+when one occurs — only the four canonical statuses are pre-seeded at 0.
 
 Output: one line per session file — machine, workspace (basename of ``cwd``),
 status, age. ``--dry-run`` prints without writing (also the default when no
