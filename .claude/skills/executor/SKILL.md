@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.9.1"
+  version: "3.10.1"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,10 +21,10 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.10.0 (garde mandats-résultat en Phase 0 étape 7 — escalade user 16/10 : le harnais traitait des tâches, pas les résultats confiés)
-**Precedent:** 3.9.3 (cadence coordinateur ai-01 5h→6h — directive user 2026-10-04 ; exécuteurs inchangés à 4h)
+**Version:** 3.10.1 (slim #2368 — l'en-tête ne recopie plus le journal des changements ; frontmatter réaligné sur la version du corps)
+**Precedent:** 3.10.0 (garde mandats-résultat en Phase 0 étape 7 — escalade user 16/10 : le harnais traitait des tâches, pas les résultats confiés)
 **Cree:** 2026-03-28
-**MAJ:** 2026-10-16 (Phase 0 étape 7 : garde mandats-résultat — escalade user « 5 fois en 2 mois… quelque chose de cassé dans ton harnais » ; la métrique du mandat ouvre le cycle, fermeture sur métrique ou stand-down user, jamais sur une réponse d'ASK) — 2026-10-04 (cadence coordinateur ai-01 5h→6h — directive user « Réarme ton cron de session de 6h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-24 (cadence coordinateur ai-01 3h→5h — directive user « Réarme stp un cron 5h, on repasse en rythme nominal après atterrissage des crédits Anthropic » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-15 (cadence coordinateur ai-01 4h→5h, #3660 — directive user « Réarme un cron 5h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-14 (escalade après N=3 formes absorbantes exit-10, #3605 — spec user 13/09 : `[ESCALATE]`/`[SHORT-CYCLE]`/`[RESTART-REQUIRED]`, ni kill ni retry auto, streak par signature) — 2026-09-13 (cadence coordinateur ai-01 6h→4h, #3629 — directive user « Réarme un cron 4h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-12 (cadence coordinateur ai-01 4h→6h, #3610 — mandat user ; **portée asymétrique** : les exécuteurs restent à `41 */4`, ne pas uniformiser dans un sens ni dans l'autre) — 2026-09-11 (cadence coordinateur ai-01 3h→4h — flotte réalignée à 4h) — 2026-09-09 (cadence coordinateur ai-01 8h→3h, #3547) — 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-2024 le 18/08)
+**MAJ:** 2026-11-13 — historique : la cadence du coordinateur dans [`coordinator-cadence-history.md`](../../../docs/harness/reference/coordinator-cadence-history.md) ; le reste dans `git log -- .claude/skills/executor/SKILL.md`
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -32,7 +32,7 @@ metadata:
 
 ## Objectif
 
-Executer une session de travail autonome sur les machines executantes (myia-po-2023, myia-po-2024, myia-po-2025, myia-po-2026, myia-web1).
+Executer une session de travail autonome sur les machines executantes : toutes celles de `.claude/configs/fleet-manifest.json` sauf le coordinateur `myia-ai-01` (la liste n'est pas recopiee ici — une copie derive).
 
 **Canal de coordination PRINCIPAL :** Dashboard workspace (`roosync_dashboard`).
 **Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../../docs/harness/reference/user-channel-doctrine.md).
@@ -46,7 +46,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 
 **Verifier les outils critiques AVANT toute autre action :**
 
-1. MCP roo-state-manager disponible (17 outils) → Si absent, STOP & REPAIR
+1. MCP roo-state-manager disponible (compte d'outils attendu : `.claude/rules/tool-availability.md`) → Si absent, STOP & REPAIR
 2. **[INBOX-GATE] Lecture inbox obligatoire en première action effective** (#3554) :
    - Appeler `roosync_messages(action:"inbox", status:"unread")` **avant toute commande shell, synchronisation git ou parallélisation**.
    - Traiter les HIGH/URGENT adressés à cette machine, puis appeler `roosync_messages(action:"mark_read", message_id:"<id>")` pour chacun effectivement traité.
@@ -64,7 +64,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - **Relay `[DENY-FALLBACK]` (#4340)** : un exit `0` peut aussi porter le WARN non bloquant `[executor-preflight][DENY-FALLBACK]` (sonde handshake : un outil deny n'a pas de repli répondant sur ce siège). Le relayer sur le dashboard workspace avec le tag `WARN` + une entrée registre `[ASK]` : la capacité touchée (édition notebook si `NotebookEdit` deny) est **BLOQUÉE** — jamais de workaround (bytesplice JSON, `NotebookEdit`). Le provisioning du repli est une décision par workspace (arbitrage user 24/10) ; le cycle continue.
    - **Relay `[MANIFEST-DRIFT]` (#4336)** : un exit `0` peut aussi porter le WARN non bloquant `[executor-preflight][MANIFEST-DRIFT]` (config MCP vivante ≠ manifeste déclaré `.claude/configs/fleet-manifest.json`). Le relayer sur le dashboard workspace avec le tag `WARN` : un `required` absent ou désactivé pour ce workspace = le siège ne peut pas faire son travail. Réparer la config, ou consigner une override explicite dans le manifeste — jamais de contournement, et jamais réactiver un serveur à l'aveugle (l'emplacement 3 est indexé par le chemin du workspace, #4195). Non bloquant, le cycle continue.
    - **Relay `[RULES-DEPLOY]` (#2368 volet 2)** : un exit `0` peut aussi porter le WARN non bloquant `[executor-preflight][RULES-DEPLOY]` (`scripts/diagnostic/check-global-rules.py` : une règle de `.claude/configs/rules/` est absente, périmée ou dupliquée sur ce siège). Le relayer sur le dashboard workspace avec le tag `WARN`, puis déployer : `powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules`. Depuis le 09/11 les règles n'ont **plus de copie projet** : un siège non déployé les perd en silence — la sonde est ce qui rend le trou visible. Non bloquant, le cycle continue.
-3. **Win-cli timeout guard** (anti-régression #2333) :
+4. **Win-cli timeout guard** (anti-régression #2333) :
    - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
@@ -388,7 +388,3 @@ python scripts/check_clean_cycle_exit.py
 # Session executor
 /executor
 ```
-
----
-
-**Derniere mise a jour :** 2026-06-09

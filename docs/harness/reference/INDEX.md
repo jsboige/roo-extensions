@@ -77,7 +77,8 @@
 | **PR review policy** | Agents → PR → Review coordinateur → Merge | `../coordinator-specific/pr-review-policy.md` |
 | **Meta-analyste (rule)** | Rule slim (role, 7 analyses productives, HARD REJECT). Loaded par `start-meta-audit.ps1` | `../coordinator-specific/meta-analyst-rule.md` |
 | **Meta-analyste (detailed)** | Workflow etapes 0-5, MCP snippets, HARD REJECT, differences Roo | `../coordinator-specific/meta-analyst-detailed.md` |
-| **Agents inventory** | 18 subagents + 6 skills + 4 commands (Claude Code) | `agents-inventory.md` |
+| **Cycle du coordinateur (playbook)** | Ce qui justifie les règles de `.claude/commands/coordinate.md` : provenance, paroles du user, mesures, incidents fondateurs (balayage des dettes, chef d'équipe, sortie de tour, self-merge). Ne prescrit rien de plus que la commande | `../coordinator-specific/coordinator-cycle-playbook.md` |
+| **Agents inventory** | 20 subagents + 9 skills + 5 commands (Claude Code) | `agents-inventory.md` |
 | **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `bots-directory.md` |
 | **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
 | **RooSync coordinator tools** | health_view, inventory, compare_config, dashboard — params, output, scenarios | `roosync-tools-guide.md` |

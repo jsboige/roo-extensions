@@ -2,8 +2,8 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/agents-architecture.md`. Déplacé hors des rules auto-chargées car descriptif pur (inventaire de ce qui existe) — pas une règle de comportement. Référencé depuis `CLAUDE.md` projet section "Ressources".
 
-**Version:** 2.0.0 (condensed from audit #556)
-**MAJ:** 2026-04-05
+**Version:** 2.1.0 (skills et commands recomptés sur l'arbre — 9 et 5 ; 2.0.0 : condensed from audit #556)
+**MAJ:** 2026-11-13
 
 ## Principe
 
@@ -41,6 +41,9 @@ Deleguer les taches verboses a des subagents. La conversation principale orchest
 | `github-status` | Progression Project #67 |
 | `redistribute-memory` | "redistribue la memoire" |
 | `debrief` | `/debrief` |
+| `executor` | `/executor`, "mode executor" |
+| `memory-inject` | Debut de tache significative (lecons MEMORY.md pertinentes) |
+| `pr-review` | `/pr-review`, review de PRs ouvertes quand la lane est idle |
 
 ## Commands (`.claude/commands/`)
 
@@ -50,9 +53,10 @@ Deleguer les taches verboses a des subagents. La conversation principale orchest
 | `/executor` | Autres | Execution multi-iterations |
 | `/switch-provider` | Toutes | Basculer Anthropic/z.ai |
 | `/debrief` | Toutes | Analyse session |
+| `/team` | Toutes | Pipeline Team (plan → prd → exec → verify → fix) |
 
 ## Workflow
 
-1. **Debut** : "tour de sync" → sync-tour (9 phases)
+1. **Debut** : "tour de sync" → sync-tour (phases 0 a 9)
 2. **Pendant** : Agents s'activent selon contexte
 3. **Fin** : `/debrief` + commit

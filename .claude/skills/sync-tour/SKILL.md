@@ -20,7 +20,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "2.1.0"
+  version: "2.1.1"
   compatibility:
     surfaces: ["claude-code", "claude.ai"]
     restrictions: "Requiert accès RooSync + GitHub CLI + Git"
@@ -28,7 +28,9 @@ metadata:
 
 # Tour de Synchronisation Complet
 
-Ce skill orchestre un tour de synchronisation complet en **9 phases** (Phase 0 + 8 phases principales).
+Ce skill orchestre un tour de synchronisation complet : **phases 0 à 9**, plus les sous-phases 1.5, 1.6, 1.7, 3.5 et 4bis.
+
+**Scheduler Zoo (ex-Roo) : désactivé sur toute la flotte** (décision user 08/11/2026). Les étapes ci-dessous qui lisent ou planifient pour Roo/Zoo ne s'appliquent qu'à une instance où il a été relancé.
 
 ### Skills utilises
 
@@ -133,7 +135,7 @@ But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 
 ### Reference
 
-Issue #614: Integrate config-auditor to reduce config incidents by ~70%.
+Issue #614 — intégration de `config-auditor` dans le tour de sync.
 
 ### Actions
 
@@ -143,7 +145,7 @@ Lancer l'audit de configuration via l'agent config-auditor :
 Agent(
   subagent_type="config-auditor",
   prompt="Auditer la configuration MCP sur cette machine.
-          Verifier: win-cli fork local, roo-state-manager present avec 17 outils,
+          Verifier: win-cli fork local, roo-state-manager present avec le compte d'outils de .claude/rules/tool-availability.md,
           pas de MCPs obsoletes (liste canonique : .claude/rules/tool-availability.md, section Retires).
           Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO)."
 )
@@ -275,7 +277,7 @@ gh pr list --repo jsboige/roo-extensions
 
 # Stashes git (parent + submodule)
 git stash list
-cd mcps/internal && git stash list && cd ../..
+git -C mcps/internal stash list
 
 # Statut workspace
 git status
@@ -351,15 +353,20 @@ Suivre le workflow du skill `git-sync` :
 |-----------|--------|----------|
 | Merge conflict non résoluble | Abandonner le merge | `git merge --abort` |
 | Tests échouent après pull | Identifier le commit coupable | `git bisect start HEAD HEAD~5` |
-| Submodule cassé | Reset propre du submodule | `cd mcps/internal && git reset --hard origin/main` |
+| Submodule cassé | Revenir au commit épinglé par le parent, après avoir vérifié qu'aucun travail local n'y dort | `git -C mcps/internal status --short` puis `git submodule update --init mcps/internal` |
 | Workspace dirty bloqué | Stash les changements locaux | `git stash push -m "sync-tour-$(date)"` |
 
 **Point de restauration :**
 ```bash
-# En cas de problème majeur, revenir à l'état avant sync
-git reflog expire --expire=now HEAD@{1}  # Marquer le point dangereux
-git reset --hard HEAD@{2}                 # Revenir à l'état stable
+# AVANT le sync : noter le point de retour
+git rev-parse HEAD
+
+# En cas de problème majeur : mettre de côté le non-commité, puis revenir au SHA noté
+git stash push -u -m "sync-tour-rollback"
+git reset --hard <SHA noté avant le sync>
 ```
+
+Juste après un `pull` ou un `merge`, `ORIG_HEAD` désigne ce même point. Ne jamais passer par `git reflog expire` : il efface l'historique qui permet de revenir en arrière, et `HEAD@{2}` n'est que l'avant-dernière position de HEAD, pas « l'état stable ».
 
 **Rapport d'erreur :**
 ```
@@ -416,7 +423,8 @@ S'assurer que les tableaux de validation dans les issues GitHub sont maintenues 
    - Remplacer `⬜` par `✅` (PASS) ou `❌` (FAIL)
 3. **Commettre immédiatement** la mise à jour :
    ```bash
-   gh issue edit {NUM} --body "TABLEAU_MAJ"
+   # corps écrit dans un fichier — jamais --body inline : les backticks y sont de la substitution de commande bash
+   gh issue edit {NUM} --body-file "$TEMP/issue-{NUM}-body.md"
    ```
 4. **Vérifier que toutes les cases** sont cochées avant de fermer l'issue
 
@@ -518,7 +526,7 @@ Suivre le workflow du skill `github-status` :
 
 ### Actions
 1. Analyser l'avancement global
-2. Pour chaque machine (5 machines x 2 agents = 10 slots) :
+2. Pour chaque machine de `.claude/configs/fleet-manifest.json` (une tâche Roo/Zoo seulement là où le scheduler a été relancé) :
    - Identifier le travail en cours
    - Proposer la prochaine tâche Roo (technique)
    - Proposer la prochaine tâche Claude (coordination)
@@ -540,7 +548,7 @@ Suivre le workflow du skill `github-status` :
 | myia-ai-01 | ✅ | T2.8 (en cours) | Coordination |
 | myia-po-2023 | ✅ | T3.1 (suggérée) | T3.2 (suggérée) |
 | myia-po-2024 | ✅ | ... | ... |
-| myia-po-2026 | 🔴 HS | - | - |
+| [machine hors service] | 🔴 HS | - | - |
 | myia-web1 | ✅ | ... | ... |
 
 ### Prochaines priorités
@@ -666,7 +674,7 @@ Si oui, proposer les modifications (ne pas saturer, rester concis).
 | Bug resolu | "Case-sensitive machineId: toujours .toLowerCase()" | MEMORY.md Lessons |
 | Nouveau pattern | "sk-agent = Python MCP via FastMCP + Semantic Kernel" | PROJECT_MEMORY.md |
 | Decision | "RooSync = Claude only, INTERCOM = local" | Deja dans rules |
-| Etat courant | "Git @ abc123, 3252 tests, 3/6 heartbeat" | MEMORY.md Current State |
+| Etat courant | "Git @ abc123, 3252 tests, 5 machines actives au dashboard" | MEMORY.md Current State |
 | Convention | "git pull --no-rebase (jamais --rebase)" | PROJECT_MEMORY.md Decisions |
 | Preference user | "consolider = analyser + merger + archiver" | ~/.claude/CLAUDE.md |
 
@@ -718,7 +726,7 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 **Objectif :** Utiliser les outils RooSync au-dela de la messagerie pour une vision globale des machines.
 
-> **⚠️ Heartbeat sunset (ADR 008 Phase 4, 2026-05-23).** Ne PAS utiliser `roosync_inventory(type: "heartbeat" | "all")` pour juger l'activite des **autres** machines. Sous le modele in-memory d'ADR 008, ces lectures ne refletent QUE le processus local : ai-01 se voit ONLINE, toutes les autres UNKNOWN, quoi qu'elles fassent. La presence cross-machine se lit **exclusivement** depuis le dashboard — ce que font `type: "status"` et, depuis inventory v4.2.0 (ms#1388), `type: "machines"` (listes vides sur un processus plus ancien). Detail : [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
+> **⚠️ Presence cross-machine = dashboard, jamais heartbeat (ADR 008 Phase 4).** `roosync_inventory(type: "heartbeat" | "all")` ne reflete que le processus local : ai-01 se voit ONLINE, toutes les autres UNKNOWN, quoi qu'elles fassent. Lire `type: "status"` ou `type: "machines"`. Detail : [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
 
 ### Actions
 
@@ -752,7 +760,7 @@ roosync_inventory(type: "machine")
 ```
 ## Phase 4bis : Vision 360 RooSync
 
-### Presence (dashboard-derived) : X/6 actives
+### Presence (dashboard-derived) : X/N actives
 | Machine | Dernier message dashboard | Dernier PR/commit | Config sync |
 |...
 
@@ -793,7 +801,7 @@ A la fin du tour de sync, produire un **rapport consolide** :
 - Git : Synced @ [hash]
 - Tests : Y/Z pass
 - GitHub : A% Done
-- Machines actives : B/6
+- Machines actives : B/N
 - Connaissances consolidees : oui/non
 
 ## Actions effectuees
