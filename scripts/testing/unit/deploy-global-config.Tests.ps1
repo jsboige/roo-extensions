@@ -239,6 +239,58 @@ Describe "Deploy-GlobalConfig - la source qu'il deploie" {
         # independants du provider qui sert le role.
         $canon.env.ANTHROPIC_DEFAULT_OPUS_MODEL_NAME | Should -Be 'Opus'
     }
+
+    It "les 4 libelles de role du canon et de l'amorcage ne portent aucun numero de version (directive user 13/11)" {
+        # Directive user 13/11/2026 : le selecteur sert un ROLE avec ses
+        # failovers, pas une version. Le hub claudish adopte les nouvelles
+        # versions tout seul : un numero dans un libelle (ou dans l'id
+        # d'amorcage de Fable) devient faux a la version suivante, sans
+        # qu'aucun fichier ne bouge. Ce qui a motive le test : le libelle
+        # "Fable 5.1" du canon est reste affiche apres le passage du hub en 5.2.
+        $template = Join-Path $script:projectRoot ".claude/configs/settings.template.json"
+        $canon = Get-Content $template -Raw -Encoding UTF8 | ConvertFrom-Json
+        $expected = [ordered]@{
+            'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'   = 'Opus'
+            'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'  = 'Fable'
+            'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME' = 'Sonnet'
+            'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME'  = 'Haiku'
+        }
+        foreach ($k in $expected.Keys) {
+            $prop = $canon.env.PSObject.Properties[$k]
+            $prop | Should -Not -BeNullOrEmpty
+            $prop.Value | Should -Be $expected[$k]
+            $prop.Value | Should -Not -Match '[0-9]'
+        }
+
+        # L'amorcage (sync-claude-settings.ps1, table $RefEnv) porte les memes
+        # libelles, et l'id de Fable y est le role nu. Lecture par AST : le
+        # test lit les litteraux du script courant, pas une copie.
+        $syncPath = Join-Path $script:projectRoot "scripts/deployment/sync-claude-settings.ps1"
+        $tokens = $null
+        $parseErrors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($syncPath, [ref]$tokens, [ref]$parseErrors)
+        $parseErrors.Count | Should -Be 0
+        $refEnv = @{}
+        $assign = $ast.Find({
+                param($n)
+                $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                    $n.Left.VariablePath.UserPath -eq 'RefEnv'
+            }, $true)
+        $assign | Should -Not -BeNullOrEmpty
+        $hash = $assign.Right.Find({ param($n) $n -is [System.Management.Automation.Language.HashtableAst] }, $true)
+        $hash | Should -Not -BeNullOrEmpty
+        foreach ($pair in $hash.KeyValuePairs) {
+            $valueAst = $pair.Item2.Find({ param($n) $n -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true)
+            if ($valueAst) { $refEnv[$pair.Item1.Value] = $valueAst.Value }
+        }
+        foreach ($k in $expected.Keys) {
+            $refEnv.ContainsKey($k) | Should -BeTrue
+            $refEnv[$k] | Should -Be $expected[$k]
+        }
+        $refEnv['ANTHROPIC_DEFAULT_FABLE_MODEL'] | Should -Be 'claude-fable[1m]'
+        $refEnv['ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION'] |
+            Should -Be $canon.env.ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION
+    }
 }
 
 # ─── Blocs executes (#4260 reviews : jsboige "a Pester case that runs this

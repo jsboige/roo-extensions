@@ -44,9 +44,14 @@ if (-not $BaseUrl) { throw "Machine inconnue '$MachineName' et -BaseUrl absent. 
 $RefEnv = [ordered]@{
   'ANTHROPIC_AUTH_TOKEN'                            = ''
   'ANTHROPIC_BASE_URL'                              = $BaseUrl
-  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable-5-1[1m]'
-  'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'              = 'Fable 5.1'
-  'ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION'       = 'Rôle Fable — modèle décidé par claudish (pas Anthropic natif)'
+  # Role Fable SANS numero de version (directive user 13/11/2026 : « ce que sert le selecteur,
+  # c'est le "role Fable" avec ses failovers »). claudish lit le role dans le nom et sert la cible
+  # de son profil : la version suit le hub, aucun settings ne bouge. Cet id n'existe PAS chez
+  # Anthropic en direct (404) — il n'est valide que derriere claudish, ce que sont toutes les
+  # entrees de $BaseUrlTable. Ne pas y remettre de version.
+  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable[1m]'
+  'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'              = 'Fable'
+  'ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION'       = 'Rôle Fable — modèle décidé par claudish (Anthropic natif, bascule en cascade si plan épuisé)'
   'ANTHROPIC_DEFAULT_OPUS_MODEL'                    = 'claude-opus-5-5[1m]'
   'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME'               = 'Opus'
   'ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION'        = 'Rôle Opus — modèle décidé par claudish (Anthropic natif, bascule en cascade si plan épuisé)'
