@@ -114,9 +114,12 @@ condensation comprises #3782). Le second siège lit alors « sonnerie déjà
 présente … aucune nouvelle entrée » et sort `2` comme le premier — une
 sonnerie dédoublonnée **existe**, ce n'est pas une sonnerie non partie.
 Un seul publieur désigné aurait rendu la sonnerie muette le jour où ce siège
-est celui qui tombe. Limite : deux sièges qui lisent à des instants différents
+est celui qui tombe. Limites : deux sièges qui lisent à des instants différents
 peuvent voir deux lots différents (une escalade de plus est échue entre-temps)
-— deux identifiants, deux entrées, et c'est voulu : le lot a changé.
+— deux identifiants, deux entrées, et c'est voulu : le lot a changé. De même,
+le jour de la clé est compté en UTC : le même lot sonné par un siège avant
+minuit UTC et par un autre après fait deux entrées, comme la re-sonnerie
+quotidienne.
 
 **Déclaration ≠ mention** (review #4519) : une escalade est **déclarée** par la
 ligne `[tags: … DEGRADED …]` ou par le token en **premier token du corps**.

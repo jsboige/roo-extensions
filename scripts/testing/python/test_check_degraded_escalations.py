@@ -763,8 +763,9 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def ring_through_fake_append(self, envelope):
         """main() --ring sur une escalade echue, append bouchonne qui rend
-        `envelope` (avec le pied de page que l'hote ajoute) ; rend
-        (code, appels, stderr)."""
+        `envelope` sous la forme du serveur (JSON indente de 2, comme
+        `JSON.stringify(result, null, 2)`, puis le pied de page de l'hote) ;
+        rend (code, appels, stderr)."""
         path = self.dashboard("ring-envelope.md", """### [2026-11-03T00:00:00.000Z] a|ws
 
 [DEGRADED] mcp muet
@@ -774,7 +775,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         def call(arguments, url, bearer, timeout=10.0, client=None, **_kw):
             calls.append(arguments)
             return {"content": [{"type": "text", "text":
-                                 json.dumps(envelope) + "\n[roosync_dashboard 12ms]"}]}
+                                 json.dumps(envelope, indent=2)
+                                 + "\n[roosync_dashboard 12ms]"}]}
 
         original = cde._load_transport
         cde._load_transport = lambda: call

@@ -234,7 +234,7 @@ Les dashboards sont lus (`## Intercom`), les escalades `[DEGRADED]` repérées, 
 ```bash
 python scripts/diagnostic/check-degraded-escalations.py            # 0/3/2/1
 python scripts/diagnostic/check-degraded-escalations.py --json
-python scripts/diagnostic/check-degraded-escalations.py --ring     # exit 2 : sonne le user (une entrée par lot et par jour)
+python scripts/diagnostic/check-degraded-escalations.py --ring     # si le verdict est 2 : sonne le user (une entrée par lot et par jour)
 python scripts/diagnostic/check-degraded-escalations.py --selftest
 ```
 
