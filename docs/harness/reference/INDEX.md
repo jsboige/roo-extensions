@@ -29,6 +29,7 @@
 | **Tool Availability (detailed)** | Config win-cli canonique, sk-agent, STOP & REPAIR complet, drift searxng (#2224), table 3 emplacements #3137, MCP remote, retires | `tool-availability-detailed.md` |
 | **Commands ↔ Skills (allowlist)** | Parité commands/skills #3381 D9 : paires, orphelins intentionnels, preuve non-perte de portage, recette comm | `commands-skills-pairs.md` |
 | **Issue Closure (detailed)** | Grille marqueurs, test bash, audit /coordinate, historique versions | `issue-closure-detailed.md` |
+| **Bloc d'état d'issue (13/11)** | Bloc daté en tête du corps, entre `<!-- etat:debut -->` et `<!-- etat:fin -->` : Fait / Reste à faire (critère de fin + siège) / Bloqué par / Pour reprendre. Aucune case à cocher dedans, rien de privé, énoncé d'origine inchangé dessous. Outil `scripts/github/apply_issue_state_block.py`, exit 0/1 | `issue-state-block.md` |
 | **INTERCOM v3 Mentions** | Mentions structurees, crossPost, messageId v3, worktrees auto-detection | `intercom-v3-mentions.md` |
 | **PR Trivial Merge Policy** | Patterns eligibles, diff constraints, procedure, garde-fous (#1582) | `pr-trivial-merge-policy.md` |
 | **MCP Diagnosis (procedure)** | Healthcheck, architecture chain, diagnostic par couche (procedure complete) | `mcp-diagnosis-procedure.md` |
