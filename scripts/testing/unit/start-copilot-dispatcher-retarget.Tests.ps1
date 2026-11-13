@@ -236,6 +236,8 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (fail-closed + bookkeepin
         $initPos = $script:src.IndexOf('$workRoot = $null')
         $guardPos = $script:src.IndexOf('if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {')
         ($initPos -ge 0 -and $guardPos -ge 0 -and $initPos -lt $guardPos) | Should -BeTrue
+        $wtInitPos = $script:src.IndexOf('$copilotWt = $null')
+        ($wtInitPos -ge 0 -and $guardPos -ge 0 -and $wtInitPos -lt $guardPos) | Should -BeTrue
     }
 }
 
