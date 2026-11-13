@@ -77,6 +77,8 @@ Paroles du user, 20/10/2026 :
 Mesure du même jour, vers 15:30Z : sept lanes sur huit avaient livré, et 10 PRs et 3 décisions
 attendaient le coordinateur. Le goulot était le coordinateur, pas les lanes.
 
+Le 13/11/2026, les 71 issues ouvertes ce matin-là ont reçu un bloc d'état daté en tête de corps. Une issue créée ensuite en reçoit un quand son état ne se lit plus dans son énoncé. Une lane lit le bloc au lieu du fil, et le coordinateur le rafraîchit quand l'état change ([`issue-state-block.md`](../reference/issue-state-block.md)).
+
 ---
 
 ## Sortie de tour
