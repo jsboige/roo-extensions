@@ -635,7 +635,7 @@ function Get-WorkPrompt {
 
     $deliveryMandate = if ($CanDeliver) {
 @("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue).",
-"- Then open a pull request from that branch: gh pr create with a short title and a body describing the change and the issue it addresses.",
+"- Then open a pull request from that branch: write the PR body to a file first, then gh pr create with a short title and --body-file <path> (never an inline body) describing the change and the issue it addresses.",
 "- Never push to, rebase onto, or mutate a default branch directly. If the pull request command fails, keep the commit and report the exact error in next_action.") -join "`n"
     } else {
         "- Do not run mutating GitHub commands. Do not create commits or pull requests."
