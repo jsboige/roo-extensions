@@ -19,6 +19,27 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
 [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
+**Vocabulaire :** `#1234` désigne une issue ou une PR du dépôt roo-extensions, `ms#1234` de son
+sous-module (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`, qui porte le serveur MCP
+roo-state-manager, « RSM »). Une *lane* est une session d'agent identifiée par `machine:workspace` ; un
+*siège*, une machine de la flotte ; un *worker*, un agent lancé par une tâche planifiée, sans humain. Un
+*claim* est le commentaire qu'un agent pose sur une issue pour dire qu'il y travaille. « PG » est la base
+PostgreSQL de la flotte ; le *dashboard* est le tableau de messages partagé que chaque agent lit et écrit
+par un outil MCP.
+
+**Mots propres à ce volet :** l'*intercom* est le fil de messages d'un dashboard, le *statut* son bloc de
+tête. La *condensation* se déclenche quand un dashboard approche de sa taille limite : des appels à un
+modèle résument et archivent les messages anciens, une *jambe* (ou *passe*) par produit — le résumé des
+messages archivés et le nouveau statut. Le *primaire* est le modèle auto-hébergé de la flotte, le *cloud*
+un modèle distant ; le *plancher* est la troncature mécanique appliquée quand le statut rendu dépasse
+encore le plafond. Un *fork* est la copie de conflit que le client Drive crée avec un suffixe « (1) », un
+*jumeau* le dossier en double qui en résulte. Le *marqueur* est l'indicateur, relu par chaque processus à
+son démarrage, qui dit si la base peut servir de magasin primaire ; tant qu'il vaut « inconnu »,
+l'écriture part vers le Drive. Le *gel d'inventaire* est un critère de la bascule vers la base : 24 h sans
+aucune écriture du fichier d'inventaire sur le Drive (le *miroir*). `inbox deep:true` lit toute la boîte
+aux lettres (le *pool*) au lieu de la tranche récente ; un *gitlink* est le commit du sous-module épinglé
+par le dépôt parent.
+
 ## Le magasin partagé (dashboards, messagerie, Drive)
 
 ### Un message re-posté avec le même identifiant après archivage reste invisible pour les lecteurs PG
@@ -226,7 +247,7 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   pas assertable sur ce processus (#4135) ; la raison est bonne, un tampon périmé fabriquerait une
   machine « en ligne » fantôme dans la santé de la flotte. Le même jour, deux faux négatifs : refuser de
   publier à cause du tampon, et déclarer la chaîne morte parce qu'un en-tête optionnel manquait.
-- **Déjà dans le dépôt :** `docs/harness/global-rules-detail.md:365` — le cross-post y est décrit comme
+- **Déjà dans le dépôt :** `docs/harness/global-rules-detail.md:360-365` — le cross-post y est décrit comme
   point de rendez-vous d'escalade ; cette leçon ajoute que le tampon d'auteur refuse de poster pour une
   autre machine, et le cas du proxy sans état.
 

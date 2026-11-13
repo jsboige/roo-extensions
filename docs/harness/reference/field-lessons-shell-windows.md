@@ -17,6 +17,14 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
 [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
+**Vocabulaire :** `#1234` désigne une issue ou une PR du dépôt roo-extensions, `ms#1234` de son
+sous-module (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`, qui porte le serveur MCP
+roo-state-manager, « RSM »). Une *lane* est une session d'agent identifiée par `machine:workspace` ; un
+*siège*, une machine de la flotte ; un *worker*, un agent lancé par une tâche planifiée, sans humain. Un
+*claim* est le commentaire qu'un agent pose sur une issue pour dire qu'il y travaille. « PG » est la base
+PostgreSQL de la flotte ; le *dashboard* est le tableau de messages partagé que chaque agent lit et écrit
+par un outil MCP.
+
 ## PowerShell 5.1, bash et les couches d'échappement
 
 ### Un script destiné à la flotte se valide sous Windows PowerShell 5.1
@@ -240,7 +248,7 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   tous en « Accès refusé ».
 - **Acteur oublié :** une tâche de vérification à cadence de 2 minutes a tenté de redémarrer la
   distribution pendant l'export — à inventorier avant toute fenêtre de maintenance.
-- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:22` — couvre le lanceur VBS
+- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:29` — couvre le lanceur VBS
   sans `WorkingDirectory` et la mort silencieuse par exit 1 avec `stderr` détruit ; n'établit pas
   que `LastTaskResult=0` ment sur le sort du processus fils.
 
@@ -267,10 +275,10 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   l'ouverture de session avant que l'utilisateur ait demandé la conception de l'état des lieux
   post-redémarrage. Docker, lui, se juge sur le résultat « debout sans personne au clavier », jamais
   sur un verdict « propre ».
-- **Cas mesuré :** décision utilisateur du 25/09/2026 (RX56) : Docker doit redémarrer seul sans
-  attendre la connexion de l'utilisateur, mais Zoo et Claude Code ne doivent pas reprendre
-  spontanément tant que les contours d'un état des lieux ne sont pas maîtrisés. #1261 porte ce
-  cadrage, le retour au boot de Docker relève de #1171.
+- **Cas mesuré :** décision utilisateur du 25/09/2026 : Docker doit redémarrer seul sans attendre la
+  connexion de l'utilisateur, mais Zoo (l'extension d'agent de VS Code, qui a succédé à Roo) et Claude
+  Code ne doivent pas reprendre spontanément tant que les contours d'un état des lieux ne sont pas
+  maîtrisés. #1261 porte ce cadrage, le retour au boot de Docker relève de #1171.
 - **Vocabulaire :** dire **Zoo**, pas Roo — l'utilisateur veut Roo disparu partout.
 
 ## Cas d'infrastructure à garder sous la main
@@ -283,10 +291,10 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   porte la connexion, plus les compteurs `vEthernet (WSL*)` pour la part de la VM) et comparer des deltas
   sur une fenêtre ; SRUM (l'historique Windows de consommation par application) ne sert qu'à classer des
   processus Windows, jamais à faire un total.
-- **Cas mesuré :** 26/10/2026 sur ai-01, depuis le boot : 1 267,6 Go reçus par la carte contre
-  environ 380 Go attribués par SRUM ; l'écart de 887 Go correspond au trafic transféré vers WSL à
-  0,2 % près. Cela invalide la conclusion d'un poste qui avait lu « 2,36 Gio sur le partage de
-  connexion, donc les 20 Go ne sont pas passés par ce PC ».
+- **Cas mesuré :** 26/10/2026 sur ai-01, depuis le boot : 1 267,6 Go reçus par la carte contre environ 380
+  Go attribués par SRUM ; l'écart de 887 Go correspond au trafic transféré vers WSL à 0,2 % près. Cela
+  invalide la conclusion d'un poste qui avait lu 2,36 Gio sur le partage de connexion et en avait déduit
+  que les 20 Go n'étaient pas passés par ce PC.
 - **Piège voisin :** l'API de SRUM ne fonctionne que sous Windows PowerShell 5.1, et `-StartUtc …Z`
   passé en argument de `-File` y est décalé en heure locale ; utiliser
   `([datetimeoffset]'…Z').UtcDateTime`.
@@ -389,4 +397,4 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 - **Ce qui aurait dû alerter :** la garde d'arrêt à 50 % (#694) ne s'arme pas à 8,6 %
   d'orphelins ; un run confirmé aurait supprimé du rappel vivant. Et le conseil d'un autre outil
   prescrivait cette purge pour un problème qu'elle ne couvre pas : elle n'opère que sur les
-  conversations, jamais sur les collections `ws-*`.
+  conversations, jamais sur les collections `ws-*` (les index de code par workspace).

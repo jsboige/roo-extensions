@@ -16,6 +16,14 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
 [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
+**Vocabulaire :** `#1234` désigne une issue ou une PR du dépôt roo-extensions, `ms#1234` de son
+sous-module (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`, qui porte le serveur MCP
+roo-state-manager, « RSM »). Une *lane* est une session d'agent identifiée par `machine:workspace` ; un
+*siège*, une machine de la flotte ; un *worker*, un agent lancé par une tâche planifiée, sans humain. Un
+*claim* est le commentaire qu'un agent pose sur une issue pour dire qu'il y travaille. « PG » est la base
+PostgreSQL de la flotte ; le *dashboard* est le tableau de messages partagé que chaque agent lit et écrit
+par un outil MCP.
+
 ## GitHub, gh et les files de CI
 
 ### Le quota de mutation d'un projet GitHub est un compteur distinct du quota GraphQL général
@@ -25,9 +33,9 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 - **Règle :** le solde général ne juge pas la mutation ; un `RATE_LIMIT` sur un projet se lit comme le
   compteur du projet et s'attend, il ne se rejoue pas en boucle. Un exit 0 sur l'écriture ne prouve rien :
   seul un readback par requête ciblée montre les champs réellement posés.
-- **Cas mesuré :** 26/10/2026, ai-01 : quota général à 1 828/5 000 et mutation refusée, `gh project
-  item-list` échouant en `RATE_LIMIT` là où la requête ciblée passe. Les champs Agent et Machine sont
-  restés vides malgré des commandes sorties en 0 (#4376).
+- **Cas mesuré :** 26/10/2026, ai-01 : quota général à 1 828/5 000 et mutation refusée,
+  `gh project item-list` échouant en `RATE_LIMIT` là où la requête ciblée passe. Les champs Agent et
+  Machine sont restés vides malgré des commandes sorties en 0 (#4376).
 - **Déjà dans le dépôt :** `docs/harness/reference/github-cli.md:207` — le texte y traite le quota
   GraphQL face au REST `GET /rate_limit` ; cette leçon y ajoute le compteur de mutation propre au projet.
 
@@ -60,9 +68,10 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 ### `gh search` fait de la recherche plein-texte : il ne résout pas un numéro d'issue
 <!-- src: reference_github_search_does_not_resolve_an_issue_by_number -->
 - **Quand :** on veut savoir si une issue ou une PR existe, ou retrouver ce qui cite un numéro.
-- **Règle :** adresser la ressource par son numéro (`gh issue view N --repo <owner>/<repo> --json
-  state,createdAt,title,labels`), le seul instrument qui tranche ; un résultat de recherche se borne à ce
-  qu'il couvre (« aucune PR ni commit citant N »), jamais à l'existence de N.
+- **Règle :** adresser la ressource par son numéro
+  (`gh issue view N --repo <owner>/<repo> --json state,createdAt,title,labels`), le seul instrument qui
+  tranche ; un résultat de recherche se borne à ce qu'il couvre (« aucune PR ni commit citant N »), jamais
+  à l'existence de N.
 - **Cas mesuré :** 12-13/09/2026 : une requête `15666` remonte #15631, CLOSED, sans rapport, et fait
   conclure « aucune trace » ; `gh issue view 15666` montre l'issue OPEN, créée le 11/09. Le mode d'échec
   n'est pas une erreur : c'est un résultat plausible, voisin de celui d'une ancre réellement absente.

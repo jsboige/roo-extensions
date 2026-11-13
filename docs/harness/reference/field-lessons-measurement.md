@@ -16,6 +16,14 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
 [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
+**Vocabulaire :** `#1234` désigne une issue ou une PR du dépôt roo-extensions, `ms#1234` de son
+sous-module (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`, qui porte le serveur MCP
+roo-state-manager, « RSM »). Une *lane* est une session d'agent identifiée par `machine:workspace` ; un
+*siège*, une machine de la flotte ; un *worker*, un agent lancé par une tâche planifiée, sans humain. Un
+*claim* est le commentaire qu'un agent pose sur une issue pour dire qu'il y travaille. « PG » est la base
+PostgreSQL de la flotte ; le *dashboard* est le tableau de messages partagé que chaque agent lit et écrit
+par un outil MCP.
+
 ## Un instrument qui ne peut pas voir l'échec
 
 ### Une mesure qui rend « rien » se suspecte elle-même avant de conclure
@@ -43,7 +51,7 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   dashboard : « 17/17 replis = 100 % », alors que les archives, écrites dans les deux cas, donnent
   27/66 = 40,9 %. Le 28/10, une sonde a rendu « erreur d'instrument » alors que l'indexation avait abouti,
   parce qu'elle exigeait un JSON que le chemin inline n'émet jamais (#4352, correctif ms#1560 et #4408).
-- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:16` — y demande un changement
+- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:23` — y demande un changement
   positif qui prouve que le composant a tourné ; la leçon ajoute l'artefact écrit par le seul chemin
   d'échec, et le parseur qui exige une forme jamais émise.
 
@@ -65,11 +73,11 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   sens ? ». Un ratio normalisé n'est immunisé contre l'activité que si son dénominateur est un invariant
   du comportement de l'acteur, pas une sortie de ce comportement. Quand c'est possible, chercher un
   changement de signature plutôt qu'une baisse de magnitude.
-- **Cas mesuré :** 06/09/2026, chantier PG #2427 : le ratio promis comme preuve a monté de 7 202:1 à 11
-  209:1 pendant que le débit absolu baissait, sans aucun déploiement. La signature retenue ensuite —
-  lectures de tuples par parcours d'index passant de ≈1,0 à bien plus que 1 — ne peut pas être produite
-  par une flotte au repos ; la mesure de l'état d'alors, avant tout déploiement, rendait 0,9997 tuple par
-  scan sur 99 387 729 scans.
+- **Cas mesuré :** 06/09/2026, chantier PG #2427 : entre une fenêtre de 62 s et une fenêtre de 62 min, le
+  ratio promis comme preuve est passé de 7 202:1 à 11 209:1 sans aucun déploiement. La signature retenue
+  ensuite — lectures de tuples par parcours d'index passant de ≈1,0 à bien plus que 1 — ne peut pas être
+  produite par une flotte au repos ; la mesure de l'état d'alors, avant tout déploiement, rendait 0,9997
+  tuple par scan sur 99 387 729 scans.
 
 ### Un contrôle qui passe peut avoir échantillonné précisément le cas sain
 <!-- src: reference_passing_control_may_have_sampled_the_exception -->
@@ -302,10 +310,11 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 - **Règle :** vérifier son propre instrument avant de faire de l'objet un cas à part, et faire voyager la
   définition avec le nombre. Pour compter des processus, filtrer sur ce qui identifie le rôle — ligne de
   commande, chemin du script — jamais sur le seul nom d'image.
-- **Cas mesuré :** 06/09/2026, « 64 instances » publiées pour ai-01 contre 25 chez la deuxième machine : le
-  compte brut de processus, là où les autres publiaient une ventilation — 32 hôtes plus 32 lanceurs, soit
-  1,3 fois la deuxième et non 2,6. Trois lanes ont repris le chiffre tel quel. Le même jour, la même erreur
-  refaite sur un compte de processus portant une clé révoquée : 66 au lieu de 33.
+- **Cas mesuré :** 06/09/2026, « 64 instances » du serveur MCP publiées pour ai-01, contre 25 pour la
+  machine suivante du tableau de flotte : c'était le compte brut de processus, là où les autres publiaient
+  une ventilation — 32 hôtes plus 32 lanceurs, soit 1,3 fois la suivante et non 2,6. Trois lanes ont
+  repris le chiffre tel quel. Le même jour, la même erreur refaite sur un compte de processus portant une
+  clé révoquée : 66 au lieu de 33.
 
 ### Le qualificatif de portée posé puis jeté dans la même phrase laisse un universel faux
 <!-- src: reference_scoped_qualifier_discarded_in_the_same_sentence -->
@@ -314,10 +323,11 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
   mesurées » se suffit. Un universel se paie au prix d'un recensement complet, jamais d'un échantillon.
   Quand une contradiction arrive, contre-vérifier sa propre mesure avec un contrôle positif avant de la
   maintenir.
-- **Cas mesuré :** 08/09/2026, « le cap est absent partout où on a regardé — le levier n'existe sur aucune
-  machine de la flotte » : la première moitié était vraie sur quatre machines, la seconde falsifiée trois
-  minutes plus tard sur une cinquième. Une re-sonde sur quatre ruches du registre avec contrôle positif a
-  confirmé que l'absence sur ai-01 était réelle.
+- **Cas mesuré :** 08/09/2026, à propos d'une limite de taille du cache du client Drive posée dans le
+  registre Windows : « le cap est absent partout où on a regardé — le levier n'existe sur aucune machine
+  de la flotte ». La première moitié était vraie sur quatre machines, la seconde falsifiée trois minutes
+  plus tard sur une cinquième. Une re-sonde sur quatre ruches du registre Windows, avec contrôle positif,
+  a confirmé que l'absence sur ai-01 était réelle.
 
 ### Un verdict « propre » mesure souvent l'absence de résidus, pas la présence de la cible
 <!-- src: reference_clean_verdict_measures_absence_not_the_target -->

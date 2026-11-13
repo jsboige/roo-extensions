@@ -15,10 +15,13 @@ dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son 
 [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
 [PowerShell, shells et Windows](field-lessons-shell-windows.md).
 
-Deux conventions de lecture : `#1234` désigne une issue ou une PR du dépôt roo-extensions et
-`ms#1234` du *submodule* (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`) ; une *lane*
-est une session d'agent identifiée par `machine:workspace`, et un *claim* est un commentaire qu'un
-agent pose sur une issue pour dire qu'il y travaille.
+**Vocabulaire :** `#1234` désigne une issue ou une PR du dépôt roo-extensions, `ms#1234` de son
+sous-module (le dépôt `jsboige-mcp-servers`, monté sous `mcps/internal`, qui porte le serveur MCP
+roo-state-manager, « RSM »). Une *lane* est une session d'agent identifiée par `machine:workspace` ; un
+*siège*, une machine de la flotte ; un *worker*, un agent lancé par une tâche planifiée, sans humain. Un
+*claim* est le commentaire qu'un agent pose sur une issue pour dire qu'il y travaille. « PG » est la base
+PostgreSQL de la flotte ; le *dashboard* est le tableau de messages partagé que chaque agent lit et écrit
+par un outil MCP.
 
 ## Relire une PR, tenir une dette, fermer une issue
 
@@ -148,12 +151,12 @@ agent pose sur une issue pour dire qu'il y travaille.
   construction » ou « personne », l'état n'est pas sain, il est non vérifié — et c'est ce mot-là
   qu'on écrit. Ne pas rapporter de satisfaction : rapporter ce qui a été mesuré, quand, et par quel
   instrument indépendant.
-- **Cas mesuré :** 28/08/2026, relevé sur ai-01 : l'archiveur de traces avait 7 648 archives, toutes
-  d'un seul agent et aucune de l'autre ; la purge à 30 jours avait vidé 387 projets sur 484 ; le
-  protocole SDDD était écrit 3 fois dans le dépôt mais appliqué 60 fois en 12 semaines ; et le
-  dashboard répondait `success: true` après une écriture de 402 s dont la condensation avait échoué.
-  Le lendemain, 22 runs sur 24 avaient bien écrit leur livrable et 4 fichiers seulement avaient
-  survécu (320 785 octets perdus) : la trace d'écriture prouve la construction, pas la survie.
+- **Cas mesuré :** 28/08/2026 : l'archiveur de traces avait 7 648 archives, toutes de l'agent Roo (auquel
+  Zoo a succédé) et aucune de Claude Code ; la purge à 30 jours avait vidé 387 projets sur 484 ; le
+  protocole SDDD était écrit 3 fois dans le dépôt mais appliqué 60 fois en 12 semaines ; et le dashboard
+  répondait `success: true` après une écriture de 402 s dont la condensation avait échoué. Le lendemain,
+  22 runs sur 24 avaient bien écrit leur livrable et 4 fichiers seulement avaient survécu (320 785 octets
+  perdus) : la trace d'écriture prouve la construction, pas la survie.
 
 ### Une échéance passée est une mesure manquante, pas une résolution
 <!-- src: reference_passed_deadline_is_unmeasured_not_resolved -->
@@ -170,8 +173,9 @@ agent pose sur une issue pour dire qu'il y travaille.
 
 ### Une cellule de déploiement est livrée quand son résultat est dans le registre
 <!-- src: feedback-posted-cell-is-not-a-delivered-cell -->
-- **Quand :** on dispatche « exécute l'outil sur ta machine et rapporte », ou une lane poste un
-  résultat avec l'entrée proposée et se déclare libérée.
+- **Quand :** on dispatche « exécute l'outil sur ta machine et rapporte », ou une lane poste un résultat
+  avec l'entrée proposée et se déclare libérée. Une « cellule » est la case d'une machine dans le tableau
+  de déploiement d'un outil sur la flotte.
 - **Règle :** nommer le registre — manifeste ou configuration — comme ligne d'arrivée, et le vérifier
   lui, pas le nombre de commentaires. Quand une lane poste un résultat avec une entrée proposée,
   l'intégrer au même cycle : une cellule libérée est une passation au coordinateur, pas un item
@@ -202,7 +206,7 @@ agent pose sur une issue pour dire qu'il y travaille.
   classification dans des fonctions pures et fait instancier les exceptions par les tests ; récidive
   le 12/11/2026 (#4665 → #4643), où un autotest simulait une réponse que le serveur ne rend jamais,
   ce qui rendait sa branche inatteignable.
-- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:16` — la règle voisine (un PASS
+- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:23` — la règle voisine (un PASS
   qui lit le seed est vacant, asserter un changement positif) y est ; cette leçon y ajoute le vert
   qui ne lit que le texte du code et le corollaire de revue.
 
@@ -219,9 +223,8 @@ agent pose sur une issue pour dire qu'il y travaille.
   `src/**/*.ts` et qu'esbuild élide les usages de type. Même cycle, ms#1736 : le prédicat
   `dedupSkipped >= pending` aurait été désarmé, le compteur s'incrémentant avant que `pending` soit
   posé (30 266 pré-vols contre 516 en attente).
-- **Déjà dans le dépôt :** `.claude/rules/no-deletion-without-proof.md:24` — exige `git grep
-  "old-name"` = zéro résultat ; manquent la portée `src tests` et sa raison (les tests ne sont pas
-  type-checkés).
+- **Déjà dans le dépôt :** `.claude/rules/no-deletion-without-proof.md:24` — exige `git grep "old-name"` =
+  zéro résultat ; manquent la portée `src tests` et sa raison (les tests ne sont pas type-checkés).
 
 ### Un test qui passe un filtre vide passe par construction
 <!-- src: reference_vacuous_test_from_an_empty_filter_array -->
@@ -236,7 +239,7 @@ agent pose sur une issue pour dire qu'il y travaille.
   que soit le corps — il serait passé avec le prédicat remplacé par `return $null`. Le fichier
   énonçait la bonne règle dans sa docstring et citait un extracteur naïf qui n'existe nulle part ;
   le rapport de livraison recopiait la même affirmation.
-- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:16` — la règle « asserter un
+- **Déjà dans le dépôt :** `docs/harness/reference/lessons-archive.md:23` — la règle « asserter un
   changement positif » y est ; manque le piège du tableau de filtre vide.
 
 ### Un test qui lit un répertoire partagé doit prouver que le contenu vient de son appel
@@ -325,12 +328,11 @@ agent pose sur une issue pour dire qu'il y travaille.
   `gh run rerun --failed`. Ne pas corriger son propre diff pour cela, ne pas bloquer le merge sur ce
   test seul, et ne pas conclure « flake » avant le rejeu local : si le fichier échoue aussi en
   local, c'est un vrai défaut.
-- **Cas mesuré :** 01/11/2026, ms#1613 : le job `roo-state-manager` a rougi sur une PR qui ne
-  touchait que `src/tools/search/`, avec `Format dashboard invalide: frontmatter manquant
-  (machine-other-machine)` ; le re-run du même commit est passé sans changement de code. Le test
-  scénarise une course avec de vrais timers (injection à 150 ms, libération du verrou à 250 ms,
-  assertion `waited >= 200`) et lit le fichier cible au milieu d'une écriture quand le runner est
-  chargé.
+- **Cas mesuré :** 01/11/2026, ms#1613 : le job `roo-state-manager` a rougi sur une PR qui ne touchait que
+  `src/tools/search/`, avec `Format dashboard invalide: frontmatter manquant (machine-other-machine)` ; le
+  re-run du même commit est passé sans changement de code. Le test scénarise une course avec de vrais
+  timers (injection à 150 ms, libération du verrou à 250 ms, assertion `waited >= 200`) et lit le fichier
+  cible au milieu d'une écriture quand le runner est chargé.
 
 ### Un garde posé sur le transport lit la forme du transport
 <!-- src: reference_guard_reads_the_wire_before_the_sdk_decodes -->
