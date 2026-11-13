@@ -18,6 +18,7 @@ Every write carries a **lane identity** `machine[:workspace]`.
 | Claude Code | `COMPUTERNAME` + basename of the git toplevel (`check_issue_claim.py`, #4114) | A linked worktree resolves to the **main checkout** toplevel (a worktree is a workplace, not a workspace — #4122). `--workspace` overrides the suffix, `--agent` replaces the whole id. |
 | Roo Scheduler | machine id from its own config | Same lane grammar; Roo and Claude on one machine are distinct lanes only when workspaces differ. |
 | Copilot | gh account (`jsboige`) + host seat | Interactive Copilot has **no lane identity yet** (see §8). |
+| Off-fleet cloud session | gh account (`jsboige`), no fleet machine | **No lane identity** and no control-plane access (see §8). Its locks are posed by the sponsoring fleet lane — [`off-fleet-cloud-sessions.md`](../harness/reference/off-fleet-cloud-sessions.md). |
 
 **Remote identity assertion (HTTP transport, ms#1578 merged 2026-10-31):** a caller may assert
 `x-roosync-as: <machine>[:<workspace>]`; the assertion is honored only if the entry is listed in
@@ -123,6 +124,14 @@ repo. Budget state lives beside the dispatcher state, not in git.
 5. **Claim peremption vs Copilot long cycles** — 24 h peremption is tuned for 4 h executor
    cadences; a PT12H dispatcher holding a target across two tirs has no claim to expire. No
    incident measured; revisit if the dispatcher starts claiming.
+6. **Off-fleet cloud sessions sit outside the control plane** — an agent session hosted outside
+   the `myia-*` machines reads neither the MCP nor the dashboards and writes under the
+   maintainer's gh account. The claim guard cannot represent it: a `[CLAIMED]` line naming no
+   fleet machine reduces to the unowned sentinel, which blocks every lane and never goes stale
+   (probe 2026-11-13, pinned by `test_off_fleet_lane_token_is_unowned` and
+   `test_unowned_claim_never_goes_stale`). Until a lane token
+   exists for it, the contract is conventional: frame issue, sponsor-posed locks, fleet-side
+   review and merge — [`off-fleet-cloud-sessions.md`](../harness/reference/off-fleet-cloud-sessions.md).
 
 ## 9. References
 
