@@ -12,7 +12,8 @@
 > [relire, fermer, tester](field-lessons-review-tests.md) ·
 > [GitHub, gh et la CI](field-lessons-github-ci.md) ·
 > [dashboards, messagerie, Drive et moniteurs](field-lessons-store-dashboard.md) ·
-> [PowerShell, shells et Windows](field-lessons-shell-windows.md).
+> [PowerShell, shells et Windows](field-lessons-shell-windows.md) ·
+> [coordination de la flotte](field-lessons-coordination.md).
 
 ---
 
