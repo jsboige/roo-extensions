@@ -110,6 +110,14 @@ on:
       - 'scripts/maintenance/maintenance-workflow.Tests.ps1'
       - 'scripts/maintenance/cleanup-untitled-tasks.ps1'
       - 'scripts/maintenance/cleanup-untitled-tasks.Tests.ps1'
+      # #1422 point 3: the MSAL purge now fires UNATTENDED (scheduled task on the last
+      # VS Code window close). Its guard — refuse while any Code process lives — is the
+      # only thing between a controlled write and a locked editor database, so the suite
+      # that pins it must re-run on every touch of the runner, the purger or the installer.
+      - 'scripts/maintenance/purge-msal.ps1'
+      - 'scripts/maintenance/purge-msal-cache.py'
+      - 'scripts/maintenance/install-msal-purge-watch.ps1'
+      - 'scripts/maintenance/purge-msal.Tests.ps1'
       - 'scripts/maintenance/classify-claude-sessions.py'
       - 'scripts/gdrive/purge-shared-state-artifacts.ps1'
       - 'scripts/gdrive/purge-shared-state-artifacts.Tests.ps1'
@@ -780,6 +788,13 @@ jobs:
       - name: Run cleanup-untitled-tasks suite (#3907)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/maintenance/cleanup-untitled-tasks.Tests.ps1 -CI
+      # #1422 point 3: same reasoning as the suites below — the purge script runs as a
+      # powershell.exe 5.1 child on a throwaway sqlite fixture, and the guard it pins
+      # (refuse -Apply while a Code process lives) only means something under the engine
+      # the scheduled task will actually use.
+      - name: Run purge-msal suite (#1422)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/maintenance/purge-msal.Tests.ps1 -CI
       - name: Run purge-shared-state-artifacts suite (#3907)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/gdrive/purge-shared-state-artifacts.Tests.ps1 -CI
