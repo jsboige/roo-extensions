@@ -1,6 +1,6 @@
 # Le harnais, vue d'ensemble
 
-**Ce que c'est.** La documentation de ce dépôt vit dans 70 fichiers de référence, chacun exact sur son sujet et muet sur le reste. Ce document est la vue d'ensemble qui manquait : ce que le harnais fait, avec quoi, et pourquoi il est construit ainsi.
+**Ce que c'est.** La documentation de ce dépôt vit dans plus de cent fichiers de référence ([`INDEX.md`](reference/INDEX.md) en est l'entrée), chacun exact sur son sujet et muet sur le reste. Ce document est la vue d'ensemble qui manquait : ce que le harnais fait, avec quoi, et pourquoi il est construit ainsi.
 
 **À qui ça s'adresse.** À un agent ou un humain qui arrive sur le cluster et veut comprendre l'ensemble avant de plonger dans une règle particulière. C'est aussi la **source de vérité** dont le module pédagogique [`NOTRE-STACK.md`](https://github.com/jsboige/CoursIA/blob/main/MyIA.AI.Notebooks/GenAI/Vibe-Coding/docs/NOTRE-STACK.md) du dépôt CoursIA tire sa matière — le rendu pédagogique est chez eux, les faits techniques sont ici (précédent [`1f26d9fb`](https://github.com/jsboige/roo-extensions/commit/1f26d9fb), Epic #2877).
 
@@ -10,28 +10,28 @@
 
 ## 1. La forme générale
 
-Six machines, deux agents par machine (un Roo, un Claude Code), un dépôt commun. Une machine coordonne (`myia-ai-01`), les autres exécutent. Il n'y a **pas** de serveur d'orchestration : la coordination passe par des fichiers partagés sur Google Drive et par GitHub. C'est un choix, et il a une conséquence directe — tout état partagé est *éventuellement cohérent*, jamais transactionnel. Une bonne part des règles qui suivent existent pour rendre ce compromis vivable.
+Neuf machines au 13/11/2026 (la liste qui fait foi : [`fleet-manifest.json`](../../.claude/configs/fleet-manifest.json)), un agent Claude Code par workspace, un dépôt commun. Le harnais a été conçu pour deux agents par machine — Claude Code et une extension compagnon, Roo Code puis Zoo Code ; le scheduler de cette extension est désactivé sur toute la flotte depuis le 08/11/2026 (section 8). Une machine coordonne (`myia-ai-01`), les autres exécutent. Il n'y a **pas** de serveur d'orchestration : la coordination passe par des fichiers partagés sur Google Drive et par GitHub. Un magasin PostgreSQL commun double ce stockage ([`unified-store-ops-runbook.md`](reference/unified-store-ops-runbook.md)) ; la bascule du primaire vers PostgreSQL est suivie dans #4131. C'est un choix, et il a une conséquence directe — tout état partagé est *éventuellement cohérent*, jamais transactionnel. Une bonne part des règles qui suivent existent pour rendre ce compromis vivable.
 
 Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence, écrite une seule fois ([`coordinate.md`](../../.claude/commands/coordinate.md) § « Wakeup Cycle Cadence »). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
 
 ---
 
-## 2. `roo-state-manager` — les 17 outils
+## 2. `roo-state-manager` — les 18 outils
 
-C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **17 outils** au handshake MCP.
+C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **18 outils** au handshake MCP.
 
-> **Le compte est 17, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
+> **Le compte est 18, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement. Dans le code, c'est le tableau `allToolDefinitions` de `src/tools/tool-definitions.ts` — pas le nombre de définitions du fichier, qui garde celles des outils retirés. Un test du serveur verrouille ce compte (`EXPECTED_TOOL_COUNT` dans `src/tools/__tests__/tool-definitions.test.ts`) : ajouter ou retirer un outil sans le mettre à jour fait échouer la CI.
 
 ### 2.1 Coordination (6 outils)
 
 | Outil | Ce qu'il fait | Ce qu'il remplace |
 |---|---|---|
-| `roosync_dashboard` | Lit et écrit les tableaux de bord partagés (`global`, `machine`, `workspace`). C'est **le** canal de coordination. Actions : `read`, `append`, `write`, `update`, `list`, `refresh`, `read_overview`, `read_archive`, `delete`. | Les fichiers `INTERCOM-*.md` locaux, dépréciés en avril 2026 |
+| `roosync_dashboard` | Lit et écrit les tableaux de bord partagés (`global`, `machine`, `workspace`). C'est **le** canal de coordination. Actions : `read`, `append`, `write`, `update`, `list`, `refresh`, `read_overview`, `read_archive`, `merge`, `scrub`, `delete`. | Les fichiers `INTERCOM-*.md` locaux, dépréciés en avril 2026 |
 | `roosync_messages` | Messagerie point-à-point entre machines, avec priorités (`LOW`→`URGENT`), fils de discussion, pièces jointes et TTL d'auto-destruction. Survit à la condensation des dashboards. | Le courrier électronique interne qui n'a jamais existé |
 | `roosync_inventory` | État des machines : inventaire de configuration locale, heartbeats, santé du cluster avec score. | Des scripts d'inventaire ad-hoc par machine |
-| `roosync_compare_config` | Compare les configurations entre deux machines, par granularité (`mcp`, `mode`, `settings`, `claude`, `modes-yaml`, `full`), avec sévérités. | La comparaison manuelle de fichiers JSON |
+| `roosync_compare_config` | Compare les configurations entre deux machines, par granularité (`mcp`, `mode`, `settings`, `claude-settings`, `claude`, `modes-yaml`, `boot-resilience`, `full`), avec sévérités. | La comparaison manuelle de fichiers JSON |
 | `roosync_config` | Collecte, publie et applique des paquets de configuration via Google Drive. | La copie manuelle de configs entre machines |
-| `roosync_baseline` | Gère la configuration de référence : versionner, restaurer, exporter, lister les versions. | Rien — cette capacité n'existait pas |
+| `roosync_baseline` | Gère la configuration de référence : mettre à jour, versionner, restaurer, exporter, lister les versions, lire la version courante. | Rien — cette capacité n'existait pas |
 
 **Les deux canaux, et pourquoi ils coexistent.** Le dashboard est *diffusé* : tout le monde le lit, il porte l'état collectif. Les messages sont *dirigés* : ils portent une instruction à une machine précise. La distinction n'est pas cosmétique — le dashboard s'auto-condense à 92 % de sa taille limite, ce qui archive les messages anciens. Une instruction postée uniquement sur le dashboard peut donc disparaître avant d'avoir été lue par une machine endormie. **Une consigne qui doit survivre passe par `roosync_messages`.** C'est une règle née d'instructions perdues, pas d'une préférence esthétique.
 
@@ -39,7 +39,7 @@ C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le so
 
 | Outil | Ce qu'il fait |
 |---|---|
-| `conversation_browser` | Navigue dans l'historique des sessions : `list`, `tree`, `view`, `summarize`, `rebuild`. **`list` est obligatoire en premier** — les autres actions ont besoin des identifiants qu'il rend. |
+| `conversation_browser` | Navigue dans l'historique des sessions : `list`, `tree`, `current`, `view`, `summarize`, `rebuild`. **`list` est obligatoire en premier** — les autres actions ont besoin des identifiants qu'il rend. |
 | `roosync_search` | Recherche dans les tâches : `semantic` (vectorielle, via Qdrant), `text` (dans le cache), `diagnose` (santé de l'index). |
 | `codebase_search` | Recherche sémantique dans le code, par concept plutôt que par chaîne exacte. **Le paramètre `workspace` doit toujours être passé explicitement** : l'auto-détection pointe vers le répertoire du serveur MCP, pas vers celui de l'appelant. |
 | `export_data` | Exporte tâches, conversations ou projets en XML, JSON, CSV ou Markdown. |
@@ -57,6 +57,13 @@ C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le so
 | `read_vscode_logs` | Lit les journaux de l'hôte d'extension VS Code — utile quand un MCP ne se charge pas et qu'aucune autre trace n'existe. |
 | `claudish_traffic` | Lit les traces du proxy claudish (`docker logs --timestamps`) : histogramme de trafic rendu jusqu'à l'heure courante, découpage cron/interactif par machine, ligne déclarative `GAP: traffic STOPPED at <ts>`. Zéro requête sur conteneur joignable = sidecar nominal silencieux, pas une panne (#3391). |
 
+### 2.4 Campagnes de flotte (2 outils)
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `roosync_harmonization` | Mène une campagne d'harmonisation de `~/.claude/settings.json` sur la flotte (#3545) : un canon versionné et immuable, un envoi par `machine:workspace`, des confirmations par relecture réelle liées à l'empreinte du canon (une empreinte déclarée ne compte jamais), des relances idempotentes, des exceptions par machine. Actions : `create`, `dispatch`, `remind`, `apply` (machine locale seulement), `confirm`, `status`, `list`, `close`. Pas de démon : les relances suivent la cadence du coordinateur. |
+| `roosync_claudish_cascade` | Publie, compare et applique le canon de bascule du proxy claudish sur la flotte (#4427). L'outil est l'instrument, jamais la politique. Il ne confond pas ce qui est voulu (le canon publié), ce qui est écrit (le `.env` sur disque), ce qui tourne (l'environnement reçu par le conteneur) et ce que le consommateur a accepté. Actions : `collect`, `publish`, `compare`, `apply` (à blanc par défaut), `confirm`, `status`, `list`. |
+
 **Références :** [`tool-availability.md`](../../.claude/rules/tool-availability.md) · [`roosync-tools-guide.md`](reference/roosync-tools-guide.md) · [`conversation-browser-detailed.md`](reference/conversation-browser-detailed.md)
 
 ---
@@ -67,7 +74,7 @@ C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le so
 
 Le **coordinateur** (`myia-ai-01`) merge les PR, arbitre les collisions, dispatche le travail, et présente à l'utilisateur les décisions qui lui reviennent. Il n'écrit pas le contenu métier : il route et il tranche.
 
-Les **workers** (`myia-po-2023` à `myia-po-2026`, `myia-web1`) prennent du travail, produisent des PR atomiques, et rapportent. **Un worker ne merge jamais sa propre PR** — la séparation entre celui qui produit et celui qui intègre est ce qui rend la revue réelle.
+Les **workers** (`myia-po-2023` à `myia-po-2028`, `myia-web1`, `myia-web2`) prennent du travail, produisent des PR atomiques, et rapportent. **Un worker ne merge jamais sa propre PR** — la séparation entre celui qui produit et celui qui intègre est ce qui rend la revue réelle.
 
 ### 3.2 Les gardes, et l'incident qui a produit chacune
 
@@ -143,7 +150,7 @@ Le point commun de ces quatre cas n'est pas la complexité de la garde — trois
 
 ### 5.3 Le contexte
 
-La fenêtre de contexte est la ressource rare, et sa gestion est un sujet à part entière. Le seuil de condensation est **universel** : 200 000 jetons, déclenchement à 90 %. La valeur par défaut de 50 % produit une boucle de condensation infinie — c'est un piège dans lequel le harnais est tombé, et la règle actuelle existe pour ça. Une session interactive ne recharge pas sa configuration en cours de route : un changement de seuil ne prend effet qu'au redémarrage.
+La fenêtre de contexte est la ressource rare, et sa gestion est un sujet à part entière. La fenêtre de condensation se décide dans le `settings.json` de chaque machine, et nulle part ailleurs : il n'y a plus de valeur universelle (le mandat « 200 000 jetons » a été retiré en août 2026), et une fenêtre choisie plus petite que ce que le modèle peut tenir se respecte. Le seul invariant porte sur le pourcentage de déclenchement : **jamais sous 90 %**. La valeur par défaut de 50 % produit une boucle de condensation infinie, 70 % la reproduit sous harnais lourd — c'est un piège dans lequel le harnais est tombé, et la règle actuelle existe pour ça. Une session interactive ne recharge pas sa configuration en cours de route : un changement de seuil ne prend effet qu'au redémarrage.
 
 Côté outils, la discipline de lecture est chiffrée : moins de 50 Ko se lit entièrement, entre 50 et 500 Ko avec un décalage et une limite, au-delà de 500 Ko jamais directement — un `head`, un `grep` ou un `jq`. Lire un fichier persisté énorme ne dégrade pas la tâche, il la tue.
 
@@ -163,7 +170,7 @@ Toute tâche significative croise trois sources : **technique** (le code, qui es
 
 Le motif d'encadrement est simple et il paye : une recherche sémantique **au début** d'une tâche (est-ce que ça a déjà été fait ? quelle documentation existe ?) et **à la fin** (le travail est-il retrouvable ? la documentation trouvée au début est-elle devenue fausse ?). La recherche initiale évite de refaire ; la finale évite de laisser derrière soi une documentation qui contredit le code.
 
-S'y ajoute une exigence de qualification. Une affirmation est **vérifiée** (testée soi-même), **rapportée** (un autre le dit, non confirmé), ou **supposée**. Ne jamais propager sans qualifier : le coût d'une vérification se compte en secondes, celui d'une erreur propagée en heures multipliées par six machines.
+S'y ajoute une exigence de qualification. Une affirmation est **vérifiée** (testée soi-même), **rapportée** (un autre le dit, non confirmé), ou **supposée**. Ne jamais propager sans qualifier : le coût d'une vérification se compte en secondes, celui d'une erreur propagée en heures multipliées par le nombre de machines.
 
 **Références :** [`sddd-grounding.md`](../../.claude/rules/sddd-grounding.md) · [`skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
 
@@ -175,7 +182,7 @@ Les workers ne tournent pas en continu. Chacun est réveillé par une tâche pla
 
 ### 7.1 Le réveil
 
-Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. L'intervalle se règle par machine à l'installation ; les valeurs par défaut de chaque type de tâche (worker, coordinateur planifié, méta-audit) sont les `DefaultInterval` de [`setup-scheduler.ps1`](../../scripts/scheduling/setup-scheduler.ps1) — un compromis entre réactivité et coût en tokens, arbitré par machine et non uniformément. Ces tâches planifiées ne sont pas le cron de session du coordinateur (début de ce document), qui a sa propre ligne canonique. Le script installe un gestionnaire `trap` dès sa première ligne utile : tout signal de terminaison (SIGTERM, SIGINT, timeout) déclenche un shutdown gracieux qui préserve le travail en cours avant de rendre la main.
+Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. L'intervalle se règle par machine à l'installation ; les valeurs par défaut de chaque type de tâche (worker, coordinateur planifié, méta-audit) sont les `DefaultInterval` de [`setup-scheduler.ps1`](../../scripts/scheduling/setup-scheduler.ps1) — un compromis entre réactivité et coût en tokens, arbitré par machine et non uniformément. Ces tâches planifiées ne sont pas le cron de session du coordinateur (début de ce document), qui a sa propre ligne canonique. Le script enregistre un arrêt gracieux (`Invoke-GracefulShutdown`) sur quatre chemins — la sortie du processus PowerShell, Ctrl+C, son propre chien de garde de durée maximale, et le bloc `finally` du flux principal — pour préserver le travail en cours avant de rendre la main.
 
 Le script injecte les variables d'environnement de `~/.claude.json` dans le processus worker (`#2252`) — sans cela, le sous-processus `claude -p` n'hérite pas des variables critiques (clés API, endpoints) qui ne vont qu'au serveur MCP, et la session démarre avec un MCP amputé.
 
@@ -231,13 +238,13 @@ C'est ce qui rend le harnais robuste à ses propres pannes : un worker qui crash
 
 ## 8. Les modes Roo et leur pipeline de génération
 
-La coordination décrite jusqu'ici s'adresse au niveau *cluster* : qui parle à qui, sur quel canal, avec quelle garde. Elle s'exécute via Claude Code. **Le travail lui-même** — les modifications de code, les diagnostics, les analyses — est réalisé par Roo Code, et Roo n'est pas un agent monolithique : il opère sous un *mode*, qui sélectionne le jeu d'outils, le modèle, l'instruction système, et les critères d'escalade. Choisir le mauvais mode est l'une des causes structurelles de dépense excessive et de mauvais résultats.
+La coordination décrite jusqu'ici s'adresse au niveau *cluster* : qui parle à qui, sur quel canal, avec quelle garde. Elle s'exécute via Claude Code, qui porte aussi le code critique, l'architecture et les décisions. L'extension compagnon — Roo Code, puis Zoo Code qui lui a succédé — prend le travail répétitif (tests, build, tâches mécaniques validées par Claude). Depuis le 08/11/2026 son scheduler est désactivé sur toute la flotte : cette section décrit un dispositif en sommeil, dont les modes et le générateur restent dans le dépôt. Le compagnon n'est pas un agent monolithique : il opère sous un *mode*, qui sélectionne le jeu d'outils, le modèle, l'instruction système, et les critères d'escalade. Choisir le mauvais mode est l'une des causes structurelles de dépense excessive et de mauvais résultats.
 
 ### 8.1 Pourquoi deux niveaux, `simple` et `complex`
 
 Chaque *famille* de tâches (code, debug, architect, ask, orchestrator) existe en deux niveaux. Le niveau `-simple` est conçu pour les tâches mécaniques bien définies : lecture de fichier, vérification de `git status`, exécution de commande, corrections localisées, formatage, documentation inline. Le niveau `-complex` absorbe la conception, le refactoring, l'analyse multi-composants et les décisions de design.
 
-**Le coût.** Modèles petits et rapides pour `-simple` (Qwen 3 32B, GLM 4.7-Air). Modèles puissants et chers pour `-complex` (Claude Sonnet, Opus, GLM 4.7). Un orchestrateur qui décompose une tâche de 8 sous-taches en 8 appels `-complex` consomme l'équivalent de plusieurs heures d'un modèle lourd ; la même décomposition en `-simple` monte une fraction de cela. **Le bon mode est presque toujours le mode le moins cher qui réussit** — l'escalade est un recours, pas un réflexe.
+**Le coût.** Modèles petits et rapides pour `-simple`, modèles plus capables et plus chers pour `-complex` — les identifiants en service sont dans `roo-config/model-configs.json`, ce document ne les recopie pas. Un orchestrateur qui décompose une tâche de 8 sous-taches en 8 appels `-complex` consomme l'équivalent de plusieurs heures d'un modèle lourd ; la même décomposition en `-simple` monte une fraction de cela. **Le bon mode est presque toujours le mode le moins cher qui réussit** — l'escalade est un recours, pas un réflexe.
 
 **Le piège symétrique.** L'inverse existe : un `-simple` qui tente une modification d'API publique, un refactoring de schéma, ou un changement d'outil MCP est une mauvaise escalade *par le bas*. Le résultat est presque bon, les tests passent localement, et trois jours plus tard un autre composant casse parce que le contrat a dérivé. La règle de discrimination est exposée dans les `escalationCriteria` et `deescalationCriteria` de chaque mode, et c'est par là que le choix se fait — pas à l'instinct.
 
@@ -296,7 +303,7 @@ Une sous-tâche peut changer de nature en cours d'exécution. Un mode `code` qui
 
 ## 9. L'architecture interne du serveur MCP `roo-state-manager`
 
-Les 17 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
+Les 18 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
 
 ### 9.1 Forme générale
 
@@ -317,7 +324,7 @@ Le code source tient dans `src/` :
 
 Le client MCP attend que `tools/list` réponde pour considérer le serveur prêt. Tout ce qui retarde ce moment — un import profond, une connexion réseau, un parsing lourd — retarde l'agent qui appelle. L'architecture observée trace cet arbitrage explicitement.
 
-**Étape 1 — bootstrap synchrone et silencieux (`src/index.ts`).** Le serveur charge `dotenv`, valide les variables d'environnement critiques, installe le monkey-patch `graceful-fs` *avant tout import touchant `fs`* (#2312), et redirige `console.log` vers `stderr` parce que `stdout` porte exclusivement le JSON-RPC du transport stdio. La redirection n'est pas cosmétique : plus de 730 appels `console.log` répartis sur 63 fichiers pollueraient le flux et casseraient le handshake. Pas d'import lourd ici.
+**Étape 1 — bootstrap synchrone et silencieux (`src/index.ts`).** Le serveur charge `dotenv`, valide les variables d'environnement critiques, installe le monkey-patch `graceful-fs` *avant tout import touchant `fs`* (#2312), et redirige `console.log` vers `stderr` parce que `stdout` porte exclusivement le JSON-RPC du transport stdio. La redirection n'est pas cosmétique : plusieurs centaines d'appels `console.log` répartis dans le code du serveur (près de 700 sur 55 fichiers hors tests, mesure du 13/11/2026) pollueraient le flux et casseraient le handshake. Pas d'import lourd ici.
 
 **Étape 2 — connexion transport ASAP.** Le `StdioServerTransport` est connecté dès que possible, ce qui débloque `tools/list` même si le reste du système n'est pas prêt. *Latence mesurée du handshake* : sous la seconde sur la machine de référence.
 
@@ -329,7 +336,7 @@ Le client MCP attend que `tools/list` réponde pour considérer le serveur prêt
 
 Le fichier [`tools/registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) est le point d'entrée des appels. Il fait trois choses :
 
-1. **Maintenir un registre nom → handler.** L'enregistrement est explicite pour rendre auditable la liste des outils — c'est ce qui permet d'affirmer « 17 outils » sans grep dans tout `src/`.
+1. **Maintenir un registre nom → handler.** L'enregistrement est explicite pour rendre auditable la liste des outils — c'est ce qui permet d'affirmer « 18 outils » sans grep dans tout `src/`.
 2. **Appliquer un timeout par outil.** Défaut 120 s ; outils lourds (`roosync_indexing` 300 s, `codebase_search` 180 s, `roosync_storage_management` 180 s). *Origine :* un appel MCP resté pendant 22 heures en attendant une dépendance morte (#2267). Le timeout ne résout pas la cause, il borne le coût.
 3. **Déléguer vers les accesseurs paresseux** présentés en 9.2.
 
@@ -337,7 +344,7 @@ Le fichier [`tools/registry.ts`](../../mcps/internal/servers/roo-state-manager/s
 
 Le serveur n'échoue pas au démarrage si une dépendance est manquante. Au lieu de cela, il *marque* la capacité correspondante comme « dégradée » via [`utils/server-capabilities.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/server-capabilities.ts), et les outils affectés retournent une erreur explicite quand on les appelle. Les variables `ROOSYNC_SHARED_PATH`, `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION_NAME` sont requises ; `EMBEDDING_API_KEY` ou `OPENAI_API_KEY` est requise pour la recherche sémantique. Manquer l'une d'elles ne casse pas le démarrage, mais le cluster n'a plus de dashboards / plus de recherche sémantique — *et c'est visible*.
 
-**L'invariant.** `tools/list` répond toujours avec la liste complète des 17 outils, même dégradé. C'est ce qui permet à l'orchestrateur ou au coordinateur d'appeler un outil de diagnostic, d'apprendre que la capacité est dégradée, et d'agir — au lieu de recevoir un crash incompréhensible au démarrage.
+**L'invariant.** `tools/list` répond toujours avec la liste complète des 18 outils, même dégradé. C'est ce qui permet à l'orchestrateur ou au coordinateur d'appeler un outil de diagnostic, d'apprendre que la capacité est dégradée, et d'agir — au lieu de recevoir un crash incompréhensible au démarrage.
 
 ### 9.5 Le cycle de vie d'une tâche indexée
 
@@ -359,7 +366,7 @@ Trois batteries coexistent :
 
 Le script [`validate-before-push.ps1`](../../scripts/mcp/validate-before-push.ps1) enchaîne build + tests `vitest` sur le sous-module avant tout push — c'est la garde contre la régression silencieuse dans `mcps/internal`. Un raccourci à la racine du dépôt est `npm run test:mcp`, qui délègue au sous-module sans risquer un `vitest` root qui ne découvrirait rien d'utile (un garde `vitest.config.ts` à la racine limite la découverte aux tests de la racine).
 
-**L'invariant.** Aucune modification de `mcps/internal` ne doit être poussée sans ce passage en vert. La règle n'est pas négociable, parce que les six machines consomment le même module — une régression ici se voit partout.
+**L'invariant.** Aucune modification de `mcps/internal` ne doit être poussée sans ce passage en vert. La règle n'est pas négociable, parce que toutes les machines de la flotte consomment le même module — une régression ici se voit partout.
 
 **Références :** [`roo-state-manager/src/index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts) · [`registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) · [`server-capabilities.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/server-capabilities.ts) · [`ci-guardrails.md`](../../.claude/rules/ci-guardrails.md) · [`mcp-diagnosis.md`](../../.claude/rules/mcp-diagnosis.md)
 
@@ -377,7 +384,7 @@ Ses endpoints sont **publics**, sous un domaine dédié propre au cluster. Qdran
 
 ### 10.2 La latence : le modèle, pas le tuyau
 
-Mesuré depuis une machine hors-réseau :
+Mesuré depuis une machine hors-réseau en août 2026 (#3054), avec le modèle alors en service — remplacé depuis, la table en vigueur est [`model-configs.json`](../../roo-config/model-configs.json) :
 
 | Opération | Cible | Latence |
 |---|---|---|

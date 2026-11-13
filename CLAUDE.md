@@ -1,16 +1,18 @@
 # Roo Extensions - Guide Agent Claude Code
 
 **Repo:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Systeme:** RooSync v2.3 — 7 machines
-**MAJ:** 2026-08-28
+**Systeme:** RooSync — 9 machines ([manifeste de flotte](.claude/configs/fleet-manifest.json))
+**MAJ:** 2026-11-13
 
 ---
 
 ## Vue d'ensemble
 
-Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (implementation, coordination, docs) sur 7 machines : `myia-ai-01` (coordinateur), `myia-po-2023/24/25/26`, `myia-po-2027` (portable, Claude seul pour l'instant), `myia-web1`.
+Multi-agent coordonnant **Claude Code** (implementation, coordination, docs) et une extension compagnon (technique, scheduler) sur 9 machines : `myia-ai-01` (coordinateur), `myia-po-2023` a `myia-po-2028` (`myia-po-2027` : portable, Claude seul), `myia-web1`, `myia-web2`. Le manifeste de flotte fait foi (role et derniere verification de chaque machine).
 
 **Claude DIRIGE, Roo ASSISTE.** Claude = code critique + architecture + decisions. Roo = tests, build, taches repetitives (validees par Claude). Ne JAMAIS deleguer du code critique a Roo.
+
+**« Roo » designe l'extension compagnon : Roo Code hier, Zoo Code aujourd'hui.** Son scheduler est desactive sur toute la flotte depuis le 08/11/2026 (decision user ; redemarrage cible sur une instance possible). Tant qu'il l'est, ce que ce guide dit de Roo (modes, scheduler, win-cli) decrit un dispositif en sommeil, pas un agent a qui deleguer.
 
 ---
 
@@ -124,7 +126,7 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 - **Docs on-demand :** [docs/harness/reference/INDEX.md](docs/harness/reference/INDEX.md) — index complet de toute la documentation
 - **Coordinateur :** [scheduled-coordinator.md](docs/harness/coordinator-specific/scheduled-coordinator.md) | [pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) | [skeptical-posture.md](docs/harness/coordinator-specific/skeptical-posture.md)
 - **RooSync tools guide :** [roosync-tools-guide.md](docs/harness/reference/roosync-tools-guide.md) — health_view, inventory, compare_config, dashboard params & scenarios
-- **Guide RooSync :** [GUIDE-TECHNIQUE-v2.3.md](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
+- **Vue d'ensemble du harnais :** [HARNESS-OVERVIEW.md](docs/harness/HARNESS-OVERVIEW.md) | **Sessions cloud hors flotte :** [off-fleet-cloud-sessions.md](docs/harness/reference/off-fleet-cloud-sessions.md)
 - **Scripts :** [scripts/README.md](scripts/README.md) | [scripts/claude/](scripts/claude/)
 - **GitHub :** [Project #67](https://github.com/users/jsboige/projects/67) — Issues: `[CLAUDE-MACHINE] Titre` + labels (bug/enhancement/doc + attribution). [Detail](docs/harness/reference/github-cli.md)
 
@@ -145,4 +147,4 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 
 ---
 
-**Derniere MAJ :** 2026-08-28
+**Derniere MAJ :** 2026-11-13
