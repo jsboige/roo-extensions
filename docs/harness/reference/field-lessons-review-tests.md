@@ -7,7 +7,9 @@ réellement. Chaque leçon donne la règle, la situation qui la déclenche et le
 **Provenance :** fiches de la mémoire locale du coordinateur ai-01, sorties vers le dépôt le
 2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine, et a été relue contre
 cette fiche par un agent distinct de son rédacteur. Les numéros de ligne cités sous « Déjà dans le
-dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet.
+dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet. Les leçons
+marquées `src: session 13/11/2026` ne viennent pas d'une fiche : elles viennent de la session du
+coordinateur de ce jour-là, et ont été vérifiées le jour même contre l'arbre et l'API GitHub.
 
 **Les cinq volets :** [mesurer et prouver](field-lessons-measurement.md) ·
 [relire, fermer, tester](field-lessons-review-tests.md) ·
@@ -113,6 +115,25 @@ par un outil MCP.
   interdits y sont ; manquent la relecture en posture de réfutation et le taux mesuré (22 propositions sur
   31 tombent, soit 71 %).
 
+### Un pré-examen peut se tromper par son instrument : des octets se jugent sur les octets bruts
+<!-- src: session 13/11/2026 -->
+- **Quand :** un pré-examen (agent de relecture, sous-agent, bot) rend un verdict sur un encodage, une
+  taille de fichier, un BOM ou des fins de ligne, et on s'apprête à agir dessus.
+- **Règle :** juger des octets sur les octets bruts, jamais à travers un shell, un outil ou une API
+  qui convertit le texte. En Git Bash : `git show <tête>:<chemin> | head -c 4 | od -An -tx1` pour
+  l'en-tête, `git cat-file -s <tête>:<chemin>` pour la taille, sur la tête et sur la base. Avant
+  d'agir sur un pré-examen, le coordinateur re-mesure la preuve qui décide du verdict.
+- **Cas mesuré :** 13/11/2026, PR #4700, fichier `scripts/qdrant/Qdrant-Snapshot-Daily.xml`. Le
+  pré-examen a conclu à un ré-encodage d'UTF-16 LE en UTF-8 (il avait lu 2 254 octets) et rendu
+  CHANGES (RAPPORTÉ par le coordinateur). Mesure brute, refaite le même jour : `ff fe 3c 00` en tête
+  sur la tête `991c18df` comme sur la base `6d5157a5`, 4 496 octets contre 4 256 ; décodés en
+  UTF-16, les deux textes ne diffèrent que sur la ligne `<Description>`. La passe du coordinateur sur
+  la PR (12:43Z) le dit, et nomme l'erreur du pré-examen ; la PR a été mergée à 12:43:33Z.
+- **Déjà dans le dépôt :** la leçon précédente (relire une proposition d'audit en posture de
+  réfutation) et, dans `field-lessons-github-ci.md`, « Une lecture `gh` groupée peut rendre un récit
+  cohérent et entièrement faux » — ce texte ajoute le cas où c'est l'instrument du relecteur qui
+  convertit.
+
 ### L'accord de plusieurs agents ne réfute que la formulation d'un ticket
 <!-- src: feedback_converging_refutations_of_a_misframed_ticket -->
 - **Quand :** un ticket porte une inquiétude venue du user, le code conteste le mécanisme qu'il
@@ -139,7 +160,11 @@ par un outil MCP.
   forme : la mesure est juste, la phrase qu'on en tire ne l'est pas — un `exit 1` lu « ça a échoué » alors
   que c'est un code d'alerte, une seule machine portant une tâche planifiée lue « rollout à 1/6 » alors
   que le reste était extrapolé d'une note de la veille. Les six premières ont dû être rétractées ou
-  corrigées.
+  corrigées. Récidive le 13/11/2026 dans deux PR de doc (#4682, #4683) : la mise à l'arrêt de
+  l'extension compagnon y était datée comme un fait certain, sans source dans l'arbre ; relevée avant
+  le merge, la phrase a été réécrite sur ce qui était mesuré et par qui (l'état désactivé d'un siège
+  s'est recopié sur les autres par la synchronisation des réglages de VS Code, mesuré sur deux sièges,
+  #4025 ; le user a confirmé le 08/11 que cet arrêt est voulu).
 - **Essayé et rejeté :** écrire « je ne peux pas mesurer ça d'ici » et déléguer — une de ces
   occurrences s'est résolue en 30 s en essayant soi-même.
 
@@ -333,6 +358,23 @@ par un outil MCP.
   re-run du même commit est passé sans changement de code. Le test scénarise une course avec de vrais
   timers (injection à 150 ms, libération du verrou à 250 ms, assertion `waited >= 200`) et lit le fichier
   cible au milieu d'une écriture quand le runner est chargé.
+
+### Un rouge isolé sur `multi-process-budget.test.ts` se rejoue une fois avant toute conclusion
+<!-- src: session 13/11/2026 -->
+- **Quand :** le cas « N=8 concurrent processes » de ce test rougit dans un job `build-and-test` sur
+  une PR qui ne touche pas au sous-module.
+- **Règle :** relancer une fois les jobs en échec (`gh run rerun --failed`) avant de conclure, et ne
+  pas corriger son propre diff pour cela. Le test
+  (`mcps/internal/servers/roo-state-manager/src/services/__tests__/multi-process-budget.test.ts`)
+  lance 8 vrais processus Node qui se disputent le verrou d'élection du leader (#3661) ; un seul
+  processus qui ne rend rien suffit à faire échouer le cas. Un rouge qui revient au rejeu sur la même
+  tête n'est plus un rouge isolé.
+- **Cas mesuré :** 13/11/2026, run 43421695902 de la PR #4685, qui ne modifiait que
+  `.claude/commands/coordinate.md`. Premier essai : `build-and-test (22)` en échec sur ce seul cas
+  (1 test sur 17 057, `Child did not emit valid JSON (exit=0)`, sortie vide), et `build-and-test (20)`
+  annulé. Rejeu sur la même tête `a401b735` : 9 jobs sur 9 verts.
+- **Déjà dans le dépôt :** la leçon précédente traite de la même façon le test crossPost de
+  `dashboard.test.ts`.
 
 ### Un garde posé sur le transport lit la forme du transport
 <!-- src: reference_guard_reads_the_wire_before_the_sdk_decodes -->

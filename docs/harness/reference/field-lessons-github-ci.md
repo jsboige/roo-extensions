@@ -1,14 +1,17 @@
 # Leçons de terrain — GitHub, gh et la CI
 
 Ces leçons portent sur les outils GitHub que la flotte utilise tous les jours : le CLI `gh`, l'API REST et
-GraphQL, les files de GitHub Actions et les références citées dans une issue ou une PR. Elles se lisent
+GraphQL, les files de GitHub Actions, les références citées dans une issue ou une PR, et ce qu'on écrit
+dans le corps et les labels d'une issue. Elles se lisent
 avant d'agir sur une PR, une issue ou un check, et surtout avant de conclure qu'un résultat est vide,
 complet ou en échec.
 
 **Provenance :** fiches de la mémoire locale du coordinateur ai-01, sorties vers le dépôt le
 2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine, et a été relue contre
 cette fiche par un agent distinct de son rédacteur. Les numéros de ligne cités sous « Déjà dans le
-dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet.
+dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet. Les leçons
+marquées `src: session 13/11/2026` ne viennent pas d'une fiche : elles viennent de la session du
+coordinateur de ce jour-là, et ont été vérifiées le jour même contre l'arbre et l'API GitHub.
 
 **Les cinq volets :** [mesurer et prouver](field-lessons-measurement.md) ·
 [relire, fermer, tester](field-lessons-review-tests.md) ·
@@ -231,3 +234,104 @@ par un outil MCP.
   une fausse alerte « réserve abandonnée » ; son commentaire de fermeture dit « repliée dans #15975 », et
   le commit `690e4a5a8` y est vérifié dans la liste de commits. Le troisième niveau apprend en plus que
   CoursIA #15975 est OPEN et bloquée.
+
+### Un verbe de fermeture suivi de `#N` ferme l'issue, où qu'il soit dans le corps d'une PR
+<!-- src: session 13/11/2026 -->
+- **Quand :** on retire `Closes #N` du corps d'une PR pour que l'issue reste ouverte au merge, ou on
+  y écrit une phrase sur la fermeture future d'une issue.
+- **Règle :** dans le corps d'une PR, un mot-clé de fermeture suivi de `#N` arme la fermeture, même
+  au milieu d'une phrase. La liste que le dépôt recopie de la documentation GitHub
+  (`.github/workflows/pr-negation-autoclose.yml`, lignes 6-8) : `close`, `closes`, `closed`, `fix`,
+  `fixes`, `fixed`, `resolve`, `resolves`, `resolved`. La garde de ce workflow ne refuse qu'un
+  mot-clé voisin d'une négation (lignes 117-133) : une phrase affirmative passe. Après une édition
+  du corps, relire `closingIssuesReferences`, et ne merger que quand il rend ce qu'on attend.
+- **Cas mesuré :** 13/11/2026, PR #4703 (historique des éditions relu par `userContentEdits`). Corps
+  d'origine, 12:38:58Z : `Closes #4666`. Édition de 12:56:37Z : `Refs #4666`, plus une note qui dit
+  « The coordinator closes #4666 after re-reading it at the next cycle ». Édition de 12:57:07Z : la
+  note devient « Issue #4666 stays open after this merge ». Selon le coordinateur,
+  `closingIssuesReferences` listait encore #4666 après la première édition, et encore juste après la
+  seconde ; une lecture GraphQL quelques secondes plus tard était vide (RAPPORTÉ ; une seule mesure
+  de ce délai). Merge à 12:57:28Z ; relue le même jour, #4666 est `OPEN` et la liste de la PR est
+  vide.
+- **Déjà dans le dépôt :** `pr-negation-autoclose.yml` (#3626) traite la négation (« Closes NOT #N »
+  ferme quand même) — ce texte ajoute la phrase affirmative et le délai avant que la liste suive le
+  corps.
+
+## Écrire dans le corps et les labels d'une issue
+
+### Le bot de checklist compte les cases dans tout le corps, pastilles comprises
+<!-- src: session 13/11/2026 -->
+- **Quand :** on ajoute au corps d'une issue un bloc d'état, un tableau de suivi ou un extrait recopié.
+- **Règle :** `checklist-enforce.yml` cherche `- [ ]` et la pastille ⬜ dans le corps entier, citations
+  et blocs de code compris. Dans un bloc d'état, l'outil `scripts/github/apply_issue_state_block.py`
+  refuse les cases et la pastille ([`issue-state-block.md`](issue-state-block.md), règle 1). Un texte
+  écrit dans le corps sans passer par l'outil n'a pas cette garde : numéroter les étapes (`1.`), ne
+  rien cocher, n'écrire aucune pastille, et vérifier après l'écriture que le nombre de cases n'a pas
+  changé.
+- **Cas mesuré :** 13/11/2026, le jour où un bloc d'état a été posé en tête de 71 issues : les motifs
+  du workflow sont aux lignes 24-29 et s'appliquent à `issue.body` entier. À la tête `ea6e12de` de la
+  PR #4702, l'outil ne refusait pas la pastille ⬜ ; la version mergée (`7cbe388f`) la refuse.
+- **Déjà dans le dépôt :** `.claude/rules/issue-closure.md` (cocher avant de fermer),
+  `docs/harness/reference/issue-closure-detailed.md` (réouverture par le bot) et
+  [`issue-state-block.md`](issue-state-block.md) (règle 1, pour les blocs d'état) — cette leçon
+  ajoute que le bot lit aussi le texte écrit hors d'un bloc.
+
+### Modifier le corps d'une issue ne déclenche aucun workflow du dépôt
+<!-- src: session 13/11/2026 -->
+- **Quand :** on écrit une décision, un état ou une consigne dans le corps d'une issue, et on compte
+  qu'un automate ou une lane la verra.
+- **Règle :** doubler la décision d'un commentaire court qui la nomme. Une édition de corps ne
+  déclenche aucun workflow et n'ajoute rien au fil des commentaires, que les lanes et le garde de
+  claim (`scripts/github/check_issue_claim.py`) lisent. Le relevé des workflows et la règle sont dans
+  [`issue-state-block.md`](issue-state-block.md) (§ Pourquoi, règle 6).
+- **Cas mesuré :** 13/11/2026, le jour où les blocs d'état ont été posés, lecture des cinq fichiers
+  de `.github/workflows/`. Le même jour, sept décisions du coordinateur (#1587, #2307, #2566, #4343,
+  #4503, #4565, #4657) ont été écrites dans le bloc de l'issue et dans un commentaire.
+
+### L'organe des chantiers longs lit les commentaires, pas le corps
+<!-- src: session 13/11/2026 -->
+- **Quand :** on écrit dans le bloc d'état d'un chantier (issue `epic` ou `approved` ouverte depuis
+  30 jours ou plus) la décision qui le fait avancer.
+- **Règle :** doubler la décision d'un commentaire qui porte une marque de décision et une date.
+  L'organe D4 de `scripts/scheduling/test_cycle_end.py` (`classify_chantier`, lignes 225-251) ne lit
+  que les commentaires. Il signale « sans decision datee » quand aucun commentaire ne porte à la fois
+  une marque (`_DECISION_MARK`, ligne 215 : `[DÉCISION`, `[ARBITRAGE`, `[GO`, `[D4`, « Décision
+  datée », « Arbitrage user ») et une date (`_DATE`, ligne 218 : `JJ/MM` ou `AAAA-MM-JJ`). Il signale
+  « dormant » quand le dernier commentaire, hors verrous et rapports vides, a plus de 14 jours
+  (`DORMANT_DAYS`, ligne 208). Un bloc d'état, même du jour, ne change aucun des deux signaux.
+- **Cas mesuré :** 13/11/2026 : les blocs d'état de #1297 et #4149 ont été posés vers 11:57Z. À
+  12:38Z, l'organe signalait #1297 « dormant 32 j » et #4149 « sans decision datee ». Un commentaire
+  `[DÉCISION] coordinateur, 13/11/2026` a été posé sur chacune (12:41:00Z et 12:40:58Z) ; à 12:41Z,
+  l'organe ne signalait plus rien (deux sorties RAPPORTÉES par le coordinateur). Rejoué le même jour
+  avec `classify_chantier` sur les commentaires réels : avant ces deux commentaires, ces deux mêmes
+  signaux ; après, aucun.
+- **Déjà dans le dépôt :** la leçon précédente et [`issue-state-block.md`](issue-state-block.md)
+  (règle 6) — ce texte ajoute que l'organe D4 ne voit pas le corps, et la forme de commentaire qu'il
+  reconnaît.
+
+### Retirer le seul label d'une issue la déplace dans les deux sélecteurs
+<!-- src: session 13/11/2026 -->
+- **Quand :** on retire un label de porte (`needs-approval`, `deferred`, `blocked-on-gate`) parce que
+  la porte est levée.
+- **Règle :** relire les labels juste après le retrait, ou poser les labels de destination dans la
+  même passe. Une issue sans aucun label sort des exclusions des deux sélecteurs, et pas de la même
+  façon. Le filtre du worker planifié (`start-claude-worker.ps1`) ne demande aucun label : il peut la
+  prendre si elle n'est pas assignée et qu'aucun champ du Project #67 ne l'écarte. Le sélecteur des
+  lanes au repos (`pick_idle_grain.py`) ne la sert pas : il la compte dans `unlabelled_open`. Les
+  deux listes d'exclusion sont comparées dans [coordination de la flotte](field-lessons-coordination.md).
+- **Cas mesuré :** 13/11/2026, #4224 et #4596 : `needs-approval` était leur seul label. Retiré à
+  12:03Z, il les a laissées sans label et sans assignee jusqu'à 12:09Z, quand de nouveaux labels ont
+  été posés (événements des deux issues, relus le même jour).
+
+### Un bloc recopié d'un rapport peut porter un préfixe de citation
+<!-- src: session 13/11/2026 -->
+- **Quand :** on recopie dans le corps d'une issue, dans un commentaire ou dans un fichier un bloc
+  préparé dans un rapport markdown.
+- **Règle :** passer l'écriture à blanc d'abord, et lire la première ligne de chaque bloc. Un rapport
+  qui cite un bloc préfixe chacune de ses lignes par `> ` : le titre attendu n'est plus en tête, et le
+  texte posé s'afficherait comme une citation. Une garde qui exige le titre exact en première ligne
+  refuse ces blocs au lieu de les écrire.
+- **Cas mesuré :** 13/11/2026 : sur six rapports de tri, un seul citait ses blocs, et ses 12 titres
+  commençaient par `> ### État au`. L'outil d'écriture, qui exige `### État au` en tête, les a refusés
+  à l'essai à blanc. Relu le même jour : aucune issue modifiée ce jour-là ne porte un titre de bloc
+  sous cette forme.

@@ -113,6 +113,12 @@ checklist non plus.
 Une issue peut donc finir durablement `CLOSED` avec une **checklist vide** — l'état exact que la
 règle existe pour empêcher, atteint sans que personne n'ait rien contourné.
 
+**Mesure du 13/11/2026.** Le bot peut statuer en moins d'une minute : #2877, fermée le 09/11 à
+11:59:10Z avec des cases ouvertes, a été rouverte à 11:59:37Z. Le 13/11, #2877, #3827 et #3147 ont
+été fermées entre 12:05Z et 12:16Z ; leurs corps, relus ensuite, ne portent aucune case ouverte. Les
+trois étaient encore fermées à 12:41Z, soit plus de 25 minutes après la dernière fermeture, et aucune
+n'a été rouverte.
+
 ## Historique
 
 - 2026-04-06 : v1.0.0 — Cree apres incident fermeture prematuree de 3 issues (#829, #850, #855)
