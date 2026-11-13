@@ -12,7 +12,7 @@
 
 Six machines, deux agents par machine (un Roo, un Claude Code), un dépôt commun. Une machine coordonne (`myia-ai-01`), les autres exécutent. Il n'y a **pas** de serveur d'orchestration : la coordination passe par des fichiers partagés sur Google Drive et par GitHub. C'est un choix, et il a une conséquence directe — tout état partagé est *éventuellement cohérent*, jamais transactionnel. Une bonne part des règles qui suivent existent pour rendre ce compromis vivable.
 
-Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence (3 h). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
+Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence, écrite une seule fois ([`coordinate.md`](../../.claude/commands/coordinate.md) § « Wakeup Cycle Cadence »). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
 
 ---
 
@@ -175,7 +175,7 @@ Les workers ne tournent pas en continu. Chacun est réveillé par une tâche pla
 
 ### 7.1 Le réveil
 
-Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. La cadence par défaut est **3 h**, coordinateur compris ; deux machines exécutantes tournent à **2 h** — un compromis entre réactivité et coût en tokens, arbitré par machine et non uniformément. Le script installe un gestionnaire `trap` dès sa première ligne utile : tout signal de terminaison (SIGTERM, SIGINT, timeout) déclenche un shutdown gracieux qui préserve le travail en cours avant de rendre la main.
+Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. L'intervalle se règle par machine à l'installation ; les valeurs par défaut de chaque type de tâche (worker, coordinateur planifié, méta-audit) sont les `DefaultInterval` de [`setup-scheduler.ps1`](../../scripts/scheduling/setup-scheduler.ps1) — un compromis entre réactivité et coût en tokens, arbitré par machine et non uniformément. Ces tâches planifiées ne sont pas le cron de session du coordinateur (début de ce document), qui a sa propre ligne canonique. Le script installe un gestionnaire `trap` dès sa première ligne utile : tout signal de terminaison (SIGTERM, SIGINT, timeout) déclenche un shutdown gracieux qui préserve le travail en cours avant de rendre la main.
 
 Le script injecte les variables d'environnement de `~/.claude.json` dans le processus worker (`#2252`) — sans cela, le sous-processus `claude -p` n'hérite pas des variables critiques (clés API, endpoints) qui ne vont qu'au serveur MCP, et la session démarre avec un MCP amputé.
 
