@@ -116,7 +116,7 @@
 
 ## Leçons de terrain
 
-> 109 leçons sorties de la mémoire locale du coordinateur ai-01 le 2026-11-13, chacune relue contre
+> 138 leçons sorties de la mémoire locale du coordinateur ai-01 le 2026-11-13, chacune relue contre
 > sa fiche d'origine. Une leçon = la situation qui doit la rappeler, la règle, le cas mesuré. À lire
 > **avant** le geste que le titre du volet nomme.
 
@@ -127,6 +127,7 @@
 | **GitHub, gh et la CI** (15) | retenter une action `gh`, lire un quota, attendre une file Actions | `field-lessons-github-ci.md` |
 | **Dashboards, messagerie, Drive et moniteurs** (17) | conclure qu'un message est sans réponse, qu'un dashboard est perdu, qu'une alerte appelle une correction | `field-lessons-store-dashboard.md` |
 | **PowerShell, shells et Windows** (24) | écrire un script pour plusieurs machines, croire un code de retour, auditer une panne Windows | `field-lessons-shell-windows.md` |
+| **Coordination de la flotte** (29) | dispatcher ou relancer une lane, tenir un claim, porter une question au user, déclarer un outil nominal, harmoniser un réglage sur la flotte | `field-lessons-coordination.md` |
 
 ## Snapshots & Audits dates
 
