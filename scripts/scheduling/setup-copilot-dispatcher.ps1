@@ -134,7 +134,13 @@ function Install-Task {
     # the full source path now; the fallback is the canonical Windows
     # PowerShell 5.1 location (the worker is 5.1/7-portable). pwsh
     # preferred: ConvertFrom-Json hashtable support and modern syntax.
-    $psCommand = Get-Command pwsh.exe -ErrorAction SilentlyContinue
+    # Off Windows the binary is named "pwsh" and WINDIR is unset. Only the
+    # -DryRun preview runs there (the unit suite on the Linux CI runner),
+    # and since the resolution sits above the -DryRun return it must not
+    # feed a null WINDIR to the 5.1 fallback: look the engine up by its
+    # local name. On Windows the lookup is unchanged (pwsh.exe).
+    $pwshName = if ($env:OS -eq 'Windows_NT') { 'pwsh.exe' } else { 'pwsh' }
+    $psCommand = Get-Command $pwshName -ErrorAction SilentlyContinue
     $psExe = if ($psCommand) { $psCommand.Source } else { Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe' }
 
     if ($DryRun) {
