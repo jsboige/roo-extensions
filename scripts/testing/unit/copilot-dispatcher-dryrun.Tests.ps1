@@ -130,6 +130,21 @@ Describe 'Copilot dispatcher DryRun invariants' {
             New-Item -ItemType Directory -Path $bin -Force | Out-Null
             $invocationLog = Join-Path $root 'cli-invocations.log'
 
+            # Target clone for the retargeted positive control (#4669): a
+            # real git repo with a seed commit -- `git worktree add` on an
+            # unborn HEAD fails, and the control needs the worktree to exist
+            # so the mutated run can reach the paid dispatch. Identity is
+            # repo-local (CI ubuntu runners carry no global git user -- same
+            # lesson as the retarget suite).
+            $targetClone = Join-Path $root 'target-clone'
+            New-Item -ItemType Directory -Path $targetClone | Out-Null
+            & git -C $targetClone init -q -b main 2>$null
+            if ($LASTEXITCODE -ne 0) { & git -C $targetClone init -q 2>$null }
+            & git -C $targetClone config user.name 'copilot-dispatcher-test'
+            & git -C $targetClone config user.email 'copilot-test@example.invalid'
+            & git -C $targetClone commit -q --allow-empty -m 'seed'
+            if ($LASTEXITCODE -ne 0) { throw 'seed commit failed in the dryrun harness target clone (git identity?)' }
+
             $copilotFake = @'
 if ($env:COPILOT_FAKE_INVOCATION_LOG) {
     Add-Content -Path $env:COPILOT_FAKE_INVOCATION_LOG -Value ('copilot :: ' + (@($args) -join ' '))
@@ -168,6 +183,7 @@ exit 0
                 Repo = $repo
                 Script = $scriptCopy
                 StateFile = $stateFile
+                TargetClone = $targetClone
                 # SHA-256 of the fixture BYTES as written: the untouched-state
                 # contract is byte-identical, and text comparison would equate
                 # different byte sequences that decode to the same string
@@ -206,7 +222,10 @@ exit 0
         }
 
         function Invoke-DispatcherDryRun {
-            param([hashtable]$Harness)
+            param(
+                [hashtable]$Harness,
+                [string[]]$ExtraArgs = @()
+            )
 
             # Anti-fallback gate -- RAISING, checked before EVERY child spawn,
             # inside the helper (review of #3542: a standalone It does not
@@ -227,7 +246,7 @@ exit 0
             if ($env:OS -eq 'Windows_NT') {
                 $engineArgs += @('-ExecutionPolicy', 'Bypass')
             }
-            $engineArgs += @('-File', $Harness.Script, '-DryRun', '-IssueNumber', '4242')
+            $engineArgs += @('-File', $Harness.Script, '-DryRun', '-IssueNumber', '4242') + $ExtraArgs
 
             # EAP scoped to Continue around the child call (same pattern as the
             # production script): on pwsh 7.2+ a child stderr line captured via
@@ -371,7 +390,15 @@ exit 0
 
         [System.IO.File]::WriteAllText($script:harness.Script, $mutated, $script:utf8Bom)
 
-        $result = Invoke-DispatcherDryRun -Harness $script:harness
+        # Retargeted geometry (#4669): since the local-mode fail-closed, a
+        # dispatch is only possible with the retarget pair -- the control
+        # must run where the defect can actually spend premium, or its
+        # detection power would silently shrink to zero. The target clone
+        # comes from the harness (git repo, seed commit).
+        $result = Invoke-DispatcherDryRun -Harness $script:harness -ExtraArgs @(
+            '-TargetRepoSlug', 'jsboige/sandbox-target',
+            '-TargetRepoPath', $script:harness.TargetClone
+        )
 
         $result.ExitCode | Should -Be 0
 

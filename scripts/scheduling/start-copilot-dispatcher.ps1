@@ -1007,11 +1007,12 @@ if ($copilotConfig) {
 $state = Load-State
 
 # #622 harness-change (directive user 05/11): resolve the queue repo and the
-# work root. Default keeps the historical behavior — queue and work both in
-# this roo-extensions checkout, ban on commits/PRs in force. With an explicit
-# target, the issue pool moves to the target repo and work moves to a
-# per-issue worktree of its local clone, with delivery (branch + PR) unlocked
-# inside that worktree only.
+# work root. Default (no retarget pair) has NO work root at all — Copilot
+# never runs without a delivery geometry (#4669): local mode used to run it
+# in this checkout with delivery banned, burning premium for work that could
+# never land in a PR. With an explicit target, the issue pool moves to the
+# target repo and work moves to a per-issue worktree of its local clone,
+# with delivery (branch + PR) unlocked inside that worktree only.
 $queueRepoRoot = $repoRoot
 $queueSlug = ''
 # NIT 2 (ai-01 approve review): $workRoot/$copilotWt are only assigned when a
@@ -1069,6 +1070,17 @@ if ($status -ne 'blocked') {
                 $canDeliver = $true
                 Write-Log "Work root (isolated worktree): $workRoot"
             }
+        }
+        # #4669: Copilot never runs without a delivery geometry. Local mode
+        # (no -TargetRepoSlug/-TargetRepoPath) falls through with $workRoot =
+        # the MAIN CHECKOUT of the host lane and CanDeliver=false — measured
+        # on po-2025: uncommitted edits left in the checkout, ~20 premium
+        # requests per run, zero PR. The main checkout of the host lane is
+        # never a Copilot work root: skip at zero premium cost and surface the
+        # misconfiguration as a blocked run (escalation fires on repeat).
+        if (-not $canDeliver -and $status -ne 'blocked') {
+            Write-Log "Skipped: no delivery geometry (set -TargetRepoSlug/-TargetRepoPath) - no Copilot call"
+            $status = 'blocked'
         }
 
         if ($status -ne 'blocked') {
