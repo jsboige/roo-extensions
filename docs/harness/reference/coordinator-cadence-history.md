@@ -1,9 +1,10 @@
 # Cadence du coordinateur ai-01 — historique des décisions
 
-**Ce document est un historique.** La valeur courante n'est écrite qu'à un seul endroit : la ligne
-`CronCreate` canonique de [`.claude/commands/coordinate.md`](../../../.claude/commands/coordinate.md),
-section « Wakeup Cycle Cadence ». Aucun autre fichier ne la recopie, et ce document ne la donne
-qu'en heures, jamais sous forme d'expression cron.
+**Ce document est un historique.** L'expression cron courante n'est écrite qu'à un seul endroit :
+la ligne `CronCreate` canonique de
+[`.claude/commands/coordinate.md`](../../../.claude/commands/coordinate.md), section « Wakeup Cycle
+Cadence ». Aucun autre fichier ne la recopie ; ce document donne les cadences en heures, dernière
+ligne du tableau comprise, jamais sous forme d'expression cron.
 
 ## Pourquoi une source unique
 
@@ -21,7 +22,12 @@ ont prescrit 12 h pendant six jours.
 Depuis, un changement de cadence est une modification d'une ligne, et la garde
 `scripts/testing/unit/coordinator-cadence-single-source.Tests.ps1` (job CI `unit-pester`) échoue si
 une seconde ligne `CronCreate … "/coordinate"` ou une expression cron du coordinateur de valeur
-différente réapparaît dans `.claude/` ou `docs/harness/`.
+différente réapparaît dans `.claude/` (commandes, skills, règles, agents, configs) ou dans `docs/`.
+
+**Ce que la garde ne voit pas :** une cadence écrite en prose (« 12 h », « toutes les douze
+heures ») ou un pas seul (`*/12`) sans la minute. Une phrase qui donne la cadence du coordinateur
+en clair ailleurs que dans ce tableau reste donc à la charge de la relecture : y mettre un renvoi
+vers la ligne canonique, pas une valeur.
 
 ## Invariants qui ne changent pas avec la cadence
 

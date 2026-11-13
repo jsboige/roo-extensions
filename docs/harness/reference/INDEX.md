@@ -72,7 +72,7 @@
 | **Scheduler densification** | Seuil : 1 echec en -simple → escalade IMMEDIATE vers -complex | `scheduler-densification.md` |
 | **Scheduler model defaults** | Worker (`start-claude-worker.ps1`) priority chain : Project field → -Model → labels → sonnet | `scheduler-model-defaults.md` |
 | **Coordinator protocol** | Cycle 6-12h sur ai-01 | `../coordinator-specific/scheduled-coordinator.md` |
-| **Cadence du coordinateur (historique)** | Chaîne datée des décisions user sur le cron `/coordinate` d'ai-01, avec verbatims. La valeur **courante** n'y est pas : source unique = ligne canonique de `.claude/commands/coordinate.md` § « Wakeup Cycle Cadence », gardée par `coordinator-cadence-single-source.Tests.ps1` | `coordinator-cadence-history.md` |
+| **Cadence du coordinateur (historique)** | Chaîne datée des décisions user sur le cron `/coordinate` d'ai-01, avec verbatims. L'expression cron **courante** n'y est pas : source unique = ligne canonique de `.claude/commands/coordinate.md` § « Wakeup Cycle Cadence », gardée par `coordinator-cadence-single-source.Tests.ps1` | `coordinator-cadence-history.md` |
 | **Meta-analysis** | Cycle 72h. Triple grounding. Lecture seule | `meta-analysis.md` |
 | **PR review policy** | Agents → PR → Review coordinateur → Merge | `../coordinator-specific/pr-review-policy.md` |
 | **Meta-analyste (rule)** | Rule slim (role, 7 analyses productives, HARD REJECT). Loaded par `start-meta-audit.ps1` | `../coordinator-specific/meta-analyst-rule.md` |

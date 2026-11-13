@@ -605,7 +605,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../docs/harness/reference/user-channel-doctrine.md).
 
-### Wakeup Cycle Cadence (coordinateur ai-01 : ligne canonique ci-dessous ; exécuteurs **à 4h** depuis 2026-09-15)
+### Wakeup Cycle Cadence (coordinateur ai-01 : ligne canonique ci-dessous ; exécuteurs **à 4h** depuis les mandats user des 15-17/08/2026)
 
 **Ligne canonique — la SEULE à changer quand le user change la cadence du coordinateur :**
 
@@ -637,7 +637,7 @@ CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` est présent dans `CronList`, à la cadence de la **ligne canonique** (§ « Wakeup Cycle Cadence » ci-dessus).
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
-**Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT** avec la ligne `CronCreate` canonique de la section « Wakeup Cycle Cadence » (elle n'est pas recopiée ici : une seconde copie dérive), puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
+**Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT** avec la ligne `CronCreate` canonique de la section « Wakeup Cycle Cadence » (elle n'est pas recopiée ici : une seconde copie dérive), puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`). **Présent mais à une autre cadence → `CronDelete` de l'ancien d'abord**, puis `CronCreate` de la ligne canonique : deux jobs `/coordinate` tirent le même cycle en double.
 
 **Invariant :** *le coordinateur ne s'endort JAMAIS sans un cron `/coordinate` armé.* Garde-fou de fiabilité, pas un changement de cadence. La continuation de contexte est silencieuse pour l'agent — ne JAMAIS supposer que le cron a survécu, le vérifier explicitement. (Ceci ne concerne PAS les sessions interactives non-cron, qui utilisent `ScheduleWakeup` — cf. section ci-dessus.)
 

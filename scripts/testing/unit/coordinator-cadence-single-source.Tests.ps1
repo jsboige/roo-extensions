@@ -10,7 +10,7 @@
 # live job but never the files, which kept prescribing 12h for six days.
 #
 # Contract (scanned trees: .claude/commands, .claude/skills, .claude/rules,
-# .claude/agents, docs/harness, and the root CLAUDE.md):
+# .claude/agents, .claude/configs, docs, and the root CLAUDE.md):
 #   1. Exactly ONE `CronCreate(cron: "...", prompt: "/coordinate"` line
 #      exists, and it lives in .claude/commands/coordinate.md.
 #   2. Every coordinator cron expression (minute 23: "23 */N") found in
@@ -19,6 +19,10 @@
 #      fire at :41), an hour step that divides 24.
 #   Mutant controls prove the scanner sees a second CronCreate line, a
 #   divergent bare expression, and an absent canonical line.
+#
+# Blind spot, on purpose: a cadence written in prose ("12h") or as a bare
+# step ("*/12") without the minute is not seen. Review catches those; the
+# rule for authors is a pointer to the canonical line, never a value.
 #
 # This file is pure ASCII on purpose (Windows PowerShell 5.1 reads a
 # BOM-less script as ANSI).
@@ -96,14 +100,19 @@ Describe 'coordinator cadence - single source of truth (coordinate.md canonical 
         }
 
         # Real repo content.
+        # .claude/configs carries the source of the deployed global CLAUDE.md;
+        # docs is scanned whole (docs/scheduler held a stale value until 2026-11-13).
         $script:repoTexts = @{}
-        $scanDirs = @('.claude/commands', '.claude/skills', '.claude/rules', '.claude/agents', 'docs/harness')
-        foreach ($dir in $scanDirs) {
+        $script:scanDirs = @('.claude/commands', '.claude/skills', '.claude/rules', '.claude/agents', '.claude/configs', 'docs')
+        $script:scanCounts = @{}
+        foreach ($dir in $script:scanDirs) {
+            $script:scanCounts[$dir] = 0
             $abs = Join-Path $script:repoRoot $dir
             if (-not (Test-Path -LiteralPath $abs)) { continue }
             foreach ($file in (Get-ChildItem -LiteralPath $abs -Recurse -File -Filter '*.md')) {
                 $rel = $file.FullName.Substring($script:repoRoot.Length).TrimStart('\', '/').Replace('\', '/')
                 $script:repoTexts[$rel] = [System.IO.File]::ReadAllText($file.FullName)
+                $script:scanCounts[$dir]++
             }
         }
         $rootClaude = Join-Path $script:repoRoot 'CLAUDE.md'
@@ -121,6 +130,15 @@ Describe 'coordinator cadence - single source of truth (coordinate.md canonical 
     It 'the scan is not mute: it reads the canonical file and a non-trivial number of documents' {
         $script:repoTexts.ContainsKey($script:canonicalRel) | Should -BeTrue
         $script:repoTexts.Count | Should -BeGreaterThan 20
+    }
+
+    It 'every scanned tree yields documents (a tree dropped from the list, or renamed, is reported)' {
+        $script:scanDirs.Count | Should -Be 6
+        $empty = @($script:scanDirs | Where-Object { $script:scanCounts[$_] -lt 1 })
+        ($empty -join ', ') | Should -BeNullOrEmpty
+        # The two trees that held a copy the first version of this guard did not scan.
+        $script:repoTexts.ContainsKey('docs/scheduler/connector-v3-spec.md') | Should -BeTrue
+        $script:repoTexts.ContainsKey('.claude/configs/user-global-claude.md') | Should -BeTrue
     }
 
     It 'the repo holds exactly one CronCreate /coordinate line, in coordinate.md, and nothing diverges from it' {

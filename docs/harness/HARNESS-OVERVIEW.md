@@ -12,7 +12,7 @@
 
 Six machines, deux agents par machine (un Roo, un Claude Code), un dépôt commun. Une machine coordonne (`myia-ai-01`), les autres exécutent. Il n'y a **pas** de serveur d'orchestration : la coordination passe par des fichiers partagés sur Google Drive et par GitHub. C'est un choix, et il a une conséquence directe — tout état partagé est *éventuellement cohérent*, jamais transactionnel. Une bonne part des règles qui suivent existent pour rendre ce compromis vivable.
 
-Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence (3 h). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
+Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence, écrite une seule fois ([`coordinate.md`](../../.claude/commands/coordinate.md) § « Wakeup Cycle Cadence »). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
 
 ---
 

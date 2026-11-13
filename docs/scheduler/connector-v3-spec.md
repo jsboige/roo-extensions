@@ -74,9 +74,10 @@ running since AC0 success 2026-11-02 01:16Z).
 | Roo | VS Code extension session | scheduler extension (win-cli MCP fork; no `command` group on any mode, #1482) |
 | Copilot | VS Code / Copilot CLI | schtask `Copilot-Dispatcher` → `scripts/scheduling/start-copilot-dispatcher.ps1`, Phase C fallback `gh copilot -p` with the **prompt passed via file** and a short argv (AC0 constraint: argv > 32 767 chars kills the spawn; AC0 passed 02/11 01:16Z) |
 
-Cadences are **decided by the user, per lane, and asymmetric by design** (executors 4h at `:41`,
-coordinator 12h at `:23`; Copilot dispatcher currently PT12H — measured 02/11). Never "realign"
-one lane onto another's cadence.
+Cadences are **decided by the user, per lane, and asymmetric by design** (executors 4h at `:41`;
+coordinator at `:23`, its interval written once, in the canonical line of
+`.claude/commands/coordinate.md` § « Wakeup Cycle Cadence »; Copilot dispatcher currently PT12H —
+measured 02/11). Never "realign" one lane onto another's cadence.
 
 ## 5. Status — reporting with evidence
 
