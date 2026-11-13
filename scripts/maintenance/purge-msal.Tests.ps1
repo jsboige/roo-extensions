@@ -126,6 +126,9 @@ Describe 'install-msal-purge-watch.ps1 -DryRun — construit sans enregistrer' {
     It 'affiche la tache et ne cree aucune tache' {
         $name = 'MsalPurgeDryRun-' + [guid]::NewGuid().ToString('N')
         $out = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script:inst -DryRun -TaskName $name 2>&1 | Out-String
+        # Un exit non nul doit dire POURQUOI dans le log du runner : sans cette ligne,
+        # marshall-scripts-pester ne montrait que le code de sortie (mesure 13/11).
+        if ($LASTEXITCODE -ne 0) { Write-Host "[SORTIE INSTALLATEUR]`n$out" }
         $LASTEXITCODE | Should -Be 0
         $out | Should -Match '\[DRY-RUN\] tache construite, RIEN enregistre'
         $out | Should -Match '-Watch'
