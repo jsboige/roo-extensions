@@ -66,7 +66,7 @@ mémoire de l'agent qui l'avait posée.
 ```bash
 python scripts/diagnostic/check-degraded-escalations.py                # commande canonique : store PG, bearer lu automatiquement
 python scripts/diagnostic/check-degraded-escalations.py --json
-python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le global — PUBLIEUR UNIQUE : ai-01
+python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le global — tout siège équipé du bearer, une seule entrée par lot et par jour
 python scripts/diagnostic/check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu forensic
 python scripts/diagnostic/check-degraded-escalations.py --env-file <chemin>   # autre fichier CLE=valeur (vide = aucun)
 python scripts/diagnostic/check-degraded-escalations.py --selftest
@@ -90,15 +90,36 @@ environnement du processus > fichier > défaut d'URL**. Le fichier n'est jamais
 *sourcé* : seules les lignes nommées `MCP_PROXY_BEARER` / `MCP_PROXY_BASE_URL` /
 `MCP_PROXY_URL` sont analysées, aucune autre valeur n'est matérialisée. Fichier
 absent = pas une erreur (ai-01 porte son bearer dans l'environnement de son
-lanceur) ; fichier illisible ou mal formé = warning **sans aucune valeur**, et
+lanceur) ; fichier illisible ou mal formé = warning **qui n'imprime aucune
+valeur** (les clés lisibles du fichier restent utilisées), et
 le fail-closed existant reste la garantie (sans bearer lisible, pas de lecture
 store, sortie `1`). Les flux stdout/stderr sont forcés en UTF-8
 (`errors="replace"`) : sous la console Windows cp1252, un extrait portant une
 flèche `U+2192` faisait lever `UnicodeEncodeError` dans `report()` et le crash
 rendait **exit 1 à la place du verdict 2** (mesuré po-2028, 13/11).
-**Sonnerie : un seul publieur consolidé, ai-01** ; les autres sièges mesurent
-sans `--ring` — la clé d'idempotence est par hôte, un `--ring` de siège
-produirait un doublon, pas un dédoublonnage.
+
+**Un `--ring-bearer ""` explicite veut dire « aucun bearer »** (suite de la
+review de #4677) : il masque l'environnement **et** le fichier. Seul l'argument
+absent laisse parler les étages suivants. Mesure qui a motivé la règle : la
+suite de tests, lancée avec un bearer factice dans l'environnement, passait
+`--ring-bearer ""` et l'organe reprenait le bearer ambiant — sur un siège qui
+exporte un vrai bearer, lancer les tests aurait pu sonner pour de bon.
+
+**Sonnerie : chaque siège sonne, une seule entrée arrive.** La règle demande à
+chaque lane de sonner sur un exit `2` ; la clé d'idempotence ne porte donc
+**pas** l'hôte. Elle vaut `empreinte du lot trié + jour` : deux sièges qui
+mesurent le même lot le même jour calculent le même identifiant, et l'append
+du dashboard ignore un identifiant déjà présent (#3276, archives de
+condensation comprises #3782). Le second siège lit alors « sonnerie déjà
+présente … aucune nouvelle entrée » et sort `2` comme le premier — une
+sonnerie dédoublonnée **existe**, ce n'est pas une sonnerie non partie.
+Un seul publieur désigné aurait rendu la sonnerie muette le jour où ce siège
+est celui qui tombe. Limites : deux sièges qui lisent à des instants différents
+peuvent voir deux lots différents (une escalade de plus est échue entre-temps)
+— deux identifiants, deux entrées, et c'est voulu : le lot a changé. De même,
+le jour de la clé est compté en UTC : le même lot sonné par un siège avant
+minuit UTC et par un autre après fait deux entrées, comme la re-sonnerie
+quotidienne.
 
 **Déclaration ≠ mention** (review #4519) : une escalade est **déclarée** par la
 ligne `[tags: … DEGRADED …]` ou par le token en **premier token du corps**.
@@ -193,9 +214,9 @@ donc une déclaration en premier token n'était jamais vue non plus — les lign
 métadonnées de tête sont désormais neutralisées avant le test du premier token.
 
 `--ring` poste un `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard `global`,
-avec une clé d'idempotence **quotidienne** : le même lot sonne **une fois par
-jour**, jamais une fois par tick, et re-sonne chaque jour tant que rien n'est
-réparé. Le texte de la sonnerie ne porte **aucun token de declaration**
+avec une clé d'idempotence **quotidienne et commune à tous les sièges** : le
+même lot sonne **une fois par jour**, jamais une fois par tick ni une fois par
+siège, et re-sonne chaque jour tant que rien n'est réparé. Le texte de la sonnerie ne porte **aucun token de declaration**
 (`[DEGRADED]`/`[REPAIRED]` remplacés par leur mot) et son entrée porte le tag
 `DEGRADED-ESCALATION` : la sonnerie ne peut ni fermer sa propre alarme ni en
 ouvrir une nouvelle. Le transport est celui de `detect-approval-stalls.py`

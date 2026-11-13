@@ -735,6 +735,119 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertNotEqual(cde.build_ring_id([item], now=1750000000),
                             cde.build_ring_id([item], now=1750100000))
 
+    # --- Review #4677 : la sonnerie de N sieges ne fait qu'UNE entree --------
+
+    def test_ring_id_is_the_same_on_every_seat(self):
+        # La regle demande a CHAQUE lane de sonner sur un exit 2. Avec l'hote
+        # dans la cle, deux sieges postaient deux entrees ; sans lui, le
+        # serveur reconnait l'id et n'ecrit qu'une fois.
+        item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-AI-01",
+                                          "HOSTNAME": "MYIA-AI-01"}):
+            on_ai01 = cde.build_ring_id([item], now=1750000000)
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2028",
+                                          "HOSTNAME": "MYIA-PO-2028"}):
+            on_po2028 = cde.build_ring_id([item], now=1750000000)
+        # Tueur : sur cb812aff les deux ids different par l'hote.
+        self.assertEqual(on_ai01, on_po2028)
+        self.assertNotIn("MYIA", on_ai01)
+
+    def test_ring_id_ignores_the_order_of_the_lot(self):
+        a = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
+        b = {"lane": "b|ws", "posted": "2026-11-03T00:00:00Z"}
+        self.assertEqual(cde.build_ring_id([a, b], now=1750000000),
+                         cde.build_ring_id([b, a], now=1750000000))
+        # Temoin : un lot different garde un id different.
+        self.assertNotEqual(cde.build_ring_id([a, b], now=1750000000),
+                            cde.build_ring_id([a], now=1750000000))
+
+    def ring_through_fake_append(self, envelope):
+        """main() --ring sur une escalade echue, append bouchonne qui rend
+        `envelope` sous la forme du serveur (JSON indente de 2, comme
+        `JSON.stringify(result, null, 2)`, puis le pied de page de l'hote) ;
+        rend (code, appels, stderr)."""
+        path = self.dashboard("ring-envelope.md", """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+""")
+        calls = []
+
+        def call(arguments, url, bearer, timeout=10.0, client=None, **_kw):
+            calls.append(arguments)
+            return {"content": [{"type": "text", "text":
+                                 json.dumps(envelope, indent=2)
+                                 + "\n[roosync_dashboard 12ms]"}]}
+
+        original = cde._load_transport
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", original)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--ring", "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        return code, calls, err.getvalue()
+
+    def test_deduplicated_ring_counts_as_delivered(self):
+        # Un second siege sonne le meme lot le meme jour : le serveur rend
+        # `deduplicated: true` sans rien ecrire. La sonnerie EXISTE : exit 2,
+        # pas le 1 d'une sonnerie non partie — et la sortie dit qu'aucune
+        # entree neuve n'a ete ecrite.
+        code, calls, err = self.ring_through_fake_append(
+            {"success": True, "action": "append", "deduplicated": True})
+        self.assertEqual(code, 2)
+        self.assertEqual([c["action"] for c in calls], ["append"])
+        self.assertIn("deja presente", err)
+        self.assertNotIn("postee sur le dashboard global", err)
+
+    def test_first_ring_of_the_day_is_reported_as_posted(self):
+        # Contre-temoin : sans le drapeau, la sortie garde « postee ».
+        code, calls, err = self.ring_through_fake_append(
+            {"success": True, "action": "append"})
+        self.assertEqual(code, 2)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("postee sur le dashboard global", err)
+        self.assertNotIn("deja presente", err)
+
+    # --- Review #4677 : `--ring-bearer ""` veut dire « aucun bearer » --------
+
+    def test_explicit_empty_bearer_masks_environment_and_file(self):
+        with mock.patch.dict(os.environ, {"MCP_PROXY_BEARER": "ambient"}):
+            # Tueur : sur cb812aff la chaine de `or` rend "ambient".
+            self.assertIsNone(cde.resolve_proxy_config(
+                None, "", {"MCP_PROXY_BEARER": "from-file"})[1])
+            # Temoins : l'argument ABSENT laisse parler l'environnement ; un
+            # argument non vide gagne.
+            self.assertEqual(cde.resolve_proxy_config(
+                None, None, {"MCP_PROXY_BEARER": "from-file"})[1], "ambient")
+            self.assertEqual(cde.resolve_proxy_config(
+                None, "cli", {"MCP_PROXY_BEARER": "from-file"})[1], "cli")
+        with mock.patch.dict(os.environ, {"MCP_PROXY_BEARER": ""}):
+            self.assertEqual(cde.resolve_proxy_config(
+                None, None, {"MCP_PROXY_BEARER": "from-file"})[1], "from-file")
+            self.assertIsNone(cde.resolve_proxy_config(
+                None, "", {"MCP_PROXY_BEARER": "from-file"})[1])
+
+    def test_explicit_empty_bearer_never_publishes_under_an_ambient_bearer(self):
+        # Le cas dangereux, au niveau de main() : un shell qui exporte un vrai
+        # bearer, une suite qui passe `--ring-bearer ""`. Sur cb812aff la
+        # publication etait appelee avec le bearer ambiant.
+        path = self.dashboard("ring-ambient.md", """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+""")
+        rings = []
+        original = cde.publish_ring
+        cde.publish_ring = lambda *a, **k: rings.append(a) or "posted"
+        self.addCleanup(setattr, cde, "publish_ring", original)
+        with mock.patch.dict(os.environ, {"MCP_PROXY_BEARER": "ambient",
+                                          "MCP_PROXY_URL": "http://127.0.0.1:1"}), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--ring", "--ring-bearer", "", "--env-file", ""])
+        self.assertEqual(code, 1)
+        self.assertEqual(rings, [])
+        self.assertIn("sans bearer", err.getvalue())
+
     # --- #4643 : la condensation ne doit plus aveugler l'organe -------------
 
     def test_archived_repaired_closes_the_live_escalation(self):
