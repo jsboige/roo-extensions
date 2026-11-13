@@ -22,6 +22,10 @@
 #   4. a -TargetRepoPath that does not exist: refused.
 #   5. Positive controls (mutants): stripping the forwarding makes the args
 #      lose the pair; stripping the refusal makes a bare install succeed.
+#   6. Execute is an ABSOLUTE existing path, resolved at install time and
+#      previewed by the dry-run (a bare "pwsh.exe" registers fine, then the
+#      Task Scheduler fires the tir with a minimal PATH and fails
+#      0x80070002); mutant control: the bare name re-introduces the defect.
 #
 # Design notes: the installer runs as a CHILD PROCESS of the same engine that
 # runs this suite, against a TEMPORARY COPY of the script (the production
@@ -30,7 +34,7 @@
 #
 # Run:  powershell -File scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/setup-copilot-dispatcher.Tests.ps1
 
-Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command line (#4669)' {
+Describe 'setup-copilot-dispatcher.ps1 — retarget pair + absolute Execute in the task command line (#4669)' {
 
     BeforeAll {
         $script:productionScript = Join-Path $PSScriptRoot '../../scheduling/setup-copilot-dispatcher.ps1'
@@ -126,6 +130,30 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
         $out | Should -Match ([regex]::Escape("-TargetRepoPath `"$($harness.Clone)`""))
     }
 
+    It 'install WITH the pair: dry-run previews Execute as an ABSOLUTE existing path' {
+        # #4669: the Task Scheduler fires the tir with a minimal environment
+        # that does not guarantee the installer's PATH -- a bare "pwsh.exe"
+        # registers without complaint, then fails 0x80070002 at fire time.
+        # The preview must show the resolved absolute path, and it must
+        # exist on the machine doing the install (pwsh .Source, else the
+        # canonical 5.1 location).
+        $harness = New-InstallerHarness -ScriptText $script:fixedText
+        $result = Invoke-InstallerChild -Harness $harness -ExtraArgs @(
+            '-Action', 'install', '-DryRun',
+            '-TargetRepoSlug', 'jsboige/CoursIA',
+            '-TargetRepoPath', $harness.Clone
+        )
+
+        $result.ExitCode | Should -Be 0
+        # The resolved path may contain spaces (C:\Program Files\...): capture
+        # to the end of the preview line, then trim.
+        $match = [regex]::Match($result.Output, '\[DRY-RUN\] Execute: ([^\r\n]+)')
+        $match.Success | Should -BeTrue
+        $exe = $match.Groups[1].Value.Trim()
+        [System.IO.Path]::IsPathRooted($exe) | Should -BeTrue
+        (Test-Path -LiteralPath $exe) | Should -BeTrue
+    }
+
     It 'a trailing path separator on -TargetRepoPath is normalized in the registered args' {
         # A trailing \ would escape the closing quote of the interpolated
         # command line and mangle the task's argument parsing. Assert the
@@ -150,6 +178,18 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
         # the retarget pair inside its construction.
         $script:fixedText | Should -Match '-TargetRepoSlug \$TargetRepoSlug -TargetRepoPath `"\$targetPathNorm`"'
         $script:fixedText | Should -Match '-Argument \$taskCli'
+    }
+
+    It 'the previewed Execute is the string registered: $psExe resolves via .Source / the 5.1 fallback and flows into -Execute (source pin)' {
+        # Same closing-the-loop spirit as the $taskCli pin above: the
+        # behavioral test rides the -DryRun preview; this pin ties the
+        # printed Execute to the value handed to New-ScheduledTaskAction --
+        # the SAME $psExe variable, built from (Get-Command pwsh.exe).Source
+        # with the canonical 5.1 fallback, never a bare name.
+        $script:fixedText | Should -Match '\$psExe = if \(\$psCommand\) \{ \$psCommand\.Source \} else \{ Join-Path \$env:WINDIR'
+        $script:fixedText | Should -Match ([regex]::Escape("'System32\WindowsPowerShell\v1.0\powershell.exe'"))
+        $script:fixedText | Should -Match '\[DRY-RUN\] Execute: \$psExe'
+        $script:fixedText | Should -Match '-Execute \$psExe'
     }
 
     It 'install WITHOUT the pair: refused with the explicit no-delivery-geometry message' {
@@ -240,5 +280,33 @@ Describe 'setup-copilot-dispatcher.ps1 — retarget pair in the task command lin
         $out = $result.Output
         $out | Should -Match '\[DRY-RUN\] Would install Copilot-Dispatcher'
         $out | Should -Not -Match 'install refused'
+    }
+
+    It 'POSITIVE CONTROL 3: with the bare name restored, Execute previews as a BARE name (the 0x80070002 defect)' {
+        # Mutate a copy of the FIXED script: put the pre-fix resolution
+        # back -- a bare "pwsh.exe", the exact defect the scheduled tir hit
+        # 0x80070002 with (registers fine, the scheduler cannot resolve the
+        # name at fire time). The preview then shows a bare name: proof the
+        # production assertions above detect this mutant.
+        $needle = '$psExe = if ($psCommand) { $psCommand.Source } else { Join-Path $env:WINDIR ''System32\WindowsPowerShell\v1.0\powershell.exe'' }'
+        $mutated = $script:fixedText.Replace($needle, '$psExe = "pwsh.exe"')
+
+        # Mutation validity: the anchor drifted -> fail loudly.
+        $mutated | Should -Not -Be $script:fixedText
+        $mutated | Should -Not -Match '\$psCommand\.Source'
+
+        $harness = New-InstallerHarness -ScriptText $mutated
+        $result = Invoke-InstallerChild -Harness $harness -ExtraArgs @(
+            '-Action', 'install', '-DryRun',
+            '-TargetRepoSlug', 'jsboige/CoursIA',
+            '-TargetRepoPath', $harness.Clone
+        )
+
+        $result.ExitCode | Should -Be 0
+        $match = [regex]::Match($result.Output, '\[DRY-RUN\] Execute: ([^\r\n]+)')
+        $match.Success | Should -BeTrue
+        $exe = $match.Groups[1].Value.Trim()
+        $exe | Should -Be 'pwsh.exe'
+        [System.IO.Path]::IsPathRooted($exe) | Should -BeFalse
     }
 }
