@@ -1,411 +1,186 @@
-# 🚀 Roo Extensions - Écosystème Multi-Agent de Développement Intelligent
+# Roo Extensions — le harnais d'une flotte d'agents de développement
 
-**Version** : 2.4.0
-**Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 22 avril 2026
-**GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
+**État décrit :** 13 novembre 2026 · **Suivi du travail :** [Project #67](https://github.com/users/jsboige/projects/67) · **Licence :** MIT
 
----
+Ce dépôt est le harnais de travail d'une flotte réelle : des agents Claude Code répartis sur
+plusieurs machines, qui se coordonnent sans serveur d'orchestration, par des tableaux de bord et
+une messagerie partagés. Il contient les règles que ces agents chargent, les commandes et skills
+qu'ils exécutent, les scripts qui les planifient et les contrôlent, et le serveur MCP qui porte
+leur coordination.
 
-## 🎯 Vue d'Ensemble
-
-Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (17 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
-
-### 🏆 Réalisations Principales
-
-- ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
-- ✅ **5 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent (github-projects-mcp RETIRÉ #368)
-- ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **17 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13, + `claudish_traffic` (#3391), + `roosync_harmonization` (#3545)
-- ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
-- ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
-- ✅ **GitHub Projects #67** : 242 items actifs
-- ✅ **~13 400 tests unitaires** : 720 fichiers .test.ts, CI GitHub Actions (Node 18+20)
+Ce n'est pas un produit clé en main. C'est un système en service, documenté pour ceux qui y
+travaillent — humains, agents de la flotte, et sessions d'assistance qui n'en font pas partie.
 
 ---
 
-## 🚀 Démarrage Rapide
+## Par où commencer
 
-### Prérequis
-
-- **Roo** installé et configuré dans VS Code
-- **Claude Code** CLI (optionnel, pour escalade Niveau 3)
-- **PowerShell 7.2+** (recommandé pour scripts Windows)
-- **Node.js 18+** (pour serveurs MCP)
-- **Git 2.30+** (pour synchronisation et sous-modules)
-- **Accès modèles** : Anthropic Claude ou z.ai GLM-5
-
-### Installation en 4 Étapes
-
-1. **Cloner le dépôt et initialiser les sous-modules :**
-    ```bash
-    git clone https://github.com/jsboige/roo-extensions.git
-    cd roo-extensions
-    git submodule update --init --recursive
-    ```
-
-2. **Déployer la configuration complète :**
-    ```powershell
-    # Déploiement global (CLAUDE.md + agents + skills)
-    ./.claude/configs/scripts/Deploy-GlobalConfig.ps1
-
-    # Déploiement des modes Roo
-    node roo-config/scripts/generate-modes.js
-    Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
-
-    # Déploiement du scheduler Roo
-    .\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy
-    ```
-
-3. **Installer et configurer les MCPs :**
-    ```powershell
-    # Installation des MCPs internes
-    cd mcps/internal/servers/roo-state-manager && npm install && npm run build
-    # Submodule: mcps/internal pointe vers jsboige-mcp-servers
-    ```
-
-4. **Redémarrer VS Code** et activer les nouveaux modes et MCPs
-
-### Protocol de Claim (Anti Double-Traitement)
-
-Avant de travailler sur une tâche, **toujours la revendiquer** — le verrou vit sur l'issue (ADR 017, #3676) :
-
-```bash
-# 1. Vérifier qu'aucune autre machine ne tient le verrou, puis poser le sien
-python scripts/github/check_issue_claim.py {NUM}                    # exit 1 = verrou tenu ailleurs
-# exit 2 = erreur gh, ou depot indeterminable | exit 3 = numero ambigu entre les deux depots (#3768)
-python scripts/github/check_issue_claim.py {NUM} --claim "intention en une ligne"
-
-# 2. Mettre à jour Project #67
-gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(...) }"
-```
-
-Le `createdAt` serveur du commentaire fait foi (jamais de timestamp dans le corps). Le dashboard workspace garde le récit de cycle, il n'est plus le registre de verrous. Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
+| Vous êtes | Lisez d'abord |
+|---|---|
+| Un humain qui découvre le système | [`docs/harness/HARNESS-OVERVIEW.md`](docs/harness/HARNESS-OVERVIEW.md) — ce que le harnais fait, avec quoi, et pourquoi |
+| Un agent Claude Code sur une machine de la flotte | [`CLAUDE.md`](CLAUDE.md), puis les règles de [`.claude/rules/`](.claude/rules/) (chargées automatiquement) |
+| Une session cloud ou hors flotte, sans MCP ni mémoire locale | [`docs/harness/reference/off-fleet-cloud-sessions.md`](docs/harness/reference/off-fleet-cloud-sessions.md) |
+| À la recherche d'un document précis | [`docs/harness/reference/INDEX.md`](docs/harness/reference/INDEX.md) — l'index de toute la documentation |
+| Sur le point de conclure d'une mesure, d'approuver une PR ou d'écrire un script pour la flotte | La section « Leçons de terrain » du même index |
 
 ---
 
-## 🏗️ Architecture Multi-Agent
+## Ce que fait le système
 
-### Machines du Système
+- **Une flotte, un coordinateur.** Une machine coordonne : elle relit et merge les PR, arbitre
+  les collisions, distribue le travail. Les autres exécutent : elles prennent une issue,
+  produisent une PR, rapportent. Personne n'approuve sa propre PR.
+- **Pas de serveur central.** La coordination passe par des tableaux de bord partagés
+  (`global`, `machine`, `workspace`) et une messagerie entre machines — l'ensemble s'appelle
+  RooSync. Le serveur MCP `roo-state-manager`, lancé localement par chaque agent, lit et écrit ce
+  magasin partagé.
+- **Le travail vit sur GitHub.** Les issues portent les tâches et leur verrou (le claim), les PR
+  portent le résultat, le Project #67 donne la vue d'ensemble.
+- **Des cycles, pas un service.** Chaque agent est réveillé par un cron de session ou une tâche
+  planifiée Windows, exécute un cycle, écrit son bilan, et s'arrête.
 
-| Machine | Rôle | MCPs |
-|---------|------|------|
-| **myia-ai-01** | Coordinateur | GitHub CLI + RooSync + roo-state-manager |
-| **myia-po-2023** | Exécutant | GitHub CLI + RooSync |
-| **myia-po-2024** | Exécutant | GitHub CLI + RooSync |
-| **myia-po-2025** | Exécutant | GitHub CLI + RooSync |
-| **myia-po-2026** | Exécutant | GitHub CLI + RooSync |
-| **myia-web1** | Exécutant | GitHub CLI + RooSync |
+**La flotte au 13/11/2026 : 9 machines** — un coordinateur (`myia-ai-01`), six exécutants
+(`myia-po-2023` à `myia-po-2028`, dont `myia-po-2027` en Claude seul) et deux sièges web
+(`myia-web1`, `myia-web2`). La liste qui fait foi, avec le rôle de chaque machine et la date de
+sa dernière vérification, est [`.claude/configs/fleet-manifest.json`](.claude/configs/fleet-manifest.json).
 
-### Structure du Projet
+**Zoo Code** a succédé à Roo Code, dont le dépôt garde le nom. Cette extension VS Code servait
+d'agent compagnon planifié, avec ses modes (`roo-config/`). Elle est aujourd'hui désactivée sur la
+flotte : l'état désactivé d'un siège s'est recopié sur les autres par la synchronisation des
+réglages de VS Code (mesuré sur deux sièges, #4025), et le user a confirmé le 8 novembre 2026 que
+cet arrêt est voulu pour l'instant. Les modes et leur générateur restent dans le dépôt.
+
+---
+
+## Ce que contient le dépôt
 
 ```
-roo-extensions/
-├── 📁 .claude/                    # Configuration Claude Code agents
-│   ├── agents/                    # 18 subagents spécialisés
-│   ├── skills/                    # 6 skills auto-invoqués
-│   ├── commands/                  # 4 slash commands
-│   ├── rules/                     # 17 règles auto-chargées
-│   └── local/                     # Communication locale (INTERCOM)
-├── 📁 docs/                       # Documentation technique consolidée
-│   ├── roosync/                   # Protocoles RooSync v2.3
-│   ├── architecture/              # Designs et analyses
-│   ├── guides/                    # Guides utilisateur
-│   ├── scheduler/                 # Documentation scheduler (NOUVEAU)
-│   └── framework-multi-agent/     # Templates coordination
-├── 📁 mcps/internal/servers/
-│   ├── roo-state-manager/         # 17 outils MCP (wrapper v4)
-│   └── sk-agent/                  # 7 outils (Python FastMCP + Semantic Kernel)
-├── 📁 roo-config/                 # Configuration centralisée
-│   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
-│   ├── scheduler/                 # Orchestration autonome (3h interval)
-│   └── settings/                  # Paramètres globaux
-├── 📁 scripts/
-│   └── scheduling/                # Claude Code worker + Task Scheduler setup
-└── 📄 CLAUDE.md                   # Guide principal agents
+.claude/
+  rules/            règles chargées à chaque conversation
+  commands/         commandes (/coordinate, /executor, ...)
+  skills/           skills (sync-tour, validate, pr-review, ...)
+  agents/           sous-agents du projet
+  configs/          configuration globale à déployer sur chaque machine, manifeste de flotte
+docs/harness/
+  HARNESS-OVERVIEW.md      la vue d'ensemble
+  reference/               documentation à la demande (INDEX.md en est l'entrée)
+  coordinator-specific/    politique de review, cycle du coordinateur
+  adr/                     décisions d'architecture
+mcps/
+  internal/         sous-module : roo-state-manager (TypeScript), sk-agent (Python)
+  external/         serveurs MCP tiers et forks
+  forked/           sous-module : fork des serveurs MCP de référence
+roo-config/         modes de l'extension compagnon et leur générateur
+scripts/
+  scheduling/       tâches planifiées, workers, gardes
+  github/           claim d'issue, review et merge
+  diagnostic/       sondes : MCP du siège, escalades, manifeste
+  mcp/              validation avant push
+  testing/          suites Pester et Python des scripts
+roo-code/, zoo-code/   sous-modules : sources des deux extensions (roo-code : référence de lecture, pas un environnement de build)
 ```
 
-### MCPs Actifs (2026-04-22)
-
-**5 serveurs MCP + GitHub CLI déployés sur 6 machines :**
-
-| MCP | Outils | Description |
-|-----|--------|-------------|
-| **roo-state-manager** | 17 | Messaging RooSync, config sync, task browsing, semantic search (post all CONS rounds) |
-| **sk-agent** | 7 | 13 agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
-| **playwright** | 22 | Browser automation, screenshots, form filling |
-| **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |
-| **win-cli** | 9 | Windows CLI, SSH, commandes shell (fork local 0.2.0) |
-
-**GitHub CLI (gh)** - Remplace github-projects-mcp (#368). Issues, PRs, Projects via command line.
-
-**Documentation complète :** [`mcps/README.md`](mcps/README.md)
+Les comptes (règles, agents, skills, outils) ne sont pas recopiés ici : ils dérivent. Ceux que
+le dépôt garde sous contrôle sont dans [`CLAUDE.md`](CLAUDE.md), et un test les recompte à
+chaque push.
 
 ---
 
-## 🎯 Composants Principaux
+## Les serveurs MCP
 
-### 1. 🔄 RooSync v2.3 - Coordination Multi-Machines
+`roo-state-manager` est le seul serveur requis sur chaque siège. Il expose 18 outils : tableaux
+de bord et messagerie, inventaire et comparaison de configuration, navigation dans l'historique
+des conversations, recherche sémantique dans le code et les tâches, diagnostic. La section 2 de
+[`HARNESS-OVERVIEW.md`](docs/harness/HARNESS-OVERVIEW.md) les décrit un par un.
 
-**Architecture :** 6 machines coordonnées (1 coordinateur + 5 exécutants)
-
-#### Fonctionnalités Clés
-
-- ✅ **Messagerie inter-machines** : roosync_send, roosync_read, roosync_manage (CONS-1)
-- ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
-- ✅ **Inventory automatique** : Détection système complète (6 machines)
-- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **17 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
-
-#### Workflow Principal
-```
-Collect → Publish → Compare → Validate → Apply
-```
-
-#### Modes Coordination
-
-- **Bicéphale** : Roo (technique) + Claude Code (coordination/documentation)
-- **Double scheduler** : Roo (3h, modes simple/complex) + Claude Code (3h, Haiku avec escalade)
-- **Communication** : RooSync (inter-machines), INTERCOM (locale Roo ↔ Claude)
-
-**Documentation complète :** [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
-
-### 2. 🎭 Modes Roo Personnalisés
-
-#### Architecture à 2 Niveaux
-
-- **Modes Simples** : Tâches courantes (GLM-5 gratuit)
-- **Modes Complexes** : Tâches avancées (GLM-5 + escalade CLI)
-
-#### 5 Familles de Modes
-
-- **Code** : Développement et refactoring
-- **Debug** : Diagnostic et résolution problèmes
-- **Architect** : Conception et architecture
-- **Ask** : Questions et recherche
-- **Orchestrator** : Coordination et délégation
-
-#### Escalade Automatique
-```
--simple → -complex → claude -p (CLI)
-```
-
-**Documentation :** [`docs/roosync/ESCALATION_MECHANISM.md`](docs/roosync/ESCALATION_MECHANISM.md)
-
-### 3. 🤖 Agents et Skills Claude Code
-
-#### 18 Subagents Disponibles
-
-| Agent | Usage |
-|-------|-------|
-| **git-sync** | Pull conservatif + résolution conflits |
-| **test-runner** | Build + tests unitaires |
-| **code-fixer** | Investigation et correction bugs |
-| **code-explorer** | Exploration codebase |
-| **doc-updater** | Mise à jour documentation |
-| **test-investigator** | Investigation tests échoués/instables |
-| **roosync-hub** | Hub central messages RooSync (coordinateur) |
-| **dispatch-manager** | Assignation tâches aux machines (coordinateur) |
-| **task-planner** | Planification multi-agent (coordinateur) |
-| **roosync-reporter** | Rapports au coordinateur (exécutant) |
-| **task-worker** | Exécution tâches assignées (exécutant) |
-| **consolidation-worker** | Consolidations CONS-X (spécialisé) |
-| **config-auditor** | Audit configurations MCP et modes |
-| **codebase-researcher** | Recherche SDDD multi-pass |
-| **script-runner** | Exécution scripts avec gestion d'erreurs |
-| **pr-reviewer** | Review autonome de pull requests |
-| **issue-triager** | Classification et priorisation issues |
-| **sync-checker** | Vérification rapide git/MCP/schtasks |
-
-#### 6 Skills Auto-Invoqués
-
-- **sync-tour** : Tour de sync complet (9 phases)
-- **validate** : CI local (build + tests)
-- **git-sync** : Synchronisation Git
-- **github-status** : État Project #67
-- **redistribute-memory** : Audit et redistribution mémoire
-- **debrief** : Analyse session + capture leçons
-
-**Documentation :** [`.claude/agents/`](.claude/agents/) et [`.claude/skills/`](.claude/skills/)
+Les autres serveurs (automatisation web, recherche web, agents locaux, notebooks) sont
+autorisés, pas requis. L'inventaire, ce qui est critique pour qui, et la conduite à tenir quand
+un outil manque sont dans [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md).
 
 ---
 
-## 📊 Métriques et Performance
+## Installer un siège
 
-### Infrastructure
-- **6 machines actives** : Coordination 24/7
-- **Scheduler Roo** : Toutes les 3h (staggered par machine)
-- **Scheduler Claude Code** : Worker Haiku toutes les 3h (ai-01, pilot)
-- **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
-- **Build + Tests** : ~62s (~13 400 tests, 720 fichiers)
+Ces étapes décrivent une machine de la flotte. Hors flotte, le magasin partagé n'est pas
+accessible : suivre plutôt le [protocole des sessions hors flotte](docs/harness/reference/off-fleet-cloud-sessions.md).
 
-### MCPs
-- **roo-state-manager** : 17 outils, <500ms réponse
-- **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
-- **Taux de réussite tests** : mesuré à chaque run CI (historique 99.6%)
+**Prérequis :** Windows avec Windows PowerShell 5.1 (les scripts du dépôt y tournent ;
+PowerShell 7 n'est pas présent sur toutes les machines), Node.js 20 ou 22 (les deux versions
+testées en CI), Python 3, Git, GitHub CLI (`gh`), Claude Code.
 
-### RooSync v2.3
-- **Messagerie** : <1s latence inter-machines (GDrive partagé)
-- **Baseline sync** : 2-4s par machine
-- **Qdrant** : 20 collections, 212K+ vecteurs (2560 dims)
+1. **Cloner avec les sous-modules.**
+   ```bash
+   git clone https://github.com/jsboige/roo-extensions.git
+   cd roo-extensions
+   git submodule update --init --recursive
+   ```
 
----
+2. **Construire le serveur MCP.**
+   ```bash
+   cd mcps/internal/servers/roo-state-manager
+   npm install
+   npm run build
+   ```
 
-## 🚀 Guides Démarrage Rapide
+3. **Le déclarer dans `~/.claude.json`**, section `mcpServers` :
+   ```json
+   {
+     "mcpServers": {
+       "roo-state-manager": {
+         "command": "node",
+         "args": ["<dépôt>/mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"],
+         "env": { "ROOSYNC_SHARED_PATH": "<chemin du magasin partagé>" }
+       }
+     }
+   }
+   ```
+   Le magasin partagé est un dossier Google Drive commun à la flotte ; son chemin se reprend de
+   la configuration d'un siège déjà installé.
 
-### Installation Complète pour Nouveaux Utilisateurs
+4. **Déployer la configuration globale** depuis la racine du dépôt, à blanc d'abord :
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .claude\configs\scripts\Deploy-GlobalConfig.ps1 -DryRun
+   ```
+   La sortie liste ce qui serait copié vers `~/.claude/` et ce qui serait changé dans
+   `settings.json`. Relancer sans `-DryRun`, avec `-Target` pour limiter le déploiement à une
+   partie (`claude-md`, `rules`, `agents`, `skills`, `commands`, `settings`).
 
-```powershell
-# 1. Cloner et initialiser
-git clone https://github.com/jsboige/roo-extensions.git
-cd roo-extensions
-git submodule update --init --recursive
+5. **Vérifier le siège.**
+   ```bash
+   python scripts/diagnostic/verify-fleet-manifest.py
+   ```
 
-# 2. Déployer configuration globale (Claude Code)
-./.claude/configs/scripts/Deploy-GlobalConfig.ps1
-
-# 3. Déployer modes Roo + scheduler
-node roo-config/scripts/generate-modes.js
-Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
-./roo-config/scheduler/scripts/install/deploy-scheduler.ps1 -Action deploy
-
-# 4. Installer MCPs internes
-cd mcps/internal/servers/roo-state-manager && npm install && npm run build
-
-# 5. Redémarrer VS Code
-```
-
-### Configuration MCP roo-state-manager
-
-```json
-{
-  "mcpServers": {
-    "roo-state-manager": {
-      "command": "node",
-      "args": ["mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"],
-      "transportType": "stdio",
-      "env": {
-        "ROOSYNC_SHARED_PATH": "G:/Mon Drive/Synchronisation/RooSync/.shared-state"
-      }
-    }
-  }
-}
-```
+Quand un serveur MCP ne se charge pas, la procédure est dans
+[`.claude/rules/mcp-diagnosis.md`](.claude/rules/mcp-diagnosis.md) et son
+[détail](docs/harness/reference/mcp-diagnosis-procedure.md). « Redémarrer et voir » n'en fait pas partie.
 
 ---
 
-## 📚 Documentation Complète
+## Travailler dans le dépôt
 
-### Points d'Entrée Principaux
-
-- **Guide Agent Claude Code** : [`CLAUDE.md`](CLAUDE.md)
-- **Architecture Agents** : [`docs/harness/reference/agents-inventory.md`](docs/harness/reference/agents-inventory.md)
-- **Serveurs MCP** : [`mcps/README.md`](mcps/README.md)
-
-### Documentation RooSync v2.3
-
-- **Guide Technique** : [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
-- **Protocole INTERCOM** : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
-
-### Guides Techniques
-
-- **Dépannage MCP** : [`docs/guides/TROUBLESHOOTING-GUIDE.md`](docs/guides/TROUBLESHOOTING-GUIDE.md)
-- **Encodage UTF-8** : [`docs/dev/encoding/README.md`](docs/dev/encoding/README.md)
-
----
-
-## 🛠️ Dépannage et Support
-
-### Problèmes Courants
-
-1. **MCPs ne démarrent pas**
-
-   - Vérifier installation Node.js 18+
-   - Exécuter `npm install && npm run build` dans `mcps/internal`
-   - Redémarrer VS Code (les MCPs sont chargés au démarrage uniquement)
-
-2. **Outils MCP non disponibles**
-
-   - Vérifier `~/.claude.json` → section `mcpServers`
-   - Tester le serveur : `node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs`
-   - Consulter [`docs/guides/TROUBLESHOOTING-GUIDE.md`](docs/guides/TROUBLESHOOTING-GUIDE.md)
-
-3. **Scheduler Roo ne s'exécute pas**
-
-   - Vérifier `.roo/schedules.json` existe
-   - Extension Roo Scheduler installée ?
-   - Voir les traces : `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\`
-
-4. **Modes non disponibles**
-
-   - Vérifier `.roomodes` existe à la racine
-   - Régénérer : `node roo-config/scripts/generate-modes.js`
-
-5. **Scheduler Claude Code**
-
-   - Vérifier le Task Scheduler : `.\scripts\scheduling\setup-scheduler.ps1 -Action list`
-   - Logs : `$env:TEMP\claude-worker-*.log`
-   - Tester manuellement : `.\scripts\scheduling\setup-scheduler.ps1 -Action test`
-
-### Support Technique
-
-- **Documentation** : [`CLAUDE.md`](CLAUDE.md) + [`docs/`](docs/)
-- **Issues GitHub** : [github.com/jsboige/roo-extensions/issues](https://github.com/jsboige/roo-extensions/issues)
+- **Aucune écriture directe sur `main`.** Worktree, branche, PR, review, squash-merge :
+  [`.claude/rules/pr-mandatory.md`](.claude/rules/pr-mandatory.md). GitHub exige une review
+  approbatrice d'un autre compte que l'auteur.
+- **Poser le verrou sur l'issue avant de coder.**
+  ```bash
+  python scripts/github/check_issue_claim.py <N>                     # exit 1 : une autre lane tient l'issue, ou l'issue est fermée
+  python scripts/github/check_issue_claim.py <N> --claim "intention en une ligne"
+  ```
+  Détail : [`.claude/rules/agent-claim-discipline.md`](.claude/rules/agent-claim-discipline.md).
+- **Tester avant de pousser.** Depuis la racine : `npm run test:mcp`. Avant un push dans le
+  sous-module : `scripts\mcp\validate-before-push.ps1`. Ne pas lancer `npx vitest run` à la
+  racine ni `npm test` (mode watch). Détail : [`.claude/rules/ci-guardrails.md`](.claude/rules/ci-guardrails.md).
+- **Sous-module d'abord.** Un changement dans `mcps/internal` se commite et se pousse dans le
+  sous-module, sa PR se merge, puis le pointeur du dépôt parent avance :
+  [`.claude/rules/submod-pointer-safety.md`](.claude/rules/submod-pointer-safety.md).
+- **Pas de secret dans un commit.** Un scan tourne sur chaque push :
+  [`.claude/rules/security.md`](.claude/rules/security.md).
+- **Un agent n'ouvre pas d'issue sans l'accord du mainteneur**
+  ([`issue-creation.md`](.claude/rules/issue-creation.md)), et ne ferme une issue qu'avec sa
+  preuve ([`issue-closure.md`](.claude/rules/issue-closure.md)).
 
 ---
 
-## 🤝 Contribution
+## Licence
 
-### Workflow de Contribution
-
-1. **Claimer l'issue** : `gh issue comment {NUM} --body "🔒 Claimed by {MACHINE}"`
-2. **Créer une branche** pour vos modifications
-3. **Tester** : `npx vitest run` (JAMAIS `npm test`)
-4. **Documenter** dans `docs/` si changement significatif
-5. **Soumettre une PR** avec description complète
-
-### Règles Importantes
-
-- **Toujours lire un fichier avant de le modifier** (Edit tool l'exige)
-- **Utiliser `npx vitest run`** pour les tests (pas `npm test`)
-- **Commit submodule en premier** : `mcps/internal` est un submodule git
-- **Ne jamais utiliser `--force`** sur les branches partagées
-
----
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
----
-
-## 🎯 Statut du Projet
-
-**Version actuelle** : 2.4.0
-**Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 22 avril 2026
-**GitHub Project** : [242 items actifs](https://github.com/users/jsboige/projects/67)
-
-### Accomplissements v2.4
-
-- ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
-- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
-- ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
-- ✅ **Wrapper MCP v4** : 17 outils roo-state-manager exposés (pass-through)
-- ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
-- ✅ **Tests robustes** : ~13 400 PASS sur 720 fichiers .test.ts
-- ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel
-- ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
-- ✅ **SDDD v2** : Triple grounding (sémantique + conversationnel + technique) avec bookend pattern
-- ✅ **STOP & REPAIR protocol** : Détection automatique et réparation des outils MCP manquants
-
-### Roadmap
-
-- **v2.5** : Scheduler Claude Code multi-machine (#534) + config-sync opérationnel (#537)
-- **v3.0** : Autonomie avancée (worktrees, PRs automatiques, tâches complex sans supervision)
-
----
-
-**🚀 Prêt à transformer votre développement multi-machines avec Roo Extensions ?**
-
-Consultez [`CLAUDE.md`](CLAUDE.md) pour le guide complet de l'agent Claude Code.
+MIT — voir [`LICENSE`](LICENSE).
