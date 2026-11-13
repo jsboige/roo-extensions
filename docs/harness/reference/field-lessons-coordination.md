@@ -2,11 +2,14 @@
 
 Ces leçons viennent de la mémoire du coordinateur de la flotte (siège myia-ai-01) : conduite des
 lanes interactives, tenue des claims et du registre des questions au user, ce qui justifie une
-demande au user et ce qui compte comme preuve, puis quelques faits propres au siège du
-coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ensuite.
+demande au user et ce qui compte comme preuve, la délégation à des sous-agents, puis quelques faits
+propres au siège du coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré
+ensuite.
 
 **Provenance :** fiches de la mémoire locale du coordinateur ai-01, sorties vers le dépôt le
-2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine.
+2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine. Les leçons marquées
+`src: session 13/11/2026` ne viennent pas d'une fiche : elles viennent de la session du
+coordinateur de ce jour-là, et ont été vérifiées le jour même contre l'arbre et l'API GitHub.
 
 ## Mener les lanes interactives
 
@@ -58,6 +61,28 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
 - **Cas mesuré :** 07/10 — plusieurs lanes ont tiré la même issue #4025 pendant 3 cycles et plus
   (graine fixe, urne limitée à trois labels, claims non sautés) alors que 24 issues sur 95
   ouvertes étaient actionnables par n'importe quelle lane.
+
+### Le sélecteur des lanes au repos et le filtre du worker planifié n'écartent pas les mêmes issues
+<!-- src: session 13/11/2026 -->
+- **Quand :** on prépare un grain pour une lane, ou on compte sur un label pour tenir une issue hors
+  d'un tirage.
+- **Règle :** comparer les deux listes avant de compter sur l'une. `pick_idle_grain.py` ne tire que
+  les issues étiquetées `approved`, `bug` ou `investigation`, et les epics ; il écarte
+  `needs-approval`, `deferred`, `blocked-on-gate`, `frozen`, `copilot-target`, les labels d'une autre
+  machine et les claims actifs, mais ni `harness-change` ni les issues assignées. Le filtre du worker
+  planifié (`start-claude-worker.ps1`) ne demande aucun label ; il écarte les issues assignées et les
+  labels `harness-change`, `deferred`, `epic`, `frozen`, `copilot-target`, `needs-approval` et
+  `blocked-on-gate`. Un grain sans l'un des trois labels n'est donc servi à aucune lane au repos : il
+  lui faut une file explicite. Et `harness-change` ne tient pas une issue hors du tirage des lanes au
+  repos.
+- **Cas mesuré :** 13/11/2026, lecture du code sous `scripts/scheduling/` :
+  `pick_idle_grain.py:102-120` (urnes et exclusions ; le champ `assignees` est collecté ligne 243 et
+  n'est jamais filtré), `start-claude-worker.ps1:926-946` (exclusions à la collecte et dans la
+  boucle). Le même jour, trois des quinze grains créés par le coordinateur (#4694, #4696, #4699) ne
+  portaient aucun des trois labels : ils ont été inscrits dans les files préparées pour les lanes.
+- **Déjà dans le dépôt :** la leçon précédente (urne de labels étroite, file explicite par lane) — ce
+  texte ajoute la comparaison avec le filtre du worker et ses deux écarts (`harness-change`, issues
+  assignées).
 
 ### Un avis d'inactivité inter-sessions marque une fin de tour, pas une lane inactive
 <!-- src: feedback_cross_session_idle_is_turn_boundary -->
@@ -396,6 +421,40 @@ coordinateur. Chaque leçon se lit seule : la règle d'abord, le cas mesuré ens
   réflexion sans niveau d'effort, 8 687 requêtes sur 8 687). Réparation : canari sur un siège,
   PR #4346, campagne de valeur sur la seule clé, revue par la lane propriétaire du sujet, puis
   canon de valeurs dans l'outil de comparaison.
+
+## Déléguer à des sous-agents
+
+### Une délégation en série tient par un fichier de règles commun, des agents en deux temps et des rapports en texte
+<!-- src: session 13/11/2026 -->
+- **Quand :** le coordinateur confie à plusieurs sous-agents des écritures publiques en série :
+  corps d'issues, labels, grains, fermetures, messages aux lanes.
+- **Règle :** écrire une fois un fichier de règles commun, que chaque sous-agent lit en premier : la
+  garde d'identité GitHub dans la même commande que l'écriture, les règles de shell, l'hygiène du
+  dépôt public, la liste de ce qui est interdit. Couper chaque agent en deux temps : un brouillon,
+  puis l'envoi après la décision du coordinateur. Demander le rapport en texte, dans la réponse de
+  l'agent : la consigne qu'un sous-agent reçoit du harnais lui demande de ne pas écrire de fichier de
+  rapport `.md` et de rendre ses résultats en texte, et le 13/11 une écriture de `report-*.md` a été
+  refusée alors que les autres fichiers de scratch passaient (RAPPORTÉ par le coordinateur). Le
+  coordinateur garde l'arbitrage, les merges et la revue des rapports.
+- **Cas mesuré :** 13/11/2026, siège myia-ai-01 : huit sous-agents, selon le compte du coordinateur,
+  ont posé 71 blocs d'état, créé 15 grains (#4686 à #4699, #4701) et fermé 3 issues (#2877, #3827,
+  #3147), pendant que le coordinateur ne gardait que l'arbitrage, les merges et la revue des rapports.
+- **Déjà dans le dépôt :** `docs/harness/reference/delegation.md` (prompt autonome, contexte isolé,
+  format de rapport) — ce texte ajoute le fichier de règles commun, les agents en deux temps et la
+  mesure de la session.
+
+### Un sous-agent qui attend peut notifier deux fois : seule la seconde porte le résultat
+<!-- src: session 13/11/2026 -->
+- **Quand :** un sous-agent doit attendre un événement (une relecture différée, par exemple) et le
+  coordinateur reçoit de lui une notification de fin.
+- **Règle :** lire la première notification comme un état d'attente, pas comme un résultat. Le
+  sous-agent peut s'arrêter sur son propre minuteur, puis reprendre et notifier une seconde fois
+  quand l'attente est finie : c'est cette seconde notification qui porte le résultat. Ne pas relancer
+  la tâche ni poser un second observateur entre les deux.
+- **Cas mesuré :** 13/11/2026, siège myia-ai-01 : comportement observé par le coordinateur pendant
+  la délégation de la session (RAPPORTÉ ; rien dans l'arbre ne le trace).
+- **Déjà dans le dépôt :** `.claude/configs/user-global-claude.md` §Harness Amplification Control
+  (une condition asynchrone a un seul observateur) — ce texte ajoute la double notification.
 
 ## Faits propres à ai-01 et à la recherche sémantique
 

@@ -117,18 +117,19 @@
 
 ## Leçons de terrain
 
-> 138 leçons sorties de la mémoire locale du coordinateur ai-01 le 2026-11-13, chacune relue contre
-> sa fiche d'origine. Une leçon = la situation qui doit la rappeler, la règle, le cas mesuré. À lire
+> 146 leçons : 138 sorties de la mémoire locale du coordinateur ai-01 le 2026-11-13, chacune relue
+> contre sa fiche d'origine, et 8 tirées de la session du coordinateur du même jour, vérifiées contre
+> l'arbre. Une leçon = la situation qui doit la rappeler, la règle, le cas mesuré. À lire
 > **avant** le geste que le titre du volet nomme.
 
 | Document | À lire avant de | Chemin |
 |----------|-----------------|--------|
 | **Mesurer et prouver** (32) | conclure d'un résultat vide, d'un zéro, d'un chiffre ou d'une sonde qui passe | `field-lessons-measurement.md` |
-| **Relire, fermer, tester** (21) | approuver une PR, tenir une dette, fermer une issue, citer « N tests verts » comme preuve | `field-lessons-review-tests.md` |
-| **GitHub, gh et la CI** (15) | retenter une action `gh`, lire un quota, attendre une file Actions | `field-lessons-github-ci.md` |
+| **Relire, fermer, tester** (22) | approuver une PR, tenir une dette, fermer une issue, citer « N tests verts » comme preuve | `field-lessons-review-tests.md` |
+| **GitHub, gh et la CI** (19) | retenter une action `gh`, lire un quota, attendre une file Actions | `field-lessons-github-ci.md` |
 | **Dashboards, messagerie, Drive et moniteurs** (17) | conclure qu'un message est sans réponse, qu'un dashboard est perdu, qu'une alerte appelle une correction | `field-lessons-store-dashboard.md` |
 | **PowerShell, shells et Windows** (24) | écrire un script pour plusieurs machines, croire un code de retour, auditer une panne Windows | `field-lessons-shell-windows.md` |
-| **Coordination de la flotte** (29) | dispatcher ou relancer une lane, tenir un claim, porter une question au user, déclarer un outil nominal, harmoniser un réglage sur la flotte | `field-lessons-coordination.md` |
+| **Coordination de la flotte** (32) | dispatcher ou relancer une lane, tenir un claim, porter une question au user, déclarer un outil nominal, harmoniser un réglage sur la flotte | `field-lessons-coordination.md` |
 
 ## Snapshots & Audits dates
 

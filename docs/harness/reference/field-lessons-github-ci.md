@@ -1,14 +1,17 @@
 # Leçons de terrain — GitHub, gh et la CI
 
 Ces leçons portent sur les outils GitHub que la flotte utilise tous les jours : le CLI `gh`, l'API REST et
-GraphQL, les files de GitHub Actions et les références citées dans une issue ou une PR. Elles se lisent
+GraphQL, les files de GitHub Actions, les références citées dans une issue ou une PR, et ce qu'on écrit
+dans le corps et les labels d'une issue. Elles se lisent
 avant d'agir sur une PR, une issue ou un check, et surtout avant de conclure qu'un résultat est vide,
 complet ou en échec.
 
 **Provenance :** fiches de la mémoire locale du coordinateur ai-01, sorties vers le dépôt le
 2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine, et a été relue contre
 cette fiche par un agent distinct de son rédacteur. Les numéros de ligne cités sous « Déjà dans le
-dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet.
+dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet. Les leçons
+marquées `src: session 13/11/2026` ne viennent pas d'une fiche : elles viennent de la session du
+coordinateur de ce jour-là, et ont été vérifiées le jour même contre l'arbre et l'API GitHub.
 
 **Les cinq volets :** [mesurer et prouver](field-lessons-measurement.md) ·
 [relire, fermer, tester](field-lessons-review-tests.md) ·
@@ -231,3 +234,63 @@ par un outil MCP.
   une fausse alerte « réserve abandonnée » ; son commentaire de fermeture dit « repliée dans #15975 », et
   le commit `690e4a5a8` y est vérifié dans la liste de commits. Le troisième niveau apprend en plus que
   CoursIA #15975 est OPEN et bloquée.
+
+## Écrire dans le corps et les labels d'une issue
+
+### Le bot de checklist compte les cases dans tout le corps, pastilles comprises
+<!-- src: session 13/11/2026 -->
+- **Quand :** on ajoute au corps d'une issue un bloc d'état, un tableau de suivi ou un extrait recopié.
+- **Règle :** `checklist-enforce.yml` cherche ses motifs dans le corps entier, sans ancrage de ligne et
+  sans exception pour une citation ou un bloc de code. Il compte `- [ ]` et la pastille ⬜ comme cases
+  ouvertes, `- [x]`, ✅ et ❌ comme cases fermées. À la fermeture, une seule case ouverte fait rouvrir
+  l'issue (sauf `[FORCE-CLOSE]` en commentaire, ou après trois réouvertures, #1487). Dans un texte
+  ajouté au corps, numéroter les étapes (`1.`), ne pas les cocher, et n'écrire aucune de ces pastilles.
+  Après l'écriture, vérifier que le nombre de cases du corps n'a pas changé.
+- **Cas mesuré :** 13/11/2026, le jour où un bloc d'état a été posé en tête de 71 issues, lecture du
+  workflow : les motifs sont aux lignes 24-29 et s'appliquent à `issue.body` entier. L'outil
+  d'écriture des blocs (PR #4702, ouverte ce jour-là) refuse la syntaxe `- [ ]` et compare le nombre
+  de cases avant et après l'écriture. Il ne refuse pas la pastille ⬜, que le bot compte pourtant.
+- **Déjà dans le dépôt :** `.claude/rules/issue-closure.md` (cocher avant de fermer) et
+  `docs/harness/reference/issue-closure-detailed.md` (réouverture par le bot) — cette leçon ajoute que
+  le bot lit tout le corps, texte ajouté compris, et qu'il compte aussi les pastilles.
+
+### Modifier le corps d'une issue ne déclenche aucun workflow du dépôt
+<!-- src: session 13/11/2026 -->
+- **Quand :** on écrit une décision, un état ou une consigne dans le corps d'une issue, et on compte
+  qu'un automate ou une lane la verra.
+- **Règle :** deux workflows seulement réagissent aux événements d'issue : `checklist-enforce.yml`
+  (`issues: closed`) et `sync-project.yml` (`issues: opened`). Aucun n'écoute `edited`, `labeled` ni
+  `issue_comment` ; le seul `edited` du dossier, dans `pr-negation-autoclose.yml`, écoute les pull
+  requests. Une édition de corps n'ajoute rien non plus au fil des commentaires, que les lanes et le
+  garde de claim (`scripts/github/check_issue_claim.py`) lisent. Une décision écrite dans le corps se
+  double donc d'un commentaire court qui la nomme.
+- **Cas mesuré :** 13/11/2026, le jour où les blocs d'état ont été posés, lecture des cinq fichiers
+  de `.github/workflows/`. Le même jour, sept décisions du coordinateur (#1587, #2307, #2566, #4343,
+  #4503, #4565, #4657) ont été écrites dans le bloc de l'issue et dans un commentaire.
+
+### Retirer le seul label d'une issue la déplace dans les deux sélecteurs
+<!-- src: session 13/11/2026 -->
+- **Quand :** on retire un label de porte (`needs-approval`, `deferred`, `blocked-on-gate`) parce que
+  la porte est levée.
+- **Règle :** relire les labels juste après le retrait, ou poser les labels de destination dans la
+  même passe. Une issue sans aucun label sort des exclusions des deux sélecteurs, et pas de la même
+  façon. Le filtre du worker planifié (`start-claude-worker.ps1`) ne demande aucun label : il peut la
+  prendre si elle n'est pas assignée et qu'aucun champ du Project #67 ne l'écarte. Le sélecteur des
+  lanes au repos (`pick_idle_grain.py`) ne la sert pas : il la compte dans `unlabelled_open`. Les
+  deux listes d'exclusion sont comparées dans [coordination de la flotte](field-lessons-coordination.md).
+- **Cas mesuré :** 13/11/2026, #4224 et #4596 : `needs-approval` était leur seul label. Retiré à
+  12:03Z, il les a laissées sans label et sans assignee jusqu'à 12:09Z, quand de nouveaux labels ont
+  été posés (événements des deux issues, relus le même jour).
+
+### Un bloc recopié d'un rapport peut porter un préfixe de citation
+<!-- src: session 13/11/2026 -->
+- **Quand :** on recopie dans le corps d'une issue, dans un commentaire ou dans un fichier un bloc
+  préparé dans un rapport markdown.
+- **Règle :** passer l'écriture à blanc d'abord, et lire la première ligne de chaque bloc. Un rapport
+  qui cite un bloc préfixe chacune de ses lignes par `> ` : le titre attendu n'est plus en tête, et le
+  texte posé s'afficherait comme une citation. Une garde qui exige le titre exact en première ligne
+  refuse ces blocs au lieu de les écrire.
+- **Cas mesuré :** 13/11/2026 : sur six rapports de tri, un seul citait ses blocs, et ses 12 titres
+  commençaient par `> ### État au`. L'outil d'écriture, qui exige `### État au` en tête, les a refusés
+  à l'essai à blanc. Relu le même jour : aucune issue modifiée ce jour-là ne porte un titre de bloc
+  sous cette forme.

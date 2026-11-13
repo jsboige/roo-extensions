@@ -7,7 +7,9 @@ réellement. Chaque leçon donne la règle, la situation qui la déclenche et le
 **Provenance :** fiches de la mémoire locale du coordinateur ai-01, sorties vers le dépôt le
 2026-11-13. Chaque leçon porte en commentaire le nom de sa fiche d'origine, et a été relue contre
 cette fiche par un agent distinct de son rédacteur. Les numéros de ligne cités sous « Déjà dans le
-dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet.
+dépôt » valent à cette date : s'ils ont bougé, chercher le passage par son sujet. Les leçons
+marquées `src: session 13/11/2026` ne viennent pas d'une fiche : elles viennent de la session du
+coordinateur de ce jour-là, et ont été vérifiées le jour même contre l'arbre et l'API GitHub.
 
 **Les cinq volets :** [mesurer et prouver](field-lessons-measurement.md) ·
 [relire, fermer, tester](field-lessons-review-tests.md) ·
@@ -139,7 +141,11 @@ par un outil MCP.
   forme : la mesure est juste, la phrase qu'on en tire ne l'est pas — un `exit 1` lu « ça a échoué » alors
   que c'est un code d'alerte, une seule machine portant une tâche planifiée lue « rollout à 1/6 » alors
   que le reste était extrapolé d'une note de la veille. Les six premières ont dû être rétractées ou
-  corrigées.
+  corrigées. Récidive le 13/11/2026 dans deux PR de doc (#4682, #4683) : la mise à l'arrêt de
+  l'extension compagnon y était datée comme un fait certain, sans source dans l'arbre ; relevée avant
+  le merge, la phrase a été réécrite sur ce qui était mesuré et par qui (l'état désactivé d'un siège
+  s'est recopié sur les autres par la synchronisation des réglages de VS Code, mesuré sur deux sièges,
+  #4025 ; le user a confirmé le 08/11 que cet arrêt est voulu).
 - **Essayé et rejeté :** écrire « je ne peux pas mesurer ça d'ici » et déléguer — une de ces
   occurrences s'est résolue en 30 s en essayant soi-même.
 
@@ -333,6 +339,23 @@ par un outil MCP.
   re-run du même commit est passé sans changement de code. Le test scénarise une course avec de vrais
   timers (injection à 150 ms, libération du verrou à 250 ms, assertion `waited >= 200`) et lit le fichier
   cible au milieu d'une écriture quand le runner est chargé.
+
+### Un rouge isolé sur `multi-process-budget.test.ts` se rejoue une fois avant toute conclusion
+<!-- src: session 13/11/2026 -->
+- **Quand :** le cas « N=8 concurrent processes » de ce test rougit dans un job `build-and-test` sur
+  une PR qui ne touche pas au sous-module.
+- **Règle :** relancer une fois les jobs en échec (`gh run rerun --failed`) avant de conclure, et ne
+  pas corriger son propre diff pour cela. Le test
+  (`mcps/internal/servers/roo-state-manager/src/services/__tests__/multi-process-budget.test.ts`)
+  lance 8 vrais processus Node qui se disputent le verrou d'élection du leader (#3661) ; un seul
+  processus qui ne rend rien suffit à faire échouer le cas. Un rouge qui revient au rejeu sur la même
+  tête n'est plus un rouge isolé.
+- **Cas mesuré :** 13/11/2026, run 43421695902 de la PR #4685, qui ne modifiait que
+  `.claude/commands/coordinate.md`. Premier essai : `build-and-test (22)` en échec sur ce seul cas
+  (1 test sur 17 057, `Child did not emit valid JSON (exit=0)`, sortie vide), et `build-and-test (20)`
+  annulé. Rejeu sur la même tête `a401b735` : 9 jobs sur 9 verts.
+- **Déjà dans le dépôt :** la leçon précédente traite de la même façon le test crossPost de
+  `dashboard.test.ts`.
 
 ### Un garde posé sur le transport lit la forme du transport
 <!-- src: reference_guard_reads_the_wire_before_the_sdk_decodes -->
