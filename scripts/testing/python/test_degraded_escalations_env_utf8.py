@@ -18,12 +18,14 @@ Si le code est refactore et que les ancres regex ne matchent plus, l'assertion
 de comptage echoue et force a rearmer ce wrapper — jamais a le contourner.
 
 Aucune valeur reelle n'apparait ici : les bearers de test sont des chaines
-factices. Stdlib `unittest` seulement ; aucun acces G:, aucun serveur, aucun
-reseau (les temoins mutants travaillent sur des copies importees et des
-fixtures locales).
+factices. Stdlib `unittest` seulement ; aucun acces G:. Un seul serveur : un
+loopback ephemere qui capture les en-tetes, pour prouver que le transport
+REEL (call_dashboard_tool) recoit le credential du fichier — les temoins
+mutants travaillent sur des copies importees et des fixtures locales.
 """
 
 import contextlib
+import http.server
 import importlib.util
 import io
 import json
@@ -32,6 +34,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -235,6 +238,104 @@ class OrganEnvFile(unittest.TestCase):
         self.assertEqual(code, 1, "le mutant doit rester fail-closed")
         self.assertEqual(calls, [], "le mutant ne doit pas lire le store")
         self.assertIn("MCP_PROXY_BEARER absent", err.getvalue())
+
+
+class RealTransportReceivesFileCredential(unittest.TestCase):
+    """AC1 #4672 — le transport REEL recoit credential et URL du fichier.
+
+    Un vrai serveur HTTP loopback (port ephemere) tient lieu de store PG : les
+    requetes qu'il recoit sont la preuve firsthand que `call_dashboard_tool`
+    — pas un faux loader — a porte le bearer du fichier et frappe l'URL
+    configuree. Le bearer ne doit apparaitre ni sur stdout ni sur stderr.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.requests = []
+        requests = self.requests
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                raw = self.rfile.read(length)
+                requests.append({
+                    "path": self.path,
+                    "authorization": self.headers.get("Authorization"),
+                    "body": raw,
+                })
+                try:
+                    payload = json.loads(raw or b"{}")
+                except ValueError:
+                    payload = {}
+                if payload.get("method") == "initialize":
+                    result = {}
+                else:
+                    arguments = (payload.get("params") or {}).get("arguments") or {}
+                    if arguments.get("action") == "list":
+                        text = json.dumps({
+                            "success": True,
+                            "dashboards": [{"key": "workspace-test-4672"}],
+                        })
+                    else:
+                        text = json.dumps({
+                            "success": True,
+                            "data": {"intercom": {"messages": []}},
+                        })
+                    result = {"content": [{"type": "text", "text": text}]}
+                body = json.dumps({"jsonrpc": "2.0",
+                                   "id": payload.get("id"),
+                                   "result": result}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.port = self.server.server_address[1]
+
+    def test_main_sends_fixture_credential_and_configured_url(self):
+        envfile = self.root / "seat.env"
+        envfile.write_text(
+            "MCP_PROXY_BEARER=file-bearer-4672\n"
+            f"MCP_PROXY_BASE_URL=http://127.0.0.1:{self.port}\n",
+            encoding="utf-8")
+        with _without_proxy_env():
+            _pop_proxy_env()
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(err):
+                code = cde.main(["--now", NOW, "--env-file", str(envfile),
+                                 "--archive-window-hours", "0"])
+        combined = out.getvalue() + err.getvalue()
+        self.assertEqual(code, 0, f"stdout:\n{out.getvalue()}\n"
+                                  f"stderr:\n{err.getvalue()}")
+        self.assertGreaterEqual(len(self.requests), 2,
+                                "le transport reel n'a pas frappe le store local")
+        actions = []
+        for request in self.requests:
+            self.assertEqual(request["authorization"],
+                             "Bearer file-bearer-4672",
+                             "le transport reel n'a pas recu le credential du "
+                             "fichier d'environnement")
+            self.assertTrue(request["path"].startswith("/roo-state-manager/mcp"),
+                            f"chemin inattendu : {request['path']}")
+            payload = json.loads(request["body"] or b"{}")
+            arguments = (payload.get("params") or {}).get("arguments") or {}
+            if arguments.get("action"):
+                actions.append(arguments["action"])
+        self.assertIn("list", actions)
+        self.assertIn("read", actions)
+        self.assertNotIn("file-bearer-4672", combined,
+                         "le bearer du fichier a fuite dans la sortie de l'organe")
 
 
 class Cp1252Output(unittest.TestCase):
