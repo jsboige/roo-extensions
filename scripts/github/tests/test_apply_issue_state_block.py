@@ -3,14 +3,21 @@
 
 Coverage:
   - compose: insertion at the top of a body, replacement of an existing marked
-    block (idempotent), the original statement kept byte for byte
+    block (idempotent), the original statement kept byte for byte; only a block
+    at the head of the body is replaced (markers quoted in the statement, END
+    before BEGIN, BEGIN without END: insertion on top, statement untouched)
   - tick: with and without a note, CRLF kept, first OPEN match only, missing target
-  - check_block: each forbidden family (IPv4, e-mail, checkbox syntax, token
-    fragment, domain name, escalation tokens, profile path, key file name), the
-    dated heading, the allowed domains, the local (unversioned) patterns
-  - plan_body: the checkbox-count invariant, the missing tick, the 64,000 guard
+  - check_block: each forbidden family (IPv4, e-mail, checkbox syntax in its
+    `-`/`*`/`+`/ordered forms, open-item emoji, token fragment, domain name,
+    escalation tokens, profile path, key file name), the markers inside a block,
+    the dated heading, the allowed domains (full match, any case), the local
+    (unversioned) patterns, BOM-prefixed files
+  - plan_body / parse_tick: the checkbox-count invariant, the missing tick, the
+    64,000 guard, empty substring and non-canonical numbers refused
   - main: exit 0 / 1 contract (refused, missing block, read-back differs, abort),
-    the one-time backup, the identity guard, dry-run, pull request skip
+    the one-time backup, the identity guard, GH_TOKEN required for writes,
+    --tick outside the issue list, tick notes filtered, dry-run writes nothing,
+    read-back failure after a write, pull request skip
 
 No network: the gh seam is patched, and subprocess.run raises if anything else
 tries to reach it. Fixtures use documentation-range addresses and `example`
@@ -101,6 +108,25 @@ class ComposeTests(NoNetwork):
         crlf = STATEMENT.replace("\n", "\r\n")
         self.assertTrue(compose(crlf, CLEAN_BLOCK).endswith(crlf))
 
+    def assert_inserted_on_top(self, old):
+        new = compose(old, CLEAN_BLOCK)
+        self.assertTrue(new.startswith(BEGIN + "\n### État au 13/11/2026\n"))
+        self.assertTrue(new.endswith("\n\n---\n\n" + old))
+        # a refresh replaces the head block only and keeps `old` intact below
+        again = compose(new, OTHER_BLOCK)
+        self.assertTrue(again.startswith(BEGIN + "\n### État au 14/11/2026\n"))
+        self.assertTrue(again.endswith("\n\n---\n\n" + old))
+
+    def test_markers_quoted_in_the_statement_are_left_alone(self):
+        self.assert_inserted_on_top(
+            "Convention : le bloc tient entre `" + BEGIN + "` et `" + END + "`.\n\n- [ ] outil\n")
+
+    def test_end_before_begin_inserts_on_top(self):
+        self.assert_inserted_on_top("Intro " + END + " milieu " + BEGIN + " fin")
+
+    def test_begin_at_head_without_end_inserts_on_top(self):
+        self.assert_inserted_on_top(BEGIN + "\nvieux\n\nénoncé")
+
 
 class TickTests(NoNetwork):
     BODY = "intro\n- [ ] écrire la doc\n- [ ] livrer\n"
@@ -183,6 +209,38 @@ class CheckBlockTests(NoNetwork):
         self.assertIn("block does not start with the dated heading",
                       check_block("**Fait** : rien.\n"))
 
+    def test_marker_inside_a_block(self):
+        for marker in (BEGIN, END):
+            with self.subTest(marker=marker):
+                self.assertIn("block contains a state-block marker",
+                              check_block(dated("note " + marker + " suite")))
+
+    def test_open_item_emoji(self):
+        self.assertIn("open-item emoji", reasons(dated("⬜ étape")))
+
+    def test_other_checkbox_syntaxes(self):
+        for line in ("+ [ ] étape", "1. [ ] étape", "1) [ ] étape", "  12. [x] étape"):
+            with self.subTest(line=line):
+                self.assertIn("checkbox syntax", reasons(dated(line)))
+        # the body's own count is unchanged: only `-`/`*` boxes are counted there
+        self.assertEqual(count_boxes("+ [ ] a\n1. [ ] b\n"), 0)
+
+    def test_domain_ending_with_an_allowed_one(self):
+        self.assertIn("domain name", reasons(dated("voir " + "evil-" + "github.com")))
+        self.assertIn("domain name", reasons(dated("voir " + "my" + "claude.com")))
+
+    def test_domain_is_case_insensitive(self):
+        self.assertIn("domain name", reasons(dated("voir Example.COM")))
+        self.assertIn("domain name", reasons(dated("voir EXAMPLE.org")))
+        self.assertEqual(check_block(dated("voir Claude.com")), [])
+
+    def test_local_patterns_with_a_bom(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "forbidden-local.txt")
+            with open(p, "w", encoding="utf-8-sig") as fh:
+                fh.write("zorglub_\\w+\n")
+            self.assertEqual(load_local_patterns(p), [("zorglub_\\w+", "local pattern")])
+
     def test_local_patterns(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "forbidden-local.txt")
@@ -223,15 +281,27 @@ class PlanBodyTests(NoNetwork):
             with self.subTest(bad=bad), self.assertRaises(argparse.ArgumentTypeError):
                 parse_tick(bad)
 
+    def test_parse_tick_empty_substring(self):
+        for bad in ("4685:::fait", "4685:   ::fait", "4685: "):
+            with self.subTest(bad=bad), self.assertRaises(argparse.ArgumentTypeError):
+                parse_tick(bad)
+
+    def test_parse_tick_non_canonical_number(self):
+        for bad in ("04685:écrire", "0:écrire"):
+            with self.subTest(bad=bad), self.assertRaises(argparse.ArgumentTypeError):
+                parse_tick(bad)
+
 
 class FakeGh:
     """Stands in for `gh`: answers `api user`, GET and PATCH of issues."""
 
-    def __init__(self, issues, login="myia-ai-01", mangle=False, fail_get=False):
+    def __init__(self, issues, login="myia-ai-01", mangle=False, fail_get=False,
+                 fail_readback=False):
         self.issues = issues
         self.login = login
         self.mangle = mangle
         self.fail_get = fail_get
+        self.fail_readback = fail_readback
         self.calls = []
 
     def __call__(self, args):
@@ -244,7 +314,7 @@ class FakeGh:
                 body = json.load(fh)["body"]
             self.issues[n]["body"] = body + ("\nchanged" if self.mangle else "")
             return n + "\n"
-        if self.fail_get:
+        if self.fail_get or (self.fail_readback and self.patches()):
             raise tool.GhError("gh api failed: HTTP 502")
         return json.dumps(self.issues[args[1].rsplit("/", 1)[1]])
 
@@ -260,11 +330,15 @@ class MainTests(NoNetwork):
         self.blocks = os.path.join(tmp.name, "blocks")
         self.backup = os.path.join(tmp.name, "backup")
         os.makedirs(self.blocks)
+        self.local = os.path.join(tmp.name, "local.txt")
         self.base = ["--blocks-dir", self.blocks, "--backup-dir", self.backup,
-                     "--local-patterns", os.path.join(tmp.name, "absent.txt")]
+                     "--local-patterns", self.local]
+        env = patch.dict(os.environ, {"GH_TOKEN": "x"})
+        env.start()
+        self.addCleanup(env.stop)
 
-    def block(self, n, text=CLEAN_BLOCK):
-        with open(os.path.join(self.blocks, "%s.md" % n), "w", encoding="utf-8") as fh:
+    def block(self, n, text=CLEAN_BLOCK, encoding="utf-8"):
+        with open(os.path.join(self.blocks, "%s.md" % n), "w", encoding=encoding) as fh:
             fh.write(text)
 
     def issue(self, n, body=STATEMENT, **extra):
@@ -343,11 +417,91 @@ class MainTests(NoNetwork):
     def test_dry_run_writes_nothing(self):
         self.block("1171")
         fake = FakeGh({"1171": self.issue("1171")}, login="someone-else")
+        os.environ.pop("GH_TOKEN")  # a dry run needs no write identity
         code, out = self.run_main(fake, ["--dry-run", "1171"])
         self.assertEqual(code, 0, out)
         self.assertIn("#1171: DRY state=open", out)
         self.assertEqual(fake.patches(), [])
         self.assertEqual(fake.issues["1171"]["body"], STATEMENT)
+        self.assertFalse(os.path.exists(self.backup), "dry run created the backup directory")
+
+    def test_dry_run_leaves_an_existing_backup_dir_empty(self):
+        self.block("1171")
+        os.makedirs(self.backup)
+        code, out = self.run_main(FakeGh({"1171": self.issue("1171")}), ["--dry-run", "1171"])
+        self.assertEqual(code, 0, out)
+        self.assertEqual(os.listdir(self.backup), [])
+
+    def test_block_file_with_a_bom(self):
+        self.block("1171", encoding="utf-8-sig")
+        code, out = self.run_main(FakeGh({"1171": self.issue("1171")}), ["--dry-run", "1171"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("#1171: DRY", out)
+
+    def test_tick_outside_the_issue_list_aborts(self):
+        self.block("1171")
+        fake = FakeGh({"1171": self.issue("1171"), "1297": self.issue("1297")})
+        code, out = self.run_main(fake, ["--tick", "1297:première::fait", "1171"])
+        self.assertEqual(code, 1)
+        self.assertIn("ABORTED — --tick names #1297 which is not in the issue list", out)
+        self.assertEqual(fake.calls, [])
+
+    def test_non_canonical_issue_number_is_an_argument_error(self):
+        self.block("1171")
+        for argv in (["01171"], ["#1171"], ["--tick", "01171:première", "1171"]):
+            fake = FakeGh({"1171": self.issue("1171")})
+            with self.subTest(argv=argv):
+                with contextlib.redirect_stderr(io.StringIO()), \
+                        self.assertRaises(SystemExit) as cm:
+                    self.run_main(fake, argv)
+                self.assertEqual(cm.exception.code, 2)
+                self.assertEqual(fake.calls, [])
+
+    def test_write_requires_gh_token(self):
+        self.block("1171")
+        fake = FakeGh({"1171": self.issue("1171")})
+        os.environ.pop("GH_TOKEN")
+        code, out = self.run_main(fake, ["1171"])
+        self.assertEqual(code, 1)
+        self.assertIn("ABORTED — GH_TOKEN is not exported: the write identity would come "
+                      "from the shared gh host file", out)
+        self.assertEqual(fake.calls, [])
+
+    def test_empty_gh_token_counts_as_absent(self):
+        self.block("1171")
+        fake = FakeGh({"1171": self.issue("1171")})
+        os.environ["GH_TOKEN"] = ""
+        code, out = self.run_main(fake, ["1171"])
+        self.assertEqual(code, 1)
+        self.assertIn("ABORTED — GH_TOKEN is not exported", out)
+        self.assertEqual(fake.calls, [])
+
+    def test_tick_note_goes_through_the_filters(self):
+        with open(self.local, "w", encoding="utf-8") as fh:
+            fh.write("zorglub_\\w+\n")
+        for note, reason in (("voir 192.0.2.1", "tick note: IPv4 address"),
+                             ("clé zorglub_one", "tick note: local pattern")):
+            self.block("1171")
+            fake = FakeGh({"1171": self.issue("1171")})
+            with self.subTest(note=note):
+                code, out = self.run_main(fake, ["--tick", "1171:première::" + note, "1171"])
+                self.assertEqual(code, 1)
+                self.assertIn("#1171: REFUSED — " + reason, out)
+                self.assertEqual(fake.patches(), [])
+                self.assertEqual(fake.issues["1171"]["body"], STATEMENT)
+
+    def test_readback_failure_is_written_unverified(self):
+        self.block("1171")
+        self.block("1297")
+        fake = FakeGh({"1171": self.issue("1171"), "1297": self.issue("1297")},
+                      fail_readback=True)
+        code, out = self.run_main(fake, ["1171", "1297"])
+        self.assertEqual(code, 1)
+        self.assertIn("#1171: WRITTEN-UNVERIFIED — read-back failed: gh api failed: HTTP 502",
+                      out)
+        self.assertIn("done: 0 written, 1 failed, of 2", out)
+        self.assertEqual(len(fake.patches()), 1)  # the run stops after the first issue
+        self.assertNotIn("#1297", out)
 
     def test_pull_request_is_skipped(self):
         self.block("4686")
