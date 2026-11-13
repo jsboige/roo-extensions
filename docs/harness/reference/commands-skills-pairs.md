@@ -41,7 +41,7 @@ la présence des deux noms.
 
 | Command | Pourquoi sans skill |
 |---|---|
-| `/coordinate` | Session coordinateur ai-01 — invoquée par cron `23 */12`, jamais par auto-trigger (un auto-trigger coordinator serait une régression d'intention) |
+| `/coordinate` | Session coordinateur ai-01 — invoquée par son cron de session (cadence : ligne canonique de `coordinate.md` § « Wakeup Cycle Cadence »), jamais par auto-trigger (un auto-trigger coordinator serait une régression d'intention) |
 | `/switch-provider` | Bascule explicite de provider — geste utilisateur deliberé, aucun contexte à matcher |
 | `/team` | Pipeline team-… explicite — l'auto-invocation d'un orchestrateur multi-étapes n'est pas voulue |
 

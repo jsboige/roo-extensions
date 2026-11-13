@@ -605,20 +605,22 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Choix du canal :** échelle user des 6 niveaux (Q20, 04/11) — [`user-channel-doctrine.md`](../../docs/harness/reference/user-channel-doctrine.md).
 
-### Wakeup Cycle Cadence (coordinateur ai-01 **à 12h** ; exécuteurs **à 4h** depuis 2026-09-15)
+### Wakeup Cycle Cadence (coordinateur ai-01 : ligne canonique ci-dessous ; exécuteurs **à 4h** depuis 2026-09-15)
 
-**Cadence coordinateur ai-01 : 12h via `CronCreate`** (décision user 2026-10-05, « Est-ce que tu pourrais ralentir de moitié ton cron tout en dispatchant des deep queues aux workers ? », minute :23 conservée). Supersede le 6h du 2026-10-04 (« Réarme ton cron de session de 6h stp »), lui-même supersede la cadence coordinateur 5h du 2026-09-24 (elle-même supersede du 3h du 2026-09-22, du 6h du 2026-09-17, du 5h du 2026-09-15 et du 4h du 2026-09-13). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 12h passe donc par cron. `*/12` divise 24 : deux tirs par jour (00:23 et 12:23, heure locale).
-
-> ⚠️ **Le changement de cadence ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne change rien au-delà de la session courante.
-
-> **Portée : seul le coordinateur passe à 12h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire toutes les douze heures à :23 et les exécuteurs à :41 : les **18 min** d'écart à leurs heures communes évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
+**Ligne canonique — la SEULE à changer quand le user change la cadence du coordinateur :**
 
 ```
-# ai-01 coordinateur — cadence 12h (job session-only, auto-expire 7j) :
+# ai-01 coordinateur (job session-only, auto-expire 7j).
 # minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe aux heures communes.
-CronCreate(cron: "23 */12 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
+
+**6h, décision user 2026-11-07** (« Bonjour, réarme un cron de coordination de 6h stp », minute :23 conservée). `*/6` divise 24 : quatre tirs par jour (00:23, 06:23, 12:23, 18:23, heure locale). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; la cadence passe donc par cron. Décisions antérieures et leurs verbatims : [`coordinator-cadence-history.md`](../../docs/harness/reference/coordinator-cadence-history.md).
+
+> ⚠️ **Le changement de cadence ne tient que si la ligne canonique change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle à partir de cette ligne : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer cette ligne ne change rien au-delà de la session courante (mesuré : le 6h du 07/11 est resté hors dépôt jusqu'au 13/11). **Aucun autre fichier ne recopie la valeur** — skills, docs et règles pointent ici ; la garde `scripts/testing/unit/coordinator-cadence-single-source.Tests.ps1` casse la CI si une seconde ligne ou une valeur divergente réapparaît.
+
+> **Portée : coordinateur seul.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire à :23 et les exécuteurs à :41 : les **18 min** d'écart à leurs heures communes évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
 
 - **À chaque réveil**, dispatch deep-queue substantielle (**≥12h de matière**, plus longue que l'intervalle coordinateur — directive user 2026-10-05) par machine. **La cadence du coordinateur ne borne pas la file des exécuteurs** : un cycle coord plus espacé se compense par des deep-queues **multi-grains** (plusieurs issues indépendantes par machine, ordonnées), pas par moins de travail dispatché (directive user 2026-09-24). Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
@@ -632,14 +634,10 @@ CronCreate(cron: "23 */12 * * *", prompt: "/coordinate", recurring: true)
 
 **Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
 
-1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */12 * * *`) est présent dans `CronList`.
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` est présent dans `CronList`, à la cadence de la **ligne canonique** (§ « Wakeup Cycle Cadence » ci-dessus).
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
-**Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
-```
-CronCreate(cron: "23 */12 * * *", prompt: "/coordinate", recurring: true)
-```
-puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
+**Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT** avec la ligne `CronCreate` canonique de la section « Wakeup Cycle Cadence » (elle n'est pas recopiée ici : une seconde copie dérive), puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
 
 **Invariant :** *le coordinateur ne s'endort JAMAIS sans un cron `/coordinate` armé.* Garde-fou de fiabilité, pas un changement de cadence. La continuation de contexte est silencieuse pour l'agent — ne JAMAIS supposer que le cron a survécu, le vérifier explicitement. (Ceci ne concerne PAS les sessions interactives non-cron, qui utilisent `ScheduleWakeup` — cf. section ci-dessus.)
 
@@ -791,7 +789,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 **Exceptions :** Bugs critiques bloquants (mais informer immédiatement)
 
 ### Règles Générales
-- Tour de sync coordinateur toutes les 12 heures via cron, ou immédiatement sur signal urgent `[WAKE-CLAUDE]`
+- Tour de sync coordinateur à chaque tir du cron (cadence : ligne canonique, § « Wakeup Cycle Cadence »), ou immédiatement sur signal urgent `[WAKE-CLAUDE]`
 - Toujours référencer les issues GitHub dans les communications
 - Claude Code peut et DOIT fixer du code technique quand nécessaire (bugs, consolidations)
 - Documenter les décisions dans les commentaires d'issues
