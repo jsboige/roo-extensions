@@ -146,3 +146,4 @@ Retirés de la commande le 13/11/2026 parce qu'une autre source fait foi :
 | « Après modif MCP : redémarrage VS Code » | [`mcp-diagnosis.md`](../../../.claude/rules/mcp-diagnosis.md) dit l'inverse ; la ligne est supprimée, sans remplacement |
 | Source de vérité n° 7, `DASHBOARD.md` | Magasin monolithique hérité ([`roosync-tools-guide.md`](../reference/roosync-tools-guide.md)) ; remplacé par le dashboard workspace |
 | « SUPPRIMER le rapport (pas archiver) » | [`no-deletion-without-proof.md`](../../../.claude/rules/no-deletion-without-proof.md) : fusionner d'abord, preuve citée, retrait ensuite |
+| « L'objectif long terme est de pousser Roo vers de plus en plus de tâches `-complex` » | Ce document, § « Analyse des traces scheduler » : objectif en sommeil depuis la désactivation du scheduler Zoo |

@@ -595,7 +595,7 @@ CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 
 **Ce guide s'exécute sur ai-01 (Opus-class)** — le tier-gate ne devrait jamais bloquer en temps normal. Si ce guide est invoqué accidentellement depuis une machine GLM-class, le script refusera le merge.
 
-### Self-Authored PR Merge Protocol (workaround CODEOWNERS, vigilance OBLIGATOIRE)
+### Self-Authored PR Merge Protocol (une review exigée, vigilance OBLIGATOIRE)
 
 **CONTEXTE :** Le coordinateur schedulé tournant sous identité `myia-ai-01` crée régulièrement des PRs (bundles pointer-bumps, fixes auto-générés). La protection de `main` exige **une** review approbatrice et GitHub interdit d'approuver sa propre PR ; `.github/CODEOWNERS` dit quels comptes ont autorité, et sur quel tier. Sans intervention, ces PRs restent bloquées indéfiniment. **Cas miroir** : une PR ouverte depuis une session interactive d'ai-01 porte l'auteur `jsboige` ; l'approbation vient alors de `myia-ai-01` — mêmes conditions, mêmes red flags, rôles inversés.
 
@@ -639,6 +639,8 @@ gh auth switch --user myia-ai-01 \
   && [ "$(gh api user --jq .login)" = "myia-ai-01" ] \
   && gh pr merge N --repo OWNER/REPO --squash --delete-branch --match-head-commit <SHA 40 car.>
 ```
+
+**Cas miroir (auteur `jsboige`)** : l'étape 4 se fait sous `myia-ai-01` (remplacer `jsboige` par `myia-ai-01` aux deux endroits de la commande) ; l'étape 5 ne change pas. Exécutée telle quelle sur une PR de `jsboige`, l'étape 4 tente une auto-approbation, que GitHub refuse.
 
 Une bascule seule sur sa ligne, suivie de l'action sur la suivante, laisse un autre processus changer l'identité entre les deux : [`gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md). Jamais deux de ces blocs en parallèle.
 
