@@ -151,3 +151,24 @@ Describe 'start-copilot-dispatcher.ps1 — #622 wiring (payload never in argv)' 
         & $script:ArgvCarriesPointer $reverted | Should -BeFalse
     }
 }
+
+Describe 'start-copilot-dispatcher.ps1 — #4669 étape 4: the PR body travels by file' {
+    It 'the delivery mandate cites gh pr create --body-file and forbids an inline body' {
+        # #4703 lost the worktree variable name TWICE inside an inline PR body
+        # (backtick substitution in `--body "..."` mangles the text, exit 0).
+        # The harness rule (pr-mandatory: --body-file, never --body inline)
+        # now lives in the prompt itself; pin the mandate line so it cannot
+        # silently regress to an inline body.
+        $script:src | Should -Match 'gh pr create with a short title and --body-file <path> \(never an inline body\)'
+    }
+
+    It 'positive control: the predicate reddens when the mandate reverts to an inline body' {
+        # String.Replace is literal (same discipline as the #622 control above).
+        $reverted = $script:src.Replace(
+            '--body-file <path> (never an inline body)',
+            'a body')
+
+        $reverted | Should -Not -Be $script:src          # the mutation actually took
+        $reverted | Should -Not -Match 'gh pr create with a short title and --body-file'
+    }
+}
