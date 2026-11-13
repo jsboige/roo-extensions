@@ -64,10 +64,11 @@ mémoire de l'agent qui l'avait posée.
 ## L'organe : `scripts/diagnostic/check-degraded-escalations.py`
 
 ```bash
-python scripts/diagnostic/check-degraded-escalations.py                # lit le store PG (bearer requis)
+python scripts/diagnostic/check-degraded-escalations.py                # commande canonique : store PG, bearer lu automatiquement
 python scripts/diagnostic/check-degraded-escalations.py --json
-python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le dashboard global
+python scripts/diagnostic/check-degraded-escalations.py --ring         # sonnerie ASK-USER sur le global — PUBLIEUR UNIQUE : ai-01
 python scripts/diagnostic/check-degraded-escalations.py --dashboard-file <copie.md>   # rejeu forensic
+python scripts/diagnostic/check-degraded-escalations.py --env-file <chemin>   # autre fichier CLE=valeur (vide = aucun)
 python scripts/diagnostic/check-degraded-escalations.py --selftest
 ```
 
@@ -80,6 +81,24 @@ python scripts/diagnostic/check-degraded-escalations.py --selftest
 
 Défauts : **2 cycles × 4 h** = 8 h, la cadence des crons flotte (`41 */4`).
 `--cycles` / `--cycle-hours` les remplacent là où la cadence diffère.
+
+**#4672 — le bearer se lit tout seul, et la sortie survit au cp1252.** La
+commande canonique ne demande **aucun sourcing manuel** : l'organe lit
+`--env-file` (défaut `%USERPROFILE%\.roo-state-manager\stall-detector.env`, le
+fichier que dépose le lanceur compagnon) avec la précédence **CLI >
+environnement du processus > fichier > défaut d'URL**. Le fichier n'est jamais
+*sourcé* : seules les lignes nommées `MCP_PROXY_BEARER` / `MCP_PROXY_BASE_URL` /
+`MCP_PROXY_URL` sont analysées, aucune autre valeur n'est matérialisée. Fichier
+absent = pas une erreur (ai-01 porte son bearer dans l'environnement de son
+lanceur) ; fichier illisible ou mal formé = warning **sans aucune valeur**, et
+le fail-closed existant reste la garantie (sans bearer lisible, pas de lecture
+store, sortie `1`). Les flux stdout/stderr sont forcés en UTF-8
+(`errors="replace"`) : sous la console Windows cp1252, un extrait portant une
+flèche `U+2192` faisait lever `UnicodeEncodeError` dans `report()` et le crash
+rendait **exit 1 à la place du verdict 2** (mesuré po-2028, 13/11).
+**Sonnerie : un seul publieur consolidé, ai-01** ; les autres sièges mesurent
+sans `--ring` — la clé d'idempotence est par hôte, un `--ring` de siège
+produirait un doublon, pas un dédoublonnage.
 
 **Déclaration ≠ mention** (review #4519) : une escalade est **déclarée** par la
 ligne `[tags: … DEGRADED …]` ou par le token en **premier token du corps**.
@@ -143,8 +162,9 @@ illisible(s) sur M ») est le nombre de **dashboards lus** (clés du listing) �
 il disait « sur 0 ».
 
 **Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
-défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans `MCP_PROXY_BEARER`
-sort **1** avec le message « instrument incomplet : store PG non lu », quelles
+défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans **aucun** bearer
+(ni `--ring-bearer`, ni `MCP_PROXY_BEARER`, ni fichier `--env-file`) sort **1**
+avec le message « instrument incomplet : store PG non lu », quelles
 que soient les données du miroir : depuis #4131 le miroir n'est plus écrit, un
 verdict `0/2/3` y porterait sur une source morte. Le rapport du miroir reste
 affiché (act-then-degrade). Un `--dashboard-dir` ou `--dashboard-file`
