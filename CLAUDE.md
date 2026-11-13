@@ -12,7 +12,7 @@ Multi-agent coordonnant **Claude Code** (implementation, coordination, docs) et 
 
 **Claude DIRIGE, Roo ASSISTE.** Claude = code critique + architecture + decisions. Roo = tests, build, taches repetitives (validees par Claude). Ne JAMAIS deleguer du code critique a Roo.
 
-**« Roo » designe l'extension compagnon : Roo Code hier, Zoo Code aujourd'hui.** Son scheduler est desactive sur toute la flotte depuis le 08/11/2026 (decision user ; redemarrage cible sur une instance possible). Tant qu'il l'est, ce que ce guide dit de Roo (modes, scheduler, win-cli) decrit un dispositif en sommeil, pas un agent a qui deleguer.
+**« Roo » designe l'extension compagnon : Roo Code hier, Zoo Code aujourd'hui.** L'extension est aujourd'hui desactivee sur la flotte : l'etat desactive d'un siege s'est recopie sur les autres par la synchronisation des reglages VS Code (mesure sur deux sieges, #4025), et le user a confirme le 08/11/2026 que cet arret est voulu pour l'instant — la reactiver plus tard sur un seul siege reste possible. Tant qu'elle l'est, ce que ce guide dit de Roo (modes, scheduler, win-cli) decrit un dispositif en sommeil, pas un agent a qui deleguer.
 
 ---
 

@@ -45,8 +45,10 @@ travaillent — humains, agents de la flotte, et sessions d'assistance qui n'en 
 sa dernière vérification, est [`.claude/configs/fleet-manifest.json`](.claude/configs/fleet-manifest.json).
 
 **Zoo Code** a succédé à Roo Code, dont le dépôt garde le nom. Cette extension VS Code servait
-d'agent compagnon planifié, avec ses modes (`roo-config/`). Son scheduler est désactivé sur toute
-la flotte depuis le 8 novembre 2026 ; les modes et leur générateur restent dans le dépôt.
+d'agent compagnon planifié, avec ses modes (`roo-config/`). Elle est aujourd'hui désactivée sur la
+flotte : l'état désactivé d'un siège s'est recopié sur les autres par la synchronisation des
+réglages de VS Code (mesuré sur deux sièges, #4025), et le user a confirmé le 8 novembre 2026 que
+cet arrêt est voulu pour l'instant. Les modes et leur générateur restent dans le dépôt.
 
 ---
 
@@ -67,6 +69,7 @@ docs/harness/
 mcps/
   internal/         sous-module : roo-state-manager (TypeScript), sk-agent (Python)
   external/         serveurs MCP tiers et forks
+  forked/           sous-module : fork des serveurs MCP de référence
 roo-config/         modes de l'extension compagnon et leur générateur
 scripts/
   scheduling/       tâches planifiées, workers, gardes
@@ -131,6 +134,8 @@ testées en CI), Python 3, Git, GitHub CLI (`gh`), Claude Code.
      }
    }
    ```
+   Le magasin partagé est un dossier Google Drive commun à la flotte ; son chemin se reprend de
+   la configuration d'un siège déjà installé.
 
 4. **Déployer la configuration globale** depuis la racine du dépôt, à blanc d'abord :
    ```powershell
@@ -158,7 +163,7 @@ Quand un serveur MCP ne se charge pas, la procédure est dans
   approbatrice d'un autre compte que l'auteur.
 - **Poser le verrou sur l'issue avant de coder.**
   ```bash
-  python scripts/github/check_issue_claim.py <N>                     # exit 1 : une autre lane tient l'issue
+  python scripts/github/check_issue_claim.py <N>                     # exit 1 : une autre lane tient l'issue, ou l'issue est fermée
   python scripts/github/check_issue_claim.py <N> --claim "intention en une ligne"
   ```
   Détail : [`.claude/rules/agent-claim-discipline.md`](.claude/rules/agent-claim-discipline.md).
