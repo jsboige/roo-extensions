@@ -112,6 +112,20 @@
 | **Tool usage telemetry (#1863)** | Telemetrie usage des outils (Phase D) — `tool_usage_stats`, snapshots hebdo, `trend_report` | `tool-usage-telemetry.md` |
 | **Leçons archivées (#2368)** | 11 leçons longues (wire schema statique, cycle de vie cache, mocks vitest, runner-régime CI, process flotte) — ventilées T5→T4 depuis la mémoire po-2023 | `lessons-archive.md` |
 
+## Leçons de terrain
+
+> 109 leçons sorties de la mémoire locale du coordinateur ai-01 le 2026-11-13, chacune relue contre
+> sa fiche d'origine. Une leçon = la situation qui doit la rappeler, la règle, le cas mesuré. À lire
+> **avant** le geste que le titre du volet nomme.
+
+| Document | À lire avant de | Chemin |
+|----------|-----------------|--------|
+| **Mesurer et prouver** (32) | conclure d'un résultat vide, d'un zéro, d'un chiffre ou d'une sonde qui passe | `field-lessons-measurement.md` |
+| **Relire, fermer, tester** (21) | approuver une PR, tenir une dette, fermer une issue, citer « N tests verts » comme preuve | `field-lessons-review-tests.md` |
+| **GitHub, gh et la CI** (15) | retenter une action `gh`, lire un quota, attendre une file Actions | `field-lessons-github-ci.md` |
+| **Dashboards, messagerie, Drive et moniteurs** (17) | conclure qu'un message est sans réponse, qu'un dashboard est perdu, qu'une alerte appelle une correction | `field-lessons-store-dashboard.md` |
+| **PowerShell, shells et Windows** (24) | écrire un script pour plusieurs machines, croire un code de retour, auditer une panne Windows | `field-lessons-shell-windows.md` |
+
 ## Snapshots & Audits dates
 
 > Documents figes a une date donnee — utiles comme reference historique, NON maintenus a jour.
