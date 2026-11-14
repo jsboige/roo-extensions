@@ -149,10 +149,19 @@ try {
         if ($s.Verdict -eq 'INCONCLUSIVE') {
             if ($s.Detail) { $extra = " — $($s.Detail)" }
         }
+        elseif ($s.Verdict -eq 'FAIL') {
+            # #2609 step 5(b): the classifier Detail carries the storm-contamination note
+            # when a probe fired during the tir — it must reach the dashboard line.
+            $failBits = @()
+            if ($s.Tool -and $detailByTool.ContainsKey($s.Tool) -and $detailByTool[$s.Tool].detail) {
+                $failBits += $detailByTool[$s.Tool].detail
+            }
+            if ($s.Detail) { $failBits += $s.Detail }
+            if ($failBits.Count -gt 0) { $extra = ' — ' + ($failBits -join ' ; ') }
+        }
         elseif ($s.Tool -and $detailByTool.ContainsKey($s.Tool)) {
             $d = $detailByTool[$s.Tool]
-            if ($s.Verdict -eq 'FAIL' -and $d.detail) { $extra = " — $($d.detail)" }
-            elseif ($s.Verdict -eq 'PASS') { $extra = " ($($d.latency)ms)" }
+            if ($s.Verdict -eq 'PASS') { $extra = " ($($d.latency)ms)" }
         }
         $scenarioLines += "- $($s.Label): $($s.Verdict)${extra}"
     }
@@ -160,6 +169,9 @@ try {
     $summary = "**[EVAL-HARNESS #2609] $stamp — $passCount PASS / $failCount FAIL / $inconclusiveCount INCONCLUSIVE / $missingCount MISSING** (${durationSec}s, submod $vintage, log ``$logFile``)"
     if ($passCount -eq 0 -and $inconclusiveCount -gt 0) {
         $summary += "`n> NO MEASUREMENT — every scenario was storm-guarded, no query reached the engines. This is NOT a pass."
+    }
+    elseif ($failCount -gt 0 -and $classified.StormSeen) {
+        $summary += "`n> STORM DURING TIR — a probe fired the storm guard in this run; the FAIL(s) below are annotated and may be contaminated. Do not read them as engine regressions without a re-run."
     }
     $body = (@($summary) + $scenarioLines) -join "`n"
 
