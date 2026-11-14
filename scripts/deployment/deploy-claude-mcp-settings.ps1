@@ -9,15 +9,22 @@
 # This script only sets command/args/cwd — no secrets.
 #
 # Usage:
-#   .\deploy-claude-mcp-settings.ps1 [-MachineId <hostname>] [-WhatIf]
+#   .\deploy-claude-mcp-settings.ps1 [-MachineId <hostname>] [-WhatIf | -DryRun]
 #
 # Issue: #569, #597 - Claude Code MCP scopes
 #        #4149 F1 — playwright + searxng installed once per seat under
 #        ~/.claude/mcp-runtimes and launched `node <entry>` directly (no npx
 #        chain: 4 processes/session -> 1). Logic in mcp-runtime.lib.ps1.
+#
+# Strict binding (FRICTION myia-po-2023, 14/11): without [CmdletBinding()] an
+# unknown parameter lands silently in $args, so `-DryRun` ran the REAL deploy.
+# An unknown parameter now fails before any side effect, and -DryRun (the name
+# the other deployers of this repo use) is an alias of -WhatIf.
 
+[CmdletBinding()]
 param(
     [string]$MachineId = $env:COMPUTERNAME.ToLower(),
+    [Alias('DryRun')]
     [switch]$WhatIf
 )
 
