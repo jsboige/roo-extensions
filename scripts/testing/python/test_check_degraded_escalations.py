@@ -1168,7 +1168,124 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         # Le premier essai au timeout client, la relance au timeout ETENDU —
         # la relance ne concerne QUE la lecture muette, jamais un rejet.
         self.assertEqual(archive_timeouts,
-                         [10.0, cde.ARCHIVE_READ_RETRY_TIMEOUT_S])
+                         [10.0, cde.STORE_READ_RETRY_TIMEOUT_S])
+
+    # --- #4729 : relance generalisee + telemetrie des lectures store ------
+
+    def test_muted_list_read_retries_once(self):
+        # Defaut ai-01 14/11 12:02Z : le LISTING initial muet (timeout client
+        # « The read operation timed out ») declarait le store injoignable ->
+        # repli miroir -> exit 1 sans mesure, alors que le store repondait
+        # (appends MCP de la meme fenetre). Une relance tranche : la passe
+        # store complete a lieu, pas de repli miroir.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DONE"])]})
+        inner = cde._load_transport()
+        muted_list = [True]
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False):
+            if arguments.get("action") == "list" and muted_list[0]:
+                muted_list[0] = False
+                return None  # premier essai : timeout client sur le listing
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client, return_rejected_text=return_rejected_text)
+
+        cde._load_transport = lambda: call
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 0)
+        self.assertNotIn("miroir", err.getvalue())
+        self.assertIn("relances 1 (1 recuperee(s))", err.getvalue())
+
+    def test_muted_live_read_retries_once(self):
+        # La lecture VIVANTE muette se relance aussi : sans relance, le
+        # dashboard etait compte illisible -> exit 1 (mesure partielle) sur
+        # un timeout client sporadique. Ici : premier essai muet, relance
+        # saine, exit 0 sans erreur d'instrument.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DONE"])]},
+            archives={"y": []})
+        inner = cde._load_transport()
+        muted = set()
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False):
+            if (arguments.get("action") == "read"
+                    and arguments.get("workspace") == "y"
+                    and "y" not in muted):
+                muted.add("y")
+                return None  # timeout client sporadique sur le vif
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client, return_rejected_text=return_rejected_text)
+
+        cde._load_transport = lambda: call
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = self.run_store_main()
+        self.assertEqual(code, 0)
+        self.assertNotIn("illisible", err.getvalue())
+
+    def test_read_telemetry_in_json_and_stderr(self):
+        # Piste 2 : les CHIFFRES de lecture accompagnent le verdict — un
+        # exit 1 sous charge se diagnostique apres coup (lent vs mort),
+        # sans rejouer la passe.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DONE"])]},
+            archives={"y": []})
+        inner = cde._load_transport()
+        muted = [True]
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False):
+            if arguments.get("action") == "read" and muted[0]:
+                muted[0] = False
+                return None
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client, return_rejected_text=return_rejected_text)
+
+        cde._load_transport = lambda: call
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", "", "--json"])
+        self.assertEqual(code, 0)
+        doc = json.loads(out.getvalue())
+        tel = doc["read_telemetry"]
+        # listing + lecture vive (2 essais) + listing d'archives
+        self.assertGreaterEqual(tel["calls"], 4)
+        self.assertEqual(tel["retried"], 1)
+        self.assertEqual(tel["recovered"], 1)
+        self.assertEqual(tel["failed"], 1)  # l'essai muet reste compte
+        self.assertIn("telemetrie lectures store", err.getvalue())
+
+    def test_read_telemetry_slow_classification(self):
+        # Unite pure : seuil SLOW et percentiles rendent les chiffres qui
+        # distinguent « store lent » de « store mort ».
+        tel = cde.ReadTelemetry(slow_s=0.010)
+        tel.observe(0.001, {"content": []})
+        tel.observe(0.020, {"content": []})
+        tel.observe(0.030, None)
+        tel.mark_retry()
+        tel.observe(0.050, {"content": []})
+        tel.mark_recovered()
+        snap = tel.snapshot()
+        self.assertEqual(snap["calls"], 4)
+        self.assertEqual(snap["ok"], 3)
+        self.assertEqual(snap["slow"], 3)
+        self.assertEqual(snap["failed"], 1)
+        self.assertEqual(snap["retried"], 1)
+        self.assertEqual(snap["recovered"], 1)
+        self.assertEqual(snap["p50_ms"], 30.0)
+        self.assertEqual(snap["p95_ms"], 50.0)
+        self.assertEqual(snap["max_ms"], 50.0)
+        self.assertEqual(snap["slow_threshold_s"], 0.010)
 
     def test_store_error_denominator_counts_dashboards(self):
         # Item 3 : en source store, paths restait vide — le rapport disait
