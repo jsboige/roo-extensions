@@ -977,6 +977,94 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         for call in machine_calls:
             self.assertNotIn("machine", call)
 
+    # --- #4643 rouverte 14/11 : la fermeture sort de la fenetre AVANT
+    # l'escalade (copie crossPostee), l'organe sonne une escalade fermee ------
+
+    def test_closure_archived_before_the_window_still_closes(self):
+        # Cas mesure par ai-01 le 14/11 : l'escalade de 02:35Z est crossPostee
+        # sur global et sur le dashboard machine, sa fermeture de 06:32Z ne vit
+        # que sur le workspace de la lane. La fenetre de 48 h s'applique aux
+        # DEUX cotes : la fermeture archivee sort du champ avant la copie de
+        # l'escalade, et l'organe classe `overdue` une escalade fermee depuis
+        # deux jours. Temoin : sur l'organe sans seconde passe, ce test rend 2.
+        self.fake_store(
+            {}, keys=["global", "workspace-ws"],
+            structured={"global": [], "ws": []},
+            archives={"global": ["global-2026-11-03T04-00-00.md"],
+                      "ws": ["workspace-ws-2026-10-31T04-00-00.md"]},
+            archive_files={
+                "global-2026-11-03T04-00-00.md": [
+                    self.message("2026-10-30T00:30:00.000Z",
+                                 tags=["DEGRADED"])],
+                "workspace-ws-2026-10-31T04-00-00.md": [
+                    self.message("2026-10-30T02:00:00.000Z",
+                                 content="[REPAIRED] revenu")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_second_pass_does_not_resurrect_old_escalations(self):
+        # La seconde passe ne retient que les FERMETURES : un [DEGRADED] hors
+        # fenetre d'une AUTRE lane ne doit pas ressusciter comme echeance --
+        # ce serait echanger un faux positif contre un deluge de faux positifs.
+        self.fake_store(
+            {}, keys=["global", "workspace-ws"],
+            structured={"global": [], "ws": []},
+            archives={"global": ["global-2026-11-03T04-00-00.md"],
+                      "ws": ["workspace-ws-2026-10-31T04-00-00.md"]},
+            archive_files={
+                "global-2026-11-03T04-00-00.md": [
+                    self.message("2026-10-30T00:30:00.000Z",
+                                 tags=["DEGRADED"])],
+                "workspace-ws-2026-10-31T04-00-00.md": [
+                    self.message("2026-10-30T01:00:00.000Z", tags=["DEGRADED"],
+                                 lane=("b", "ws")),
+                    self.message("2026-10-30T02:00:00.000Z",
+                                 content="[REPAIRED] revenu")]})
+        self.assertEqual(self.run_store_main(), 0)
+
+    def test_second_pass_budget_exhaustion_is_an_instrument_error(self):
+        # Budget #4661 epuise avant la seconde passe : erreur d'instrument
+        # (l'appelant sort en 1), JAMAIS la conclusion `overdue`. Preuve : la
+        # fonction ne lit RIEN et rend l'erreur nommant le budget.
+        entries = cde.parse_entries(self.entry(
+            "2026-10-30T00:30:00.000Z", "a|ws", "[DEGRADED] store injoignable"))
+        calls = []
+
+        def call(*args, **kwargs):
+            calls.append(args)
+            return None
+
+        closures, errors = cde.second_pass_old_closures(
+            entries, ["workspace-ws"], cde.parse_ts("2026-11-01T09:00:00Z"),
+            call, "u", "b", 1.0, archive_deadline=0.0)
+        self.assertEqual(closures, [])
+        self.assertEqual(calls, [])
+        self.assertTrue(any("budget" in error for error in errors), errors)
+
+    def test_second_pass_is_silent_without_open_pre_window_escalation(self):
+        # Aucune escalade ouverte anterieure a la fenetre : la passe ne lit
+        # rien (pas de relance des archives anciennes pour rien).
+        entries = cde.parse_entries(self.entry(
+            "2026-11-02T00:30:00.000Z", "a|ws", "[DEGRADED] recent"))
+
+        def call(*args, **kwargs):
+            raise AssertionError("aucun appel d'archive attendu")
+
+        closures, errors = cde.second_pass_old_closures(
+            entries, ["workspace-ws"], cde.parse_ts("2026-11-01T09:00:00Z"),
+            call, "u", "b", 1.0, archive_deadline=None)
+        self.assertEqual((closures, errors), ([], []))
+
+    def test_lane_workspace_path_resolves_to_its_leaf(self):
+        # Le champ workspace d'une lane est tantot un nom, tantot un chemin.
+        self.assertEqual(
+            cde.lane_workspace_keys("m|d:/dev/roo-extensions",
+                                    ["workspace-roo-extensions"]),
+            ["workspace-roo-extensions"])
+        self.assertEqual(
+            cde.lane_workspace_keys("m|CoursIA", ["workspace-coursia"]),
+            ["workspace-coursia"])
+        self.assertEqual(cde.lane_workspace_keys("sans-separateur", ["x"]), [])
+
     # --- #4643 (dispatch ai-01 12/11) : budget, coques vides, denominateur --
 
     def test_default_archive_budget_covers_measured_healthy_pass(self):
