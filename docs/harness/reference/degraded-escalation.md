@@ -228,6 +228,20 @@ sonnerie — la fenêtre aveugle peut cacher le `[REPAIRED]` qui ferait taire
 l'escalade mesurée, et un faux réveil coûte une intervention humaine ; le
 cycle suivant re-sonne sur une lecture complète.
 
+### Défaut connu de l'hôte — rangé à part (décision user 14/11/2026, RX160 (a), #4730)
+
+Verbatim user : « RX160 OK pour a ».
+
+Un défaut **connu de l'hôte** — le harnais Claude Code lui-même, pas un MCP d'une
+lane, aujourd'hui le worktree d'isolation des sous-agents refusé (**#3345**) — ne
+se répare par aucune lane. L'organe le **range à part** : section séparée dans la
+sonnerie (`KNOWN_HOST_DEFECTS`), marque `A-PART` dans le rapport texte,
+`overdue_known_defect` en JSON. Il reste **ouvert** et **dû** : rien n'est déclaré
+réparé, le code de sortie est inchangé (`2`), seul un `[REPAIRED]` de la lane le
+ferme. L'empreinte de la sonnerie ne porte que le lot réparable, donc une nouvelle
+escalade de défaut connu ne re-sonne pas le même jour. **Ajouter une entrée à
+`KNOWN_HOST_DEFECTS` exige une PR citant l'issue du défaut de l'hôte.**
+
 ---
 
 ## Lecture du store sous charge (#4729)

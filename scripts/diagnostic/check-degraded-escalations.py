@@ -164,6 +164,20 @@ RING_TAG = "degraded-escalation"
 # `workspace-roo-extensions-2026-11-10T21-00-47.md` — l'horodatage du nom est
 # l'instant de la condensation (les millisecondes ne sont pas ecrites).
 ARCHIVE_NAME_TS_RE = re.compile(r"-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})\.md$")
+# #4730 (decision user 14/11/2026, RX160 (a)) : un defaut CONNU de l'hote --
+# le harnais Claude Code lui-meme, pas un MCP d'une lane -- ne se repare par
+# aucune lane. Il reste une escalade comme les autres (ouverte, due, jamais
+# close sans `[REPAIRED]`) ; la sonnerie le range seulement A PART pour qu'il
+# ne noie pas les pannes reparables. `markers` = groupes de vocables : un mot
+# de CHAQUE groupe doit etre present pour reconnaitre le defaut decrit SANS
+# son numero d'issue. Ajouter une entree exige une PR citant l'issue du defaut
+# de l'hote.
+KNOWN_HOST_DEFECTS = (
+    {"ref": "#3345",
+     "label": "defaut connu de Claude Code : worktree d'isolation des sous-agents refuse",
+     "markers": (("worktree",), ("refus",),
+                 ("isolation", "sous-agent", "subagent"))},
+)
 
 
 def parse_ts(text):
@@ -265,6 +279,33 @@ def is_repaired(entry):
     return is_declaration(entry, "repaired", REPAIRED_RE)
 
 
+def classify_known_host_defect(text):
+    """Ref du defaut connu de l'hote decrit par `text`, sinon None (#4730).
+
+    Deux formes, larges sur le VOCABULAIRE et bornees sur ce qu'elles exigent :
+      - la citation de l'issue, avec frontiere de chiffre (`#33450` n'est pas
+        `#3345` -- meme piege que `#109` / `#1091`) ;
+      - la conjonction des marqueurs du defaut : une lane sous pression
+        n'ecrit pas toujours le numero d'issue. "worktree nettoye" ne matche
+        pas : la conjonction exige aussi un refus et isolation/sous-agent.
+        "agent" seul n'est PAS un marqueur : un worktree sale refuse par
+        `git worktree remove` dans un post qui nomme "l'agent" est une panne
+        reparable (review ai-01 14/11).
+    Insensible a la casse. A appliquer au corps ENTIER, jamais a l'extrait
+    tronque (les marqueurs peuvent tomber apres le 160e caractere).
+    """
+    lowered = (text or "").lower()
+    for defect in KNOWN_HOST_DEFECTS:
+        ref = defect["ref"]
+        if re.search(r"(?<![0-9])" + re.escape(ref) + r"(?![0-9])", lowered):
+            return ref
+    for defect in KNOWN_HOST_DEFECTS:
+        if all(any(word in lowered for word in group)
+               for group in defect["markers"]):
+            return defect["ref"]
+    return None
+
+
 def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
                         cycle_hours=DEFAULT_CYCLE_HOURS, excerpt_chars=160):
     """Liste les escalades et leur etat a `now`.
@@ -280,6 +321,10 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
     sonnerie comptait N fois la meme echeance. Les declarations se
     dedoublonnent sur (lane, poste) ; deux declarations d'une meme lane a deux
     instants differents restent deux escalades distinctes.
+
+    #4730 : chaque item porte `known_defect` (ref du defaut connu de l'hote,
+    sinon None). Le STATUT ne change pas -- un tel defaut reste ouvert et du,
+    et seul un `[REPAIRED]` de la lane le ferme.
     """
     ordered = sorted(entries, key=lambda e: e["ts"])
     window = timedelta(hours=cycles * cycle_hours)
@@ -305,6 +350,7 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
         else:
             status = "waiting"
         body = DEGRADED_RE.sub(" ", entry["body"], count=1).strip().replace("\n", " ")
+        prose = " ".join(body.split())
         found.append({
             "lane": entry["lane"],
             "posted": entry["ts"].isoformat().replace("+00:00", "Z"),
@@ -312,7 +358,9 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
             "status": status,
             "repaired_at": (repaired_at.isoformat().replace("+00:00", "Z")
                             if repaired_at else None),
-            "excerpt": " ".join(body.split())[:excerpt_chars],
+            "excerpt": prose[:excerpt_chars],
+            # #4730 : sur le corps ENTIER, jamais sur l'extrait tronque.
+            "known_defect": classify_known_host_defect(prose),
         })
     return found
 
@@ -1215,12 +1263,37 @@ def strip_declaration_tokens(text):
 
 
 def build_ring_content(overdue):
-    lines = [f"[ASK-USER][DEGRADED-ESCALATION] {len(overdue)} escalade(s) "
-             f"d'environnement degrade non reparee(s) dans les delais."]
-    for item in overdue:
+    # #4730 : un defaut connu de l'hote reste une escalade due, mais aucune
+    # lane ne peut le reparer : il est range A PART, apres les pannes
+    # reparables, pour ne pas noyer celles-ci.
+    repairable = [i for i in overdue if not i.get("known_defect")]
+    host = [i for i in overdue if i.get("known_defect")]
+    if repairable:
+        headline = (f"[ASK-USER][DEGRADED-ESCALATION] {len(repairable)} "
+                    f"escalade(s) d'environnement degrade non reparee(s) dans "
+                    f"les delais")
+        if host:
+            headline += (f" ; {len(host)} autre(s) rangee(s) a part : defaut "
+                         f"connu de l'hote, qu'aucune lane ne peut reparer.")
+        else:
+            headline += "."
+        lines = [headline]
+    else:
+        lines = [f"[ASK-USER][DEGRADED-ESCALATION] aucune panne reparable en "
+                 f"retard ; {len(host)} escalade(s) rangee(s) a part : defaut "
+                 f"connu de l'hote."]
+    for item in repairable:
         lines.append(strip_declaration_tokens(
             f"- {item['lane']} — degrade depuis {item['posted']}, "
             f"echeance {item['deadline']} depassee : {item['excerpt'][:120]}"))
+    if host:
+        lines.append("Rangees a part -- defaut connu de l'hote (toujours "
+                     "ouvertes, rien n'est declare repare) :")
+        for item in host:
+            lines.append(strip_declaration_tokens(
+                f"- {item['lane']} — degrade depuis {item['posted']}, "
+                f"echeance {item['deadline']} depassee : "
+                f"[{item['known_defect']}] {item['excerpt'][:120]}"))
     lines.append("Le mecanisme porte l'echeance, pas la memoire de la lane : "
                  "un `REPAIRED` de la lane ferme l'escalade ; un bilan de "
                  "cycle ne ferme rien.")
@@ -1238,9 +1311,17 @@ def build_ring_id(overdue, now=None):
     l'append du dashboard ignore un id deja present. La regle demande a CHAQUE
     lane de sonner sur un exit 2 ; avec l'hote dans la cle, chaque siege
     postait sa propre entree (review #4677).
+
+    #4730 : l'empreinte porte le lot REPARABLE des qu'il y en a un (sinon tout
+    le lot). Un defaut connu de l'hote qui s'ajoute ne doit pas re-sonner le
+    meme jour alors que le lot reparable n'a pas bouge -- sinon chaque nouvelle
+    escalade d'un defaut qu'aucune lane ne peut reparer re-sonne le user sur
+    des pannes deja rangees a part.
     """
     now = now or time.time()
-    payload = "|".join(sorted(f"{i['lane']}:{i['posted']}" for i in overdue))
+    repairable = [i for i in overdue if not i.get("known_defect")]
+    lot = repairable or overdue
+    payload = "|".join(sorted(f"{i['lane']}:{i['posted']}" for i in lot))
     digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
     return f"degraded-escalation-{digest}-{int(now // 86400)}"
 
@@ -1382,6 +1463,12 @@ def verdict(escalations):
     overdue = [e for e in escalations if e["status"] == "overdue"]
     waiting = [e for e in escalations if e["status"] == "waiting"]
     if overdue:
+        # #4730 : le code ne change pas ; la raison dit seulement combien
+        # d'echeances relevent d'un defaut que personne ne peut reparer.
+        host = sum(1 for e in overdue if e.get("known_defect"))
+        if host:
+            return 2, (f"{len(overdue)} echeance(s) depassee(s) sans [REPAIRED], "
+                       f"dont {host} sur defaut connu de l'hote")
         return 2, f"{len(overdue)} echeance(s) depassee(s) sans [REPAIRED]"
     if waiting:
         return 3, f"{len(waiting)} escalade(s) ouverte(s), dans les delais"
@@ -1398,7 +1485,13 @@ def report(escalations, code, reason, as_json, stream=None,
     counts = {status: sum(1 for e in escalations if e["status"] == status)
               for status in ("overdue", "waiting", "repaired")}
     if as_json:
-        payload = {"exit": code, "reason": reason, "totals": counts,
+        totals = dict(counts)
+        # #4730 : sous-compte des defauts connus de l'hote -- une lecture
+        # machine doit distinguer ce qu'aucune lane ne peut reparer.
+        totals["overdue_known_defect"] = sum(
+            1 for e in escalations
+            if e["status"] == "overdue" and e.get("known_defect"))
+        payload = {"exit": code, "reason": reason, "totals": totals,
                    "escalations": escalations}
         if read_telemetry is not None:
             # #4729 (piste 2) : les chiffres de lecture dans le verdict
@@ -1409,9 +1502,14 @@ def report(escalations, code, reason, as_json, stream=None,
         return
     for item in escalations:
         mark = {"overdue": "SONNERIE", "waiting": "ouverte", "repaired": "close "}[item["status"]]
+        suffix = ""
+        if item["status"] == "overdue" and item.get("known_defect"):
+            # #4730 : du, mais hors de portee de toute lane.
+            mark = "A-PART"
+            suffix = f" [defaut connu de l'hote {item['known_defect']}]"
         print(f"{mark:<8} {item['lane']:<38} postee {item['posted']} "
               f"echeance {item['deadline']}")
-        print(f"         {item['excerpt'][:120]}")
+        print(f"         {item['excerpt'][:120]}{suffix}")
     print(f"\n{reason} — overdue={counts['overdue']} waiting={counts['waiting']} "
           f"repaired={counts['repaired']}")
 
@@ -1494,6 +1592,14 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 [ASK-USER][DEGRADED-ESCALATION] 1 escalade(s) non reparee(s). une declaration
 [REPAIRED] par la lane fermerait l'escalade. Extrait : sk-agent absent.
 """,
+            # #4730 : escalade d'un defaut CONNU de l'hote (worktree
+            # d'isolation des sous-agents refuse par le harnais, #3345),
+            # paraphrasant un post reel. Due comme les autres, rangee a part.
+            "host-defect.md": """### [2026-11-02T22:00:00.000Z] myia-i|ws
+
+[DEGRADED] Isolation sous-agent : deux creations de worktree refusees par
+le harnais au motif que Git resoudrait hors isolation
+""",
         }
         for name, text in cases.items():
             (root / name).write_text(text, encoding="utf-8")
@@ -1546,6 +1652,94 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                                       now=now)
         assert build_ring_id(overdue, now=1750000000) == build_ring_id(overdue, now=1750000100)
         assert build_ring_id(overdue, now=1750000000) != build_ring_id(overdue, now=1750100000)
+
+        # #4730 -- un defaut CONNU de l'hote (RX160 (a)) : reconnu a la citation
+        # de l'issue ou a la conjonction worktree + refus + isolation/sous-agent,
+        # jamais a "worktree" seul. Textes paraphrases des posts reels.
+        for text in (
+            "Comparatif thinking : creation de sous-agent isole refusee par le "
+            "harnais (resolution git du worktree vers un chemin exterieur), "
+            "deux tentatives",
+            "Diagnostic isolation : git rev-parse depuis chacun des deux "
+            "worktrees refuses rend son propre dossier comme top-level",
+            "Isolation sous-agent : deux creations de worktree refusees par "
+            "le harnais au motif que Git resoudrait hors isolation",
+            "Delegation Agent avec isolation worktree refusee par la garde : "
+            "core.worktree redirect, les commandes ecriraient hors du worktree",
+            "defaut connu #3345, worktree refuse",
+        ):
+            assert classify_known_host_defect(text) == "#3345", text
+        for text in (
+            "inbox RooSync fail-closed pg-unavailable",
+            "le MCP playwright n'est pas joignable",
+            "D: mesure a 87,94 Gio libres",
+            "worktree nettoye, cycle repris",
+            "worktree refuse, sans responsable designe",
+            "git worktree remove refuse : worktree sale, l'agent relance",
+        ):
+            assert classify_known_host_defect(text) is None, text
+        # Frontiere de chiffre : `#33450` n'est pas `#3345`.
+        assert classify_known_host_defect("#33450 autre defaut") is None
+        assert classify_known_host_defect("") is None
+        # Temoin negatif : une escalade ordinaire n'est pas classee.
+        assert overdue[0]["known_defect"] is None, overdue[0]
+
+        # Rien ne le declare repare : le defaut de l'hote reste une escalade DUE.
+        host_items = collect_escalations(load_entries([root / "host-defect.md"])[0], now)
+        assert len(host_items) == 1, host_items
+        assert host_items[0]["known_defect"] == "#3345", host_items
+        assert host_items[0]["status"] == "overdue", host_items
+        assert verdict(host_items) == (
+            2, "1 echeance(s) depassee(s) sans [REPAIRED], dont 1 sur defaut "
+               "connu de l'hote"), verdict(host_items)
+        # Lot mixte : le compte porte sur TOUTES les echeances, le "dont" sur
+        # les seuls defauts de l'hote.
+        mixed = overdue + host_items
+        assert verdict(mixed) == (
+            2, "2 echeance(s) depassee(s) sans [REPAIRED], dont 1 sur defaut "
+               "connu de l'hote"), verdict(mixed)
+
+        # #4730 -- la sonnerie range les defauts de l'hote APRES les pannes
+        # reparables, sous une section nommee, et ne porte aucun token.
+        host_line = ("Rangees a part -- defaut connu de l'hote (toujours "
+                     "ouvertes, rien n'est declare repare) :")
+        ring = build_ring_content(mixed)
+        assert ring.index("myia-c|ws") < ring.index(host_line) < ring.index("myia-i|ws"), ring
+        assert ("1 autre(s) rangee(s) a part : defaut connu de l'hote, "
+                "qu'aucune lane ne peut reparer.") in ring, ring
+        assert "[#3345]" in ring, ring
+        assert not DECLARATION_TOKEN_RE.search(ring), ring
+        # Lot SANS panne reparable : entete dediee, jamais un "0 escalade(s)"
+        # qui laisserait croire a un lot propre.
+        host_ring = build_ring_content(host_items)
+        assert host_ring.startswith(
+            "[ASK-USER][DEGRADED-ESCALATION] aucune panne reparable en retard "
+            "; 1 escalade(s) rangee(s) a part : defaut connu de l'hote."), host_ring
+        # Les tokens cites en prose restent assainis, section hote comprise.
+        noisy_host = [dict(host_items[0],
+                           excerpt="defaut `[DEGRADED]` puis `[REPAIRED]` en prose")]
+        assert not DECLARATION_TOKEN_RE.search(build_ring_content(noisy_host)), \
+            build_ring_content(noisy_host)
+
+        # #4730 -- l'empreinte porte le lot REPARABLE : une escalade de defaut
+        # connu qui s'ajoute ne re-sonne pas le meme jour...
+        assert build_ring_id(overdue, now=1750000000) == \
+            build_ring_id(mixed, now=1750000000)
+        # ... et quand il n'y a QUE des defauts de l'hote, leur lot compte.
+        assert build_ring_id(host_items, now=1750000000) != build_ring_id(
+            [dict(host_items[0], posted="2026-11-02T23:00:00Z")], now=1750000000)
+
+        # Sortie : la marque A-PART (texte) et le sous-compte (JSON).
+        text_out = io.StringIO()
+        with contextlib.redirect_stdout(text_out):
+            report(mixed, *verdict(mixed), False)
+        assert "A-PART" in text_out.getvalue(), text_out.getvalue()
+        assert "[defaut connu de l'hote #3345]" in text_out.getvalue(), \
+            text_out.getvalue()
+        json_out = io.StringIO()
+        report(mixed, *verdict(mixed), True, stream=json_out)
+        totals = json.loads(json_out.getvalue())["totals"]
+        assert totals["overdue_known_defect"] == 1, totals
 
         # #4643 — dedoublonnage crossPost : la MEME declaration (meme lane,
         # meme horodatage) servie par deux dashboards n'ouvre QU'UNE escalade.
@@ -1811,7 +2005,9 @@ environnement degrade : jupyter-papermill muet depuis le preflight
           "verbatim) classee WARN sans relance, autre rejet isError = erreur, "
           "timeout client sporadique recouvre par la relance ; #4661 : "
           "budget d'archives global — saut signale, "
-          "entrees vivantes intactes, appels bornes.")
+          "entrees vivantes intactes, appels bornes ; #4730 : defaut connu de "
+          "l'hote classe A-PART (sonnerie separee, verdict explicite, "
+          "idempotence sur le lot reparable, statut et sortie inchanges).")
 
 
 def main(argv=None):
