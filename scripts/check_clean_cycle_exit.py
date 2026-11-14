@@ -155,6 +155,19 @@ def is_submodule_or_descendant(path: str, submodule_paths) -> bool:
     return False
 
 
+def count_stashes(cwd: Path) -> int:
+    """Nombre d'entrees de `git stash list` (lecture seule)."""
+    rc, out, _ = run_git(["stash", "list"], cwd=cwd)
+    if rc != 0:
+        return 0
+    return len([line for line in out.splitlines() if line.strip()])
+
+
+def stash_line(sig: Dict) -> str:
+    where = f" dans {sig['path']}" if sig.get("path") else ""
+    return f"  - stash : {sig['count']} stash(es){where} (information, ne change pas le verdict)."
+
+
 def collect_state(path: Path) -> Dict:
     """Collecte l'etat complet. Retourne un dict avec verdict + signaux.
 
@@ -342,6 +355,18 @@ def collect_state(path: Path) -> Dict:
             signals.append({"kind": "untracked", "paths": untracked})
             candidate_verdicts.append(VERDICT_UNTRACKED)
 
+    # 5b. Stashes (#4696) : information seule, jamais de candidate_verdict -
+    # certains stashes sont gardes expres (ancres, #3827).
+    stash_count = count_stashes(toplevel)
+    if stash_count:
+        signals.append({"kind": "stash", "count": stash_count})
+    for sub in sub_status:
+        if sub.get("unpopulated"):
+            continue
+        sub_count = count_stashes(toplevel / sub["path"])
+        if sub_count:
+            signals.append({"kind": "stash", "count": sub_count, "path": sub["path"]})
+
     # 6. Synthese
     if candidate_verdicts:
         verdict = max(candidate_verdicts, key=lambda v: SEVERITY.get(v, 0))
@@ -500,6 +525,9 @@ def render_human(state: Dict) -> str:
             sample = ", ".join(s["path"] for s in unpop[:5])
             extra = f" (+{len(unpop) - 5} autres)" if len(unpop) > 5 else ""
             lines.append(f"  submodules  : {len(unpop)} non peuple(s) (ignores, pas un drift) - {sample}{extra}")
+        for sig in state.get("signals", []):
+            if sig.get("kind") == "stash":
+                lines.append(stash_line(sig))
         return "\n".join(lines)
 
     lines.append(f"[{verdict}] NON pret - signaux a traiter avant cloture :")
@@ -536,6 +564,8 @@ def render_human(state: Dict) -> str:
             lines.append(f"  - detached : HEAD detache en {sig['sha'][:8]}.")
         elif kind == "unborn":
             lines.append("  - unborn : aucune commit sur HEAD.")
+        elif kind == "stash":
+            lines.append(stash_line(sig))
         else:
             lines.append(f"  - {kind} : {sig}")
 
