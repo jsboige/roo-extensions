@@ -155,11 +155,14 @@ def is_submodule_or_descendant(path: str, submodule_paths) -> bool:
     return False
 
 
-def count_stashes(cwd: Path) -> int:
-    """Nombre d'entrees de `git stash list` (lecture seule)."""
+def count_stashes(cwd: Path) -> Optional[int]:
+    """Nombre d'entrees de `git stash list` (lecture seule).
+
+    None quand la commande echoue : un echec ne doit pas se lire « zero stash ».
+    """
     rc, out, _ = run_git(["stash", "list"], cwd=cwd)
     if rc != 0:
-        return 0
+        return None
     return len([line for line in out.splitlines() if line.strip()])
 
 
@@ -357,14 +360,20 @@ def collect_state(path: Path) -> Dict:
 
     # 5b. Stashes (#4696) : information seule, jamais de candidate_verdict -
     # certains stashes sont gardes expres (ancres, #3827).
+    # Un echec de `git stash list` va dans les erreurs instrument, sans
+    # toucher au verdict non plus.
     stash_count = count_stashes(toplevel)
-    if stash_count:
+    if stash_count is None:
+        errors.append("git stash list a echoue dans le depot principal.")
+    elif stash_count:
         signals.append({"kind": "stash", "count": stash_count})
     for sub in sub_status:
         if sub.get("unpopulated"):
             continue
         sub_count = count_stashes(toplevel / sub["path"])
-        if sub_count:
+        if sub_count is None:
+            errors.append(f"git stash list a echoue dans {sub['path']}.")
+        elif sub_count:
             signals.append({"kind": "stash", "count": sub_count, "path": sub["path"]})
 
     # 6. Synthese
@@ -528,6 +537,10 @@ def render_human(state: Dict) -> str:
         for sig in state.get("signals", []):
             if sig.get("kind") == "stash":
                 lines.append(stash_line(sig))
+        # Une erreur instrument non bloquante (ex. `git stash list`) ne change
+        # pas le verdict, mais ne doit pas disparaitre de la sortie humaine.
+        for err in state.get("errors", []):
+            lines.append(f"  ! {err}")
         return "\n".join(lines)
 
     lines.append(f"[{verdict}] NON pret - signaux a traiter avant cloture :")
