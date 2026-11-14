@@ -74,6 +74,7 @@ function Get-EvalHarnessScenarioResults {
     # class as the storm guard this module already guards (#637: green tests, engine OFF).
     $inconclusiveByFile = @{}
     $toolVerdictByFile = @{}
+    $stormSeen = $false
     $ctxFile = $null
     foreach ($ln in $LogLines) {
         if ($ln -match '^(?:stdout|stderr) \|\s*tests/eval-harness/tools/([^\s>]+)') {
@@ -83,6 +84,7 @@ function Get-EvalHarnessScenarioResults {
             continue
         }
         elseif ($ln -match '^\[INCONCLUSIVE\]\s*(.*)$') {
+            if ($Matches[1] -like 'Storm guard active*') { $stormSeen = $true }
             if (-not $inconclusiveByFile.ContainsKey($ctxFile)) {
                 $inconclusiveByFile[$ctxFile] = $Matches[1].Trim()
             }
@@ -132,6 +134,15 @@ function Get-EvalHarnessScenarioResults {
             }
         }
 
+        # #2609 step 5(b) — a FAIL in a tir where a probe saw a storm is annotated, so a
+        # contaminated red is not read as an engine regression. The verdict STAYS FAIL
+        # (the guard classifies per file; a sibling file may have measured under stormy
+        # latency) — only the reading changes.
+        if ($verdict -eq 'FAIL' -and $stormSeen) {
+            $stormNote = 'storm guard fired in this tir — FAIL possibly contaminated, do not read as an engine regression without a re-run'
+            if ($detail) { $detail = "$detail ; $stormNote" } else { $detail = $stormNote }
+        }
+
         $scenarios += [pscustomobject]@{
             File    = $file
             Label   = $meta.label
@@ -147,6 +158,7 @@ function Get-EvalHarnessScenarioResults {
         FailCount         = @($scenarios | Where-Object { $_.Verdict -eq 'FAIL' }).Count
         InconclusiveCount = @($scenarios | Where-Object { $_.Verdict -eq 'INCONCLUSIVE' }).Count
         MissingCount      = @($scenarios | Where-Object { $_.Verdict -eq 'MISSING' }).Count
+        StormSeen         = $stormSeen
     }
 }
 

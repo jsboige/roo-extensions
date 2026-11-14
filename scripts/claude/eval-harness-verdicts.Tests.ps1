@@ -266,6 +266,68 @@ Describe 'Get-EvalHarnessScenarioResults — un verdict de rubric FAIL dans un t
     }
 }
 
+Describe 'Get-EvalHarnessScenarioResults — annotation des FAIL d_un tir où une sonde a vu un orage' {
+    # #2609 step 5(b) : un FAIL mesuré pendant un tir orageux doit porter l'annotation de
+    # contamination, pour qu'un rouge contaminé ne se lise pas comme une régression du
+    # moteur. La garde classe PAR FICHIER — un scénario frère peut avoir mesuré sous une
+    # latence d'orage alors que sa propre sonde n'a pas tiré. Le verdict RESTE FAIL ;
+    # seule la lecture change.
+
+    It 'un FAIL dans un tir où la sonde a vu un orage porte l_annotation de contamination' {
+        $lines = @()
+        $lines += (New-EvalLogLine -File 'v2-block-granularity.eval.test.ts' -Kind 'storm')
+        $lines += (New-EvalLogLine -File 'codebase-search.eval.test.ts' -Kind 'fail')
+        foreach ($f in @('roosync-search.eval.test.ts', 'conversation-browser.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        $r.StormSeen | Should -BeTrue
+        $r.FailCount | Should -Be 1
+        $failScenario = @($r.Scenarios | Where-Object { $_.Verdict -eq 'FAIL' })[0]
+        $failScenario.File | Should -Be 'codebase-search.eval.test.ts'
+        $failScenario.Detail | Should -BeLike '*storm guard fired in this tir*possibly contaminated*'
+        # Le verdict reste FAIL : l'annotation ne rétrograde pas le rouge.
+        Get-RunSuccess -Result $r | Should -BeFalse
+    }
+
+    It 'un FAIL dans un tir SANS orage ne porte pas l_annotation (le rouge reste un vrai rouge)' {
+        $lines = @()
+        $lines += (New-EvalLogLine -File 'codebase-search.eval.test.ts' -Kind 'fail')
+        foreach ($f in @('roosync-search.eval.test.ts', 'conversation-browser.eval.test.ts', 'v2-block-granularity.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        $r.StormSeen | Should -BeFalse
+        $r.FailCount | Should -Be 1
+        @($r.Scenarios | Where-Object { $_.Verdict -eq 'FAIL' })[0].Detail | Should -Not -BeLike '*storm*'
+    }
+
+    It 'l_annotation complète un détail FAIL existant au lieu de l_écraser' {
+        $marker = [string][char]0x2713
+        $lines = @(
+            'stdout | tests/eval-harness/tools/codebase-search.eval.test.ts > presence: status=success'
+            '[codebase_search] verdict=FAIL latency=13543ms'
+            '  [FAIL] results[0].snippet.length >= 80 -> 54'
+            ''
+        )
+        $lines += (New-EvalLogLine -File 'codebase-search.eval.test.ts' -Kind 'fail')
+        $lines += (New-EvalLogLine -File 'v2-block-granularity.eval.test.ts' -Kind 'storm')
+        foreach ($f in @('roosync-search.eval.test.ts', 'conversation-browser.eval.test.ts')) {
+            $lines += (New-EvalLogLine -File $f -Kind 'pass')
+        }
+
+        $r = Get-EvalHarnessScenarioResults -LogLines $lines -ScenarioMap $script:ScenarioMap
+
+        $failScenario = @($r.Scenarios | Where-Object { $_.Verdict -eq 'FAIL' })[0]
+        $failScenario.Detail | Should -BeLike '*tool rubric verdict=FAIL*'
+        $failScenario.Detail | Should -BeLike '*storm guard fired in this tir*'
+    }
+}
+
 Describe 'câblage du wrapper (statique)' {
     It 'run-eval-harness.ps1 dot-source le classifieur et l_utilise pour le résumé et l_exit' {
         $src = Get-Content -Path $script:WrapperPath -Raw -Encoding UTF8
@@ -274,5 +336,12 @@ Describe 'câblage du wrapper (statique)' {
         $src | Should -Match 'Get-EvalHarnessScenarioResults'
         $src | Should -Match 'Test-EvalHarnessRunSuccess'
         $src | Should -Match 'INCONCLUSIVE'
+    }
+
+    It 'le résumé du wrapper porte la bannière STORM DURING TIR quand des FAIL côtoient un orage' {
+        $src = Get-Content -Path $script:WrapperPath -Raw -Encoding UTF8
+
+        $src | Should -Match 'StormSeen'
+        $src | Should -Match 'STORM DURING TIR'
     }
 }
