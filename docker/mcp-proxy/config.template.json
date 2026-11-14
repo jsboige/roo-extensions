@@ -20,11 +20,11 @@
       }
     },
     "sk-agent": {
-      "command": "python",
-      "args": ["/opt/sk-agent/sk_agent.py"],
-      "env": {
-        "SK_AGENT_CONFIG": "/opt/sk-agent/sk_agent_config.json"
-      }
+      "url": "http://host.docker.internal:8100/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_SK_AGENT_API_KEY"
+      },
+      "timeout": 900000000000
     },
     "roo-state-manager": {
       "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
