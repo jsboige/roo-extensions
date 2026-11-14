@@ -3,7 +3,8 @@
 # so sk-agent can run as a stdio subprocess alongside mcp-searxng.
 # NB (22/09+): the live /sk-agent/ route is an HTTP relay to the dedicated
 # sk-agent container :8100/mcp — this baked-in copy only serves a stdio route
-# in config.json (the template still shows one).
+# in config.json if one is declared there (the template declares the HTTP relay
+# for sk-agent since #1357, 14/11).
 #
 # Build context must be the repo root (set in docker-compose.yml)
 # Build:  cd docker && docker compose build mcp-proxy --no-cache
