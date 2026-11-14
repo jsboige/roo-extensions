@@ -544,4 +544,40 @@ if ($LASTEXITCODE -eq 0) { $gitCommonDir = $out }
             @($actions | Where-Object { $_ -like 'PRESERVED env.ANTHROPIC_DEFAULT_*_MODEL *' }).Count | Should -Be 4
         }
     }
+
+    Context "Cle racine model machine-local (decision coordinateur 14/11, #3544 point 3)" {
+        # Switch-Provider.ps1 possede la cle racine model (switcherOwnedProperties) :
+        # le canon qui la fixait a 'sonnet' la reecrivait a chaque deploy
+        # (matrices DryRun du 14/11 : SET model sur po-2023, po-2024).
+        BeforeAll {
+            $script:FullCanon = Convert-ToOrderedHash (Get-Content $script:templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+        }
+
+        It "un siege garde sa valeur locale de model : PRESERVED, aucun SET" {
+            $live = [ordered]@{ model = 'opus' }
+            $canonModel = [ordered]@{ model = $script:FullCanon['model'] }
+            $actions = [System.Collections.ArrayList]::new()
+            Merge-CanonIntoLive -liveHash $live -canonHash $canonModel -path '' -actions ([ref]$actions)
+
+            $live['model'] | Should -Be 'opus'
+            @($actions | Where-Object { $_ -like 'PRESERVED model *' }).Count | Should -Be 1
+            @($actions | Where-Object { $_ -like 'SET model *' }).Count | Should -Be 0
+        }
+
+        It "le scaffold d'un siege neuf n'ecrit jamais le marqueur comme valeur" {
+            # Le VRAI bloc fresh du script (ancres litterales), execute sur le
+            # VRAI canon prive de hooks (comme le script le fait avant ce bloc).
+            $freshBlock = Get-ExtractedBlock `
+                -StartMarker '$fresh = [ordered]@{}' `
+                -EndMarker '# $actions is the ArrayList itself here'
+            $canonHash = Convert-ToOrderedHash (Get-Content $script:templatePath -Raw -Encoding UTF8 | ConvertFrom-Json)
+            $canonHash.Remove('hooks')
+            Invoke-Expression $freshBlock 6>$null
+
+            $fresh.Contains('model') | Should -Be $false
+            ($fresh | ConvertTo-Json -Depth 10) | Should -Not -Match '<<preserve-local>>'
+            # Le reste du canon est bien scaffolde (temoin que le bloc a tourne).
+            $fresh.Contains('permissions') | Should -Be $true
+        }
+    }
 }
