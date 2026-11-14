@@ -10,6 +10,8 @@
        RSM CLI first: dual-write journal PG + file, append lock, format at the
        store; direct file write as fallback)
     3. Trigger auto-repair via repair-wake-listener.ps1 if listener is DEAD
+    4. Warn (at most once per day, never waking an agent) about machines that
+       stay UNVERIFIED across consecutive passes (#4503, decision 13/11)
 
     This implements the "alerting proactif" recommendation from #2576:
     if STALE >2h → [WARN] automatically posted to dashboard.
@@ -214,6 +216,10 @@ $primarySharedPath = if (-not [string]::IsNullOrEmpty($configuredRoot) -and (Tes
     })
     if ($canonical.Count -gt 0) { $canonical[0] } elseif ($sharedRoots.Count -gt 0) { $sharedRoots[0] } else { $null }
 }
+
+# Identité du détecteur : cible du dashboard machine des alertes et suffixe du
+# fichier d'état d'avertissement UNVERIFIED (#4503 point 1) — calculée UNE fois.
+$localMachineId = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }
 
 # Un siege qui n'a rien publie depuis plus de 7 jours n'est plus un listener
 # mort : c'est un siege sorti du perimetre. Sans cette regle, un siege retire
@@ -437,6 +443,64 @@ function Invoke-RsmCliJson($scriptName, $cliArgs) {
     try { return (($out -join "`n") | ConvertFrom-Json) } catch { return $null }
 }
 
+# Poste un message sur le dashboard MACHINE du détecteur : CLI du build servi
+# en primaire (dual-write PG + fichier, verrou append, format au store), repli
+# écriture fichier directe en échec (mêmes conventions que
+# Write-MachineDashboardMessage — seed pluriel, bump compteur + pluralisation).
+# Factorisée du bloc FLEET-ALERT pour #4503 point 1 : l'avertissement
+# UNVERIFIED persistant poste par le MÊME chemin que l'alerte STALE, une seule
+# implémentation du format d'écriture. CONTRAT DE FLUX : rend un objet de
+# statut @{ posted; via='cli'|'file'|'none'; ... } et n'écmet AUCUN
+# Write-Output — quand le retour est assigné, Write-Output est capturé par
+# l'affectation et n'atteint jamais stdout (mesuré #4503 : le poste réussissait,
+# sa ligne « via RSM CLI » restait invisible). Les lignes de diagnostic vivent
+# chez le CALLER, en portée script. Best-effort : erreur = posted=$false.
+function Add-MachineDashboardMessage($machineId, $content) {
+    if (-not $primarySharedPath) { return @{ posted = $false; via = 'none'; error = 'ROOSYNC_SHARED_PATH not set' } }
+    try {
+        $sharedDashDir = Join-Path $primarySharedPath "dashboards"
+        $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $machineId, '--content', $content)
+        if ($null -ne $cli -and $cli.ok -eq $true) {
+            return @{ posted = $true; via = 'cli'; key = $cli.key; messageId = $cli.messageId; pgSynced = $cli.pgSynced }
+        }
+        # --- repli fichier (conventions Write-MachineDashboardMessage, inchangées) ---
+        $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
+        # Stamp à la seconde (pas la minute) : deux messages la même minute ne se
+        # distingueraient que par les 4 aléas (parité #4124).
+        $msgId = $machineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $randSuffix
+        $newMessage = "`r`n### [$timestamp] $machineId|listener`r`n[msg: $msgId]`r`n`r`n$content`r`n"
+
+        if (-not (Test-Path $sharedDashDir)) {
+            New-Item -ItemType Directory -Path $sharedDashDir -Force | Out-Null
+        }
+        $machineDashFile = Join-Path $sharedDashDir "machine-$machineId.md"
+        if (Test-Path $machineDashFile) {
+            $fileContent = Get-Content $machineDashFile -Raw -Encoding UTF8
+            $fileContent = $fileContent.TrimEnd() + "`r`n" + $newMessage
+            # Bump du compteur + pluralisation (même fix que Write-MachineDashboardMessage,
+            # #4124) : le MCP rend toujours "(N messages)" (dashboard.ts:1936) et le parseur
+            # listener l'exige. Un bump chiffre-seul laisserait "(2 message)" si le
+            # fichier avait été semé au singulier.
+            $fileContent = [regex]::Replace($fileContent, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', {
+                param($m); ([int]$m.Value + 1).ToString()
+            })
+            $fileContent = [regex]::Replace($fileContent, '(## Intercom \(\d+) message\)', '$1 messages)')
+        } else {
+            # Dashboard doesn't exist — create minimal file. Seed au PLURIEL
+            # "(1 messages)" : convention du MCP (dashboard.ts:1936) — même règle
+            # que Write-MachineDashboardMessage.
+            $fileContent = "---`r`ntype: machine`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $machineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
+        }
+
+        [System.IO.File]::WriteAllText($machineDashFile, $fileContent, [System.Text.UTF8Encoding]::new($false))
+        return @{ posted = $true; via = 'file'; file = $machineDashFile }
+    } catch {
+        # Best-effort: GDrive unavailability must never fail the probe
+        return @{ posted = $false; via = 'none'; error = $_.Exception.Message }
+    }
+}
+
 # ---------- Dashboard alert ----------
 if ($totalDead -gt 0 -and -not $NoAlert) {
     $deadMachines = @($results | Where-Object { $_.isDead } | ForEach-Object { $_.machineId })
@@ -456,7 +520,6 @@ if ($totalDead -gt 0 -and -not $NoAlert) {
     # (dashboard-listener.ps1 site 4). Le lecteur suit l'alerte :
     # .claude/commands/coordinate.md lit le dashboard machine au démarrage.
     $sharedPath = $primarySharedPath
-    $localMachineId = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }
 
     if (-not $sharedPath) {
         Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set — alert on stdout only (no dashboard write)."
@@ -495,51 +558,119 @@ if ($totalDead -gt 0 -and -not $NoAlert) {
             }
 
             if ($shouldAlert) {
-                # Primaire (étape 3) : append par le CLI du build servi — même
-                # sérialisation et dual-write que l'hôte MCP, auteur
-                # <machine>|listener, format/verrou/compteur au store.
-                $cli = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--machine', $localMachineId, '--content', $warnContent)
-                if ($null -ne $cli -and $cli.ok -eq $true) {
-                    Write-Output "[FLEET-ALERT] Posted [WARN] to machine dashboard via RSM CLI (key $($cli.key), messageId $($cli.messageId), pgSynced=$($cli.pgSynced))"
+                # Primaire (étape 3) : append par le CLI du build servi ; repli
+                # écriture fichier — factorisés dans Add-MachineDashboardMessage
+                # (#4503 point 1 a ajouté un second poste par le même chemin :
+                # l'avertissement UNVERIFIED persistant).
+                $post = Add-MachineDashboardMessage $localMachineId $warnContent
+                if ($post.via -eq 'cli') {
+                    Write-Output "[FLEET-ALERT] Posted [WARN] to machine dashboard via RSM CLI (key $($post.key), messageId $($post.messageId), pgSynced=$($post.pgSynced))"
+                } elseif ($post.via -eq 'file') {
+                    Write-Output "[FLEET-ALERT] Posted [WARN] to $($post.file) (file fallback)"
                 } else {
-                    # --- repli fichier (conventions Write-MachineDashboardMessage, inchangées) ---
-                    $timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-                    $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
-                    # Stamp à la seconde (pas la minute) : deux escalades la même minute ne se
-                    # distinguent que par les 4 aléas sinon (parité #4124).
-                    $msgId = $localMachineId + ':listener:ic-' + (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmss') + '-' + $randSuffix
-                    $newMessage = "`r`n### [$timestamp] $localMachineId|listener`r`n[msg: $msgId]`r`n`r`n$warnContent`r`n"
-
-                    if (-not (Test-Path $sharedDashDir)) {
-                        New-Item -ItemType Directory -Path $sharedDashDir -Force | Out-Null
-                    }
-
-                    if (Test-Path $machineDashFile) {
-                        $content = Get-Content $machineDashFile -Raw -Encoding UTF8
-                        $content = $content.TrimEnd() + "`r`n" + $newMessage
-                        # Bump du compteur + pluralisation (même fix que Write-MachineDashboardMessage,
-                        # #4124) : le MCP rend toujours "(N messages)" (dashboard.ts:1936) et le parseur
-                        # listener l'exige. Un bump chiffre-seul laisserait "(2 message)" si le
-                        # fichier avait été semé au singulier.
-                        $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+(?=\s*messages?\))', {
-                            param($m); ([int]$m.Value + 1).ToString()
-                        })
-                        $content = [regex]::Replace($content, '(## Intercom \(\d+) message\)', '$1 messages)')
-                    } else {
-                        # Dashboard doesn't exist — create minimal file. Seed au PLURIEL
-                        # "(1 messages)" : convention du MCP (dashboard.ts:1936) — même règle
-                        # que Write-MachineDashboardMessage.
-                        $content = "---`r`ntype: machine`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: listener`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 messages)`r`n$newMessage"
-                    }
-
-                    [System.IO.File]::WriteAllText($machineDashFile, $content, [System.Text.UTF8Encoding]::new($false))
-                    Write-Output "[FLEET-ALERT] Posted [WARN] to $machineDashFile (file fallback)"
+                    Write-Output "[FLEET-ALERT] Failed to write dashboard (best-effort, probe continues): $($post.error)"
                 }
             }
         } catch {
             # Best-effort: GDrive unavailability must never fail the probe
             Write-Output "[FLEET-ALERT] Failed to write dashboard (best-effort, probe continues): $($_.Exception.Message)"
         }
+    }
+}
+
+# ---------- #4503 point 1 : avertissement UNVERIFIED persistant (<=1/jour) ----------
+# Décision coordinateur 13/11 : une machine qui reste « non vérifiée » d'une
+# passe à l'autre reçoit AU PLUS UN avertissement par jour, SANS réveil
+# d'agent. « Sans réveil » est structurel, pas une promesse de contenu : le
+# message va sur le dashboard MACHINE du détecteur (les listeners ne scannent
+# que les dashboards workspace pour les tags [WAKE-*]) et ne porte aucun tag
+# de réveil. L'état passe-à-passe vit dans listener-heartbeats/, à côté des
+# heartbeat : .unverified-warn-state-<détecteur>.json (un fichier par
+# détecteur — pas de course entre sièges sur une écriture partagée).
+# -NoAlert coupe TOUT le bloc (ni lecture ni écriture d'état) : une passe de
+# diagnostic ne consomme pas la cadence d'avertissement. Le code de sortie ne
+# bouge pas : un avertissement n'est pas un échec (UNVERIFIED reste
+# non-alertant pour l'exit, comme avant).
+if (-not $NoAlert -and $primarySharedPath) {
+    $todayUtc = $nowUtc.ToString("yyyy-MM-dd")
+    $hbDirForState = Join-Path $primarySharedPath "listener-heartbeats"
+    if (-not (Test-Path $hbDirForState)) {
+        New-Item -ItemType Directory -Path $hbDirForState -Force | Out-Null
+    }
+    $stateFile = Join-Path $hbDirForState ".unverified-warn-state-$localMachineId.json"
+
+    # Lecture fail-open : un état illisible = pas d'avertissement cette passe
+    # (l'état est réécrit à la fin, la panne d'état ne se perpétue pas).
+    $prevState = @{ machines = @{} }
+    if (Test-Path $stateFile) {
+        try {
+            $parsedState = Get-Content $stateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($parsedState.machines) {
+                foreach ($sp in $parsedState.machines.PSObject.Properties) {
+                    $prevState.machines[$sp.Name] = $sp.Value
+                }
+            }
+        } catch {
+            Write-Output "[FLEET-UNVERIFIED] State unreadable ($($_.Exception.Message)) — reset for this pass."
+        }
+    }
+
+    # Machines à avertir : UNKNOWN cette passe ET UNKNOWN à la passe
+    # précédente (deux passes de suite), et pas déjà averties aujourd'hui (UTC).
+    $toWarn = @()
+    foreach ($r in $results) {
+        $prevEntry = $null
+        if ($prevState.machines.ContainsKey($r.machineId)) { $prevEntry = $prevState.machines[$r.machineId] }
+        $wasUnknown = ($null -ne $prevEntry -and $prevEntry.lastStatus -eq 'UNKNOWN')
+        $warnedToday = ($null -ne $prevEntry -and $prevEntry.lastWarnDayUtc -eq $todayUtc)
+        if ($r.heartbeat -eq 'UNKNOWN' -and $wasUnknown -and -not $warnedToday) {
+            $toWarn += $r.machineId
+        }
+    }
+    if ($toWarn.Count -gt 0) {
+        $warnList = ($toWarn | Select-Object -First 10) -join ', '
+        $unverifiedContent = "[FLEET-UNVERIFIED] [WARN] Fleet listener check: the following machine(s) remain UNVERIFIED across consecutive passes (no heartbeat readable in any shared-state root): $warnList. Listener possibly not installed or publishing elsewhere (see #4503). No agent wake by design (coordinator decision 13/11)."
+        Write-Output ""
+        Write-Output $unverifiedContent
+        $postU = Add-MachineDashboardMessage $localMachineId $unverifiedContent
+        if ($postU.posted) {
+            foreach ($mw in $toWarn) {
+                if (-not $prevState.machines.ContainsKey($mw)) {
+                    $prevState.machines[$mw] = [PSCustomObject]@{ lastStatus = 'UNKNOWN'; lastWarnDayUtc = '' }
+                }
+                $prevState.machines[$mw].lastWarnDayUtc = $todayUtc
+            }
+        }
+    }
+
+    # Mise à jour de l'état : statut de CETTE passe pour les machines vues ;
+    # les sièges absents de la liste courante (passe -Machines partielle)
+    # conservent leur entrée — une passe partielle ne doit pas réarmer le
+    # décompte « deux passes de suite » des autres.
+    $newState = @{ machines = @{} }
+    $seenThisPass = @{}
+    foreach ($r in $results) {
+        $seenThisPass[$r.machineId] = $true
+        $carryWarn = ''
+        if ($prevState.machines.ContainsKey($r.machineId)) {
+            $pe = $prevState.machines[$r.machineId]
+            if ($pe.lastWarnDayUtc) { $carryWarn = $pe.lastWarnDayUtc }
+        }
+        $newState.machines[$r.machineId] = [PSCustomObject]@{
+            lastStatus    = $r.heartbeat
+            lastWarnDayUtc = $carryWarn
+        }
+    }
+    foreach ($sk in @($prevState.machines.Keys)) {
+        if (-not $seenThisPass.ContainsKey($sk)) {
+            $newState.machines[$sk] = $prevState.machines[$sk]
+        }
+    }
+    try {
+        $stateJson = @{ machines = $newState.machines } | ConvertTo-Json -Depth 4
+        [System.IO.File]::WriteAllText($stateFile, $stateJson, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        Write-Output "[FLEET-UNVERIFIED] Failed to persist state (best-effort): $($_.Exception.Message)"
     }
 }
 
