@@ -35,6 +35,7 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 | `rotate-scheduling-logs.ps1` | Log retention for `outputs/scheduling/logs/` (#3323, #3834) — report-only by default; `-ArchiveTo <dir> -Execute` = 4-step archive-then-remove (7z package + manifest + integrity checks + hash-guarded removal); bare `-Execute` REFUSED (decision user 13/09); Env/Lock/Unknown never archived nor deleted | Manual or weekly cron via installer below |
 | `test-rotate-scheduling-logs.ps1` | Sandbox tests for the rotation script (no real logs touched): buckets, retention, refusal, preview, nominal archive run, mutation guard, corruption stop, 7z refusal, same-day idempotence | Validation |
 | `install-rotate-scheduling-logs-schtask.ps1` | Install/uninstall the weekly `roo-rotate-scheduling-logs` task (#3834) — `-WhatIf` dry-run supported; install runs without elevation (RunLevel Limited, current user) | Fleet rollout |
+| `install-session-view-publisher-schtask.ps1` | Install/uninstall the 5-min `roo-session-view-publisher` task (#3833 step 2, script #4694) — runs `session-view.py --write` (registry read + process liveness → atomic overwrite of `<shared>/session-view/<machine>.json`); `-WhatIf` dry-run supported; install runs without elevation (RunLevel Limited, current user); freshness of the state file IS the liveness signal | Fleet rollout |
 
 ---
 
