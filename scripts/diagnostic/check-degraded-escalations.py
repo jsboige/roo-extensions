@@ -113,11 +113,22 @@ DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
 # bout de 3 min d'une passe SAINE : l'organe ne rendait jamais 0/2/3.
 # 900 s = 669 s + la marge des relances de coques vides ci-dessous.
 DEFAULT_ARCHIVE_TIME_BUDGET_S = 900.0
-# #4643 : relance d'une lecture d'archive MUETTE (le transport rend None —
-# timeout client sporadique ; 5 releves sur des archives saines de 32-39 Ko).
-# Un rejet serveur isError ne se relance PAS : deterministe (7 ms mesures
-# post-gel, c.6823202164 — les ~35 s venaient du gel de G:, pas du rejet).
-ARCHIVE_READ_RETRY_TIMEOUT_S = 45.0
+# #4643 -> #4729 : relance d'une lecture MUETTE (le transport rend None —
+# timeout client sporadique ; 5 releves #4643 sur des archives saines de
+# 32-39 Ko). #4729 generalise la relance a TOUTES les lectures du store :
+# le listing initial et les lectures vivantes tombaient aussi sous charge
+# flotte (ai-01 12:02Z 14/11 : « store PG injoignable — The read operation
+# timed out » alors que le store repondait aux appends MCP de la meme
+# fenetre — le defaut est la lecture, pas la source). Un rejet serveur
+# isError ne se relance PAS : deterministe (7 ms mesures post-gel,
+# c.6823202164 — les ~35 s venaient du gel de G:, pas du rejet).
+STORE_READ_RETRY_TIMEOUT_S = 45.0
+# #4729 (piste 2) : seuil SLOW de la telemetrie de lecture. Distinguer
+# « store lent » de « store mort » par des CHIFFRES (p50/p95/max), pas
+# seulement OK/FAILED : la lenteur est le signal precoce du timeout sous
+# charge. 5 s = la moitie du timeout par defaut : au-dela, la lecture
+# suivante peut echouer.
+SLOW_READ_S = 5.0
 # #4643 : signature du rejet d'une coque vide par read_archive (dashboard.ts,
 # « Format archive invalide: frontmatter manquant dans ... ») — rejet isError
 # dont le transport rend le texte (opt-in return_rejected_text). Une coque de
@@ -562,18 +573,12 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
                     f"seconde passe — {len(remaining)} fermeture(s) archivee(s) "
                     f"non verifiee(s) ; mesure partielle")
                 break
+            # #4729 : la relance muette vit dans le `call` recu (read_store
+            # de la passe principale) — meme contrat que la fenetre.
             archive_result = call(
                 read_archive_arguments_for_key(key, archive_file=name),
                 url, bearer, timeout=timeout, return_rejected_text=True)
             rejected = archive_rejected_text(archive_result)
-            if rejected is None and archive_result is None:
-                # Meme contrat que la fenetre : une lecture MUETTE (timeout
-                # client sporadique) se relance UNE fois a timeout etendu.
-                archive_result = call(
-                    read_archive_arguments_for_key(key, archive_file=name),
-                    url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S,
-                    return_rejected_text=True)
-                rejected = archive_rejected_text(archive_result)
             if rejected is not None:
                 if ARCHIVE_HUSK_SIGNATURE in rejected.lower():
                     print(f"WARNING: {key}/{name}: coque d'archive vide "
@@ -876,10 +881,75 @@ def store_keys_from_listing(result):
     return keys or None
 
 
+class ReadTelemetry:
+    """#4729 (piste 2) : latence et fiabilite de CHAQUE lecture du store.
+
+    Distinction « store lent » / « store mort » par des chiffres : classes
+    ok/slow (seuil SLOW_READ_S) /failed, relances posees et recuperees,
+    p50/p95/max en millisecondes. Rendu dans la sortie JSON (read_telemetry)
+    et en une ligne stderr : un exit 1 sous charge doit etre diagnosable
+    par les nombres seuls, sans relire le code ni rejouer la passe.
+    """
+
+    def __init__(self, slow_s=SLOW_READ_S):
+        self.slow_s = slow_s
+        self.calls = 0
+        self.failed = 0
+        self.retried = 0
+        self.recovered = 0
+        self._latencies = []
+
+    def observe(self, seconds, result):
+        """Un appel transport termine : sa duree, et None s'il a echoue."""
+        self.calls += 1
+        if result is None:
+            self.failed += 1
+        self._latencies.append(seconds)
+
+    def mark_retry(self):
+        self.retried += 1
+
+    def mark_recovered(self):
+        self.recovered += 1
+
+    def _pct_ms(self, p):
+        if not self._latencies:
+            return None
+        lats = sorted(self._latencies)
+        idx = min(len(lats) - 1, int(round(p * (len(lats) - 1))))
+        return round(lats[idx] * 1000.0, 1)
+
+    def snapshot(self):
+        """Dict machine-readable rendu tel quel dans le JSON de sortie."""
+        lats = sorted(self._latencies)
+        return {
+            "calls": self.calls,
+            "ok": self.calls - self.failed,
+            "slow": sum(1 for x in lats if x >= self.slow_s),
+            "failed": self.failed,
+            "retried": self.retried,
+            "recovered": self.recovered,
+            "slow_threshold_s": self.slow_s,
+            "p50_ms": self._pct_ms(0.50),
+            "p95_ms": self._pct_ms(0.95),
+            "max_ms": round(lats[-1] * 1000.0, 1) if lats else None,
+        }
+
+    def render(self):
+        """Une ligne stderr, pour le run texte comme pour le run --json."""
+        s = self.snapshot()
+        return (f"telemetrie lectures store : {s['calls']} appel(s), "
+                f"{s['ok']} ok dont {s['slow']} lent(s) >= {self.slow_s:g} s, "
+                f"{s['failed']} muet(s) ; relances {s['retried']} "
+                f"({s['recovered']} recuperee(s)) ; p50 {s['p50_ms']} ms, "
+                f"p95 {s['p95_ms']} ms, max {s['max_ms']} ms")
+
+
 def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                             now=None, window_hours=None,
                             archive_window_hours=DEFAULT_ARCHIVE_WINDOW_HOURS,
-                            archive_time_budget=DEFAULT_ARCHIVE_TIME_BUDGET_S):
+                            archive_time_budget=DEFAULT_ARCHIVE_TIME_BUDGET_S,
+                            telemetry=None):
     """Dashboards servis par le STORE (PG), meme transport que la sonnerie
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
     gele apres le cut #4131 donnerait un faux « tout va bien » confiant).
@@ -932,10 +1002,40 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     return_rejected_text, se classifie — signature de coque vide = WARN non
     bloquant (une coque n'a jamais porte de messages), tout autre rejet =
     erreur d'instrument.
+
+    #4729 : la relance muette est GENERALISEE a toutes les lectures (listing,
+    vif, listings d'archives, fichiers d'archives, seconde passe) — sous
+    charge flotte le chemin direct timeout sporadiquement, alors que le
+    store repond (appends MCP de la meme fenetre). Chaque lecture est en
+    plus MESUREE (ReadTelemetry) : l'appelant rend les chiffres, un exit 1
+    sous charge se diagnostique sans rejouer la passe.
     """
     call = _load_transport()
-    keys = store_keys_from_listing(call({"action": "list"}, url, bearer,
-                                        timeout=timeout))
+    tel = telemetry if telemetry is not None else ReadTelemetry()
+
+    # #4729 : TOUTES les lectures passent par la meme garde — mesure de
+    # latence + relance UNE fois a timeout etendu sur echec MUET (transport
+    # None). Signature celle du transport : la seconde passe recoit
+    # `read_store` comme `call`, sans savoir qu'elle est gardee.
+    def read_store(arguments, _url=None, _bearer=None, timeout_s=None,
+                   return_rejected_text=False, **_ignored):
+        first_s = timeout_s if timeout_s is not None else timeout
+        t0 = time.monotonic()
+        result = call(arguments, url, bearer, timeout=first_s,
+                      return_rejected_text=return_rejected_text)
+        tel.observe(time.monotonic() - t0, result)
+        if result is None:
+            tel.mark_retry()
+            t0 = time.monotonic()
+            result = call(arguments, url, bearer,
+                          timeout=STORE_READ_RETRY_TIMEOUT_S,
+                          return_rejected_text=return_rejected_text)
+            tel.observe(time.monotonic() - t0, result)
+            if result is not None:
+                tel.mark_recovered()
+        return result
+
+    keys = store_keys_from_listing(read_store({"action": "list"}))
     if keys is None:
         return None
     entries = []
@@ -946,11 +1046,10 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     # premier appel d'archive (None = illimite ou passe non encore entamee).
     archive_deadline = None
     for key in keys:
-        result = call(read_arguments_for_key(key, intercom_limit),
-                      url, bearer, timeout=timeout)
+        result = read_store(read_arguments_for_key(key, intercom_limit))
         text = tool_result_text(result)
         if text is None:
-            errors.append(f"{key}: lecture store sans contenu")
+            errors.append(f"{key}: lecture store sans contenu (relance incluse)")
             continue
         try:
             structured = entries_from_store_json(text)
@@ -1008,8 +1107,7 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     f"fenetre d'archives est PARTIELLEMENT AVEUGLE, un "
                     f"[REPAIRED] ou une escalade archivee serait invisible")
                 continue
-            listing = call(read_archive_arguments_for_key(key),
-                           url, bearer, timeout=timeout)
+            listing = read_store(read_archive_arguments_for_key(key))
             names = archive_names_from_listing(listing)
             if names is None:
                 errors.append(f"{key}: listing des archives illisible — la "
@@ -1029,24 +1127,14 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                         f"PARTIELLEMENT AVEUGLE, un [REPAIRED] ou une escalade "
                         f"archivee serait invisible")
                     break
-                archive_result = call(
+                # #4643 -> #4729 : la relance muette vit dans read_store —
+                # meme contrat (UNE relance a timeout etendu sur None, un
+                # rejet serveur isError ne se relance pas : deterministe,
+                # 7 ms mesures post-gel, c.6823202164).
+                archive_result = read_store(
                     read_archive_arguments_for_key(key, archive_file=name),
-                    url, bearer, timeout=timeout,
                     return_rejected_text=True)
                 rejected = archive_rejected_text(archive_result)
-                if rejected is None and archive_result is None:
-                    # #4643 (mesure ai-01 12/11) : lecture MUETTE — timeout
-                    # client sporadique sur une archive SAINE (5 releves sur
-                    # des fichiers de 32-39 Ko). UNE relance a timeout etendu
-                    # tranche : le contenu arrive, ou le rejet devient
-                    # visible. Un rejet isError ne passe PAS ici :
-                    # deterministe (7 ms mesures post-gel, c.6823202164), la
-                    # relance relirait le meme rejet pour rien.
-                    archive_result = call(
-                        read_archive_arguments_for_key(key, archive_file=name),
-                        url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S,
-                        return_rejected_text=True)
-                    rejected = archive_rejected_text(archive_result)
                 if rejected is not None:
                     # #4643 : rejet serveur isError, texte rendu par le
                     # transport (opt-in). Coque de 0 octet = signature
@@ -1094,7 +1182,7 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                       if now is not None and archive_window_hours else None)
     if archive_cutoff is not None:
         extra_closures, pass_errors = second_pass_old_closures(
-            entries, keys, archive_cutoff, call, url, bearer, timeout,
+            entries, keys, archive_cutoff, read_store, url, bearer, timeout,
             archive_deadline)
         entries.extend(extra_closures)
         errors.extend(pass_errors)
@@ -1300,13 +1388,24 @@ def verdict(escalations):
     return 0, "aucune escalade [DEGRADED]"
 
 
-def report(escalations, code, reason, as_json, stream=sys.stdout):
+def report(escalations, code, reason, as_json, stream=None,
+           read_telemetry=None):
+    # stream resolu a l'APPEL, pas au def : un defaut `stream=sys.stdout` est
+    # evalue au chargement du module — un test (ou un appelant) qui redirige
+    # sys.stdout ecrirait quand meme dans le vrai stdout (#4729, trouve en
+    # testant la telemetrie JSON).
+    stream = sys.stdout if stream is None else stream
     counts = {status: sum(1 for e in escalations if e["status"] == status)
               for status in ("overdue", "waiting", "repaired")}
     if as_json:
-        print(json.dumps({"exit": code, "reason": reason, "totals": counts,
-                          "escalations": escalations}, ensure_ascii=False, indent=2),
-              file=stream)
+        payload = {"exit": code, "reason": reason, "totals": counts,
+                   "escalations": escalations}
+        if read_telemetry is not None:
+            # #4729 (piste 2) : les chiffres de lecture dans le verdict
+            # machine — « store lent » vs « store mort » se distingue en
+            # lisant la sortie, pas en rejouant la passe.
+            payload["read_telemetry"] = read_telemetry.snapshot()
+        print(json.dumps(payload, ensure_ascii=False, indent=2), file=stream)
         return
     for item in escalations:
         mark = {"overdue": "SONNERIE", "waiting": "ouverte", "repaired": "close "}[item["status"]]
@@ -1805,11 +1904,13 @@ def main(argv=None):
         entries, errors = load_entries(paths)
     else:
         loader = _store_loader or load_entries_from_store
+        read_tel = ReadTelemetry()
         store = (loader(args.ring_url, args.ring_bearer,
                         timeout=args.ring_timeout, now=now,
                         window_hours=args.cycles * args.cycle_hours,
                         archive_window_hours=args.archive_window_hours,
-                        archive_time_budget=args.archive_time_budget)
+                        archive_time_budget=args.archive_time_budget,
+                        telemetry=read_tel)
                  if args.ring_bearer else None)
         if store is not None:
             source = "store"
@@ -1858,7 +1959,13 @@ def main(argv=None):
     escalations = collect_escalations(entries, now, cycles=args.cycles,
                                       cycle_hours=args.cycle_hours)
     code, reason = verdict(escalations)
-    report(escalations, code, reason, args.json)
+    if source == "store":
+        # #4729 : la ligne de telemetrie accompagne TOUT verdict store —
+        # c'est elle qui distingue « store lent » de « store mort » quand
+        # un exit 1 sous charge devra etre diagnostique apres coup.
+        print(read_tel.render(), file=sys.stderr)
+    report(escalations, code, reason, args.json,
+           read_telemetry=read_tel if source == "store" else None)
 
     if source == "mirror" and not paths:
         print("ERROR: aucun dashboard a lire — « rien a signaler » serait un mensonge "

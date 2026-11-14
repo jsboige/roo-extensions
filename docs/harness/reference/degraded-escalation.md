@@ -230,6 +230,36 @@ cycle suivant re-sonne sur une lecture complète.
 
 ---
 
+## Lecture du store sous charge (#4729)
+
+L'organe perdait sa mesure précisément pendant les pics de charge flotte
+(ai-01 14/11 : exit 1 « store PG injoignable — The read operation timed out »,
+puis exit 124 au feu suivant, alors que les appends MCP de la même fenêtre
+passaient) — c'est-à-dire quand les escalades s'accumulent et que la sonnerie
+compte. Trois protections :
+
+1. **Relance généralisée.** Toute lecture muette du transport (None = timeout
+   client sporadique) — listing initial, lectures vivantes, listings
+   d'archives, fichiers d'archives, seconde passe — se relance UNE fois à
+   timeout étendu (`STORE_READ_RETRY_TIMEOUT_S`, 45 s). Un rejet serveur
+   `isError` ne se relance jamais (déterministe, contrat #4643) : une coque
+   vide reste un WARN non bloquant, tout autre rejet une erreur d'instrument.
+2. **Télémétrie de lecture.** Chaque lecture est mesurée ; le verdict porte
+   les chiffres (`read_telemetry` en sortie `--json`, une ligne stderr
+   sinon) : appels, ok/lents/muets (seuil `SLOW_READ_S`), relances posées et
+   récupérées, p50/p95/max en ms. « Store lent » et « store mort » se
+   distinguent en lisant la sortie, sans rejouer la passe.
+3. **Procédure exit 1 × 3 feux consécutifs.** Un organe qui rend exit 1 sur
+   trois feux consécutifs du même siège est lui-même en panne d'instrument :
+   la lane poste le constat sur le dashboard `global` (tag `ASK`, les trois
+   `read_telemetry` — le différenciel p50/p95/max tranche lent vs mort) et
+   demande au coordinateur l'ouverture d'une issue `[CLAUDE-MACHINE]`
+   (l'ouverture d'issue reste gated). Le silence n'est pas une option :
+   l'alarme muette pendant l'incendie est précisément le défaut que #4729
+   répare.
+
+---
+
 ## Plafond dit explicitement
 
 - **L'organe ne voit que les escalades postées.** Une lane qui n'escalade pas
