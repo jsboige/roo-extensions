@@ -446,6 +446,10 @@ if ($Target -in "all", "settings") {
                         $clean[$k] = $sub[$k]
                     }
                     $fresh[$topKey] = $clean
+                } elseif ($sub -is [string] -and $sub -eq '<<preserve-local>>') {
+                    # A top-level scalar can be preserve-local too (model, #3544
+                    # point 3): written as-is, the marker would become the value.
+                    Write-Host "  WARN dropped $topKey (fresh install — set it manually)" -ForegroundColor Yellow
                 } else {
                     $fresh[$topKey] = $sub
                 }
