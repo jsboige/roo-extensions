@@ -395,6 +395,24 @@ def read_archive_arguments_for_key(key, archive_file=None):
     return arguments
 
 
+def archive_name_stamp(name):
+    """Horodatage porte par le NOM d'une archive, ou None s'il est illisible.
+
+    Le nom est la seule datation disponible sans lire le fichier : c'est lui
+    qui borne la fenetre (#4643). Un nom sans horodatage n'est jamais classe
+    « vieux » ici — la fenetre le CONSERVE (impossible de prouver qu'il est
+    vieux), la seconde passe l'IGNORE (il a deja ete lu par la fenetre).
+    """
+    match = ARCHIVE_NAME_TS_RE.search(name)
+    if match is None:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%Y-%m-%dT%H-%M-%S"
+                                 ).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
 def select_recent_archives(names, now, window_hours):
     """Noms d'archives crees dans la fenetre, par l'horodatage du NOM (#4643).
 
@@ -409,18 +427,187 @@ def select_recent_archives(names, now, window_hours):
         return list(names)
     kept = []
     for name in names:
-        match = ARCHIVE_NAME_TS_RE.search(name)
-        stamp = None
-        if match is not None:
-            try:
-                stamp = datetime.strptime(match.group(1),
-                                          "%Y-%m-%dT%H-%M-%S"
-                                          ).replace(tzinfo=timezone.utc)
-            except ValueError:
-                stamp = None
+        stamp = archive_name_stamp(name)
         if stamp is None or stamp >= cutoff:
             kept.append(name)
     return kept
+
+
+def lane_workspace_keys(lane, keys):
+    """Cles de dashboard candidates pour le workspace d'une lane (#4643).
+
+    La fermeture non crossPostee vit sur le dashboard du workspace de la lane
+    (« il suffit de lire le dashboard ou sa lane poste », ai-01 14/11). Le
+    champ workspace d'une lane est tantot un nom court (`roo-extensions`),
+    tantot un chemin (`d:/dev/roo-extensions`) : on essaie la forme brute puis
+    son dernier segment. On ne rend QUE des cles reellement servies par le
+    store : un dashboard absent du listing n'a pas d'archive a relire, et
+    l'inventer ferait echouer la passe sur une cle fantome.
+    """
+    if "|" not in lane:
+        return []
+    workspace = lane.split("|", 1)[1].strip()
+    if not workspace:
+        return []
+    candidates = [f"workspace-{workspace}"]
+    leaf = workspace.replace("\\", "/").rstrip("/").split("/")[-1]
+    if leaf and leaf != workspace:
+        candidates.append(f"workspace-{leaf}")
+    served = {key.lower(): key for key in keys}
+    chosen = []
+    for candidate in candidates:
+        match = candidate if candidate in keys else served.get(candidate.lower())
+        if match is not None and match not in chosen:
+            chosen.append(match)
+    return chosen
+
+
+def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
+                             timeout, archive_deadline):
+    """#4643 (rouverte 14/11) : relit les archives ANTERIEURES a la fenetre.
+
+    Le defaut mesure par ai-01 le 14/11 : une escalade crossPostee survit dans
+    le vif et dans les archives recentes des autres dashboards, alors que sa
+    fermeture — postee seulement sur le dashboard de sa lane — a ete archivee
+    plus tot et sort de la fenetre d'archives. La fenetre s'applique aux DEUX
+    cotes, donc la fermeture disparait AVANT l'escalade : l'organe classe
+    `overdue` une escalade fermee depuis deux jours, et sonne le user.
+
+    Le declencheur est la coupure d'ARCHIVES (`archive_cutoff`), pas celle des
+    echeances : une fermeture postee apres `archive_cutoff` vit dans une
+    archive creee apres elle, donc dans la fenetre — seule une escalade
+    anterieure a la coupure peut avoir une fermeture hors champ.
+
+    Seconde passe, bornee par le MEME budget que la fenetre (#4661) : pour
+    chaque escalade encore ouverte dont la pose precede `archive_cutoff`, on
+    relit les archives du workspace de sa lane, de la plus recente a la plus
+    ancienne, jusqu'a sa date de pose. On ne retient que les FERMETURES de ces
+    archives : les `[DEGRADED]` qu'elles contiennent sont hors fenetre par
+    construction et ne doivent pas ressusciter comme echeances.
+
+    Rend (closures, errors). Un listing illisible ou un budget epuise rend une
+    erreur d'instrument : l'appelant sort en 1 et la sonnerie est annulee
+    (#4655 W3). Jamais un `overdue` rendu comme verdict sur une mesure
+    partielle — `errors` force exit 1, et le code 2 n'est jamais atteint.
+    """
+    ordered = sorted(entries, key=lambda entry: entry["ts"])
+    open_posts = []
+    seen = set()
+    for index, entry in enumerate(ordered):
+        if not is_degraded(entry):
+            continue
+        marker = (entry["lane"], entry["ts"])
+        if marker in seen:
+            continue
+        seen.add(marker)
+        if entry["ts"] >= archive_cutoff:
+            # Couverte par la fenetre vivante + archives recentes : rien a
+            # ajouter, la premiere passe a fait le travail.
+            continue
+        if any(later["lane"] == entry["lane"] and is_repaired(later)
+               for later in ordered[index + 1:]):
+            continue
+        open_posts.append(marker)
+    if not open_posts:
+        return [], []
+
+    errors = []
+    by_key = {}
+    unresolved = set()
+    for lane, posted in open_posts:
+        candidates = lane_workspace_keys(lane, keys)
+        if not candidates:
+            unresolved.add(lane)
+            continue
+        by_key.setdefault(candidates[0], []).append((lane, posted))
+    for lane in sorted(unresolved):
+        print(f"WARNING: {lane}: dashboard workspace absent du store — "
+              f"fermeture archivee au-dela de la fenetre non verifiable "
+              f"(seconde passe) ; non bloquant", file=sys.stderr)
+
+    live_closures = [entry for entry in ordered if is_repaired(entry)]
+    closures = []
+    for key, posts in sorted(by_key.items()):
+        if archive_deadline is not None and time.monotonic() > archive_deadline:
+            errors.append(
+                f"{key}: budget d'archives epuise AVANT la seconde passe — "
+                f"fermetures archivees au-dela de la fenetre non relues ; "
+                f"mesure partielle")
+            continue
+        listing = call(read_archive_arguments_for_key(key), url, bearer,
+                       timeout=timeout)
+        names = archive_names_from_listing(listing)
+        if names is None:
+            errors.append(f"{key}: listing des archives illisible (seconde "
+                          f"passe) — une fermeture archivee au-dela de la "
+                          f"fenetre serait invisible")
+            continue
+        oldest_post = min(posted for _lane, posted in posts)
+        older = []
+        for name in names:
+            stamp = archive_name_stamp(name)
+            if stamp is None:
+                continue
+            if oldest_post <= stamp < archive_cutoff:
+                older.append((stamp, name))
+        older.sort()
+        remaining = list(posts)
+        for _stamp, name in reversed(older):
+            if not remaining:
+                break
+            if (archive_deadline is not None
+                    and time.monotonic() > archive_deadline):
+                errors.append(
+                    f"{key}/{name}: budget d'archives epuise pendant la "
+                    f"seconde passe — {len(remaining)} fermeture(s) archivee(s) "
+                    f"non verifiee(s) ; mesure partielle")
+                break
+            archive_result = call(
+                read_archive_arguments_for_key(key, archive_file=name),
+                url, bearer, timeout=timeout, return_rejected_text=True)
+            rejected = archive_rejected_text(archive_result)
+            if rejected is None and archive_result is None:
+                # Meme contrat que la fenetre : une lecture MUETTE (timeout
+                # client sporadique) se relance UNE fois a timeout etendu.
+                archive_result = call(
+                    read_archive_arguments_for_key(key, archive_file=name),
+                    url, bearer, timeout=ARCHIVE_READ_RETRY_TIMEOUT_S,
+                    return_rejected_text=True)
+                rejected = archive_rejected_text(archive_result)
+            if rejected is not None:
+                if ARCHIVE_HUSK_SIGNATURE in rejected.lower():
+                    print(f"WARNING: {key}/{name}: coque d'archive vide "
+                          f"ignoree (seconde passe) ({rejected[:120]}) — sans "
+                          f"contenu, rien a lire : non bloquant",
+                          file=sys.stderr)
+                else:
+                    errors.append(f"{key}/{name}: rejet serveur (seconde "
+                                  f"passe) ({rejected[:120]})")
+                continue
+            archive_text = tool_result_text(archive_result)
+            if archive_text is None:
+                errors.append(f"{key}/{name}: lecture archive sans contenu "
+                              f"(seconde passe, relance incluse)")
+                continue
+            try:
+                archived = entries_from_archive_json(archive_text)
+            except ValueError as exc:
+                if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
+                    print(f"WARNING: {key}/{name}: coque d'archive vide "
+                          f"ignoree (seconde passe) ({exc}) — sans contenu, "
+                          f"rien a lire : non bloquant", file=sys.stderr)
+                    continue
+                errors.append(f"{key}/{name}: enveloppe archive "
+                              f"inexploitable (seconde passe) ({exc})")
+                continue
+            found = [entry for entry in archived if is_repaired(entry)]
+            closures.extend(found)
+            known = live_closures + closures
+            remaining = [
+                (lane, posted) for lane, posted in remaining
+                if not any(closure["lane"] == lane
+                           and closure["ts"] > posted for closure in known)]
+    return closures, errors
 
 
 def archive_names_from_listing(result):
@@ -720,9 +907,12 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     donc AUSSI ses archives de condensation creees dans
     `archive_window_hours` (defaut 48 h ; 0 desactive). Un listing d'archives
     illisible est une erreur d'instrument : « je ne vois pas les archives »
-    est exactement l'angle mort, jamais un « aucune archive ». Limite connue,
-    asymetrique : une declaration plus vieille que la fenetre ET archivee
-    reste invisible.
+    est exactement l'angle mort, jamais un « aucune archive ». La symetrie de
+    la fenetre etait le defaut (rouverte 14/11) : une escalade crossPostee
+    survit plus longtemps que sa fermeture, qui sort de la fenetre avant elle.
+    `second_pass_old_closures` relit donc les archives du workspace de la lane
+    jusqu'a la date de pose de toute escalade encore ouverte et anterieure a
+    la fenetre ; un budget epuise y est une erreur d'instrument (exit 1).
 
     #4661 : la passe d'archives est bornee par `archive_time_budget`
     (defaut 900 s — couvre la passe saine mesuree a 669 s, #4643 ;
@@ -894,6 +1084,20 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                                   f"inexploitable ({exc})")
                     continue
                 entries.extend(structured)
+    # #4643 (rouverte 14/11) : la fenetre d'archives est SYMETRIQUE, et c'est
+    # le defaut — une escalade crossPostee survit plus longtemps que sa
+    # fermeture, postee sur le seul dashboard de sa lane. Pour une escalade
+    # encore ouverte et posee AVANT la coupure d'archives, une seconde passe
+    # relit les archives du workspace de sa lane jusqu'a sa date de pose (meme
+    # budget #4661). `now` absent = aucune datation possible : pas de passe.
+    archive_cutoff = (now - timedelta(hours=archive_window_hours)
+                      if now is not None and archive_window_hours else None)
+    if archive_cutoff is not None:
+        extra_closures, pass_errors = second_pass_old_closures(
+            entries, keys, archive_cutoff, call, url, bearer, timeout,
+            archive_deadline)
+        entries.extend(extra_closures)
+        errors.extend(pass_errors)
     return entries, errors, keys
 
 
