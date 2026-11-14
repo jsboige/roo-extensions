@@ -32,10 +32,12 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import List
+from unittest import mock
 
 # Permet l'import depuis scripts/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import check_clean_cycle_exit
 from check_clean_cycle_exit import (
     collect_state,
     main,
@@ -190,6 +192,27 @@ class TestStash(unittest.TestCase):
             state = collect_state(p)
             self.assertEqual(state["verdict"], VERDICTS_PASS)
             self.assertFalse([s for s in state["signals"] if s["kind"] == "stash"])
+
+    def test_stash_list_failure_is_an_instrument_error(self):
+        """Un echec de `git stash list` ne se lit pas « zero stash » (suite #4713)."""
+        real_run_git = check_clean_cycle_exit.run_git
+
+        def failing_stash_list(args, cwd=None):
+            if args == ["stash", "list"]:
+                return 128, "", "fatal: simulated failure"
+            return real_run_git(args, cwd=cwd)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "stashfail"
+            p.mkdir()
+            init_repo(p)
+            with mock.patch.object(check_clean_cycle_exit, "run_git", side_effect=failing_stash_list):
+                self.assertIsNone(check_clean_cycle_exit.count_stashes(p))
+                state = collect_state(p)
+            self.assertEqual(state["verdict"], VERDICTS_PASS)
+            self.assertFalse([s for s in state["signals"] if s["kind"] == "stash"])
+            self.assertIn("git stash list a echoue dans le depot principal.", state["errors"])
+            self.assertIn("git stash list a echoue", render_human(state))
 
 
 class TestWrongBranch(unittest.TestCase):
@@ -414,6 +437,25 @@ class TestSubmodule(unittest.TestCase):
             self.assertTrue(sub_states[0]["drift"])
             self.assertFalse(sub_states[0]["dirty"])
             self.assertEqual(state["verdict"], VERDICT_SUBMODULE_DRIFT)
+
+    def test_submodule_stash_is_reported_with_its_path(self):
+        """Un stash DANS un submodule est signale avec son chemin, sans changer le verdict (suite #4713)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "sub-stash"
+            p.mkdir()
+            init_repo(p, default_branch="main")
+            sub = self._make_submodule(p)
+            git(["-c", "protocol.file.allow=always", "submodule", "add", str(sub), "ext"], cwd=p)
+            git(["commit", "-m", "add submodule"], cwd=p)
+            git(["push", "origin", "main"], cwd=p)
+            ext = p / "ext"
+            write(ext / "sub.md", "stashed change\n")
+            git(["stash"], cwd=ext)
+            state = collect_state(p)
+            self.assertEqual(state["verdict"], VERDICTS_PASS, msg=json.dumps(state, indent=2))
+            self.assertIn({"kind": "stash", "count": 1, "path": "ext"}, state["signals"])
+            self.assertNotIn({"kind": "stash", "count": 1}, state["signals"])
+            self.assertIn("dans ext", render_human(state))
 
     def test_submodule_dirty_internal(self):
         """Submodule au bon gitlink, mais avec une modification non commitee a l'interieur."""
