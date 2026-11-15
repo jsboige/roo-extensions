@@ -33,7 +33,10 @@
     It also pins the relay transportType: both relay entries (sk-agent,
     roo-state-manager) must declare "streamable-http" exactly like the live
     config does (#1357 gap -- without it, a deploy from the template alone
-    silently falls back to the default transport).
+    silently falls back to the default transport). The comparison is
+    case-strict (-cne: PowerShell -ne ignores case), and a relay entry that
+    is absent outright reports SERVER-MISSING rather than a misleading
+    PARSE-ERROR (review follow-up on #4743).
 
     Static (JSON in, verdict out), so ubuntu-latest is fine.
 #>
@@ -166,12 +169,16 @@ function Get-TransportVerdict {
     $obj = $null
     try { $obj = $raw | ConvertFrom-Json } catch { return 'PARSE-ERROR' }
     if ($null -eq $obj.mcpServers) { return 'PARSE-ERROR' }
+    # An absent relay entry is not a parse failure -- it deserves its own
+    # verdict instead of the misleading PARSE-ERROR (review of #4743).
     $entry = $obj.mcpServers.$ServerName
-    if ($null -eq $entry) { return 'PARSE-ERROR' }
+    if ($null -eq $entry) { return 'SERVER-MISSING' }
     $v = $entry.transportType
     if ($null -eq $v) { return 'MISSING' }
     if (-not ($v -is [string])) { return 'NOT-A-STRING' }
-    if ($v -ne 'streamable-http') { return 'WRONG-VALUE' }
+    # -cne, not -ne: PowerShell comparisons are case-INsensitive by default,
+    # so 'STREAMABLE-HTTP' would sail through -ne (review of #4743).
+    if ($v -cne 'streamable-http') { return 'WRONG-VALUE' }
     return 'OK'
 }
 
@@ -209,13 +216,32 @@ $ttCases = @(
     @{ Name = 'transportType missing (#1357 gap)';    Verdict = 'MISSING';      Doc = $ttNoFieldDoc },
     @{ Name = 'transportType "sse" (legacy)';         Verdict = 'WRONG-VALUE';  Doc = $ttCanonical.Replace('"streamable-http"', '"sse"') },
     @{ Name = 'transportType "stdio"';                Verdict = 'WRONG-VALUE';  Doc = $ttCanonical.Replace('"streamable-http"', '"stdio"') },
-    @{ Name = 'transportType numeric';                Verdict = 'NOT-A-STRING'; Doc = $ttCanonical.Replace('"transportType": "streamable-http"', '"transportType": 1') }
+    @{ Name = 'transportType numeric';                Verdict = 'NOT-A-STRING'; Doc = $ttCanonical.Replace('"transportType": "streamable-http"', '"transportType": 1') },
+    @{ Name = 'transportType "STREAMABLE-HTTP" (case)'; Verdict = 'WRONG-VALUE'; Doc = $ttCanonical.Replace('"streamable-http"', '"STREAMABLE-HTTP"') }
 )
 
 $ttMutPath = Join-Path $tmpDir 'mcp-proxy-template-transport.mutant.json'
 foreach ($c in $ttCases) {
     [System.IO.File]::WriteAllText($ttMutPath, $c.Doc, [System.Text.UTF8Encoding]::new($false))
     Assert-Equal $c.Name $c.Verdict (Get-TransportVerdict $ttMutPath 'sk-agent')
+}
+
+# Review of #4743: Test 4 only ever mutated sk-agent, and a relay entry
+# absent outright must read SERVER-MISSING, not the misleading PARSE-ERROR.
+$ttNoServer = $ttCanonical | ConvertFrom-Json
+$ttNoServer.mcpServers.PSObject.Properties.Remove('roo-state-manager')
+$ttNoServerDoc = $ttNoServer | ConvertTo-Json -Depth 10
+
+$ttNoFieldRsm = $ttCanonical | ConvertFrom-Json
+$ttNoFieldRsm.mcpServers.'roo-state-manager'.PSObject.Properties.Remove('transportType')
+$ttNoFieldRsmDoc = $ttNoFieldRsm | ConvertTo-Json -Depth 10
+
+foreach ($pair in @(
+    @{ Name = 'relay entry removed [roo-state-manager]';   Verdict = 'SERVER-MISSING'; Doc = $ttNoServerDoc },
+    @{ Name = 'transportType missing [roo-state-manager]'; Verdict = 'MISSING';        Doc = $ttNoFieldRsmDoc }
+)) {
+    [System.IO.File]::WriteAllText($ttMutPath, $pair.Doc, [System.Text.UTF8Encoding]::new($false))
+    Assert-Equal $pair.Name $pair.Verdict (Get-TransportVerdict $ttMutPath 'roo-state-manager')
 }
 [System.IO.File]::Delete($ttMutPath)
 
