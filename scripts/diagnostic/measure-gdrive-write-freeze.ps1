@@ -122,7 +122,7 @@ foreach ($family in $families) {
                     NewestUtc   = $now.AddHours(-$worst.AgeH).ToString('yyyy-MM-dd HH:mm:ss')
                     AgeHours    = $worst.AgeH
                     Verdict     = 'ACTIVE'
-                    NewestEntry = ($residual | ForEach-Object { $_.Name } | Sort-Object) -join ', '
+                    NewestEntry = ('{0} (+ {1} export-justified, {2} older than {3} h)' -f (($residual | ForEach-Object { $_.Name } | Sort-Object) -join ', '), $exportedRecent, $frozenFiles, $FreezeHours)
                 }
             } else {
                 $newestAll = $mdFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
