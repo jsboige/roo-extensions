@@ -92,11 +92,11 @@
           "model": "z-ai/glm-4.5-air:free",
           "cost": "free",
           "limits": "20 RPM / 50 req/day",
-          "quality": "Matches current z.ai haiku model."
+          "quality": "Legacy gen-4.5 light model, kept as deep FREE fallback only (catalog default haiku is glm-5.3-flash since 16/11)."
         },
         {
           "provider": "z.ai",
-          "model": "glm-4.7-flash",
+          "model": "glm-5.3-flash",
           "cost": "paid",
           "limits": "z.ai coding plan",
           "quality": "Current paid default"
