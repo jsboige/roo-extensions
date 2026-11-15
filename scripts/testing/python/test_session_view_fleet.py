@@ -203,6 +203,29 @@ class FleetViewTest(unittest.TestCase):
         self.assertIn("CoursIA", web2_line)
         self.assertIn("+1", web2_line)  # 4 workspaces, 3 shown
 
+    def test_bad_counts_value_marks_only_that_machine(self):
+        # "actif": "n/a" once raised ValueError above the per-machine loop
+        # and killed the whole table (#3833 follow-up): the machine's row
+        # must go illisible, the other rows must still print.
+        self._write_state("myia-web2", _state_payload(
+            "2026-11-14T20:59:00+00:00",
+            counts={"actif": "n/a", "repos-recent": 2, "repos-ancien": 3, "mort": 0},
+        ))
+        self._write_state("myia-ai-01", _state_payload("2026-11-14T20:59:00+00:00"))
+        code, out, _ = self._run()
+        self.assertEqual(code, 1)
+        web2_line = [line for line in out.splitlines() if line.startswith("myia-web2")][0]
+        ai_line = [line for line in out.splitlines() if line.startswith("myia-ai-01")][0]
+        self.assertIn("illisible", web2_line)
+        self.assertIn("frais", ai_line)  # the other machine still prints
+        self.assertIn("1 frais, 1 en retard/absent/illisible", out)
+        # The error itself rides the machine-readable output.
+        _, json_out, _ = self._run("--json")
+        web2 = [m for m in json.loads(json_out)["machines"]
+                if m["machine"] == "myia-web2"][0]
+        self.assertEqual(web2["state"], "illisible")
+        self.assertIn("n/a", web2["error"])
+
     def test_json_output_shape(self):
         self._write_state("myia-web2", _state_payload("2026-11-14T20:59:00+00:00"))
         code, out, _ = self._run("--json")

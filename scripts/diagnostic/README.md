@@ -48,6 +48,18 @@ python scripts/diagnostic/session-view.py --dry-run
 python scripts/diagnostic/session-view.py --write
 ```
 
+### `session-view-fleet.py`
+
+Vue agrégée de fraîcheur sur les fichiers d'état publiés par `session-view.py` (étape 3 de #3833) : une seule table, une ligne par machine du manifeste de flotte, états `frais` / `en-retard` / `absent` / `illisible` au seuil de 15 min (3 ticks de publication manqués). Une valeur de compteur non numérique (ex. `"n/a"`) rend **seule sa machine** `illisible` — le message d'erreur vit dans la sortie `--json`, le reste de la table s'imprime toujours. Exit fail-closed : `0` tout frais · `1` au moins une machine en retard/absente/illisible · `2` l'instrument ne peut pas mesurer (pas de chemin partagé, roster inutilisable).
+
+```powershell
+# Table : une ligne par machine attendue du manifeste
+python scripts/diagnostic/session-view-fleet.py
+
+# Sortie machine-readable (contient aussi les erreurs par machine)
+python scripts/diagnostic/session-view-fleet.py --json
+```
+
 ### `scan-duplicate-tool-use.py`
 
 Détecte la signature du bug harness #3276 (même `tool_use` émis puis exécuté deux fois — fork en deux nœuds transcript distincts) qui produit des effets de bord dupliqués (ex. 2 issues GitHub créées pour 1 seule intendue : CoursIA #13089/#13090, récidive #13108/#13109).

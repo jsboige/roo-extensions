@@ -15,8 +15,10 @@ machine, with its freshness and a late marker:
   3 missed 5-minute ticks: one slow or failed tick is not "late").
 * ``en-retard`` — file older than the threshold: the publisher is not running.
 * ``absent``    — no state file at all.
-* ``illisible`` — file present but unreadable, not JSON, or without a
-  parseable ``generatedAt``.
+* ``illisible`` — file present but unreadable, not JSON, without a
+  parseable ``generatedAt``, or with counts that fail to parse (a bad
+  count value marks only ITS machine unreadable — the rest of the
+  table still prints).
 
 Roster: the fleet manifest (``.claude/configs/fleet-manifest.json``, which
 CLAUDE.md declares authoritative) unless ``--machines`` overrides it. A
@@ -184,9 +186,17 @@ def read_machine(state_dir, machine, now_s, max_age_s):
 
     counts = payload.get("counts")
     if isinstance(counts, dict):
-        row["counts"] = {
-            key: int(counts.get(key, 0) or 0) for key in _STATUS_KEYS
-        }
+        try:
+            row["counts"] = {
+                key: int(counts.get(key, 0) or 0) for key in _STATUS_KEYS
+            }
+        except (TypeError, ValueError) as exc:
+            # A non-numeric count value (e.g. "n/a") must mark only THIS
+            # machine unreadable. Before this guard the ValueError escaped
+            # the per-machine loop and killed the whole table (#3833).
+            row["state"] = STATE_ILLISIBLE
+            row["error"] = str(exc)
+            return row
     sessions = payload.get("sessions")
     if isinstance(sessions, list):
         workspaces = []
