@@ -200,8 +200,11 @@ tmpclaude-*/
 # .tmp/ is the in-repo scratch location; the two other patterns catch
 # path-resolution accidents no rule can see (an absolute path whose
 # separators were eaten becomes a file name, CoursIA-3: 28.9 MB;
-# `scratchpad_*` resolved against the CWD).
+# `scratchpad_*` resolved against the CWD). `.tmp-*`: scratch files written
+# next to .tmp/ instead of inside it, which the worker auto-commit shipped
+# as PR #4750.
 .tmp/
+.tmp-*
 scratchpad_*
 C:Users*
 
