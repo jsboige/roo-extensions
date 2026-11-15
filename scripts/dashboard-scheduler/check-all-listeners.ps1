@@ -628,13 +628,25 @@ if (-not $NoAlert -and $primarySharedPath) {
         }
     }
     if ($toWarn.Count -gt 0) {
-        $warnList = ($toWarn | Select-Object -First 10) -join ', '
+        # #4503 follow-up : la liste NOMME au plus 10 sieges, et l'etat ne doit
+        # estampiller QUE ceux qui sont nommes. La version precedente bouclait sur
+        # $toWarn entier : les sieges au-dela du 10e consommaient leur cap du jour
+        # sans apparaitre dans aucun message. Comme -First 10 s'applique a un ordre
+        # deterministe (le roster), ce sont les MEMES sieges qui etaient nommes a
+        # chaque passe — les autres n'etaient donc pas avertis « une fois par
+        # jour » mais JAMAIS. Les laisser non estampilles les fait nommer a la
+        # passe suivante du meme jour (le cap reste par siege et par jour).
+        $warned = @($toWarn | Select-Object -First 10)
+        $warnList = $warned -join ', '
+        if ($toWarn.Count -gt $warned.Count) {
+            $warnList += " (+$($toWarn.Count - $warned.Count) more UNVERIFIED, named on a later pass)"
+        }
         $unverifiedContent = "[FLEET-UNVERIFIED] [WARN] Fleet listener check: the following machine(s) remain UNVERIFIED across consecutive passes (no heartbeat readable in any shared-state root): $warnList. Listener possibly not installed or publishing elsewhere (see #4503). No agent wake by design (coordinator decision 13/11)."
         Write-Output ""
         Write-Output $unverifiedContent
         $postU = Add-MachineDashboardMessage $localMachineId $unverifiedContent
         if ($postU.posted) {
-            foreach ($mw in $toWarn) {
+            foreach ($mw in $warned) {
                 if (-not $prevState.machines.ContainsKey($mw)) {
                     $prevState.machines[$mw] = [PSCustomObject]@{ lastStatus = 'UNKNOWN'; lastWarnDayUtc = '' }
                 }

@@ -259,4 +259,35 @@ Describe 'Persistent-UNVERIFIED warning (#4503 point 1, decision 13/11)' {
             (Get-WarnCount $tmpShared) | Should -Be 1 -Because 'the mutant must warn without a streak (the pass-1 test kills it)'
         }
     }
+
+    Context 'Overflow beyond 10 named machines (#4503 follow-up) - the 11th must not be silently consumed' {
+        It 'with 11 UNVERIFIED seats: pass 2 names at most 10 and leaves the 11th un-stamped; pass 3 names it' -Skip:($env:OS -ne 'Windows_NT') {
+            $tmpShared = Join-Path $script:Tmp 'overflow'
+            New-Item -ItemType Directory -Path $tmpShared -Force | Out-Null   # no heartbeat inside -> every machine is UNKNOWN
+            $fake = New-FakeRsmRoot 'rsm-overflow'
+            $eleven = (1..11 | ForEach-Object { "m$_" }) -join ','
+
+            $null = Invoke-FleetCheck $script:FleetPath $tmpShared $fake $eleven   # pass 1: streak recorded, no warning
+            $null = Invoke-FleetCheck $script:FleetPath $tmpShared $fake $eleven   # pass 2: warning, at most 10 named
+
+            (Get-WarnCount $tmpShared) | Should -Be 1 -Because 'the overflow must not multiply the posting, only the naming'
+            $state = Get-Content (Get-StateFile $tmpShared) -Raw -Encoding UTF8 | ConvertFrom-Json
+            $today = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+            foreach ($i in 1..10) {
+                $name = "m$i"
+                $state.machines.$name.lastWarnDayUtc | Should -Be $today -Because "$name is NAMED in the message, so its daily cap is legitimately consumed"
+            }
+            # The 11th was NOT named by the message. The base script stamped every
+            # $toWarn member anyway (named or not): its daily cap is consumed
+            # without a word, and since -First 10 over a deterministic order always
+            # returns the same seats, m11 is silenced permanently - not for a day.
+            $state.machines.m11.lastWarnDayUtc | Should -Be '' -Because 'm11 was not named in any message; stamping it would silence it forever, not for a day'
+
+            $null = Invoke-FleetCheck $script:FleetPath $tmpShared $fake $eleven   # pass 3 same day: the leftover is named
+
+            (Get-WarnCount $tmpShared) | Should -Be 2 -Because 'the machine left out of the first message must be warned on the next pass, not suppressed for the whole day'
+            $raw = [System.IO.File]::ReadAllText((Get-MachineDashboard $tmpShared))
+            $raw | Should -Match 'm11' -Because 'the second warning must name the overflow machine'
+        }
+    }
 }
