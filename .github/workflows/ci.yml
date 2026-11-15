@@ -857,6 +857,15 @@ jobs:
       - name: Run check-all-listeners fleet check suite (#4503)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-all-listeners-fleet-alert-bump.Tests.ps1 -CI
+      # #4503 point 1 (coordinator decision 13/11): the persistent-UNVERIFIED
+      # warning suite — same harness (powershell.exe 5.1 child, throwaway
+      # shared-state fixture, -Skip on non-Windows), so it runs HERE on
+      # windows-latest, next to the fleet-check suite that guards the same
+      # script. Two of its nine tests are mutants (témoins de mutation) proving
+      # the suite kills the no-cap and no-consecutive regressions.
+      - name: Run check-all-listeners unverified-warn suite (#4503 point 1)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-all-listeners-unverified-warn.Tests.ps1 -CI
       # #4587: same gap, one cycle later — the unclean-boot crash probe suite
       # (#4578, po-2028 crash guard) drives the probe as a powershell.exe 5.1
       # child with a mocked Get-WinEvent; its four state-machine Its carry
