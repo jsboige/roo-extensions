@@ -96,3 +96,54 @@ Lecture seule sur le shared-state ; aucune écriture dashboard/PG/Qdrant ; aucun
 
 - **`COND_MSG_RE` prend le PREMIER match** du message système CONDENSATION dans l'archive. Une archive qui **cite** un message CONDENSATION antérieur (message système conservé dans la fenêtre) fait attribuer à la passe les chiffres de la citation, pas ceux de la passe réelle. **Artefact mesuré (30/10) sur les deux rangées du soir du 29/10** : `global-2026-10-29T20-27-36.md` porte `status_kb=15.0` qui appartient à un message 18:19:54 **cité** (le seul bloc CONDENSATION du fichier), et `global-2026-10-29T17-57-52.md` porte `status_kb=14.9` qui appartient à un message 17:31:20 cité — l'annonce de la passe qui crée l'archive n'est pas dans son propre fichier (le message système est ajouté après l'archivage). **Conséquence : les `status_kb` du corpus sont des annonces de passes PRÉCÉDENTES ; les tailles mesurables sans ambiguïté sont `bytes` (fichier) et `before_bytes` (snapshot #3962).** Non corrigé dans l'instrument ce cycle.
 - **`section_metrics` compte les sections par sous-chaîne dans les en-têtes** (`#+ … <nom>`) : un en-tête unique « Décisions actées et En cours » compte **2**. Les `sections_present` sont des **bornes hautes**, pas des comptes exacts — conservateur pour le constat 0/8 (un faux 0 est impossible par ce biais), mais un « n/8 » intermédiaire peut être surestimé.
+
+---
+
+# Suite de campagne — 01/11 → 15/11 (mise à jour G5, lane po-203, 15/11)
+
+Ce rapport décrivait l'état au 29/10. La campagne #4434 qui a suivi a corrigé les mécanismes identifiés et mesuré les résultats. Les chiffres ci-dessous viennent des commentaires de l'issue (ancrés par leur id) ; chaque mesure est lisible dans son intégralité au fil.
+
+## Mécanismes A/B/C — état au 15/11
+
+| Mécanisme (§ ci-dessus) | Correctif mergé | Mesure post-déploiement |
+|---|---|---|
+| **A** — coupe par le haut (plancher déterministe qui ne gardait que lead + blocages + queue) | **ms#1649** (04/11, ai-01) : plancher section-aware — chaque en-tête de section survit à la coupe | `Section-aware truncation kept every section heading` sur les passes finissant au plancher (recensements multi-sièges 05/11, c.6645596264 → c.6649221161) |
+| **B** — le repli ne suit pas la structure ; le primaire trop lent pour son budget (52 appels statut, 0 succès, 38 timeouts mesurés au 04/11) | **ms#1652** (04/11, ai-01) : jambe statut **cloud-first** ; **ms#1712** (09/11, web2) : passe déterministe `enforceStatusBudget` sans LLM entre `generateStatusUpdate` et `condenseTextIfTooLarge` ; **ms#1718** (10/11, web2) ; **ms#1731** (11/11, po-203) : plafond 300 mots sur « Blocages structurels » (résiduel 65 % du statut, c.6778288452) | **C1 tenu : 0/33** passes `LLM did not converge` sur 45 h post-ms#1731 (ai-01, 13/11, c.6844511990) ; po-204 : 6/6 passes sous 15 360 o sous ms#1718 (c.6812463424) ; auto-réparation du mécanisme B observée sur l'instance Argumentum (même commentaire) |
+| **C** — effondrement par `update` manuel plat (vecteur documenté, non départagé le 29/10) | pas de correctif code — reste à portée **consigne/template-statut** | non traité au 15/11 |
+
+## Tableau consolidé qualité / latence / succès / tokens (tailles d'échantillon nommées)
+
+| Contexte | n | Qualité | Latence | Succès | Tokens (entrée/sortie par passe) |
+|---|---|---|---|---|---|
+| **Rejeu isolé primaire** `qwen3.6-35b-a3b`, prompts de production, séquentiel (02/11, po-2025, c.6572874103) | 10 paires réelles | conservation structurelle **94,3 %** (33/35 sections) ; ≥ repli sur 10/10 | min 106 s · p50 **200 s** · p90 318 s · max 431 s (budget 645 s) | **10/10** répondu, 0 timeout | sonde pleine taille : 12 381 / 3 914 ; décode 27,8 tok/s moy (16,7-36,2) |
+| **Repli d'époque** `deepseek-v4-flash` (mêmes 10 paires, sorties archivées) | 10 paires | conservation **71,4 %** (25/35) | — (non rejoué : sorties d'archive) | statut d'époque : ok-with-fallback 10/10 | — |
+| **Conservation repli flotte** (01/11, baseline, c.6563081595) | 549 paires consécutives | **71,5 %** | — | — | — |
+| **Production 24 h, jambe résumé primaire** (14-15/11, ai-01, G2, c.6890386808) | 71 passes | — | — | 71/74 jambes résumé au primaire | **10 530 / 793** |
+| **Production 24 h, jambe résumé repli** | 3 passes | — | — | 3/74 | 9 394 / 1 253 |
+| **Production 24 h, jambe statut repli** (cloud-first, ms#1652) | 74 passes | — | — (condensation détachée #4527 : l'append ne paie plus la passe) | 74/74, 0 `cloud-first-failed` | **17 967 / 2 523** |
+| **Production 24 h, jambe statut primaire** | 0 | — | — | jamais tentée dans la fenêtre (cloud-first) | — |
+| **Non-convergence au plancher** (C1, 45 h post-ms#1731, ai-01, c.6844511990) | 33 passes | — | — | **0/33** `did not converge` | — |
+| **Densité refs/Ko des statuts produits** (G3, post-ms#1731, po-203, c.6892881266) | 230 statuts | P25 5,36 · P50 9,79 · P90 16,66 refs/Ko ; **17,4 %** sous le seuil WARN 4,0 (vs 22,9 % baseline n=363) ; relecture omissions : global 2/15, roo-ext 1/18, CoursIA 11/14 | — | — | — |
+
+Cases « — » = non mesuré dans la campagne (jamais déduites). La colonne **coût** est volontairement absente : G4 reste au coordinateur (file 20261115d). Lecture d'ensemble : en **isolation** le primaire vaut le repli ou mieux sur chaque paire (la défaite de production se joue sur l'isolement sous charge et le budget, pas sur la capacité — c.6572874103 §5) ; en **production**, la jambe statut est servie par le repli cloud depuis ms#1652 et **converge** désormais (0/33 au plancher) ; le plafond `max_tokens = 7200` reste contraignant (4/10 appels du rejeu en `finish_reason=length`, les deux sections perdues = `Patterns appris`, dernière du canevas).
+
+## Décisions
+
+- **Seuil refs/Ko 4,0 : gardé** (G3, 15/11) — le seuil est passé sous le P25 actuel (flague la vraie queue, plus conservateur qu'à l'activation) ; monter = bruit (CoursIA-3/claudish légitimes) ; descendre ferme le signal `global` (16/16 statuts sous 4,0 — genre prose, 2,03 P25). Report-only : si le WARN devient bloquant, `global` exige une décision de genre. Trouvaille pour le template-statut : les vues [ASK-USER] deviennent invisibles dès la condensation (2/2 omissions du relecture global).
+- **Modèle** (décision user 13/11, c.6856871734) : option (b) conditionnelle — comparer de petits modèles payants **sans budget chiffré**, essai borné, coût mesuré par résumé ; verdict sur les deux conditions du user à poster dans l'issue.
+
+## Recommandations du 29/10 — état au 15/11
+
+| Levier préliminaire du 29/10 | État |
+|---|---|
+| (a) garde de **structure** (en-tête `## [key]` + sections) en plus de la taille | **Livré** — plancher section-aware ms#1649 + passe `enforceStatusBudget` ms#1712 |
+| (b) troncature **par section** plutôt que par ligne depuis la fin | **Livré** — le plancher et la passe budget retirent des sections entières, jamais l'en-tête seul |
+| (b') borner la verbosité **par section dans le prompt** | **Livré** — bloc `BUDGET PAR SECTION (#4434)` ms#1633 (02/11, po-2025), déjà présent au 09/11 (c.6739556626 : le modèle le dépasse dans chaque section — d'où la passe déterministe ms#1712) |
+| (c) consigne/template pour les `update` manuels plats | **Non traité** — reste ouvert |
+| Modèle en tête de chaîne | Ouvert — décision user 13/11 (comparaison bornée petits modèles payants) |
+
+## Instruments
+
+- `scripts/analysis/condensation_corpus_scan.py` — inchangé (fragilités ci-dessus toujours d'actualité).
+- `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. Versionné par ce grain (demande de transfert à po-2025 le 15/11 16:03Z, `msg-20261115T150322-vl3zv0`).
+- **Appariement statut ↔ messages** (G3, vérifié à la seconde près) : le statut produit par la passe T est horodaté ~T (26-31 s avant l'écriture de l'archive) et se lit dans l'archive T+1 au bloc « Statut avant condensation » ; une passe peut archiver **sans** produire de statut (cas CoursIA 06:49:55 — le premier statut consommant le feed est cloud-first, 09:06:03).
