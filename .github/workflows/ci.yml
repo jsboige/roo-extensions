@@ -877,6 +877,34 @@ jobs:
       - name: Run check-unclean-boot suite (#4587)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/check-unclean-boot.Tests.ps1 -CI
+      # #4754: the 13 remaining Windows-only unit cases across these 6 files
+      # ran in NO CI job — unit-pester's ubuntu runner skips every
+      # -Skip:($env:OS -ne 'Windows_NT') It (agent-worktree-isolation uses the
+      # -Skip:(-not $IsWindows) idiom, same effect), and none of these files
+      # was in this job's list. The junction guards (path-guards,
+      # worker-worktree-junction-guard) pin the failure mode of
+      # .claude/rules/worktree-lifecycle.md (git worktree remove follows
+      # junctions — po-203 incident of 05/10, 144 tracked files lost): a
+      # regression there would have shipped with CI green. Same pattern as
+      # the #4503/#4587 unit/ steps above.
+      - name: Run log-commit-charge suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/log-commit-charge.Tests.ps1 -CI
+      - name: Run path-guards suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/path-guards.Tests.ps1 -CI
+      - name: Run worker-worktree-junction-guard suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/worker-worktree-junction-guard.Tests.ps1 -CI
+      - name: Run agent-worktree-isolation suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/agent-worktree-isolation.Tests.ps1 -CI
+      - name: Run dashboard-listener-definitive-skip suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/dashboard-listener-definitive-skip.Tests.ps1 -CI
+      - name: Run gdrivefs-watchdog-schtask-fail-loud suite (#4754)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/gdrivefs-watchdog-schtask-fail-loud.Tests.ps1 -CI
 
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
