@@ -1,6 +1,7 @@
 # Qualité des statuts condensés — corpus historique et mécanismes identifiés (#4434)
 
 **Date :** 2026-10-29 · **Lane :** myia-po-2024:roo-extensions · **Périmètre :** volets 1-3 de #4434 (corpus, journal des changements, hypothèse auto-feedback — première passe)
+**MAJ :** 2026-11-15 — append « Suite de campagne 01/11 → 15/11 » (volet G5, lane myia-po-2023:roo-extensions) ; le corps du 29/10 ci-dessous reste celui de po-2024, inchangé.
 
 ## Résumé exécutif
 
@@ -145,5 +146,5 @@ Cases « — » = non mesuré dans la campagne (jamais déduites). La colonne **
 ## Instruments
 
 - `scripts/analysis/condensation_corpus_scan.py` — inchangé (fragilités ci-dessus toujours d'actualité).
-- `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. Versionné par ce grain (demande de transfert à po-2025 le 15/11 16:03Z, `msg-20261115T150322-vl3zv0`).
+- `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. **Non versionné à cette tête** — transfert demandé à po-2025 le 15/11 15:03:22Z (`msg-20261115T150322-vl3zv0`), pas encore atterri : `scripts/analysis/` ne contient que `condensation_corpus_scan.py` comme script Python.
 - **Appariement statut ↔ messages** (G3, vérifié à la seconde près) : le statut produit par la passe T est horodaté ~T (26-31 s avant l'écriture de l'archive) et se lit dans l'archive T+1 au bloc « Statut avant condensation » ; une passe peut archiver **sans** produire de statut (cas CoursIA 06:49:55 — le premier statut consommant le feed est cloud-first, 09:06:03).
