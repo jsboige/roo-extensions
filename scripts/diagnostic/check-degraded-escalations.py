@@ -16,6 +16,11 @@ pour chacune une echeance (2 cycles par defaut), et dit si la sonnerie est due :
     [REPAIRED] de la MEME lane apres T  ->  escalade close
     echeance passee sans [REPAIRED]     ->  SONNERIE DUE
 
+#4746 : un `[REPAIRED]` peut NOMMER son escalade (messageId, reference
+d'issue presente dans son corps, ou heure de pose `HH:MMZ`) — il ne ferme
+alors QUE celle-la. Sans portee il reste une declaration de LANE et ferme
+toutes les precedentes ; l'organe l'imprime quand c'est plus d'une.
+
 Un `[DONE]` ne ferme jamais une escalade : c'est exactement la « sortie degradee
 consacree » que le mandat interdit. Seul `[REPAIRED]` ferme.
 
@@ -153,6 +158,25 @@ NEAR_HEADER_RE = re.compile(r"^\s{0,3}#{1,6}\s*\[\d{4}-\d{2}-\d{2}T[^\]\n]*\]\s*
 # Frontiere de mot obligatoire : `[DEGRADED-FIXED]` n'est pas `[DEGRADED]`.
 DEGRADED_RE = re.compile(r"\[DEGRADED\](?![A-Za-z0-9_-])")
 REPAIRED_RE = re.compile(r"\[REPAIRED\](?![A-Za-z0-9_-])")
+# #4746 : portee OPTIONNELLE d'un `[REPAIRED]`. Deux formes textuelles
+# suffisent a NOMMER une escalade : une reference d'issue presente dans le
+# corps de l'escalade (`#4741`), ou son heure de POSE `HH:MMZ`. La troisieme
+# (messageId) se reconnait par correspondance avec l'id d'une escalade, donc
+# sans motif — voir `repair_scope`.
+# Bornes de chiffres sur la reference : `#47410` n'est pas `#4741` (meme
+# piege que `#109` / `#1091`). Le lookbehind du motif d'heure rejette les
+# `HH:MMZ` qui sont en fait les SECONDES d'un horodatage ISO : `...T08:00:00Z`
+# contient `00:00Z`, et sans lui toute prose citant un ISO nommerait une
+# escalade postee a 00:00 (mesure en ecrivant le test).
+ISSUE_REF_RE = re.compile(r"(?<![0-9])#[0-9]{2,}(?![0-9])")
+SCOPE_TIME_RE = re.compile(
+    r"(?<![0-9:])([01][0-9]|2[0-3]):([0-5][0-9])Z(?![0-9A-Za-z_:])")
+# Un id de message plus court que cela n'est pas un marqueur de portee : le
+# reconnaitre par sous-chaine ferait matcher du texte ordinaire.
+SCOPED_ID_MIN_CHARS = 8
+# Ligne `[msg: id]` posee en tete par le miroir (meme enveloppe que
+# `META_LINE_RE`) : elle porte le messageId que la portee #4746 peut citer.
+MSG_ID_RE = re.compile(r"^\[msg:\s*(?P<id>[^\]\n]+?)\s*\]$", re.M)
 # Les deux tokens, pour l'assainissement du texte de la sonnerie (review
 # #4519 point b : la sonnerie ne doit porter AUCUN token de declaration --
 # sinon son propre post se lit comme la reparation de l'escalade qu'elle sonne).
@@ -230,6 +254,10 @@ def parse_entries(text):
     for entry in entries:
         entry["body"] = "\n".join(entry.pop("lines"))
         entry["tags"] = tags_from_text(entry["body"])
+        # #4746 : le miroir serialise `[msg: id]` en tete — c'est le messageId
+        # qu'une portee de `[REPAIRED]` peut citer.
+        identifier = MSG_ID_RE.search(entry["body"])
+        entry["id"] = identifier.group("id") if identifier else None
     return entries
 
 
@@ -306,15 +334,94 @@ def classify_known_host_defect(text):
     return None
 
 
+def degraded_declarations(ordered):
+    """Declarations `[DEGRADED]` dedoublonnees sur (lane, poste), avec leur
+    index dans `ordered`.
+
+    #4643 : une declaration crossPostee existe sur plusieurs dashboards (meme
+    auteur, meme horodatage) et ne doit compter qu'une fois. #4746 : l'index
+    permet de ne regarder que les `[REPAIRED]` POSTERIEURS a chaque poste.
+    """
+    declarations = []
+    seen = set()
+    for index, entry in enumerate(ordered):
+        if not is_degraded(entry):
+            continue
+        marker = (entry["lane"], entry["ts"])
+        if marker in seen:
+            continue
+        seen.add(marker)
+        declarations.append((index, entry))
+    return declarations
+
+
+def repair_scope(repair, lane_declarations):
+    """(refs, heures, scoped) — ce que ce `[REPAIRED]` NOMME (#4746).
+
+    Trois formes de portee, toutes optionnelles : une reference d'issue du
+    corps de l'escalade, son heure de POSE `HH:MMZ`, ou son messageId.
+    `scoped` faux = `[REPAIRED]` sans portee : declaration de LANE,
+    comportement d'origine (ferme tout ce qui precede).
+
+    Un messageId ne se reconnait que par correspondance avec l'id d'une
+    escalade de la MEME lane, anterieure au `[REPAIRED]` — d'ou
+    `lane_declarations`. Un id trop court n'est pas un marqueur : le
+    reconnaitre par sous-chaine ferait matcher du texte ordinaire.
+    """
+    refs = set(ISSUE_REF_RE.findall(repair["body"]))
+    times = {(m.group(1), m.group(2))
+             for m in SCOPE_TIME_RE.finditer(repair["body"])}
+    scoped = bool(refs or times)
+    if not scoped:
+        for _index, other in lane_declarations:
+            if other["lane"] != repair["lane"] or other["ts"] >= repair["ts"]:
+                continue
+            identifier = other.get("id")
+            if (isinstance(identifier, str)
+                    and len(identifier) >= SCOPED_ID_MIN_CHARS
+                    and identifier in repair["body"]):
+                scoped = True
+                break
+    return refs, times, scoped
+
+
+def repair_names(repair, refs, times, escalation):
+    """Vrai si le `[REPAIRED]` nomme CETTE escalade (#4746) : messageId,
+    reference d'issue de son corps, ou heure de pose `HH:MMZ`."""
+    identifier = escalation.get("id")
+    if (isinstance(identifier, str)
+            and len(identifier) >= SCOPED_ID_MIN_CHARS
+            and identifier in repair["body"]):
+        return True
+    if refs.intersection(ISSUE_REF_RE.findall(escalation["body"])):
+        return True
+    return (escalation["ts"].strftime("%H"),
+            escalation["ts"].strftime("%M")) in times
+
+
+def repair_closes(repair, escalation, lane_declarations):
+    """Vrai si ce `[REPAIRED]` ferme cette escalade (#4746).
+
+    Sans portee : oui (declaration de lane). Avec portee : seulement si elle
+    la nomme. Une portee qui ne correspond a rien ne ferme donc RIEN —
+    l'escalade reste due au cycle suivant. C'est le sens sur : « tout fermer »
+    par defaut est exactement le defaut #4746.
+    """
+    refs, times, scoped = repair_scope(repair, lane_declarations)
+    return not scoped or repair_names(repair, refs, times, escalation)
+
+
 def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
                         cycle_hours=DEFAULT_CYCLE_HOURS, excerpt_chars=160):
     """Liste les escalades et leur etat a `now`.
 
-    Resolution : la PREMIERE entree de la meme lane, posterieure a l'escalade
-    et portant `[REPAIRED]`. Une lane qui se declare reparee ferme toutes ses
-    escalades anterieures — c'est une declaration de lane, pas d'incident, et
-    exiger un identifiant d'incident rendrait le mecanisme inutilisable pour
-    l'agent qui poste sous pression.
+    Resolution : la PREMIERE entree de la meme lane, posterieure a l'escalade,
+    portant `[REPAIRED]` et QUI LA FERME. Sans portee, un `[REPAIRED]` est une
+    declaration de LANE et ferme toutes ses escalades anterieures — exiger un
+    identifiant rendrait le mecanisme inutilisable pour l'agent qui poste sous
+    pression. Depuis #4746, un `[REPAIRED]` peut NOMMER son escalade
+    (messageId, reference d'issue de son corps, heure de pose `HH:MMZ`) : il
+    ne ferme alors QUE celle-la.
 
     #4643 : un message crossPoste existe sous plusieurs dashboards avec le
     MEME auteur et le MEME horodatage — chaque copie ouvrait une escalade, la
@@ -325,23 +432,30 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
     #4730 : chaque item porte `known_defect` (ref du defaut connu de l'hote,
     sinon None). Le STATUT ne change pas -- un tel defaut reste ouvert et du,
     et seul un `[REPAIRED]` de la lane le ferme.
+
+    #4746 : chaque item ferme porte `repaired_by` ({lane, posted, scoped}) —
+    `repair_notices` s'en sert pour dire a la lane ce qu'un `[REPAIRED]` SANS
+    portee vient de fermer.
     """
     ordered = sorted(entries, key=lambda e: e["ts"])
+    declarations = degraded_declarations(ordered)
     window = timedelta(hours=cycles * cycle_hours)
     found = []
-    seen_declarations = set()
-    for index, entry in enumerate(ordered):
-        if not is_degraded(entry):
-            continue
-        declaration_key = (entry["lane"], entry["ts"])
-        if declaration_key in seen_declarations:
-            continue
-        seen_declarations.add(declaration_key)
+    for index, entry in declarations:
         repaired_at = None
-        for later in ordered[index + 1:]:
-            if later["lane"] == entry["lane"] and is_repaired(later):
-                repaired_at = later["ts"]
-                break
+        repaired_by = None
+        repaired_scoped = False
+        for later_index in range(index + 1, len(ordered)):
+            later = ordered[later_index]
+            if later["lane"] != entry["lane"] or not is_repaired(later):
+                continue
+            refs, times, scoped = repair_scope(later, declarations)
+            if scoped and not repair_names(later, refs, times, entry):
+                continue
+            repaired_at = later["ts"]
+            repaired_by = later
+            repaired_scoped = scoped
+            break
         deadline = entry["ts"] + window
         if repaired_at is not None:
             status = "repaired"
@@ -358,11 +472,41 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
             "status": status,
             "repaired_at": (repaired_at.isoformat().replace("+00:00", "Z")
                             if repaired_at else None),
+            "repaired_by": ({"lane": repaired_by["lane"],
+                             "posted": repaired_by["ts"].isoformat().replace(
+                                 "+00:00", "Z"),
+                             "scoped": repaired_scoped}
+                            if repaired_by is not None else None),
             "excerpt": prose[:excerpt_chars],
             # #4730 : sur le corps ENTIER, jamais sur l'extrait tronque.
             "known_defect": classify_known_host_defect(prose),
         })
     return found
+
+
+def repair_notices(escalations):
+    """#4746 : lignes « REPAIRED <lane> <ts> a ferme N escalade(s) ».
+
+    Un `[REPAIRED]` SANS portee garde le comportement d'origine — il ferme
+    toutes les escalades anterieures de sa lane. Quand il en ferme PLUS
+    D'UNE, l'organe le dit : la lane voit ce qu'elle vient de fermer, et une
+    escalade sans rapport ne peut plus disparaitre en silence. Une fermeture
+    unique n'est pas signalee (bruit).
+    """
+    groups = {}
+    for item in escalations:
+        by = item.get("repaired_by")
+        if not by or by.get("scoped"):
+            continue
+        groups.setdefault((by["lane"], by["posted"]), []).append(item["posted"])
+    notices = []
+    for (lane, posted), closed in sorted(groups.items()):
+        if len(closed) < 2:
+            continue
+        notices.append(
+            f"REPAIRED {lane} {posted} a fermé {len(closed)} escalade(s) : "
+            + ", ".join(sorted(closed)))
+    return notices
 
 
 def load_entries(paths):
@@ -550,35 +694,30 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
     partielle — `errors` force exit 1, et le code 2 n'est jamais atteint.
     """
     ordered = sorted(entries, key=lambda entry: entry["ts"])
+    declarations = degraded_declarations(ordered)
     open_posts = []
-    seen = set()
-    for index, entry in enumerate(ordered):
-        if not is_degraded(entry):
-            continue
-        marker = (entry["lane"], entry["ts"])
-        if marker in seen:
-            continue
-        seen.add(marker)
+    for index, entry in declarations:
         if entry["ts"] >= archive_cutoff:
             # Couverte par la fenetre vivante + archives recentes : rien a
             # ajouter, la premiere passe a fait le travail.
             continue
         if any(later["lane"] == entry["lane"] and is_repaired(later)
+               and repair_closes(later, entry, declarations)
                for later in ordered[index + 1:]):
             continue
-        open_posts.append(marker)
+        open_posts.append(entry)
     if not open_posts:
         return [], []
 
     errors = []
     by_key = {}
     unresolved = set()
-    for lane, posted in open_posts:
-        candidates = lane_workspace_keys(lane, keys)
+    for entry in open_posts:
+        candidates = lane_workspace_keys(entry["lane"], keys)
         if not candidates:
-            unresolved.add(lane)
+            unresolved.add(entry["lane"])
             continue
-        by_key.setdefault(candidates[0], []).append((lane, posted))
+        by_key.setdefault(candidates[0], []).append(entry)
     for lane in sorted(unresolved):
         print(f"WARNING: {lane}: dashboard workspace absent du store — "
               f"fermeture archivee au-dela de la fenetre non verifiable "
@@ -601,7 +740,7 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
                           f"passe) — une fermeture archivee au-dela de la "
                           f"fenetre serait invisible")
             continue
-        oldest_post = min(posted for _lane, posted in posts)
+        oldest_post = min(entry["ts"] for entry in posts)
         older = []
         for name in names:
             stamp = archive_name_stamp(name)
@@ -656,10 +795,15 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             found = [entry for entry in archived if is_repaired(entry)]
             closures.extend(found)
             known = live_closures + closures
+            # #4746 : une fermeture SCOPEE ne ferme que ce qu'elle nomme —
+            # la seconde passe ne doit pas tenir un poste pour clos sur la
+            # seule presence d'un `[REPAIRED]` de sa lane.
             remaining = [
-                (lane, posted) for lane, posted in remaining
-                if not any(closure["lane"] == lane
-                           and closure["ts"] > posted for closure in known)]
+                entry for entry in remaining
+                if not any(closure["lane"] == entry["lane"]
+                           and closure["ts"] > entry["ts"]
+                           and repair_closes(closure, entry, declarations)
+                           for closure in known)]
     return closures, errors
 
 
@@ -840,10 +984,13 @@ def entries_from_messages(messages):
         content = message.get("content") or ""
         if not isinstance(content, str):
             raise ValueError("corps de message non-chaine")
+        identifier = message.get("id")
         entries.append({
             "ts": parse_ts(stamp),
             "lane": lane,
             "body": content,
+            # #4746 : le messageId du store est un marqueur de portee possible.
+            "id": identifier if isinstance(identifier, str) and identifier else None,
             # Union : le champ (API canonique) ET le corps (forme documentee).
             "tags": ({t.strip().lower() for t in raw_tags
                       if isinstance(t, str) and t.strip()}
@@ -1492,7 +1639,9 @@ def report(escalations, code, reason, as_json, stream=None,
             1 for e in escalations
             if e["status"] == "overdue" and e.get("known_defect"))
         payload = {"exit": code, "reason": reason, "totals": totals,
-                   "escalations": escalations}
+                   "escalations": escalations,
+                   # #4746 : ce qu'un [REPAIRED] sans portee a ferme.
+                   "repair_notices": repair_notices(escalations)}
         if read_telemetry is not None:
             # #4729 (piste 2) : les chiffres de lecture dans le verdict
             # machine — « store lent » vs « store mort » se distingue en
@@ -1510,6 +1659,10 @@ def report(escalations, code, reason, as_json, stream=None,
         print(f"{mark:<8} {item['lane']:<38} postee {item['posted']} "
               f"echeance {item['deadline']}")
         print(f"         {item['excerpt'][:120]}{suffix}")
+    # #4746 : la lane voit ce qu'un [REPAIRED] SANS portee vient de fermer
+    # (N >= 2 seulement — une fermeture unique est le cas nominal).
+    for notice in repair_notices(escalations):
+        print(notice)
     print(f"\n{reason} — overdue={counts['overdue']} waiting={counts['waiting']} "
           f"repaired={counts['repaired']}")
 
