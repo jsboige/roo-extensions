@@ -21,6 +21,7 @@
     },
     "sk-agent": {
       "url": "http://host.docker.internal:8100/mcp",
+      "transportType": "streamable-http",
       "headers": {
         "Authorization": "Bearer REPLACE_WITH_SK_AGENT_API_KEY"
       },
@@ -28,6 +29,7 @@
     },
     "roo-state-manager": {
       "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
+      "transportType": "streamable-http",
       "headers": {
         "Authorization": "Bearer REPLACE_WITH_HOST_PROXY_TOKEN"
       },

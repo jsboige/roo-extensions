@@ -30,6 +30,11 @@
     budget (720 s, mcps/internal/.../tools/registry.ts), so a slow call is cut
     by the inner layer with its own message and never masked by the outer one.
 
+    It also pins the relay transportType: both relay entries (sk-agent,
+    roo-state-manager) must declare "streamable-http" exactly like the live
+    config does (#1357 gap -- without it, a deploy from the template alone
+    silently falls back to the default transport).
+
     Static (JSON in, verdict out), so ubuntu-latest is fine.
 #>
 
@@ -145,6 +150,74 @@ foreach ($c in $cases) {
     Assert-Equal $c.Name $c.Verdict (Get-TimeoutVerdict $mutPath)
 }
 [System.IO.File]::Delete($mutPath)
+
+# ============================================================================
+# Test 3: both relay entries declare transportType "streamable-http"
+# (#1357 gap flagged in the issue state block: the live config carries the
+# field on both relays, the template on neither -- a deploy from the template
+# alone would silently fall back to the default transport.)
+# ============================================================================
+Write-Host "`n=== Test 3: relay transportType on the shipped template ===" -ForegroundColor Cyan
+
+function Get-TransportVerdict {
+    param([string]$Path, [string]$ServerName)
+    if (-not (Test-Path $Path)) { return 'PARSE-ERROR' }
+    $raw = [System.IO.File]::ReadAllText((Resolve-Path $Path))
+    $obj = $null
+    try { $obj = $raw | ConvertFrom-Json } catch { return 'PARSE-ERROR' }
+    if ($null -eq $obj.mcpServers) { return 'PARSE-ERROR' }
+    $entry = $obj.mcpServers.$ServerName
+    if ($null -eq $entry) { return 'PARSE-ERROR' }
+    $v = $entry.transportType
+    if ($null -eq $v) { return 'MISSING' }
+    if (-not ($v -is [string])) { return 'NOT-A-STRING' }
+    if ($v -ne 'streamable-http') { return 'WRONG-VALUE' }
+    return 'OK'
+}
+
+foreach ($relay in @('sk-agent', 'roo-state-manager')) {
+    Assert-Equal "shipped template transportType [$relay]" 'OK' (Get-TransportVerdict $TemplatePath $relay)
+}
+
+# ============================================================================
+# Test 4: transport predicate mutation cases (same discipline as Test 2)
+# ============================================================================
+Write-Host "`n=== Test 4: transportType mutation cases ===" -ForegroundColor Cyan
+
+$ttCanonical = @'
+{
+  "mcpServers": {
+    "sk-agent": {
+      "url": "http://host.docker.internal:8100/mcp",
+      "transportType": "streamable-http"
+    },
+    "roo-state-manager": {
+      "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
+      "transportType": "streamable-http"
+    }
+  }
+}
+'@
+
+# "field removed" mutant via re-serialization (no dangling comma -- same
+# pattern as the timeout cases).
+$ttNoField = $ttCanonical | ConvertFrom-Json
+$ttNoField.mcpServers.'sk-agent'.PSObject.Properties.Remove('transportType')
+$ttNoFieldDoc = $ttNoField | ConvertTo-Json -Depth 10
+
+$ttCases = @(
+    @{ Name = 'transportType missing (#1357 gap)';    Verdict = 'MISSING';      Doc = $ttNoFieldDoc },
+    @{ Name = 'transportType "sse" (legacy)';         Verdict = 'WRONG-VALUE';  Doc = $ttCanonical.Replace('"streamable-http"', '"sse"') },
+    @{ Name = 'transportType "stdio"';                Verdict = 'WRONG-VALUE';  Doc = $ttCanonical.Replace('"streamable-http"', '"stdio"') },
+    @{ Name = 'transportType numeric';                Verdict = 'NOT-A-STRING'; Doc = $ttCanonical.Replace('"transportType": "streamable-http"', '"transportType": 1') }
+)
+
+$ttMutPath = Join-Path $tmpDir 'mcp-proxy-template-transport.mutant.json'
+foreach ($c in $ttCases) {
+    [System.IO.File]::WriteAllText($ttMutPath, $c.Doc, [System.Text.UTF8Encoding]::new($false))
+    Assert-Equal $c.Name $c.Verdict (Get-TransportVerdict $ttMutPath 'sk-agent')
+}
+[System.IO.File]::Delete($ttMutPath)
 
 # ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
