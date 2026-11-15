@@ -26,6 +26,8 @@
 #   (g) ecriture recente SANS tampon                            -> exit 1, le fichier est nomme
 #   (h) ecriture recente avec tampon PÉRIMÉ (écrit après le dernier export) -> exit 1
 #   (i) instance dashboards sans aucun .md                     -> exit 2, pas de verdict fabriqué
+#   (j) item 5a : residu + export justifie dans la meme instance -> exit 1, la ligne ACTIVE
+#       affiche le compte justifie par export (avant le fix, seule la branche FROZEN le faisait)
 #
 # Execution : powershell -NoProfile -ExecutionPolicy Bypass -File scripts/testing/run-pester-tests.ps1 -Path scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1
 
@@ -202,5 +204,21 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
         $r = Invoke-Measure -Store $fx
         Assert-That ($r.ExitCode -eq 2) "exit 2 attendu (famille vide = pas de verdict), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
         Assert-That ($r.Output -match 'zero \.md files') "le motif d'instance vide n'est pas rendu: $($r.Output)"
+    }
+
+    It '(j) G-MES item 5a: la branche ACTIVE affiche AUSSI le compte justifie par export' {
+        $fx = New-FrozenStore
+        # Deux ecritures recentes : l'une justifiee par un tampon frais, l'autre
+        # residuelle. Le verdict reste NOT-MET (le residu existe), mais la ligne
+        # doit rendre le compte justifie -- avant l'item 5a, seule la branche
+        # FROZEN (zero residu) l'affichait : un lecteur de la branche ACTIVE ne
+        # pouvait pas distinguer "2 ecrivains" de "1 ecrivain + 1 export justifie".
+        New-DashboardFile -Path (Join-Path $fx 'dashboards\workspace-a.md') -AgeHours 1 -StampAgeHours 1
+        New-DashboardFile -Path (Join-Path $fx 'dashboards\workspace-b.md') -AgeHours 1
+        $r = Invoke-Measure -Store $fx
+        Assert-That ($r.ExitCode -eq 1) "exit 1 attendu (un residu subsiste), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
+        Assert-That ($r.Output -match [regex]::Escape('workspace-b.md')) "le fichier residuel n'est pas nomme: $($r.Output)"
+        Assert-That ($r.Output -match '1 export-justified') "la branche ACTIVE n'affiche pas le compte justifie par export: $($r.Output)"
+        Assert-That ($r.Output -notmatch [regex]::Escape('workspace-a.md')) "le fichier justifie ne doit pas etre liste comme residu: $($r.Output)"
     }
 }
