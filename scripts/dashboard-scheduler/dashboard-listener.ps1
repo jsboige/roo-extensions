@@ -768,12 +768,14 @@ function Get-WakeTargetWorkspace($content) {
     return $null
 }
 
-# #2244: Bot wake routing — [WAKE-HERMES] → myia-po-2026:hermes-agent, [WAKE-NANOCLAW] → myia-ai-01:nanoclaw.
+# #2244: Bot wake routing — [WAKE-HERMES] → myia-ai-01:hermes-agent (moved from po-2026,
+#   #2245 step 1: Hermes runs on ai-01 — D:\hermes-agent + the 5 Hermes-* scheduled tasks
+#   live there; the po-2026 target woke nobody), [WAKE-NANOCLAW] → myia-ai-01:nanoclaw.
 # #3202: [WAKE-VIBE] → CoursIA (Mistral Vibe — spawn is NOT claude -p, see Process-WakeTags).
 # Returns @{ machine = '<id>'; workspace = '<ws>' } or $null if no bot tag matched.
 function Get-WakeBotTarget($content) {
     if ($content -match '\[WAKE-HERMES\]') {
-        return @{ machine = 'myia-po-2026'; workspace = 'hermes-agent' }
+        return @{ machine = 'myia-ai-01'; workspace = 'hermes-agent' }
     }
     if ($content -match '\[WAKE-NANOCLAW\]') {
         return @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
