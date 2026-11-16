@@ -1073,26 +1073,77 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         # couvrir la mesure, sinon l'organe ne rend jamais 0/2/3.
         self.assertGreaterEqual(cde.DEFAULT_ARCHIVE_TIME_BUDGET_S, 669.0)
 
-    def test_empty_husk_archive_is_not_an_instrument_error(self):
-        # Item 2 (c.6823202164) : une coque de 0 octet est rejete par le
-        # serveur en isError VERBATIM — le texte est rendu par le transport
-        # (opt-in). Elle n'a jamais porte de messages : WARN non bloquant,
-        # PAS une erreur d'instrument (exit 0 sur live sain), AUCUNE relance
-        # (le rejet est deterministe : 7 ms mesures post-gel).
+    def test_fresh_archive_husk_rejection_is_a_partial_measure(self):
+        # #4796 (incident po-2024 16/11 16:22Z) : l'archive fraiche de 16:16Z
+        # (18 messages, dont le [REPAIRED] 12:31Z) rejetee « frontmatter
+        # manquant » etait exemptee comme coque vide — le run rendait exit 2
+        # (sonnerie fantome) sur une mesure privee de la fermeture. Depuis un
+        # siege, le vide ne prouve pas la coque (placeholder DriveFS encore
+        # vide) : lecture partielle, comme un dashboard illisible — exit 1,
+        # erreur nommant le fichier. Tueur : sur le code d'avant #4796, ce
+        # test rend 2.
         husk_text = ("Error: Format archive invalide: frontmatter manquant "
                      "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
                      "workspace-y-2026-11-03T04-00-00.md")
         self.fake_store(
-            {}, keys=["workspace-y"], structured={"y": []},
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
             archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
             archive_rejected={"workspace-y-2026-11-03T04-00-00.md": husk_text})
         with contextlib.redirect_stderr(io.StringIO()) as err:
             code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
                              "--env-file", ""])
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
+        self.assertIn("mesure partielle", err.getvalue())
+        self.assertIn("workspace-y-2026-11-03T04-00-00.md", err.getvalue())
+        # Le rejet deterministe ne se relance pas : une seule lecture.
+        file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
+        self.assertEqual(len(file_reads), 1)
+
+    def test_fresh_archive_husk_envelope_failure_is_a_partial_measure(self):
+        # #4796, couche JSON : une enveloppe en echec (success: false, rejet
+        # non-isError) portant la signature husk suit le meme contrat que la
+        # couche transport — lecture partielle dans la fenetre, jamais le
+        # WARN d'avant qui rendait un verdict confiant (exit 2) sur le reste.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00.md"]},
+            archive_raw={"workspace-y-2026-11-03T04-00-00.md": json.dumps({
+                "success": False,
+                "error": "Format archive invalide: frontmatter manquant dans "
+                         "G:\\Mon Drive\\...\\workspace-y-2026-11-03T04-00-00.md"})})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 1)
+        self.assertIn("mesure partielle", err.getvalue())
+
+    def test_out_of_window_husk_is_still_not_an_instrument_error(self):
+        # #4643 -> #4796 : l'exemption coque ne survit que HORS fenetre
+        # (seconde passe, archives anterieures a la coupure) — la une coque
+        # ne peut plus masquer une fermeture de la fenetre lue. WARN non
+        # bloquant, verdict selon le reste : l'escalade vivante non fermee
+        # reste due (exit 2). AUCUNE relance (le rejet est deterministe,
+        # 7 ms mesures post-gel, c.6823202164).
+        husk_text = ("Error: Format archive invalide: frontmatter manquant "
+                     "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
+                     "workspace-ws-2026-10-31T04-00-00.md")
+        self.fake_store(
+            {}, keys=["workspace-ws"],
+            structured={"ws": [self.message("2026-10-30T00:30:00.000Z",
+                                            tags=["DEGRADED"])]},
+            archives={"ws": ["workspace-ws-2026-10-31T04-00-00.md"]},
+            archive_rejected={"workspace-ws-2026-10-31T04-00-00.md": husk_text})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 2)
         self.assertIn("coque", err.getvalue())
         # Un rejet isError ne se relance PAS : une seule lecture de FICHIER
-        # (self.archive_reads inclut aussi l'appel de listing).
+        # (self.archive_reads inclut aussi les appels de listing).
         file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
         self.assertEqual(len(file_reads), 1)
 

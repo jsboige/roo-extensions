@@ -203,12 +203,17 @@ de 32-39 Ko). Un **rejet serveur `isError` ne se relance pas** : il est
 déterministe (7 ms mesurés post-gel — les ~35 s venaient du gel de G:, pas
 du rejet), et le transport rend son **texte** à l'organe via l'opt-in
 `return_rejected_text` (les autres appelants gardent le `None` fail-closed).
-Le texte est alors **classifié** : la signature « frontmatter manquant »
-désigne une **coque vide** (0 octet, writer interrompu d'avant le correctif
-temp+rename) → **WARN non bloquant** (une coque n'a jamais porté de messages,
-ce n'est pas une panne d'instrument) ; tout **autre rejet** → erreur
-d'instrument. Les entrées vivantes restent intactes et le verdict peut être
-0/2/3. En source store, le dénominateur du rapport d'erreurs (« N
+Le texte est alors **classifié** : la signature « frontmatter manquant » sur
+une archive **hors fenêtre** (seconde passe) désigne une **coque vide** (0
+octet, writer interrompu d'avant le correctif temp+rename) → **WARN non
+bloquant** ; sur une archive **de la fenêtre lue**, le même rejet vaut
+**lecture partielle** depuis #4796 (erreur d'instrument, sortie 1) — le vide
+ne prouve pas la coque depuis un siège : un placeholder DriveFS encore vide
+se rejette pareil (mesure po-2024 16/11 : archive de 18 messages,
+`[REPAIRED]` invisible, exit 2 fantôme sur deux runs propres, la même archive
+lisible depuis ai-01) ; tout **autre rejet** → erreur d'instrument. Les
+entrées vivantes restent intactes dans tous les cas ; seul le WARN hors
+fenêtre garde un verdict 0/2/3. En source store, le dénominateur du rapport d'erreurs (« N
 illisible(s) sur M ») est le nombre de **dashboards lus** (clés du listing) —
 il disait « sur 0 ».
 
@@ -287,7 +292,9 @@ compte. Trois protections :
    d'archives, fichiers d'archives, seconde passe — se relance UNE fois à
    timeout étendu (`STORE_READ_RETRY_TIMEOUT_S`, 45 s). Un rejet serveur
    `isError` ne se relance jamais (déterministe, contrat #4643) : une coque
-   vide reste un WARN non bloquant, tout autre rejet une erreur d'instrument.
+   vide **hors fenêtre** reste un WARN non bloquant, une coque **dans la
+   fenêtre** vaut lecture partielle (#4796), tout autre rejet une erreur
+   d'instrument.
 2. **Télémétrie de lecture.** Chaque lecture est mesurée ; le verdict porte
    les chiffres (`read_telemetry` en sortie `--json`, une ligne stderr
    sinon) : appels, ok/lents/muets (seuil `SLOW_READ_S`), relances posées et
