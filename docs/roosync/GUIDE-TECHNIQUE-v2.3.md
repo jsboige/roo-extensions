@@ -90,7 +90,7 @@ roo-state-manager/
 │   │   ├── ConfigDiffService.ts        ← Moteur de diff granulaire
 │   │   ├── InventoryService.ts         ← Collecte inventaire (Native TS)
 │   │   ├── MessageManager.ts           ← Gestion conversations
-│   ├── tools/ (18 outils MCP servis — voir §2.4)
+│   ├── tools/ (18 outils MCP servis — inventaire courant : .claude/rules/tool-availability.md ; le §2.4 ci-dessous est un état historique obsolète)
 │   │   ├── roosync/ (cœur RooSync)
 │   │   ├── conversation/ · task/ · search/ · export/ · indexing/ · summary/
 │   │   ├── storage/ · cache/ · repair/ · maintenance/ · diagnostic/
