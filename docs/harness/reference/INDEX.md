@@ -118,6 +118,7 @@
 | **MCP proxy host (#1354)** | Hebergement du MCP proxy sur ai-01 — deploiement, config, operations | `mcp-proxy-host.md` |
 | **Tool usage telemetry (#1863)** | Telemetrie usage des outils (Phase D) — `tool_usage_stats`, snapshots hebdo, `trend_report` | `tool-usage-telemetry.md` |
 | **Leçons archivées (#2368)** | 11 leçons longues (wire schema statique, cycle de vie cache, mocks vitest, runner-régime CI, process flotte) — ventilées T5→T4 depuis la mémoire po-2023 | `lessons-archive.md` |
+| **Boucle d'index `ws-*` (#4736 P4)** | Runbook de la boucle post-commit : clés d'armement, préfixe hashé → collection servie, `ws_refresh_status`, SLO dérivé (`announced_delay_s` vs `last_refresh_ms`), pièges (périmètre markdown, bail hôte, content-match) | `ws-index-refresh.md` |
 
 ## Leçons de terrain
 
