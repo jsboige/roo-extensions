@@ -211,6 +211,8 @@ roosync_apply_decision { "decisionId": "DECISION_ID", "dryRun": false }
 
 RooSync fournit **18 outils MCP** pour la synchronisation et la coordination multi-environnements.
 
+> **Inventaire historique** — le tableau ci-dessous date d'une époque antérieure aux consolidations (#603 : `roosync_init`, `roosync_get_status`, `roosync_list_diffs` et la famille `roosync_*_decision` retirés ou fusionnés) et compte 17 lignes, pas 18. Inventaire courant : [`../../.claude/rules/tool-availability.md`](../../.claude/rules/tool-availability.md) et [`../harness/reference/roosync-tools-guide.md`](../harness/reference/roosync-tools-guide.md).
+
 ### Liste des Outils
 
 | # | Outil | Description | Phase Workflow |

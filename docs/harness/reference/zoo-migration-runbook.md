@@ -178,7 +178,7 @@ $mcp.mcpServers.PSObject.Properties.Name
 
 ```powershell
 # Lancer une session Claude Code et vérifier :
-# 1. MCP roo-state-manager disponible (17 outils)
+# 1. MCP roo-state-manager disponible (18 outils)
 # 2. conversation_browser fonctionne
 # 3. roosync_dashboard read + append OK
 # 4. DashboardListener Running
