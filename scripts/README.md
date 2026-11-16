@@ -168,7 +168,7 @@ différent.
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `analysis/` | 6 | Analyse de code et métriques (branches, commits, complexity) |
+| `analysis/` | 8 | Analyse de code et métriques (branches, commits, complexity) |
 | `docs/` | 8 | Génération et maintenance de documentation |
 | `benchmarks/` | 3 | Benchmarks de performance |
 | `common/` | 4 | Utilitaires partagés (extension paths, submodule deletion guards) |
