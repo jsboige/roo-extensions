@@ -475,6 +475,14 @@ jobs:
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/check_scheduled_task_safe_to_delete.Tests.ps1 -CI
 
+      # #4766 follow-up: the copilot dispatcher fixture ran nowhere, so the #4641
+      # REST migration (11/11) left 3 of its assertions false for 5 days unseen.
+      # Pure: functions are extracted from the shipped source, git and the REST
+      # helpers are mocked — no network, no gh, no schtask.
+      - name: Run copilot dispatcher Pester fixture
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/scheduling/start-copilot-dispatcher.Tests.ps1 -CI
+
       # Same reasoning as above, applied to the worktree cleanup classifier:
       # Get-WorktreeClass decides whether a worktree gets DELETED. It is pure
       # (no git, no gh, no disk), so it runs on this static path. (The Pester
