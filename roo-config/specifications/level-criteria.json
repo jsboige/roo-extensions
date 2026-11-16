@@ -92,7 +92,7 @@
   },
 
   "glm_models": {
-    "description": "Critères spécifiques pour routage entre GLM-5.3-Flash (simple) et GLM 4.7 (complex)",
+    "description": "Critères spécifiques pour routage entre GLM-5.3-Flash (simple) et GLM-5.3 (complex)",
     "provider": "z.ai",
     "note": "Section ajoutée pour #351 - Spécifications modèles GLM pour Roo Code",
 
@@ -114,7 +114,7 @@
         "Requêtes SQL simples (SELECT, INSERT, UPDATE basiques)"
       ],
 
-      "escalation_to_glm47": [
+      "escalation_to_glm53": [
         "Erreur après 2 tentatives consécutives",
         "Modification dépasse 100 lignes de code",
         "Tests échouent avec stack trace complexe",
@@ -125,13 +125,13 @@
       ]
     },
 
-    "glm-4.7": {
-      "model_id": "z-ai/glm-4.7",
+    "glm-5.3": {
+      "model_id": "z-ai/glm-5.3",
       "tier": "complex",
       "temperature": 0.7,
       "max_context_tokens": 131072,
       "description": "Modèle complet pour architecture, debugging et features",
-      "estimated_cost_per_1k_tokens": 0.001,
+      "estimated_cost_per_1k_tokens": 0.0014,
       "note": "Contexte réel 131K tokens (les 200K annoncés incluent les tokens de sortie)",
 
       "use_cases": [
@@ -147,7 +147,7 @@
         "Gestion d'erreurs avancée (retry logic, fallback, circuit breaker)"
       ],
 
-      "de_escalation_to_glm47flash": [
+      "de_escalation_to_glm53flash": [
         "Tâche résolue en < 20 lignes finalement",
         "Aucune logique complexe détectée après analyse",
         "Modification purement cosmétique identifiée"
@@ -164,7 +164,7 @@
         "Test unitaire simple: assertEquals(add(2, 3), 5)"
       ],
 
-      "glm-4.7_tasks": [
+      "glm-5.3_tasks": [
         "Implémenter système d'authentification JWT complet",
         "Débugger race condition dans worker pool concurrent",
         "Refactorer monolithe vers architecture microservices",

@@ -47,8 +47,17 @@ test('unknown ids return null — never priced silently from a sibling', () => {
 
 test('existing exact rows keep working (caller contract)', () => {
     assert.deepEqual(getPrice('claude-sonnet-4-5-20250929'), { input: 3.00, output: 15.00 });
-    assert.deepEqual(getPrice('glm-5'),                      { input: 0.70, output: 2.80 });
-    assert.deepEqual(getPrice('glm-4.7'),                    { input: 0.14, output: 0.56 });
+});
+
+test('glm-5 / glm-4.7 rows re-sourced from the published page (#4775)', () => {
+    // z.ai list prices read 2026-11-16: https://docs.z.ai/guides/overview/pricing
+    // GLM-5 $1/$3.2 · GLM-4.7 $0.6/$2.2 per 1M tokens. glm-4.7 keeps a row
+    // although retired from roles: historical JSONL usage stays priced.
+    assert.deepEqual(getPrice('glm-5'),   { input: 1.00, output: 3.20 });
+    assert.deepEqual(getPrice('glm-4.7'), { input: 0.60, output: 2.20 });
+    // regression guard: the stale pre-#4775 values must not come back
+    assert.notDeepEqual(getPrice('glm-5'),   { input: 0.70, output: 2.80 });
+    assert.notDeepEqual(getPrice('glm-4.7'), { input: 0.14, output: 0.56 });
 });
 
 test('GLM-5.3 generation is priced from its own rows (#4768)', () => {

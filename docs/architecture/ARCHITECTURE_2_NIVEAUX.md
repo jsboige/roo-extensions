@@ -179,13 +179,13 @@ L'architecture SDDD 2-niveaux vise à **optimiser les coûts et les performances
 ```json
 {
   "sddd-simple": {
-    "model": "glm-4.7-air",
+    "model": "glm-5.3-flash",
     "provider": "z.ai",
     "tier": "Mini",
     "use_cases": ["docs", "communication", "scripts-simples"]
   },
   "sddd-complex": {
-    "model": "glm-4.7",
+    "model": "glm-5.3",
     "provider": "z.ai",
     "tier": "Standard",
     "use_cases": ["features", "debugging", "refactoring"]
