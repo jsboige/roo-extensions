@@ -53,7 +53,7 @@ Colonne *Test* = appel minimal qui doit rendre une réponse utile (jamais une er
 
 > `roosync_baseline` est **rarement utilisé opérationnellement** — un échec ici doit être qualifié avant d'être traité comme panne.
 >
-> **Piège documenté** : `roosync_claudish_cascade` — `compare`/`status`/`apply` exigent `env_path` (chemin du `.env` du siège), `collect` exige `container` ; **`apply` est dry-run par défaut** (`dry_run:false` explicite requis pour écrire). Un refus de schéma sur ces appels est le comportement attendu, pas une panne.
+> **Piège documenté** : `roosync_claudish_cascade` — sans `env_path` (chemin du `.env` du siège, jamais deviné), `compare`/`status` rendent quand même leur rapport avec `written.coverage: "missing"`, et `apply` rend `applied: false` avec la raison. `collect` exige `container`. **`apply` est dry-run par défaut** (`dry_run:false` explicite pour écrire). Ces sorties sont attendues ; une **erreur de schéma** sur ces appels reste une panne.
 
 ### Infrastructure & Diagnostic (5)
 
