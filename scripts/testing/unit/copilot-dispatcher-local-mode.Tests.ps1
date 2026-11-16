@@ -60,13 +60,16 @@ Describe 'Copilot dispatcher local-mode fail-closed (#4669)' {
             $scriptCopy = Join-Path $scriptDir 'start-copilot-dispatcher.ps1'
             [System.IO.File]::WriteAllText($scriptCopy, $ScriptText, $script:utf8Bom)
 
-            # The dispatcher dot-sources ..\common\gh-issues.ps1 (lot 7a, #4150):
-            # mirror the script's own path math so the module resolves on every
-            # host (same comment as the dryrun suite).
-            $moduleSrc = Join-Path $PSScriptRoot '../../common/gh-issues.ps1'
-            $moduleDst = Join-Path $scriptDir '..\common\gh-issues.ps1'
-            New-Item -ItemType Directory -Path (Split-Path -Parent $moduleDst) -Force | Out-Null
-            Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
+            # The dispatcher dot-sources ..\common\gh-issues.ps1 (lot 7a, #4150)
+            # and ..\common\gh-pull-requests.ps1 (delivery verification, mandate
+            # 16/11): mirror the script's own path math so both modules resolve
+            # on every host (same comment as the dryrun suite).
+            foreach ($moduleName in @('gh-issues.ps1', 'gh-pull-requests.ps1')) {
+                $moduleSrc = Join-Path $PSScriptRoot "../../common/$moduleName"
+                $moduleDst = Join-Path $scriptDir "..\common\$moduleName"
+                New-Item -ItemType Directory -Path (Split-Path -Parent $moduleDst) -Force | Out-Null
+                Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
+            }
 
             # State fixture at the exact path the script computes, with a
             # sentinel the untouched/rewritten distinction can lean on.

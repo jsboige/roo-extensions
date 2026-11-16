@@ -78,18 +78,21 @@ Describe 'Copilot dispatcher DryRun invariants' {
             $scriptCopy = Join-Path $scriptDir 'start-copilot-dispatcher.ps1'
             [System.IO.File]::WriteAllText($scriptCopy, $ScriptText, $script:utf8Bom)
 
-            # The dispatcher dot-sources ..\common\gh-issues.ps1 (lot 7a, #4150):
-            # the module must exist in the sandbox or the child dies at the
-            # dot-source, before any DryRun semantics (review #4641 point c —
-            # 6 dryrun red on pwsh 7/Linux + CI, 8/8 green at base). The
-            # destination mirrors the script's OWN path math, like the state
-            # fixture below: Join-Path with '..\common\gh-issues.ps1' resolves
-            # through ..\ on Windows and yields a literal oddly-named dir on
-            # Linux -- portable both ways.
-            $moduleSrc = Join-Path $PSScriptRoot '../../common/gh-issues.ps1'
-            $moduleDst = Join-Path $scriptDir '..\common\gh-issues.ps1'
-            New-Item -ItemType Directory -Path (Split-Path -Parent $moduleDst) -Force | Out-Null
-            Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
+            # The dispatcher dot-sources ..\common\gh-issues.ps1 (lot 7a, #4150)
+            # and ..\common\gh-pull-requests.ps1 (delivery verification,
+            # mandate 16/11): the modules must exist in the sandbox or the
+            # child dies at the dot-source, before any DryRun semantics
+            # (review #4641 point c — 6 dryrun red on pwsh 7/Linux + CI, 8/8
+            # green at base). The destination mirrors the script's OWN path
+            # math, like the state fixture below: Join-Path with
+            # '..\common\<module>' resolves through ..\ on Windows and yields
+            # a literal oddly-named dir on Linux -- portable both ways.
+            foreach ($moduleName in @('gh-issues.ps1', 'gh-pull-requests.ps1')) {
+                $moduleSrc = Join-Path $PSScriptRoot "../../common/$moduleName"
+                $moduleDst = Join-Path $scriptDir "..\common\$moduleName"
+                New-Item -ItemType Directory -Path (Split-Path -Parent $moduleDst) -Force | Out-Null
+                Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
+            }
 
             # State fixture at the exact path the script computes
             # (Join-Path $repoRoot ".claude\scheduler"): on Linux the literal
