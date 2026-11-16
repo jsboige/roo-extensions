@@ -41,11 +41,12 @@ dans les temps entre 2 cycles. Pas de workaround consacré. »
    ne ferme jamais une escalade — sinon chaque cycle normal consacrerait la
    sortie dégradée qu'il vient de produire.
    **Nommer l'escalade quand la lane en a plusieurs** (#4746) : un `[REPAIRED]`
-   **sans** portée est une déclaration de lane — il ferme **toutes** ses
-   escalades antérieures. Pour n'en fermer qu'une, citer son `messageId`, une
-   référence d'issue présente dans son corps (`#4741`) ou son heure de pose
-   `HH:MMZ`. L'organe imprime ce qu'un `[REPAIRED]` sans portée a fermé dès
-   qu'il en ferme plus d'une.
+   **sans** ligne de portée est une déclaration de lane — il ferme **toutes**
+   ses escalades antérieures. Pour n'en fermer qu'une, ajouter au post une
+   ligne dédiée `scope: <messageId | #NNNN | HH:MMZ>` (ou `portée:`) — **la
+   prose ne compte jamais** (review ai-01 15/11 : y lire heure/issue
+   re-scopait 27 réparations déjà fermées). L'organe imprime ce qu'un
+   `[REPAIRED]` sans portée a fermé dès qu'il en ferme plus d'une.
 
 `[DEGRADED]` ≠ `[BLOCKED]` : bloqué = j'attends quelqu'un d'autre ; dégradé =
 **mon** environnement est cassé et je ne produis plus de résultat normal.

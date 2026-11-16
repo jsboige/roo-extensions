@@ -1331,32 +1331,34 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                                                     cde.parse_ts(NOW))}
 
     def test_scoped_repair_closes_only_the_named_escalation(self):
-        # Critere de fermeture #4746 : le [REPAIRED] nomme B par sa reference
-        # d'issue. B est close, A reste due. Tueur : sur la base, les deux
-        # sortent « repaired » -> exit 0 (une reparation non faite consacree).
+        # Critere de fermeture #4746 : le marqueur `scope:` porte la
+        # reference d'issue de B. B est close, A reste due. Tueur : sur la
+        # base, les deux sortent « repaired » -> exit 0 (une reparation non
+        # faite consacree).
         path = self.two_escalations(
             "scoped-issue.md",
             "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
-            "[REPAIRED] #4742 review_pr repond en 26,7 s\n")
+            "[REPAIRED] review_pr repond en 26,7 s\nscope: #4742\n")
         self.assertEqual(self.statuses(path), {
             "2026-11-02T23:25:00Z": "overdue",
             "2026-11-03T00:13:00Z": "repaired"})
         self.assertEqual(self.run_main(path), 2)
 
     def test_scoped_repair_by_escalation_time_closes_only_that_one(self):
-        # Forme `HH:MMZ` : l'heure de POSE de l'escalade, pas l'heure de la
-        # reparation. 00:13Z nomme B ; A (23:25Z) reste due.
+        # Forme `HH:MMZ` dans la VALEUR du marqueur (forme francaise
+        # `portée:` couverte ici) : l'heure de POSE de l'escalade, pas
+        # l'heure de la reparation. 00:13Z nomme B ; A (23:25Z) reste due.
         path = self.two_escalations(
             "scoped-time.md",
             "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
-            "[REPAIRED] escalade de 00:13Z reparee, 26,7 s mesurees\n")
+            "[REPAIRED] escalade reparee, 26,7 s mesurees\nportée: 00:13Z\n")
         self.assertEqual(self.statuses(path), {
             "2026-11-02T23:25:00Z": "overdue",
             "2026-11-03T00:13:00Z": "repaired"})
         self.assertEqual(self.run_main(path), 2)
 
     def test_scoped_repair_by_message_id_closes_only_that_one(self):
-        # Forme messageId : le corps du [REPAIRED] porte l'id du message B.
+        # Forme messageId : la VALEUR du marqueur porte l'id du message B.
         # Aucun marqueur texte (ni #ref ni HH:MMZ) — la portee vient de l'id.
         self.fake_store({}, keys=["workspace-w"], structured={"w": [
             dict(self.message("2026-11-02T23:25:00.000Z", tags=["DEGRADED"],
@@ -1366,7 +1368,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                               content="review_pr en timeout 30 s"),
                  id="msg-bbbbbbbb2222"),
             dict(self.message("2026-11-03T01:45:00.000Z", tags=["REPAIRED"],
-                              content="msg-bbbbbbbb2222 review_pr repond"),
+                              content="scope: msg-bbbbbbbb2222 review_pr"),
                  id="msg-cccccccc3333")]})
         self.assertEqual(self.run_store_main(), 2)
         entries, errors, _keys = cde.load_entries_from_store(
@@ -1385,11 +1387,28 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         path = self.two_escalations(
             "scoped-unknown.md",
             "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
-            "[REPAIRED] #9999 autre chose\n")
+            "[REPAIRED] autre chose\nscope: #9999\n")
         self.assertEqual(self.statuses(path), {
             "2026-11-02T23:25:00Z": "overdue",
             "2026-11-03T00:13:00Z": "overdue"})
         self.assertEqual(self.run_main(path), 2)
+
+    def test_prose_quoting_time_and_issue_without_marker_closes_the_lane(self):
+        # Review ai-01 15/11 (le cas des 27 escalades reversed) : un
+        # `[REPAIRED]` SANS marqueur, dont la prose cite une heure et une
+        # issue, reste une declaration de LANE et ferme tout. La prose cite
+        # ici 04:52Z (aucune heure de pose) et #4731 (aucun corps) : sur la
+        # tete 9867af6d, ce post etait scope par prose et ne nommait RIEN —
+        # les deux escalades passaient overdue.
+        path = self.two_escalations(
+            "prose-unscoped.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] servi firsthand a 04:52Z, lever #4731 pris — "
+            "lane rouverte\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "repaired",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 0)
 
     def test_unscoped_repair_still_closes_every_preceding_escalation(self):
         # Non-regression du contrat d'origine : un [REPAIRED] SANS portee

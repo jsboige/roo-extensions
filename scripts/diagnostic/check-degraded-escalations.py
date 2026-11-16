@@ -158,16 +158,26 @@ NEAR_HEADER_RE = re.compile(r"^\s{0,3}#{1,6}\s*\[\d{4}-\d{2}-\d{2}T[^\]\n]*\]\s*
 # Frontiere de mot obligatoire : `[DEGRADED-FIXED]` n'est pas `[DEGRADED]`.
 DEGRADED_RE = re.compile(r"\[DEGRADED\](?![A-Za-z0-9_-])")
 REPAIRED_RE = re.compile(r"\[REPAIRED\](?![A-Za-z0-9_-])")
-# #4746 : portee OPTIONNELLE d'un `[REPAIRED]`. Deux formes textuelles
-# suffisent a NOMMER une escalade : une reference d'issue presente dans le
-# corps de l'escalade (`#4741`), ou son heure de POSE `HH:MMZ`. La troisieme
-# (messageId) se reconnait par correspondance avec l'id d'une escalade, donc
-# sans motif — voir `repair_scope`.
+# #4746 : portee OPTIONNELLE d'un `[REPAIRED]`. Elle ne se lit QUE sur une
+# ligne de marqueur dediee du corps du `[REPAIRED]` — `scope: <valeur>` ou
+# `portée: <valeur>` (review ai-01 15/11 : les `[REPAIRED]` reels citent
+# presque toujours une heure ou une issue en PROSE ; les y lire re-scopait
+# retroactivement des reparations deja fermees sous le contrat de lane —
+# 27 escalades reversed repaired -> overdue sur le store live). Trois formes
+# de valeur NOMMENT une escalade : une reference d'issue presente dans le
+# corps de l'escalade (`#4741`), son heure de POSE `HH:MMZ`, ou son messageId
+# (par correspondance avec l'id d'une escalade — voir `repair_names`). Sans
+# marqueur : declaration de LANE, comportement d'origine. Indentation max
+# 3 espaces : une ligne `scope:` dans un bloc indente n'est pas un marqueur.
+SCOPE_MARKER_RE = re.compile(
+    r"^\s{0,3}(?:scope|port(?:ée|ee))\s*:\s*(?P<value>[^\n]+?)\s*$",
+    re.IGNORECASE | re.MULTILINE)
 # Bornes de chiffres sur la reference : `#47410` n'est pas `#4741` (meme
 # piege que `#109` / `#1091`). Le lookbehind du motif d'heure rejette les
 # `HH:MMZ` qui sont en fait les SECONDES d'un horodatage ISO : `...T08:00:00Z`
-# contient `00:00Z`, et sans lui toute prose citant un ISO nommerait une
-# escalade postee a 00:00 (mesure en ecrivant le test).
+# contient `00:00Z`, et sans lui une valeur de marqueur citant un ISO
+# nommerait une escalade postee a 00:00 (mesure en ecrivant le test). Les
+# deux motifs ne s'appliquent qu'a la VALEUR du marqueur, jamais a la prose.
 ISSUE_REF_RE = re.compile(r"(?<![0-9])#[0-9]{2,}(?![0-9])")
 SCOPE_TIME_RE = re.compile(
     r"(?<![0-9:])([01][0-9]|2[0-3]):([0-5][0-9])Z(?![0-9A-Za-z_:])")
@@ -355,43 +365,47 @@ def degraded_declarations(ordered):
     return declarations
 
 
-def repair_scope(repair, lane_declarations):
+def scope_marker_text(body):
+    """Concatenation des valeurs des lignes `scope:` / `portée:` du corps —
+    la SEULE source de portee d'un `[REPAIRED]` (#4746, review ai-01 15/11).
+    """
+    return "\n".join(match.group("value")
+                     for match in SCOPE_MARKER_RE.finditer(body or ""))
+
+
+def repair_scope(repair):
     """(refs, heures, scoped) — ce que ce `[REPAIRED]` NOMME (#4746).
 
-    Trois formes de portee, toutes optionnelles : une reference d'issue du
-    corps de l'escalade, son heure de POSE `HH:MMZ`, ou son messageId.
-    `scoped` faux = `[REPAIRED]` sans portee : declaration de LANE,
-    comportement d'origine (ferme tout ce qui precede).
-
-    Un messageId ne se reconnait que par correspondance avec l'id d'une
-    escalade de la MEME lane, anterieure au `[REPAIRED]` — d'ou
-    `lane_declarations`. Un id trop court n'est pas un marqueur : le
-    reconnaitre par sous-chaine ferait matcher du texte ordinaire.
+    Uniquement depuis la valeur des lignes de marqueur `scope:` / `portée:`
+    du corps du `[REPAIRED]` : les references d'issue et heures de POSE
+    `HH:MMZ` qui y sont ecrites. `scoped` faux = pas de marqueur :
+    declaration de LANE, comportement d'origine (ferme tout ce qui precede).
+    La prose du corps ne peut PAS scoper — c'est la correction de la review
+    ai-01 du 15/11 (27 escalades reversed sur le store live).
     """
-    refs = set(ISSUE_REF_RE.findall(repair["body"]))
+    marker_text = scope_marker_text(repair["body"])
+    if not marker_text:
+        return set(), set(), False
+    refs = set(ISSUE_REF_RE.findall(marker_text))
     times = {(m.group(1), m.group(2))
-             for m in SCOPE_TIME_RE.finditer(repair["body"])}
-    scoped = bool(refs or times)
-    if not scoped:
-        for _index, other in lane_declarations:
-            if other["lane"] != repair["lane"] or other["ts"] >= repair["ts"]:
-                continue
-            identifier = other.get("id")
-            if (isinstance(identifier, str)
-                    and len(identifier) >= SCOPED_ID_MIN_CHARS
-                    and identifier in repair["body"]):
-                scoped = True
-                break
-    return refs, times, scoped
+             for m in SCOPE_TIME_RE.finditer(marker_text)}
+    return refs, times, True
 
 
 def repair_names(repair, refs, times, escalation):
-    """Vrai si le `[REPAIRED]` nomme CETTE escalade (#4746) : messageId,
-    reference d'issue de son corps, ou heure de pose `HH:MMZ`."""
+    """Vrai si la portee du `[REPAIRED]` nomme CETTE escalade (#4746) :
+    messageId, reference d'issue de son corps, ou heure de pose `HH:MMZ`.
+
+    Les trois ne se lisent QUE dans la valeur du marqueur `scope:` /
+    `portée:` du `[REPAIRED]` — un id ou une heure cites en prose ne nomment
+    rien (review ai-01 15/11). Un id trop court n'est pas un marqueur : le
+    reconnaitre par sous-chaine ferait matcher du texte ordinaire.
+    """
+    marker_text = scope_marker_text(repair["body"])
     identifier = escalation.get("id")
     if (isinstance(identifier, str)
             and len(identifier) >= SCOPED_ID_MIN_CHARS
-            and identifier in repair["body"]):
+            and identifier in marker_text):
         return True
     if refs.intersection(ISSUE_REF_RE.findall(escalation["body"])):
         return True
@@ -399,15 +413,15 @@ def repair_names(repair, refs, times, escalation):
             escalation["ts"].strftime("%M")) in times
 
 
-def repair_closes(repair, escalation, lane_declarations):
+def repair_closes(repair, escalation):
     """Vrai si ce `[REPAIRED]` ferme cette escalade (#4746).
 
-    Sans portee : oui (declaration de lane). Avec portee : seulement si elle
-    la nomme. Une portee qui ne correspond a rien ne ferme donc RIEN —
-    l'escalade reste due au cycle suivant. C'est le sens sur : « tout fermer »
-    par defaut est exactement le defaut #4746.
+    Sans marqueur de portee : oui (declaration de lane). Avec : seulement si
+    le marqueur la nomme. Une portee qui ne correspond a rien ne ferme donc
+    RIEN — l'escalade reste due au cycle suivant. C'est le sens sur : « tout
+    fermer » par defaut est exactement le defaut #4746.
     """
-    refs, times, scoped = repair_scope(repair, lane_declarations)
+    refs, times, scoped = repair_scope(repair)
     return not scoped or repair_names(repair, refs, times, escalation)
 
 
@@ -419,9 +433,10 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
     portant `[REPAIRED]` et QUI LA FERME. Sans portee, un `[REPAIRED]` est une
     declaration de LANE et ferme toutes ses escalades anterieures — exiger un
     identifiant rendrait le mecanisme inutilisable pour l'agent qui poste sous
-    pression. Depuis #4746, un `[REPAIRED]` peut NOMMER son escalade
-    (messageId, reference d'issue de son corps, heure de pose `HH:MMZ`) : il
-    ne ferme alors QUE celle-la.
+    pression. Depuis #4746, un `[REPAIRED]` peut NOMMER son escalade sur une
+    ligne de marqueur dediee (`scope: <messageId | #NNNN | HH:MMZ>`, ou
+    `portée:`) : il ne ferme alors QUE celle-la — la prose ne scope jamais
+    (review ai-01 15/11).
 
     #4643 : un message crossPoste existe sous plusieurs dashboards avec le
     MEME auteur et le MEME horodatage — chaque copie ouvrait une escalade, la
@@ -449,7 +464,7 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
             later = ordered[later_index]
             if later["lane"] != entry["lane"] or not is_repaired(later):
                 continue
-            refs, times, scoped = repair_scope(later, declarations)
+            refs, times, scoped = repair_scope(later)
             if scoped and not repair_names(later, refs, times, entry):
                 continue
             repaired_at = later["ts"]
@@ -702,7 +717,7 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             # ajouter, la premiere passe a fait le travail.
             continue
         if any(later["lane"] == entry["lane"] and is_repaired(later)
-               and repair_closes(later, entry, declarations)
+               and repair_closes(later, entry)
                for later in ordered[index + 1:]):
             continue
         open_posts.append(entry)
@@ -802,7 +817,7 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
                 entry for entry in remaining
                 if not any(closure["lane"] == entry["lane"]
                            and closure["ts"] > entry["ts"]
-                           and repair_closes(closure, entry, declarations)
+                           and repair_closes(closure, entry)
                            for closure in known)]
     return closures, errors
 
