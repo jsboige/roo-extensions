@@ -20,7 +20,7 @@
       "description": "Standard executor — GLM models via claudish hub (paid plan)",
       "models": {
         "opus": "gc@glm-5.3",
-        "sonnet": "gc@glm-4.7",
+        "sonnet": "gc@glm-5.3",
         "haiku": "gc@glm-5.3-flash",
         "subagent": "gc@glm-5.3-flash"
       },
