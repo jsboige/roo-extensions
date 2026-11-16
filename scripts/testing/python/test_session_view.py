@@ -16,6 +16,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -52,6 +53,17 @@ def _record(**overrides):
 
 class ClassifyTest(unittest.TestCase):
     """The four statuses plus pid-reuse, exact-start and tolerance paths."""
+
+    def setUp(self):
+        self._old_computername = os.environ.get("COMPUTERNAME")
+        os.environ["COMPUTERNAME"] = "myia-po-2024"
+        self.addCleanup(self._restore_computername)
+
+    def _restore_computername(self):
+        if self._old_computername is None:
+            os.environ.pop("COMPUTERNAME", None)
+        else:
+            os.environ["COMPUTERNAME"] = self._old_computername
 
     def test_actif_busy_alive(self):
         status, _ = session_view.classify(
@@ -110,7 +122,12 @@ class ClassifyTest(unittest.TestCase):
         self.assertEqual(status, "actif")
 
     def test_machine_and_workspace_extraction(self):
-        self.assertEqual(session_view._machine_of(_record()), "myia-po-2024")
+        # #4777: the machine is the LOCAL seat, never the record's pidDomain
+        # (a hostname from before a seat rename would open a ghost bucket).
+        self.assertEqual(
+            session_view._machine_of(),
+            os.environ["COMPUTERNAME"].lower(),
+        )
         self.assertEqual(session_view._workspace_of(_record()), "CoursIA-2")
         self.assertEqual(session_view._workspace_of(_record(cwd="/home/x/proj/")), "proj")
 
@@ -131,6 +148,8 @@ class EndToEndTest(unittest.TestCase):
 
     def setUp(self):
         self._old_probe = session_view.probe_process
+        self._old_computername = os.environ.get("COMPUTERNAME")
+        os.environ["COMPUTERNAME"] = "myia-po-2024"
         tmp = tempfile.mkdtemp(prefix="session-view-test-")
         self.sessions_dir = os.path.join(tmp, "sessions")
         self.shared_path = os.path.join(tmp, "shared")
@@ -168,6 +187,10 @@ class EndToEndTest(unittest.TestCase):
 
     def _cleanup(self, tmp):
         session_view.probe_process = self._old_probe
+        if self._old_computername is None:
+            os.environ.pop("COMPUTERNAME", None)
+        else:
+            os.environ["COMPUTERNAME"] = self._old_computername
         for root, _dirs, files in os.walk(tmp, topdown=False):
             for name in files:
                 os.unlink(os.path.join(root, name))
@@ -224,6 +247,43 @@ class EndToEndTest(unittest.TestCase):
         self.assertEqual(second["counts"].get("actif"), 0)
         self.assertEqual(second["counts"].get("repos-ancien"), 2)
         self.assertNotEqual(first["sessions"], second["sessions"])
+
+    def test_foreign_dead_pid_domain_publishes_no_ghost_file(self):
+        # #4777 closure criterion: a dead record whose pidDomain carries a host
+        # outside the fleet (a seat name from before a rename) must not create
+        # that bucket — the local seat keeps its own file and counts it.
+        with open(os.path.join(self.sessions_dir, "410001.json"), "w",
+                  encoding="utf-8") as fh:
+            json.dump(_record(pid=410001, pidDomain="win32:myia-old-name"), fh)
+        code, _, err = self._run("--write", "--shared-path", self.shared_path)
+        self.assertEqual(code, 0)
+        subdir = os.path.join(self.shared_path, "session-view")
+        self.assertEqual(os.listdir(subdir), ["myia-po-2024.json"], err)
+        with open(os.path.join(subdir, "myia-po-2024.json"), encoding="utf-8") as fh:
+            payload = json.load(fh)
+        self.assertEqual(payload["counts"]["mort"], 2)  # 400004 gone + 410001 gone
+
+    def test_write_removes_stale_tmp_debris_and_keeps_recent(self):
+        # #4777 closure criterion: debris older than one hour goes at the tick,
+        # a recent temporary stays (a concurrent publisher may be between its
+        # mkstemp and its replace).
+        subdir = os.path.join(self.shared_path, "session-view")
+        os.makedirs(subdir)
+        stale = os.path.join(subdir, ".session-view-stale.tmp")
+        fresh = os.path.join(subdir, ".session-view-fresh.tmp")
+        unrelated = os.path.join(subdir, "other.tmp")
+        for path in (stale, fresh, unrelated):
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("")
+        old = time.time() - 2 * 3600
+        os.utime(stale, (old, old))
+        os.utime(unrelated, (old, old))
+        code, _, err = self._run("--write", "--shared-path", self.shared_path)
+        self.assertEqual(code, 0)
+        self.assertFalse(os.path.exists(stale), err)
+        self.assertTrue(os.path.exists(fresh))
+        self.assertTrue(os.path.exists(unrelated))  # cleanup is pattern-scoped
+        self.assertTrue(os.path.exists(os.path.join(subdir, "myia-po-2024.json")))
 
     def test_write_without_shared_path_fails(self):
         code, _, err = self._run("--write", "--shared-path", "")
