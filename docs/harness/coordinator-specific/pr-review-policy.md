@@ -91,7 +91,7 @@ The `review_pr` MCP tool provides automated multi-tier PR review. It automatical
 
 **Usage:**
 ```javascript
-// Tier 1: Fast diff-only (<30s, glm-4.7-flash) — for PRs ≤50 LOC
+// Tier 1: Fast diff-only (<30s, glm-5.3-flash) — for PRs ≤50 LOC
 review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 1)
 
 // Tier 2: Diff + context exploration (2-5min, glm-5.3) — DEFAULT, for PRs 50-500 LOC
@@ -105,7 +105,7 @@ review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 2)
 
 | Tier | Agent | Conversation | Model | Use Case |
 |------|-------|--------------|-------|----------|
-| 1 | `fast-reviewer` | `pr-review-tier1` (sequential) | glm-4.7-flash | PRs ≤50 LOC, pointer bumps, tests-only |
+| 1 | `fast-reviewer` | `pr-review-tier1` (sequential) | glm-5.3-flash | PRs ≤50 LOC, pointer bumps, tests-only |
 | 2 | `integration-reviewer` + `context-explorer` | `pr-review-tier2` (group_chat) | glm-5.3 | Default for PRs 50-500 LOC |
 | 3 | (aliases Tier 2) | (aliases Tier 2) | — | Future: execution + sandbox |
 

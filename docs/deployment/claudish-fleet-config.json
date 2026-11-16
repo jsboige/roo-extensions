@@ -21,11 +21,11 @@
       "models": {
         "opus": "gc@glm-5.3",
         "sonnet": "gc@glm-4.7",
-        "haiku": "gc@glm-4.7-flash",
-        "subagent": "gc@glm-4.5-air"
+        "haiku": "gc@glm-5.3-flash",
+        "subagent": "gc@glm-5.3-flash"
       },
       "createdAt": "2026-05-14T00:00:00.000Z",
-      "updatedAt": "2026-05-14T00:00:00.000Z"
+      "updatedAt": "2026-11-16T00:00:00.000Z"
     },
     "coordinator": {
       "name": "coordinator",
@@ -33,11 +33,11 @@
       "models": {
         "opus": "anthropic@claude-opus-5-5",
         "sonnet": "anthropic@claude-sonnet-5-5",
-        "haiku": "gc@glm-4.7-flash",
-        "subagent": "gc@glm-4.5-air"
+        "haiku": "gc@glm-5.3-flash",
+        "subagent": "gc@glm-5.3-flash"
       },
       "createdAt": "2026-05-14T00:00:00.000Z",
-      "updatedAt": "2026-05-14T00:00:00.000Z"
+      "updatedAt": "2026-11-16T00:00:00.000Z"
     },
     "premium": {
       "name": "premium",
