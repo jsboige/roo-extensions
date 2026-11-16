@@ -213,11 +213,53 @@ Describe 'start-copilot-dispatcher.ps1 — 16/11 delivery verification (exit 0 i
         $d.Reason | Should -Match 'cannot prove'
     }
 
-    It 'wiring: an active dispatch verifies delivery and the outcome drives $status' {
+    It 'delivered: PR contains HEAD and the pre-dispatch witness shows the run moved it (no HeadBefore = witness off, same verdict)' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1) -WorkRoot 'x' -HeadBefore '000'
+        $d.Outcome | Should -Be 'delivered'
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'delivered'
+    }
+
+    It 'dirty-without-commit: a PR that carries the commits does NOT carry uncommitted edits (review #4791 R1)' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1 -Dirty $true) -WorkRoot 'x' -HeadBefore '000'
+        $d.Outcome | Should -Be 'dirty-without-commit'
+        $d.PrNumber | Should -Be 12
+        $d.Reason | Should -Match 'uncommitted changes remain alongside PR #12'
+    }
+
+    It 'no-production relic: reused branch, PR from an earlier run, HEAD unmoved by this call (review #4791 R2)' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1) -WorkRoot 'x' -HeadBefore 'aaa'
+        $d.Outcome | Should -Be 'no-production'
+        $d.Reason | Should -Match 'earlier pass on this reused branch'
+    }
+
+    It 'dirty beats relic: unmoved HEAD but a dirtied tree is unrelayed work, never no-production (R1 precedence over R2)' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'MERGED' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1 -Dirty $true) -WorkRoot 'x' -HeadBefore 'aaa'
+        $d.Outcome | Should -Be 'dirty-without-commit'
+    }
+
+    It 'wiring: the verification is decoupled from the $isIdleLike heuristic and the outcome can RAISE the status (review #4791, ai-01)' {
+        # The guard keys on geometry + branch ONLY — no $dispatch.status gate.
         $script:src | Should -Match 'Get-CopilotDeliveryState -RepositorySlug \$queueSlug -WorkRoot \$workRoot -Branch'
+        $callSite = @($script:src -split '\r?\n' | Where-Object { $_ -match 'Get-CopilotDeliveryState -RepositorySlug' })
+        @($callSite | Where-Object { $_ -match 'dispatch\.status' }) | Should -BeNullOrEmpty
+        # The pre-dispatch witness reaches the resolver.
+        $script:src | Should -Match '-HeadBefore \(\[string\]\$dispatch\.headBefore\)'
+        # delivered sets active EXPLICITLY (an idle-like text must not cap it).
+        $script:src | Should -Match "'delivered' \{ \`$status = 'active' \}"
         $script:src | Should -Match "'no-production' \{ \`$status = 'idle' \}"
         $script:src | Should -Match "default \{ \`$status = 'blocked' \}"
-        $script:src | Should -Match '\$state\.lastDeliveryPrUrl = \[string\]\$delivery\.PrUrl'
+        # The contradictory legacy reason is gone.
+        $script:src | Should -Not -Match 'exit 0 without repository change'
+        # Phase C exposes the witnesses the relic check leans on.
+        $script:src | Should -Match '\$result\.headBefore = \$beforeHead'
+        $script:src | Should -Match '\$result\.headAfter = \$afterHead'
+        $stateBlock = @($script:src -split '\r?\n' | Where-Object { $_ -match '\$state\.lastDeliveryPrUrl = \[string\]\$delivery\.PrUrl' })
+        $stateBlock | Should -HaveCount 1
         $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'phase-c-failed'"
         $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'not-attempted'"
     }

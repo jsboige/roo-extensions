@@ -486,6 +486,15 @@ function Invoke-PhaseCDispatch {
         error = ''
         report = ''
         repositoryChanges = $false
+        # Review #4791 (NanoClaw R2): pre/post witnesses, exposed so the
+        # delivery check can tell "this run produced the branch state" from
+        # "the branch already carried it before the call" (reused worktree,
+        # see Initialize-CopilotWorktree). Populated under -DetectHeadMoves.
+        headBefore = ''
+        headAfter = ''
+        statusBefore = ''
+        statusAfter = ''
+        headMoved = $false
     }
 
     try {
@@ -572,6 +581,11 @@ function Invoke-PhaseCDispatch {
             ($beforeHead -ne $afterHead)
         )
         $result.repositoryChanges = ($beforeStatus -ne $afterStatus) -or $headMoved
+        $result.headBefore = $beforeHead
+        $result.headAfter = $afterHead
+        $result.statusBefore = $beforeStatus
+        $result.statusAfter = $afterStatus
+        $result.headMoved = $headMoved
 
         $joined = ($cmdOutput | Out-String)
         $usageMatch = [regex]::Match(
@@ -699,13 +713,19 @@ function Resolve-CopilotDelivery {
     #   delivered             PR OPEN|MERGED and it contains every local commit
     #   pr-closed             a PR exists but was closed unmerged -> not delivered
     #   commits-without-pr    production on the branch that no PR carries
-    #   dirty-without-commit  uncommitted work only
-    #   no-production         clean worktree, zero commits: the call produced nothing
+    #   dirty-without-commit  uncommitted work (with or without a PR — a PR that
+    #                         carries the commits does not carry uncommitted edits)
+    #   no-production         the call produced nothing: clean worktree, zero
+    #                         commits — including a relic PR on a reused branch
+    #                         whose HEAD the run did not move (review #4791 R2)
     #   unverified            an instrument failed — never reported as delivered
     param(
         [psobject]$PrResult,
         [hashtable]$Local,
-        [string]$WorkRoot
+        [string]$WorkRoot,
+        # HEAD captured BEFORE the dispatch (Invoke-PhaseCDispatch headBefore).
+        # Empty = witness unavailable: the relic check is skipped, never guessed.
+        [string]$HeadBefore = ''
     )
 
     $result = @{
@@ -758,6 +778,28 @@ function Resolve-CopilotDelivery {
             $result.Reason = "$($result.CommitsAheadOfPr) local commit(s) are not contained in PR #$($result.PrNumber)"
             return $result
         }
+        # Review #4791 (NanoClaw R1): the PR carries the COMMITS, not the
+        # working tree. Uncommitted edits alongside it are production no PR
+        # relays — name them, never fold them into delivered. Measured on
+        # the tir-6 worktree: a healthy delivery leaves it clean (0 porcelain
+        # lines), so any dirt here is unrelayed work, not dispatcher noise
+        # (prompts/reports/logs live under the dispatcher repo, #622).
+        if ($result.Dirty) {
+            $result.Outcome = 'dirty-without-commit'
+            $result.Reason = "uncommitted changes remain alongside PR #$($result.PrNumber) - the PR carries the commits, not the working tree"
+            return $result
+        }
+        # Review #4791 (NanoClaw R2): Initialize-CopilotWorktree REUSES
+        # wt-copilot-<issue>, so a later dispatch on the same issue inherits
+        # the earlier run's branch — and its PR. When this run moved nothing
+        # (HEAD identical to the pre-dispatch witness) and left nothing
+        # dirty, the PR certifies the EARLIER pass: this paid call produced
+        # nothing. Empty witness (no -DetectHeadMoves): skip, never guess.
+        if (-not [string]::IsNullOrWhiteSpace($HeadBefore) -and $HeadBefore -eq $result.HeadSha) {
+            $result.Outcome = 'no-production'
+            $result.Reason = "HEAD unchanged since before the run - PR #$($result.PrNumber) certifies an earlier pass on this reused branch, not this call"
+            return $result
+        }
         $result.Outcome = 'delivered'
         $result.Reason = "PR #$($result.PrNumber) state=$($result.PrState) carries the branch work"
         return $result
@@ -784,12 +826,17 @@ function Resolve-CopilotDelivery {
 
 function Get-CopilotDeliveryState {
     # Mandate 16/11: collect both independent evidences (worktree, PR) and
-    # classify. Called ONLY after a Phase C exit 0 that claims action evidence,
-    # so "execution success" and "delivery" stop being the same word.
+    # classify. Called after every Phase C exit 0 with a delivery geometry —
+    # decoupled from the $isIdleLike text heuristic (review #4791, ai-01):
+    # a committing pass whose output happens to match "standing by" must
+    # still be verified, and delivery evidence must be able to RAISE the
+    # status to active. "Execution success" and "delivery" stop being the
+    # same word.
     param(
         [string]$RepositorySlug,
         [string]$WorkRoot,
-        [string]$Branch
+        [string]$Branch,
+        [string]$HeadBefore = ''
     )
 
     $local = Get-LocalWorkEvidence -WorkRoot $WorkRoot
@@ -798,7 +845,7 @@ function Get-CopilotDeliveryState {
         # REST (doctrine #4604): 0 GraphQL point, same contract as the issue legs.
         $prResult = Get-PullRequestSummary -Repo $RepositorySlug -Head $Branch -State all -MaxCount 10
     }
-    return Resolve-CopilotDelivery -PrResult $prResult -Local $local -WorkRoot $WorkRoot
+    return Resolve-CopilotDelivery -PrResult $prResult -Local $local -WorkRoot $WorkRoot -HeadBefore $HeadBefore
 }
 
 function Get-WorkPrompt {
@@ -1328,31 +1375,31 @@ if ($status -ne 'blocked') {
             $status = [string]$dispatch.status
             if ($dispatch.exitCode -eq 0) {
                 Write-Log "Phase C execution success (exit=0)"
-                # Mandate 16/11 (fiabilisation): exit 0 only proves the CLI
-                # answered. The run's terminal state is the DELIVERY — verify
-                # it, and let the outcome drive $status (no more "active" on
-                # the exit code alone).
-                if ([string]$dispatch.status -eq 'active' -and $canDeliver -and $copilotWt -and -not [string]::IsNullOrWhiteSpace([string]$copilotWt.Branch)) {
-                    $delivery = Get-CopilotDeliveryState -RepositorySlug $queueSlug -WorkRoot $workRoot -Branch ([string]$copilotWt.Branch)
+                # Mandate 16/11 (fiabilisation) + review #4791 (ai-01): exit 0
+                # only proves the CLI answered, and the verification must NOT
+                # stay behind the $isIdleLike text heuristic — a committing
+                # pass whose output matches "standing by" would skip it
+                # entirely and record the contradictory reason "exit 0
+                # without repository change" while HEAD had moved. Verify on
+                # GEOMETRY alone; the outcome decides, and delivery evidence
+                # can RAISE the status to active even when the text read idle.
+                if ($canDeliver -and $copilotWt -and -not [string]::IsNullOrWhiteSpace([string]$copilotWt.Branch)) {
+                    $delivery = Get-CopilotDeliveryState -RepositorySlug $queueSlug -WorkRoot $workRoot -Branch ([string]$copilotWt.Branch) -HeadBefore ([string]$dispatch.headBefore)
                     $prLabel = if ($delivery.PrUrl) { "PR #$($delivery.PrNumber) state=$($delivery.PrState) $($delivery.PrUrl)" } else { 'no PR' }
                     Write-Log ("Delivery: outcome={0}; {1}; branch={2}; head={3}; commits-ahead-of-base={4}; commits-ahead-of-pr={5}; {6}" -f $delivery.Outcome, $prLabel, [string]$copilotWt.Branch, $delivery.HeadSha, $delivery.CommitCount, $delivery.CommitsAheadOfPr, $delivery.Reason)
                     switch ($delivery.Outcome) {
-                        'delivered' { }
+                        'delivered' { $status = 'active' }
                         'no-production' { $status = 'idle' }
                         default { $status = 'blocked' }
                     }
-                } elseif ([string]$dispatch.status -eq 'active') {
-                    # The #4669 gate makes this unreachable; if it ever isn't,
-                    # an "active" run without a worktree/branch has no
-                    # verifiable delivery — never report it as active.
-                    $delivery = @{ Outcome = 'unverified'; Reason = 'active dispatch without an isolated worktree/branch'; PrNumber = 0; PrUrl = ''; PrState = ''; HeadSha = ''; CommitCount = -1; CommitsAheadOfPr = -1 }
-                    $status = 'blocked'
-                    Write-Log "Delivery unverified: active dispatch without an isolated worktree/branch"
                 } else {
-                    # exit 0 with no repository change: the paid call produced
-                    # nothing — recorded as such, not as a success.
-                    $delivery = @{ Outcome = 'no-production'; Reason = 'exit 0 without repository change'; PrNumber = 0; PrUrl = ''; PrState = ''; HeadSha = ''; CommitCount = -1; CommitsAheadOfPr = -1 }
-                    Write-Log "Phase C finished (exit=0) with no repository change - nothing to deliver"
+                    # Unreachable while the #4669/#622 gates hold (Phase C only
+                    # runs with an isolated worktree); if they ever don't, an
+                    # exit-0 run without a worktree/branch has no verifiable
+                    # delivery — never report it as active.
+                    $delivery = @{ Outcome = 'unverified'; Reason = 'exit 0 without an isolated worktree/branch'; PrNumber = 0; PrUrl = ''; PrState = ''; HeadSha = ''; CommitCount = -1; CommitsAheadOfPr = -1 }
+                    $status = 'blocked'
+                    Write-Log "Delivery unverified: exit 0 without an isolated delivery worktree/branch"
                 }
                 if ($dispatch.premiumRequests -ge 0) {
                     Write-Log "Observed Copilot premium requests: $($dispatch.premiumRequests)"
