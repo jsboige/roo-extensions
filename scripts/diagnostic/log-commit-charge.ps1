@@ -53,6 +53,14 @@ $summaryPath = Join-Path $OutputDir '_summary.json'
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 $startUtc = (Get-Date).ToUniversalTime()
+# #4774 — the duration window opens when the FIRST sample completes, not at
+# process start. The first CIM enumeration is setup cost: on a loaded host it
+# can exceed DurationSec on its own, and a window measured from $startUtc
+# then closed the run after a single sample (the "at least 2 samples" flake,
+# ~30% of CI runs). With the origin at the end of sample 1, the first break
+# check sees ~0s elapsed and at least one more sample always happens for
+# DurationSec > 0.
+$windowStartUtc = $null
 $first = $null
 $last = $null
 $peakCommitted = [long]-1
@@ -100,12 +108,13 @@ try {
         $s = Get-CommitSample
         [System.IO.File]::AppendAllText($samplesPath, (ConvertTo-Json -InputObject $s -Compress) + "`n", $utf8NoBom)
         $count++
+        if ($null -eq $windowStartUtc) { $windowStartUtc = (Get-Date).ToUniversalTime() }
         if ($null -eq $first) { $first = $s }
         $last = $s
         if ($s.CommittedBytes -gt $peakCommitted) { $peakCommitted = $s.CommittedBytes }
         if ($s.UnattributedBytes -gt $peakUnattributed) { $peakUnattributed = $s.UnattributedBytes }
 
-        if ($DurationSec -gt 0 -and ((Get-Date).ToUniversalTime() - $startUtc).TotalSeconds -ge $DurationSec) { break }
+        if ($DurationSec -gt 0 -and ((Get-Date).ToUniversalTime() - $windowStartUtc).TotalSeconds -ge $DurationSec) { break }
         $sleepMs = [int](($IntervalSec - $sw.Elapsed.TotalSeconds) * 1000)
         if ($sleepMs -gt 0) { Start-Sleep -Milliseconds $sleepMs }
     }
