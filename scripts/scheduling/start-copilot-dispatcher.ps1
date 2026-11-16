@@ -795,6 +795,23 @@ function Test-IsActionableIssue {
     return $true
 }
 
+function Get-TargetSkipMessage {
+    param([string]$Reason)
+
+    # #4766: tell the three `$null` causes of the pool path apart in the skip log.
+    if ($Reason -eq 'pool-empty') {
+        return "No actionable target issue (pool-empty: 0 open issues labeled copilot-target; provisioning is a coordinator action); skipping Copilot call to avoid idle premium burn"
+    }
+    if ($Reason -like 'none-actionable:*') {
+        $n = $Reason.Substring('none-actionable:'.Length)
+        return "No actionable target issue (none-actionable: $n in pool, 0 actionable); skipping Copilot call to avoid idle premium burn"
+    }
+    if ($Reason -eq 'pool-query-failed') {
+        return "No actionable target issue (pool-query-failed: copilot-target pool query did not succeed); skipping Copilot call to avoid idle premium burn"
+    }
+    return "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
+}
+
 function Get-TargetIssue {
     param(
         [string]$RepositoryRoot,
@@ -865,13 +882,20 @@ function Get-TargetIssue {
         # server-side `labels=` query param, -ExcludeLabels the client-side
         # negation `gh --search "-label:"` used to express (#4150 lot 7).
         $poolR = Get-IssueSummary -Repo $repoSlug -Labels @('copilot-target') -ExcludeLabels @('frozen') -MaxCount 25
-        $items = if ($poolR.Ok) { @($poolR.Items) } else { $null }
-        if ($null -eq $items -or $items.Count -eq 0) {
+        # unary comma: an empty pool must stay @() (not collapse to $null = query failure)
+        $items = if ($poolR.Ok) { ,@($poolR.Items) } else { $null }
+        if ($null -eq $items) {
+            $script:TargetSkipReason = 'pool-query-failed'
+            return $null
+        }
+        if ($items.Count -eq 0) {
+            $script:TargetSkipReason = 'pool-empty'
             return $null
         }
 
         $candidates = @($items | Where-Object { Test-IsActionableIssue -Issue $_ })
         if ($candidates.Count -eq 0) {
+            $script:TargetSkipReason = 'none-actionable:' + $items.Count
             return $null
         }
 
@@ -1042,9 +1066,10 @@ if (-not [string]::IsNullOrWhiteSpace($TargetRepoSlug)) {
 
 $dispatch = $null
 if ($status -ne 'blocked') {
+    $script:TargetSkipReason = $null
     $targetIssue = Get-TargetIssue -RepositoryRoot $queueRepoRoot -PreferredIssueNumber $IssueNumber -RepoSlug $queueSlug
     if ($null -eq $targetIssue) {
-        Write-Log "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
+        Write-Log (Get-TargetSkipMessage -Reason $script:TargetSkipReason)
         $status = 'idle'
         $dispatch = @{
             status = 'idle'
