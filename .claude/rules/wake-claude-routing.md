@@ -21,7 +21,7 @@ code, dans la section Intercom d'un dashboard `workspace-*.md`.
 | `[WAKE-CLAUDE] myia-po-2023:IISManagement` | machine **+ workspace** précis (#2240) |
 | `[WAKE-CLAUDE] → myia-po-2026:Embeddings` | flèche optionnelle tolérée |
 | `[WAKE-CLAUDE] myia-po-2023:IISManagement model=haiku` | suffixe `model=X` optionnel (#2561) |
-| `[WAKE-HERMES]` | `myia-po-2026:hermes-agent` (#2244) |
+| `[WAKE-HERMES]` | `myia-ai-01:hermes-agent` (#2245) |
 | `[WAKE-NANOCLAW]` | `myia-ai-01:nanoclaw` (#2244) |
 | `[WAKE-VIBE]` | `myia-po-2025:CoursIA` (#3202) — spawn = `start-vibe-worker.ps1`, pas `spawn-claude.ps1` |
 

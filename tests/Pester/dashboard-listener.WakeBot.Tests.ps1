@@ -1,48 +1,65 @@
-<#
-.SYNOPSIS
-    Pester tests for Get-WakeBotTarget (#2244).
-
-.DESCRIPTION
-    Tests the bot wake routing patterns:
-      - [WAKE-HERMES] → myia-po-2026:hermes-agent
-      - [WAKE-NANOCLAW] → myia-ai-01:nanoclaw
-      - [WAKE-CLAUDE] → null (not a bot tag)
-      - Header markdown: ## [WAKE-HERMES] → match
-      - Prose inline (backtick-quoted): no match
-
-.NOTES
-    Issue #2244
-    Requires Pester 5+ and PowerShell 7+
-#>
+﻿#!/usr/bin/env pwsh
+# Pester 5+ tests for Get-WakeBotTarget (#2244, retargeted #2245 step 1).
+# The function is extracted from the REAL listener via AST — no copy. A copy
+# here is exactly the defect that let [WAKE-HERMES] point at myia-po-2026 for
+# months while Hermes runs on myia-ai-01.
 
 Describe 'Get-WakeBotTarget' {
-    BeforeAll {
-        function Get-WakeBotTarget($content) {
-            if ($content -match '\[WAKE-HERMES\]') {
-                return @{ machine = 'myia-po-2026'; workspace = 'hermes-agent' }
-            }
-            if ($content -match '\[WAKE-NANOCLAW\]') {
-                return @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
-            }
-            return $null
-        }
+
+BeforeAll {
+    $scriptFilePath = Join-Path $PSScriptRoot '../../scripts/dashboard-scheduler/dashboard-listener.ps1'
+    $resolvedPath = (Resolve-Path $scriptFilePath).Path
+
+    # Parse with AST — cannot dot-source (side effects: FileSystemWatcher, exit)
+    $parseErrors = $null
+    $tokens = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+        $resolvedPath,
+        [ref]$tokens,
+        [ref]$parseErrors
+    )
+
+    $funcDefs = $ast.FindAll(
+        { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] },
+        $true
+    )
+
+    $fd = $funcDefs | Where-Object { $_.Name -eq 'Get-WakeBotTarget' }
+    if (-not $fd) { throw "Get-WakeBotTarget not found in $resolvedPath" }
+
+    $bodyText = $fd.Body.Extent.Text
+    $inner = $bodyText.Substring(1, $bodyText.Length - 2)
+
+    # Reconstruct param() block from function signature parameters
+    if ($fd.Parameters -and $fd.Parameters.Count -gt 0) {
+        $paramNames = $fd.Parameters | ForEach-Object { '$' + $_.Name.VariablePath.UserPath }
+        $paramBlock = 'param(' + ($paramNames -join ', ') + ')'
+        $inner = $paramBlock + "`n" + $inner
     }
 
-    It 'Matches WAKE-HERMES tag' {
+    Set-Item -Path "function:\Get-WakeBotTarget" -Value ([ScriptBlock]::Create($inner))
+}
+
+    It 'Matches WAKE-HERMES tag → myia-ai-01:hermes-agent (#2245 step 1)' {
         $result = Get-WakeBotTarget '[WAKE-HERMES] urgent review needed'
         $result | Should -Not -BeNullOrEmpty
-        $result.machine | Should -Be 'myia-po-2026'
+        $result.machine | Should -Be 'myia-ai-01'
         $result.workspace | Should -Be 'hermes-agent'
     }
 
     It 'Matches WAKE-HERMES in header markdown' {
         $result = Get-WakeBotTarget '## [WAKE-HERMES] fleet ping'
         $result | Should -Not -BeNullOrEmpty
-        $result.machine | Should -Be 'myia-po-2026'
+        $result.machine | Should -Be 'myia-ai-01'
         $result.workspace | Should -Be 'hermes-agent'
     }
 
-    It 'Matches WAKE-NANOCLAW tag' {
+    It 'WAKE-HERMES no longer targets myia-po-2026 (the dead target)' {
+        $result = Get-WakeBotTarget '[WAKE-HERMES] urgent review needed'
+        $result.machine | Should -Not -Be 'myia-po-2026'
+    }
+
+    It 'Matches WAKE-NANOCLAW tag → myia-ai-01:nanoclaw' {
         $result = Get-WakeBotTarget '[WAKE-NANOCLAW] PR review request'
         $result | Should -Not -BeNullOrEmpty
         $result.machine | Should -Be 'myia-ai-01'
@@ -54,6 +71,13 @@ Describe 'Get-WakeBotTarget' {
         $result | Should -Not -BeNullOrEmpty
         $result.machine | Should -Be 'myia-ai-01'
         $result.workspace | Should -Be 'nanoclaw'
+    }
+
+    It 'Matches WAKE-VIBE tag → myia-po-2025:CoursIA' {
+        $result = Get-WakeBotTarget '[WAKE-VIBE] idle queue pick'
+        $result | Should -Not -BeNullOrEmpty
+        $result.machine | Should -Be 'myia-po-2025'
+        $result.workspace | Should -Be 'CoursIA'
     }
 
     It 'Returns null for WAKE-CLAUDE (not a bot tag)' {
@@ -69,50 +93,48 @@ Describe 'Get-WakeBotTarget' {
         # Test-ActionableContent (header-only check) before this function is called.
         $result = Get-WakeBotTarget 'the ``[WAKE-HERMES]`` pattern'
         $result | Should -Not -BeNullOrEmpty
-        $result.machine | Should -Be 'myia-po-2026'
+        $result.machine | Should -Be 'myia-ai-01'
     }
 }
 
-Describe 'Bot wake routing in listener' {
-    It 'WAKE-HERMES skips non-target machine' {
-        $localMachine = 'myia-po-2023'
-        $content = '[WAKE-HERMES] urgent task'
-        # Bot routing: hermes targets myia-po-2026
-        $botTarget = if ($content -match '\[WAKE-HERMES\]') {
-            @{ machine = 'myia-po-2026'; workspace = 'hermes-agent' }
-        } elseif ($content -match '\[WAKE-NANOCLAW\]') {
-            @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
-        } else { $null }
-        $botTarget.machine | Should -Not -Be $localMachine
-        # Would be skipped on po-2023
-        ($botTarget.machine -eq $localMachine) | Should -BeFalse
+Describe 'Bot wake routing vs local machine (real function)' {
+    BeforeAll {
+        # Same extraction as above — the listener's own function, not a copy.
+        $scriptFilePath = Join-Path $PSScriptRoot '../../scripts/dashboard-scheduler/dashboard-listener.ps1'
+        $resolvedPath = (Resolve-Path $scriptFilePath).Path
+        $parseErrors = $null
+        $tokens = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $resolvedPath, [ref]$tokens, [ref]$parseErrors
+        )
+        $fd = $ast.FindAll(
+            { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] },
+            $true
+        ) | Where-Object { $_.Name -eq 'Get-WakeBotTarget' }
+        $bodyText = $fd.Body.Extent.Text
+        $inner = $bodyText.Substring(1, $bodyText.Length - 2)
+        if ($fd.Parameters -and $fd.Parameters.Count -gt 0) {
+            $paramNames = $fd.Parameters | ForEach-Object { '$' + $_.Name.VariablePath.UserPath }
+            $inner = 'param(' + ($paramNames -join ', ') + ')' + "`n" + $inner
+        }
+        Set-Item -Path "function:\Get-WakeBotTarget" -Value ([ScriptBlock]::Create($inner))
     }
 
-    It 'WAKE-HERMES matches target machine (po-2026)' {
-        $localMachine = 'myia-po-2026'
-        $content = '[WAKE-HERMES] urgent task'
-        $botTarget = if ($content -match '\[WAKE-HERMES\]') {
-            @{ machine = 'myia-po-2026'; workspace = 'hermes-agent' }
-        } else { $null }
-        $botTarget.machine | Should -Be $localMachine
+    It 'WAKE-HERMES is skipped on myia-po-2023 (targets ai-01)' {
+        $botTarget = Get-WakeBotTarget '[WAKE-HERMES] urgent task'
+        $botTarget.machine | Should -Not -Be 'myia-po-2023'
+        $botTarget.machine | Should -Be 'myia-ai-01'
     }
 
-    It 'WAKE-NANOCLAW skips non-target machine' {
-        $localMachine = 'myia-po-2023'
-        $content = '[WAKE-NANOCLAW] review PR #123'
-        $botTarget = if ($content -match '\[WAKE-NANOCLAW\]') {
-            @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
-        } else { $null }
-        $botTarget.machine | Should -Not -Be $localMachine
+    It 'WAKE-HERMES matches target machine (ai-01, where Hermes runs)' {
+        $botTarget = Get-WakeBotTarget '[WAKE-HERMES] urgent task'
+        $botTarget.machine | Should -Be 'myia-ai-01'
     }
 
-    It 'WAKE-NANOCLAW matches target machine (ai-01)' {
-        $localMachine = 'myia-ai-01'
-        $content = '[WAKE-NANOCLAW] review PR #123'
-        $botTarget = if ($content -match '\[WAKE-NANOCLAW\]') {
-            @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
-        } else { $null }
-        $botTarget.machine | Should -Be $localMachine
+    It 'WAKE-NANOCLAW is skipped on myia-po-2023 (targets ai-01)' {
+        $botTarget = Get-WakeBotTarget '[WAKE-NANOCLAW] review PR #123'
+        $botTarget.machine | Should -Not -Be 'myia-po-2023'
+        $botTarget.machine | Should -Be 'myia-ai-01'
     }
 }
 
