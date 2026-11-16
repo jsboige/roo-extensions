@@ -263,4 +263,20 @@ Describe 'start-copilot-dispatcher.ps1 — 16/11 delivery verification (exit 0 i
         $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'phase-c-failed'"
         $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'not-attempted'"
     }
+
+    It 'wiring: the scheduled call arms the head witness exactly when delivery is verifiable (-DetectHeadMoves:$canDeliver) (post-merge follow-up, ai-01)' {
+        # The relic check (no-production on a reused branch whose HEAD the run
+        # did not move) is only sound when the pre-dispatch HEAD witness
+        # exists. Invoke-PhaseCDispatch populates headBefore/headAfter under
+        # -DetectHeadMoves; the scheduled call must arm it exactly when
+        # $canDeliver (geometry allows a delivery) — dropping the switch would
+        # silently degrade every relic verdict to "witness unavailable: skip".
+        $script:src | Should -Match '-DetectHeadMoves:\$canDeliver'
+        # The switch is a declared parameter of the dispatch function.
+        $script:src | Should -Match '\[switch\]\$DetectHeadMoves'
+        # Exactly ONE scheduled call site, and it carries the switch.
+        $allCalls = @($script:src -split '\r?\n' | Where-Object { $_ -match '\$dispatch = Invoke-PhaseCDispatch' })
+        $allCalls | Should -HaveCount 1
+        @($allCalls | Where-Object { $_ -match '-DetectHeadMoves:\$canDeliver' }) | Should -HaveCount 1
+    }
 }
