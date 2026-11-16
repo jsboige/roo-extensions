@@ -1393,6 +1393,45 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             "2026-11-03T00:13:00Z": "overdue"})
         self.assertEqual(self.run_main(path), 2)
 
+    def test_marker_inside_fenced_block_is_not_a_scope(self):
+        # Review ai-01 16/11 (#4779) : un `scope:` cite DANS un exemple de
+        # code (bloc fenced) n'est pas une declaration de portee. Sur la
+        # tete ce0b5825, la ligne du bloc etait lue comme marqueur : B
+        # seulement reparait, A passait overdue (exit 2) — l'inverse d'une
+        # declaration de lane. Avec le strip, ce post ne scope RIEN : les
+        # deux escalades restent repaired et l'organe sort 0.
+        path = self.two_escalations(
+            "fenced-scope.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] modele de post pour la doc :\n"
+            "```\n"
+            "scope: #4742\n"
+            "```\n"
+            "lane rouverte, tout est repare\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "repaired",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_marker_after_fenced_block_still_scopes(self):
+        # Precision du strip, dans les deux sens : le faux scope cite dans
+        # le bloc (`portée: 23:25Z`) est ignore, et le marqueur REEL qui
+        # suit le bloc (`scope: 00:13Z`) scope toujours. Strip trop agressif
+        # -> les deux overdue (A n'est plus overdue, il serait repaired) ;
+        # strip absent -> A est repaired aussi (deux portees lues).
+        path = self.two_escalations(
+            "fenced-then-marker.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] review_pr repond en 26,7 s\n"
+            "```\n"
+            "portée: 23:25Z\n"
+            "```\n"
+            "scope: 00:13Z\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "overdue",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 2)
+
     def test_prose_quoting_time_and_issue_without_marker_closes_the_lane(self):
         # Review ai-01 15/11 (le cas des 27 escalades reversed) : un
         # `[REPAIRED]` SANS marqueur, dont la prose cite une heure et une

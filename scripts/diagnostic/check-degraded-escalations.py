@@ -365,12 +365,32 @@ def degraded_declarations(ordered):
     return declarations
 
 
+# #4779 (review ai-01 16/11) : un bloc de code fenced (``` ou ~~~, style
+# Markdown) est un EXEMPLE, pas de la prose. On le retire avant le scan des
+# marqueurs, sinon un `scope:` cite dans un exemple se lit comme une portee
+# et re-scope silencieusement le post. Un bloc non ferme court jusqu'a la fin
+# (comportement CommonMark).
+FENCED_CODE_RE = re.compile(
+    r"^[ \t]{0,3}(?P<fence>`{3,}|~{3,})[^\n]*\n"
+    r"(?:.*?^[ \t]{0,3}(?P=fence)[ \t]*$|\Z)",
+    re.MULTILINE | re.DOTALL)
+
+
+def strip_fenced_code_blocks(body):
+    """Corps sans ses blocs de code fenced (#4779)."""
+    return FENCED_CODE_RE.sub("", body or "")
+
+
 def scope_marker_text(body):
     """Concatenation des valeurs des lignes `scope:` / `portée:` du corps —
     la SEULE source de portee d'un `[REPAIRED]` (#4746, review ai-01 15/11).
+    Les blocs de code fenced sont retires avant le scan (#4779, review ai-01
+    16/11) : une ligne `scope:` collee DANS un exemple de code n'est pas une
+    declaration de portee — seul l'extérieur des blocs fait foi.
     """
     return "\n".join(match.group("value")
-                     for match in SCOPE_MARKER_RE.finditer(body or ""))
+                     for match in SCOPE_MARKER_RE.finditer(
+                         strip_fenced_code_blocks(body)))
 
 
 def repair_scope(repair):
