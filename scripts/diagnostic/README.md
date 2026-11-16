@@ -60,6 +60,30 @@ python scripts/diagnostic/session-view-fleet.py
 python scripts/diagnostic/session-view-fleet.py --json
 ```
 
+### `config-view.py`
+
+Étape 4 de #3833 (cases 17-19 de #603) : producteur par siège d'un snapshot **masqué** de la config du siège — `~/.claude.json` (noms des `mcpServers` user-scope uniquement) + `~/.claude/settings.json` (clés env **whitelistées**, permissions, clés d'identité, drapeaux). **La whitelist EST le masque** : aucune valeur hors liste n'est copiée, et un pattern secret-deny (`KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|HEADER|AUTH`) court **après** la whitelist — un élargissement futur de la liste ne peut pas fuiter `ANTHROPIC_CUSTOM_HEADERS` ou `*_API_KEY` (tests : secrets plantés là où une erreur de liste les copierait). `--write` écrase atomiquement `<shared>/config-view/<machine>.json` (machine = `COMPUTERNAME` en minuscules — l'installeur vérifie ce nom contre le manifeste de flotte avant tout enregistrement : un hostname hors manifeste ne serait jamais lu par le lecteur fleet). Canal silencieux : aucun append dashboard.
+
+```powershell
+# Lecture seule (dry-run par défaut) : rend le snapshot en JSON sans écrire
+python scripts/diagnostic/config-view.py
+
+# Publication (tâche horaire : scripts/scheduling/install-config-view-publisher-schtask.ps1)
+python scripts/diagnostic/config-view.py --write
+```
+
+### `config-view-fleet.py`
+
+Vue agrégée de **dérive de consensus** sur les snapshots publiés par `config-view.py` (case 18) : une ligne par machine du manifeste, états `frais` / `en-retard` / `absent` / `illisible` au seuil de 120 min (2 ticks horaires manqués). Parmi les machines fraîches seulement, chaque clé jugée (env whitelistée hors observe-only, `permissions.deny`/`mode`, `model`/`outputStyle`/`effortLevel`, drapeaux) prend pour valeur flotte celle d'une **majorité stricte** (≥2 porteurs). Une clé **sans majorité** (2 sièges en désaccord, 2-2, flotte partagée) est rendue `SANS MAJORITE` avec ses comptes de valeurs — jamais certifiée saine (review B1 PR #4764). `ANTHROPIC_BASE_URL` est observe-only : rapportée par machine, jamais jugée (#4347). Exit fail-closed : `0` tout frais sans dérive ni split · `1` machine en retard/absente/illisible, OU dérive, OU clé sans majorité · `2` instrument. Le consommateur case 19 distingue les trois causes d'exit 1 via `--json` : `summary.driftingMachines` (dérive), `summary.splitKeys` (désaccord flotte sans coupable), champs de fraîcheur (sièges non publiants).
+
+```powershell
+# Table : une ligne par machine attendue du manifeste
+python scripts/diagnostic/config-view-fleet.py
+
+# Sortie machine-readable (summary + splits + machines[].driftKeys)
+python scripts/diagnostic/config-view-fleet.py --json
+```
+
 ### `scan-duplicate-tool-use.py`
 
 Détecte la signature du bug harness #3276 (même `tool_use` émis puis exécuté deux fois — fork en deux nœuds transcript distincts) qui produit des effets de bord dupliqués (ex. 2 issues GitHub créées pour 1 seule intendue : CoursIA #13089/#13090, récidive #13108/#13109).
