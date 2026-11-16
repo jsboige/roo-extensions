@@ -209,7 +209,7 @@ roosync_apply_decision { "decisionId": "DECISION_ID", "dryRun": false }
 
 ## 4. Outils MCP RooSync
 
-RooSync fournit **17 outils MCP** pour la synchronisation et la coordination multi-environnements.
+RooSync fournit **18 outils MCP** pour la synchronisation et la coordination multi-environnements.
 
 ### Liste des Outils
 

@@ -69,7 +69,7 @@ Colonne *Test* = appel minimal qui doit rendre une réponse utile (jamais une er
 
 ## §2 — Carte des retraits (ancien référentiel → cible)
 
-Pour chaque entrée de l'ancienne liste 「34」 : ce qu'elle est devenue. **Aucune n'est une panne** — toutes sont des fusions ou des retraits délibérés, tracés dans `allToolDefinitions` (`tool-definitions.ts:817-860`).
+Pour chaque entrée de l'ancienne liste 「34」 : ce qu'elle est devenue. **Aucune n'est une panne** — toutes sont des fusions ou des retraits délibérés, tracés dans `allToolDefinitions` (`tool-definitions.ts:830-875`).
 
 | Ancien outil | Devenu | Réf. |
 |---|---|---|
