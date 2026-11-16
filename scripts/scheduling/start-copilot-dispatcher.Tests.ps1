@@ -1,4 +1,4 @@
-# Pester tests for start-copilot-dispatcher.ps1 — #3641 §3 (gh issue -R repo pin).
+﻿# Pester tests for start-copilot-dispatcher.ps1 — #3641 §3 (gh issue -R repo pin).
 #
 # The defect: the dispatcher's scheduled task runs with -WorkingDirectory = the
 # roo-extensions clone, so bare `gh issue view/list` queries roo-extensions
@@ -117,5 +117,108 @@ Describe 'start-copilot-dispatcher.ps1 — #4766 skip reason distinguishes the p
     It 'skip stays fail-closed: idle, zero premium, reason wired into the skip log' {
         $script:src | Should -Match 'Write-Log \(Get-TargetSkipMessage -Reason \$script:TargetSkipReason\)'
         $script:src | Should -Match "(?s)Get-TargetSkipMessage -Reason.*?\`$status = 'idle'.*?premiumRequests = 0\.0"
+    }
+}
+
+Describe 'start-copilot-dispatcher.ps1 — 16/11 delivery verification (exit 0 is not a delivery)' {
+    # Mandate user 16/11: every paid call carries a verifiable terminal state —
+    # a PR (URL + state) or an explicit non-delivery with a cause. The negative
+    # cases below are the point: exit 0 / PROMPT_OK must never read as success
+    # when no PR carries the work.
+    BeforeAll {
+        foreach ($fn in 'Invoke-GitCapture', 'Select-DeliveryPr', 'Resolve-CopilotDelivery') {
+            $m = [regex]::Match($script:src, "(?s)(function $fn \{.*?\r?\n\})")
+            if (-not $m.Success) { throw "$fn not found in start-copilot-dispatcher.ps1" }
+            Invoke-Expression $m.Groups[1].Value
+        }
+        function New-DeliveryLocal {
+            param([string]$Head = 'aaa', [int]$Commits = 0, [bool]$Dirty = $false, [bool]$Ok = $true)
+            @{ Ok = $Ok; HeadSha = $Head; CommitCount = $Commits; Dirty = $Dirty; Error = $(if ($Ok) { '' } else { 'boom' }) }
+        }
+        function New-DeliveryPrResult {
+            param([bool]$Ok = $true, [object[]]$Items = @(), [string]$Error = '')
+            [pscustomobject]@{ Ok = $Ok; Items = $Items; Error = $Error }
+        }
+        function New-DeliveryPr {
+            param([int]$Number = 12, [string]$State = 'OPEN', [string]$HeadSha = 'aaa', [string]$Url = 'https://example.test/pr/12')
+            [pscustomobject]@{ Number = $Number; State = $State; Url = $Url; HeadSha = $HeadSha }
+        }
+    }
+
+    BeforeEach {
+        # Containment probe default: instrument blind (exit 1). Cases that need
+        # a count override this mock.
+        Mock Invoke-GitCapture { @{ ExitCode = 1; Output = '' } }
+    }
+
+    It 'delivered: PR head equals local HEAD' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'MERGED' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Commits 1) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'delivered'
+        $d.PrNumber | Should -Be 12
+        $d.PrUrl | Should -Be 'https://example.test/pr/12'
+        $d.PrState | Should -Be 'MERGED'
+    }
+
+    It 'pr-closed: a closed unmerged PR is NOT a delivery' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'CLOSED' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Commits 1) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'pr-closed'
+        $d.Reason | Should -Match 'closed without merge'
+    }
+
+    It 'commits-without-pr: commits on the branch and no PR' {
+        $d = Resolve-CopilotDelivery -PrResult (New-DeliveryPrResult) -Local (New-DeliveryLocal -Commits 2) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'commits-without-pr'
+        $d.Reason | Should -Match '2 commit'
+    }
+
+    It 'dirty-without-commit: uncommitted work and no PR' {
+        $d = Resolve-CopilotDelivery -PrResult (New-DeliveryPrResult) -Local (New-DeliveryLocal -Commits 0 -Dirty $true) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'dirty-without-commit'
+    }
+
+    It 'no-production: clean worktree, zero commits, no PR' {
+        $d = Resolve-CopilotDelivery -PrResult (New-DeliveryPrResult) -Local (New-DeliveryLocal -Commits 0) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'no-production'
+    }
+
+    It 'commits-without-pr: PR exists but local HEAD carries commits the PR does not contain' {
+        Mock Invoke-GitCapture { @{ ExitCode = 0; Output = '2' } }
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'bbb')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 3) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'commits-without-pr'
+        $d.CommitsAheadOfPr | Should -Be 2
+        $d.Reason | Should -Match 'not contained in PR #12'
+    }
+
+    It 'unverified: a failed PR query is never reported as delivered' {
+        $pr = New-DeliveryPrResult -Ok $false -Error 'gh api exit 1'
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Commits 1) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'unverified'
+        $d.Reason | Should -Match 'PR query failed'
+    }
+
+    It 'unverified: local work evidence failure blocks, never delivers' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'aaa')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Ok $false) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'unverified'
+        $d.Reason | Should -Match 'local work evidence unavailable'
+    }
+
+    It 'unverified: a PR whose containment cannot be proven is not a delivery' {
+        $pr = New-DeliveryPrResult -Items @(New-DeliveryPr -State 'OPEN' -HeadSha 'bbb')
+        $d = Resolve-CopilotDelivery -PrResult $pr -Local (New-DeliveryLocal -Head 'aaa' -Commits 1) -WorkRoot 'x'
+        $d.Outcome | Should -Be 'unverified'
+        $d.Reason | Should -Match 'cannot prove'
+    }
+
+    It 'wiring: an active dispatch verifies delivery and the outcome drives $status' {
+        $script:src | Should -Match 'Get-CopilotDeliveryState -RepositorySlug \$queueSlug -WorkRoot \$workRoot -Branch'
+        $script:src | Should -Match "'no-production' \{ \`$status = 'idle' \}"
+        $script:src | Should -Match "default \{ \`$status = 'blocked' \}"
+        $script:src | Should -Match '\$state\.lastDeliveryPrUrl = \[string\]\$delivery\.PrUrl'
+        $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'phase-c-failed'"
+        $script:src | Should -Match "\`$state\.lastDeliveryOutcome = 'not-attempted'"
     }
 }
