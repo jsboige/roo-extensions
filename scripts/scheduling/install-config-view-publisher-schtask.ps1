@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install or uninstall the hourly config-view publisher task (#3833, etape 4 / #603 case 17).
 
@@ -108,6 +108,37 @@ if (-not $pythonExe) {
     Write-Host "ERROR: python.exe introuvable dans le PATH — la tache echouerait a chaque tir. Installer python d'abord." -ForegroundColor Red
     exit 1
 }
+
+# Garde roster (review PR #4764) : le lecteur agrege (config-view-fleet.py)
+# enumere les machines depuis les CLES de fleet-manifest.json et lit
+# <machine>.json. Ce publieur ecrit COMPUTERNAME en minuscules — si ce nom
+# n'est pas une cle du manifeste, le snapshot ne serait JAMAIS lu : refus
+# avant l'installation (verifie chaque siege, web1/web2 compris).
+$repoRoot = Split-Path (Split-Path $scriptDir -Parent) -Parent
+$manifestPath = Join-Path $repoRoot '.claude\configs\fleet-manifest.json'
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+    Write-Host "ERROR: manifeste de flotte introuvable : $manifestPath" -ForegroundColor Red
+    exit 1
+}
+$thisMachine = $env:COMPUTERNAME.ToLower()
+try {
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $roster = @($manifest.machines.PSObject.Properties.Name)
+} catch {
+    Write-Host "ERROR: fleet-manifest.json illisible : $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+if ($roster.Count -lt 1) {
+    Write-Host "ERROR: fleet-manifest.json ne porte aucune machine (cle 'machines' vide)." -ForegroundColor Red
+    exit 1
+}
+if ($roster -notcontains $thisMachine) {
+    Write-Host "ERROR: ce siege ('$thisMachine') n'est pas une cle du manifeste de flotte : $($roster -join ', ')." -ForegroundColor Red
+    Write-Host "       Le lecteur agrege (config-view-fleet.py) ne lirait jamais <shared>\config-view\$thisMachine.json." -ForegroundColor Red
+    Write-Host "       Corriger le hostname ou ajouter la machine au manifeste avant l'installation." -ForegroundColor Red
+    exit 1
+}
+Write-Host "[INFO] Siege '$thisMachine' present au manifeste ($($roster.Count) machines) — snapshot lisible par le lecteur fleet."
 
 # Destination par defaut : resolution identique a l'installateur session-view.
 if (-not $SharedPath) {

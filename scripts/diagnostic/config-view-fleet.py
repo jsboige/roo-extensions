@@ -19,7 +19,11 @@ Consensus drift (case 18): among FRAIS machines only — a stale snapshot does
 not vote — each judged key's fleet value is the value held by a strict
 majority of fresh machines, requiring at least 2 holders. With fewer than 2
 fresh machines there is no witness quorum and NO drift verdict is emitted
-(the summary says so; exit reflects freshness only). Judged keys:
+(the summary says so; exit reflects freshness only). A key on which NO value
+reaches a strict majority (2 seats disagreeing, a 2-2 tie, any split fleet)
+is reported as ``SANS MAJORITE`` with its value counts — never silently
+skipped (review B1 on PR #4764: a split fleet must not be certified as a
+healthy one). Judged keys:
 
 * every published ``env`` key except the observe-only set (``ANTHROPIC_BASE_URL``
   is reported per machine but never drift-judged — #4347);
@@ -32,15 +36,22 @@ value). Roster and freshness threshold behave exactly like session-view-fleet.
 
 Exit codes, fail-closed (same discipline):
 
-* ``0`` — every expected machine is ``frais`` AND no drift was detected.
+* ``0`` — every expected machine is ``frais`` AND no drift was detected AND
+  no key is split (without majority).
 * ``1`` — at least one machine is ``en-retard``/``absent``/``illisible``, OR at
-  least one drift was detected.
+  least one drift was detected, OR at least one key is split without majority.
 * ``2`` — the instrument itself cannot measure: no shared path, no state
   directory, or no usable roster.
 
 ``--json`` emits the same data machine-readable; ``--now`` freezes the clock
 for tests. Case 19 (scheduled check) wires this exit code into an existing
 cadence — the reader never posts to the dashboard itself (quiet channel).
+The case-19 consumer distinguishes the three exit-1 causes via ``--json``:
+``summary.driftingMachines`` > 0 → config drift (machines contradicting the
+majority; names in ``machines[].driftKeys``), ``summary.splitKeys`` non-empty
+→ fleet-wide disagreement with no majority and no machine to blame, and
+``summary`` freshness fields (``enRetard``/``absent``/``illisible``) → seats
+not publishing (not installed yet, or the publisher died).
 """
 
 from __future__ import annotations
@@ -165,13 +176,31 @@ def _hashable(value):
     return value
 
 
+ABSENT = "<<absent>>"
+
+
+def _display_value(value):
+    """One-line rendering of a judged value (for the split detail line and
+    JSON, where tuple keys are not representable)."""
+    if isinstance(value, tuple):
+        return "[" + ", ".join(_display_value(v) for v in value) + "]"
+    return str(value)
+
+
 def detect_drift(rows):
-    """Consensus drift among FRAIS machines. Returns (drift, quorum) where
-    ``drift`` is {machine: [key, ...]} and ``quorum`` is True when at least 2
-    fresh machines voted (without quorum there is no verdict)."""
+    """Consensus drift among FRAIS machines. Returns (drift, split, quorum):
+
+    * ``drift`` — {machine: [key, ...]}: machines contradicting a strict
+      majority value;
+    * ``split`` — {key: [(value, holders), ...] sorted most-held first}: keys
+      on which NO value reaches a strict majority (a fleet in open
+      disagreement). Reported, never silently skipped (review B1 on PR #4764);
+    * ``quorum`` — True when at least 2 fresh machines voted (without quorum
+      there is no verdict at all).
+    """
     fresh = [row for row in rows if row["state"] == STATE_FRAIS and row["config"]]
     if len(fresh) < 2:
-        return {}, False
+        return {}, {}, False
 
     # Union of judged keys across fresh snapshots.
     all_keys = set()
@@ -182,19 +211,24 @@ def detect_drift(rows):
         all_keys.update(values.keys())
 
     drift = {row["machine"]: [] for row in fresh}
+    split = {}
     for key in sorted(all_keys):
         counts = {}
         for row in fresh:
-            value = per_machine[row["machine"]].get(key, "<<absent>>")
+            value = per_machine[row["machine"]].get(key, ABSENT)
             counts[value] = counts.get(value, 0) + 1
         fleet_value, holders = max(counts.items(), key=lambda item: item[1])
         if holders < 2 or holders <= len(fresh) / 2:
-            continue  # no strict majority: split fleet, nothing to agree on
+            # No strict majority: the fleet is in open disagreement on this
+            # key. There is no majority to contradict, so no machine is
+            # blamed — but the disagreement itself is the alert (B1).
+            split[key] = sorted(counts.items(), key=lambda kv: (-kv[1], str(kv[0])))
+            continue
         for row in fresh:
-            value = per_machine[row["machine"]].get(key, "<<absent>>")
+            value = per_machine[row["machine"]].get(key, ABSENT)
             if value != fleet_value:
                 drift[row["machine"]].append(key)
-    return {m: keys for m, keys in drift.items() if keys}, True
+    return {m: keys for m, keys in drift.items() if keys}, split, True
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +245,7 @@ def _format_drift(keys, limit=3):
     return text
 
 
-def render_table(rows, drift, quorum, max_age_minutes):
+def render_table(rows, drift, split, quorum, max_age_minutes):
     header = (
         f"{'MACHINE':<16} {'ETAT':<10} {'FRAICHEUR':>9}  "
         f"{'MCP':>3}  DERIVE"
@@ -238,11 +272,26 @@ def render_table(rows, drift, quorum, max_age_minutes):
     )
     if quorum:
         drifting = len(drift)
-        total_keys = sum(len(keys) for keys in drift.values())
-        lines.append(
-            f"consensus ({fresh} temoins): {drifting} machine(s) en derive, "
-            f"{total_keys} key(s) en desaccord"
-        )
+        if split:
+            # Never let a split fleet read as "0 en derive" (B1): lead with
+            # the disagreement itself.
+            lines.append(
+                f"consensus ({fresh} temoins): {len(split)} cle(s) SANS majorite "
+                f"(flotte en desaccord ouvert) ; {drifting} machine(s) en derive "
+                f"sur les autres cles"
+            )
+            for key in sorted(split):
+                detail = " / ".join(
+                    f"{_display_value(value)} ({holders})"
+                    for value, holders in split[key]
+                )
+                lines.append(f"  sans majorite: {key}: {detail}")
+        else:
+            total_keys = sum(len(keys) for keys in drift.values())
+            lines.append(
+                f"consensus ({fresh} temoins): {drifting} machine(s) en derive, "
+                f"{total_keys} key(s) en desaccord"
+            )
     else:
         lines.append(
             f"consensus: PAS de verdict ({fresh} temoin(s) frais — quorum 2 requis)"
@@ -250,7 +299,7 @@ def render_table(rows, drift, quorum, max_age_minutes):
     return "\n".join(lines)
 
 
-def build_json(rows, drift, quorum, max_age_minutes, now_iso):
+def build_json(rows, drift, split, quorum, max_age_minutes, now_iso):
     summary = {
         "machines": len(rows),
         "frais": sum(1 for row in rows if row["state"] == STATE_FRAIS),
@@ -259,17 +308,28 @@ def build_json(rows, drift, quorum, max_age_minutes, now_iso):
         "illisible": sum(1 for row in rows if row["state"] == STATE_ILLISIBLE),
         "driftQuorum": quorum,
         "driftingMachines": len(drift),
+        # Keys with NO strict majority: fleet-wide disagreement, no machine to
+        # blame. The case-19 alert consumer reads this field (see docstring).
+        "splitKeys": sorted(split.keys()),
     }
     machines = []
     for row in rows:
         entry = {key: value for key, value in row.items() if key != "path"}
         entry["driftKeys"] = drift.get(row["machine"], [])
         machines.append(entry)
+    splits = {
+        key: [
+            {"value": _display_value(value), "machines": holders}
+            for value, holders in split[key]
+        ]
+        for key in sorted(split)
+    }
     return {
         "view": "config-view-fleet",
         "generatedAt": now_iso,
         "maxAgeMinutes": max_age_minutes,
         "summary": summary,
+        "splits": splits,
         "machines": machines,
     }
 
@@ -285,8 +345,9 @@ def build_parser():
             "Aggregated fleet config view + consensus drift verdict over the "
             "per-seat snapshots (<shared>/%s/<machine>.json, producer "
             "config-view.py). One line per expected machine; drifting keys are "
-            "listed; exit 1 when any machine is late/absent/unreadable OR any "
-            "drift is detected." % DEFAULT_SUBDIR
+            "listed; keys with no strict majority are reported SANS MAJORITE; "
+            "exit 1 when any machine is late/absent/unreadable OR any drift is "
+            "detected OR any key is split without majority." % DEFAULT_SUBDIR
         ),
     )
     parser.add_argument("--shared-path", default=os.environ.get("ROOSYNC_SHARED_PATH"),
@@ -327,19 +388,19 @@ def main(argv=None):
     max_age_s = args.max_age_minutes * 60.0
 
     rows = [read_machine(state_dir, machine, now_s, max_age_s) for machine in roster]
-    drift, quorum = detect_drift(rows)
+    drift, split, quorum = detect_drift(rows)
 
     if args.json_output:
         now_iso = session_view_fleet.datetime.datetime.fromtimestamp(
             now_s, tz=session_view_fleet.datetime.timezone.utc
         ).isoformat(timespec="seconds")
-        print(json.dumps(build_json(rows, drift, quorum, args.max_age_minutes, now_iso),
+        print(json.dumps(build_json(rows, drift, split, quorum, args.max_age_minutes, now_iso),
                          indent=2, ensure_ascii=False))
     else:
-        print(render_table(rows, drift, quorum, args.max_age_minutes))
+        print(render_table(rows, drift, split, quorum, args.max_age_minutes))
 
     all_fresh = all(row["state"] == STATE_FRAIS for row in rows)
-    return 0 if (all_fresh and not drift) else 1
+    return 0 if (all_fresh and not drift and not split) else 1
 
 
 if __name__ == "__main__":

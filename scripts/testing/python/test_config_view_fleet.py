@@ -9,9 +9,15 @@ snapshots and a frozen clock (``--now``): no shared store is consulted and
 nothing is written anywhere but the temp dir.
 
 The #3833 acceptance criterion — « une alerte part quand une machine de test
-dérive » — is covered at unit level by DriftTest.test_divergent_machine_flagged:
+dérive » — is covered at unit level by FleetConfigViewTest.test_divergent_machine_flagged:
 a fixture machine holding a divergent value is flagged in the table AND drives
 exit 1 (the alert signal consumed by the periodic check, case 19).
+
+Split fleets (no strict majority — review B1 on PR #4764) are covered by
+test_split_fleet_no_majority_reported_exit_1, test_two_fresh_disagree_split_reported
+(the 2-seat pilot reproduction) and test_four_fresh_two_two_split: the split is
+reported SANS MAJORITE, drives exit 1, and surfaces as summary.splitKeys in
+--json — never certified healthy.
 """
 
 import importlib.util
@@ -201,17 +207,64 @@ class FleetConfigViewTest(unittest.TestCase):
         self.assertEqual(code, 1)  # absent machines still drive exit 1
         self.assertIn("PAS de verdict", out)
 
-    def test_split_fleet_no_majority_no_flags(self):
-        """3 machines with 3 different values: no strict majority, no flags."""
+    def test_split_fleet_no_majority_reported_exit_1(self):
+        """3 machines, 3 different model values: no majority -> the split is
+        REPORTED (B1, PR #4764 review) and drives exit 1, not silence."""
         self._write_state("myia-web1", _snapshot(FRESH_ISO, model="sonnet"))
         self._write_state("myia-web2", _snapshot(FRESH_ISO, model="opus"))
         self._write_state("myia-po-2028", _snapshot(FRESH_ISO, model="haiku"))
         code, out, err = self._run()
-        # models disagree but no majority -> no drift flags;
-        # everything else agrees, and all machines are fresh.
-        self.assertEqual(code, 0)
-        self.assertIn("0 machine(s) en derive", out)
-        self.assertNotIn("model", out)
+        self.assertEqual(code, 1)
+        self.assertIn("SANS majorite", out)
+        self.assertIn("model", out)  # the split key is named
+        # no machine is blamed: the disagreement has no majority to contradict
+        self.assertIn("0 machine(s) en derive sur les autres cles", out)
+        self.assertNotIn("1 machine(s) en derive", out)
+
+    def test_two_fresh_disagree_split_reported(self):
+        """B1 reproduction (2-seat pilot): 2 fresh seats disagreeing must NOT
+        be certified healthy."""
+        self._write_manifest(["myia-web1", "myia-web2"])
+        self._write_state("myia-web1", _snapshot(FRESH_ISO, model="sonnet"))
+        self._write_state("myia-web2", _snapshot(FRESH_ISO, model="opus"))
+        code, out, err = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("SANS majorite", out)
+        self.assertIn("model", out)
+        # the pre-fix bug: consensus line claimed "0 machine(s) en derive" exit 0
+        self.assertNotIn("0 machine(s) en derive,", out)
+        # --json: the case-19 consumer field
+        code, out_json, err = self._run("--json")
+        self.assertEqual(code, 1)
+        payload = json.loads(out_json)
+        self.assertEqual(payload["summary"]["splitKeys"], ["model"])
+        self.assertEqual(payload["summary"]["driftingMachines"], 0)
+        self.assertEqual(len(payload["splits"]["model"]), 2)
+
+    def test_four_fresh_two_two_split(self):
+        """4 fresh seats split 2-2 on one key: reported, no machine blamed."""
+        self._write_manifest(["myia-web1", "myia-web2", "myia-po-2023", "myia-po-2028"])
+        half = _snapshot(FRESH_ISO, env={
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5[1m]",
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "230000",
+            "ENABLE_TOOL_SEARCH": "true",
+            "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000",
+        })
+        other = _snapshot(FRESH_ISO, env={
+            "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5[1m]",
+            "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "99999",
+            "ENABLE_TOOL_SEARCH": "true",
+            "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000",
+        })
+        self._write_state("myia-web1", half)
+        self._write_state("myia-web2", half)
+        self._write_state("myia-po-2023", other)
+        self._write_state("myia-po-2028", other)
+        code, out, err = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("SANS majorite", out)
+        self.assertIn("env:CLAUDE_CODE_AUTO_COMPACT_WINDOW", out)
+        self.assertIn("0 machine(s) en derive sur les autres cles", out)
 
     # -- instrument (exit 2) --------------------------------------------------
 
@@ -228,6 +281,9 @@ class FleetConfigViewTest(unittest.TestCase):
         self.assertEqual(payload["view"], "config-view-fleet")
         self.assertEqual(payload["summary"]["frais"], 3)
         self.assertEqual(payload["summary"]["driftQuorum"], True)
+        self.assertEqual(payload["summary"]["driftingMachines"], 0)
+        self.assertEqual(payload["summary"]["splitKeys"], [])
+        self.assertEqual(payload["splits"], {})
         self.assertEqual(payload["machines"][0]["driftKeys"], [])
 
 
