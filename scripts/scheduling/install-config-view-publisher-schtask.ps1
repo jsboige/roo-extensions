@@ -108,6 +108,18 @@ if (-not $pythonExe) {
     Write-Host "ERROR: python.exe introuvable dans le PATH — la tache echouerait a chaque tir. Installer python d'abord." -ForegroundColor Red
     exit 1
 }
+# pythonw.exe (#4771) : python.exe est un executable CONSOLE — en LogonType
+# Interactive, chaque tir ouvrait une fenetre conhost visible (le clignotement
+# attribue par Maintenance le 16/11). pythonw.exe est du sous-systeme GUI :
+# aucune console n'est creee. Resolu dans le MEME repertoire que python.exe
+# (meme interpreteur, memes paquets). Le script n'ecrit que via print(), qui ne
+# fait rien quand sys.stdout/sys.stderr valent None sous pythonw ; le code de
+# sortie remonte toujours dans LastTaskResult.
+$pythonwExe = Join-Path (Split-Path $pythonExe -Parent) 'pythonw.exe'
+if (-not (Test-Path -LiteralPath $pythonwExe)) {
+    Write-Host "ERROR: pythonw.exe absent a cote de $pythonExe — refus : une tache python.exe ouvrirait une console a chaque tir (#4771)." -ForegroundColor Red
+    exit 1
+}
 
 # Garde roster (review PR #4764) : le lecteur agrege (config-view-fleet.py)
 # enumere les machines depuis les CLES de fleet-manifest.json et lit
@@ -170,7 +182,7 @@ if (-not (Test-Path -LiteralPath $SharedPath)) {
 # -X utf8 : sortie/entree UTF-8 hors codepage machine (lesson cp1252 #4672).
 $viewArgs = "-X utf8 `"$viewScript`" --write --shared-path `"$SharedPath`""
 
-$action = New-ScheduledTaskAction -Execute $pythonExe -Argument $viewArgs
+$action = New-ScheduledTaskAction -Execute $pythonwExe -Argument $viewArgs
 
 # Repetition indefinie : Duration nulle EXPLICITEMENT (le Task Scheduler refuse
 # [TimeSpan]::MaxValue avec 0x80041318 — mesure po-2028 14/11, precedent
