@@ -1,6 +1,6 @@
 # Environnement dégradé — escalade immédiate, sonnerie à 2 cycles
 
-**Version :** 1.0.0 · **Issue :** #4517 · **MAJ :** 2026-11-03
+**Version :** 1.1.0 · **Issue :** #4517 · #4746 · **MAJ :** 2026-11-15
 **Source canonique :** ce fichier. Déployé flotte (tous workspaces) par
 `.claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules`.
 
@@ -55,6 +55,10 @@ mémoire de l'agent qui l'avait posée.
    le cycle normal consacre précisément la sortie dégradée que le mandat
    interdit. Le `[REPAIRED]` doit venir de la **même lane** ; le `[REPAIRED]`
    d'une autre lane ne ferme rien.
+   **Nommer l'escalade quand la lane en a plusieurs** (#4746) : sans portée, un
+   `[REPAIRED]` ferme **toutes** les escalades antérieures de la lane ; pour
+   n'en fermer qu'une, ajouter une ligne dédiée `scope: <messageId | #NNNN |
+   HH:MMZ>` (ou `portée:`) — la prose ne compte jamais.
 
 `[DEGRADED]` ≠ `[BLOCKED]` : bloqué = j'attends quelqu'un d'autre ; dégradé =
 **mon** environnement est cassé et je ne produis plus de résultat normal.
@@ -128,6 +132,32 @@ Un post qui **cite** le tag en pleine prose — la review qui le commente, le
 citaient le tag produisaient des escalades fantômes qui sonnaient le user pour
 rien. Même discipline pour `[REPAIRED]` : seule une déclaration de la même lane
 ferme.
+
+**#4746 — portée optionnelle du `[REPAIRED]`.** Le contrat d'origine (un
+`[REPAIRED]` = déclaration de LANE, il ferme tout ce qui le précède) rendait le
+mécanisme dangereux pour une lane qui porte plusieurs escalades : mesuré deux
+fois en une heure le 15/11. ai-01 `claudish` a **retenu** un `[REPAIRED]` vrai
+(playwright), parce qu'il aurait aussi fermé son escalade du 13/11 toujours
+vraie ; ai-01 `roo-extensions` a posté le sien pour `review_pr`, et il a **aussi**
+fermé l'escalade du conteneur sk-agent `:8100` (#4741), non réparée. L'organe
+poussait donc la lane soit à se taire sur une réparation vraie, soit à consacrer
+une sortie dégradée — ce que la règle 4 interdit. La portée se marque sur
+une **ligne dédiée** du post : `scope: <messageId | #NNNN | HH:MMZ>` (ou
+`portée:`). Trois formes de valeur nomment l'escalade : son `messageId`,
+une référence d'issue présente dans son corps (`#4741`), ou son heure de
+**pose** `HH:MMZ` (pas l'heure de la réparation). **La prose ne scope
+jamais** (review ai-01 15/11) : les `[REPAIRED]` réels citent presque
+toujours une heure ou une issue en prose, et la première tête de la PR y
+lisait la portée — 27 réparations historiques re-basculaient
+`repaired → overdue` sur le store live. Un `[REPAIRED]` **sans** ligne de
+portée garde le comportement d'origine ; quand il ferme **plus d'une**
+escalade, l'organe l'imprime (`REPAIRED <lane> <ts> a fermé N escalade(s) :
+…`, `repair_notices` en JSON) pour que la lane voie ce qu'elle vient de
+fermer. Une portée qui ne correspond à **aucune** escalade ne ferme **rien** :
+l'escalade reste due au cycle suivant (fail-visible), jamais « tout fermer »
+par défaut — c'est exactement le défaut que #4746 ferme. La seconde passe
+d'archives applique la même règle : une fermeture scopée ne tient pas un
+poste pour clos.
 
 **Sources, dans l'ordre** (review #4519) : `--dashboard-file` = rejeu forensic
 (sans plafond) → sinon le **store PG**, via le même transport que la sonnerie

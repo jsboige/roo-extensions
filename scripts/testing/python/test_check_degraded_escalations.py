@@ -1303,6 +1303,153 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(code, 1)
         self.assertIn("sur 3", err.getvalue())
 
+    # --- #4746 : un [REPAIRED] peut NOMMER son escalade (portee optionnelle) --
+
+    # Lane a DEUX escalades, comme ai-01:roo-extensions le 15/11 : A = le
+    # conteneur sk-agent :8100 (#4741, 23:25Z), B = review_pr (#4742,
+    # 00:13Z). Les deux sont echues a NOW (defaut 2 x 4 h). Sur la base, le
+    # premier [REPAIRED] de la lane ferme A ET B — c'est le defaut mesure.
+    TWO_ESCALATIONS = """### [2026-11-02T23:25:00.000Z] a|ws
+
+[DEGRADED] conteneur sk-agent :8100, trois plugins absents (#4741)
+
+### [2026-11-03T00:13:00.000Z] a|ws
+
+[DEGRADED] review_pr en timeout 30 s (#4742)
+
+{repair}
+"""
+
+    def two_escalations(self, name, repair):
+        return self.dashboard(name, self.TWO_ESCALATIONS.format(repair=repair))
+
+    def statuses(self, path):
+        entries, errors = cde.load_entries([path])
+        self.assertEqual(errors, [])
+        return {item["posted"]: item["status"]
+                for item in cde.collect_escalations(entries,
+                                                    cde.parse_ts(NOW))}
+
+    def test_scoped_repair_closes_only_the_named_escalation(self):
+        # Critere de fermeture #4746 : le marqueur `scope:` porte la
+        # reference d'issue de B. B est close, A reste due. Tueur : sur la
+        # base, les deux sortent « repaired » -> exit 0 (une reparation non
+        # faite consacree).
+        path = self.two_escalations(
+            "scoped-issue.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] review_pr repond en 26,7 s\nscope: #4742\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "overdue",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 2)
+
+    def test_scoped_repair_by_escalation_time_closes_only_that_one(self):
+        # Forme `HH:MMZ` dans la VALEUR du marqueur (forme francaise
+        # `portée:` couverte ici) : l'heure de POSE de l'escalade, pas
+        # l'heure de la reparation. 00:13Z nomme B ; A (23:25Z) reste due.
+        path = self.two_escalations(
+            "scoped-time.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] escalade reparee, 26,7 s mesurees\nportée: 00:13Z\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "overdue",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 2)
+
+    def test_scoped_repair_by_message_id_closes_only_that_one(self):
+        # Forme messageId : la VALEUR du marqueur porte l'id du message B.
+        # Aucun marqueur texte (ni #ref ni HH:MMZ) — la portee vient de l'id.
+        self.fake_store({}, keys=["workspace-w"], structured={"w": [
+            dict(self.message("2026-11-02T23:25:00.000Z", tags=["DEGRADED"],
+                              content="conteneur sk-agent :8100 (#4741)"),
+                 id="msg-aaaaaaaa1111"),
+            dict(self.message("2026-11-03T00:13:00.000Z", tags=["DEGRADED"],
+                              content="review_pr en timeout 30 s"),
+                 id="msg-bbbbbbbb2222"),
+            dict(self.message("2026-11-03T01:45:00.000Z", tags=["REPAIRED"],
+                              content="scope: msg-bbbbbbbb2222 review_pr"),
+                 id="msg-cccccccc3333")]})
+        self.assertEqual(self.run_store_main(), 2)
+        entries, errors, _keys = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW))
+        self.assertEqual(errors, [])
+        statuses = {item["posted"]: item["status"]
+                    for item in cde.collect_escalations(
+                        entries, cde.parse_ts(NOW))}
+        self.assertEqual(statuses, {"2026-11-02T23:25:00Z": "overdue",
+                                    "2026-11-03T00:13:00Z": "repaired"})
+
+    def test_scoped_repair_naming_no_known_escalation_closes_nothing(self):
+        # Fail-visible : une portee qui ne correspond a aucune escalade ne
+        # ferme RIEN (l'escalade reste due au cycle suivant). Fermer « tout »
+        # par defaut est exactement le defaut #4746.
+        path = self.two_escalations(
+            "scoped-unknown.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] autre chose\nscope: #9999\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "overdue",
+            "2026-11-03T00:13:00Z": "overdue"})
+        self.assertEqual(self.run_main(path), 2)
+
+    def test_prose_quoting_time_and_issue_without_marker_closes_the_lane(self):
+        # Review ai-01 15/11 (le cas des 27 escalades reversed) : un
+        # `[REPAIRED]` SANS marqueur, dont la prose cite une heure et une
+        # issue, reste une declaration de LANE et ferme tout. La prose cite
+        # ici 04:52Z (aucune heure de pose) et #4731 (aucun corps) : sur la
+        # tete 9867af6d, ce post etait scope par prose et ne nommait RIEN —
+        # les deux escalades passaient overdue.
+        path = self.two_escalations(
+            "prose-unscoped.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] servi firsthand a 04:52Z, lever #4731 pris — "
+            "lane rouverte\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "repaired",
+            "2026-11-03T00:13:00Z": "repaired"})
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_unscoped_repair_still_closes_every_preceding_escalation(self):
+        # Non-regression du contrat d'origine : un [REPAIRED] SANS portee
+        # reste une declaration de LANE et ferme toutes ses escalades
+        # anterieures. La visibilite le dit des que N >= 2.
+        path = self.two_escalations(
+            "unscoped.md",
+            "### [2026-11-03T01:45:00.000Z] a|ws\n\n"
+            "[REPAIRED] tout est revenu, 18 outils\n")
+        self.assertEqual(self.statuses(path), {
+            "2026-11-02T23:25:00Z": "repaired",
+            "2026-11-03T00:13:00Z": "repaired"})
+        entries, _ = cde.load_entries([path])
+        notices = cde.repair_notices(
+            cde.collect_escalations(entries, cde.parse_ts(NOW)))
+        self.assertEqual(len(notices), 1, notices)
+        self.assertIn("a fermé 2 escalade(s)", notices[0])
+        self.assertIn("2026-11-02T23:25:00Z", notices[0])
+        self.assertIn("2026-11-03T00:13:00Z", notices[0])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--env-file", ""])
+        self.assertEqual(code, 0)
+        self.assertIn(notices[0], out.getvalue())
+
+    def test_a_single_closure_prints_no_notice(self):
+        # La ligne est reservee au cas qui aveugle la lane : N >= 2. Une
+        # fermeture unique n'a rien a signaler.
+        path = self.dashboard("single.md", """### [2026-11-03T00:13:00.000Z] a|ws
+
+[DEGRADED] review_pr en timeout
+
+### [2026-11-03T01:45:00.000Z] a|ws
+
+[REPAIRED] review_pr repond
+""")
+        entries, _ = cde.load_entries([path])
+        self.assertEqual(cde.repair_notices(
+            cde.collect_escalations(entries, cde.parse_ts(NOW))), [])
+
 
 if __name__ == "__main__":
     unittest.main()
