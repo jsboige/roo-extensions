@@ -75,3 +75,43 @@ Describe 'start-copilot-dispatcher.ps1 — #3641 §3 wiring (-R reaches both gh 
         @($callLines | Where-Object { $_ -notmatch '@repoArgs' }) | Should -BeNullOrEmpty
     }
 }
+
+Describe 'start-copilot-dispatcher.ps1 — #4766 skip reason distinguishes the pool causes (behavioral)' {
+    BeforeAll {
+        foreach ($fn in 'Test-IsActionableIssue', 'Get-TargetSkipMessage', 'Get-TargetIssue') {
+            $m = [regex]::Match($script:src, "(?s)(function $fn \{.*?\r?\n\})")
+            if (-not $m.Success) { throw "$fn not found in start-copilot-dispatcher.ps1" }
+            Invoke-Expression $m.Groups[1].Value
+        }
+        function Get-IssueSummary { param($Repo, $Labels, $ExcludeLabels, $MaxCount) $global:PoolResult }
+    }
+
+    BeforeEach { $script:TargetSkipReason = $null }
+
+    It 'pool-query-failed: query error is distinguishable' {
+        $global:PoolResult = @{ Ok = $false; Items = @() }
+        Get-TargetIssue -RepositoryRoot 'x' -RepoSlug 'o/r' | Should -BeNullOrEmpty
+        $msg = Get-TargetSkipMessage -Reason $script:TargetSkipReason
+        $msg | Should -Match 'pool-query-failed'
+        $msg | Should -Not -Match 'pool-empty|none-actionable'
+    }
+
+    It 'pool-empty: says 0 open issues labeled copilot-target and coordinator provisioning' {
+        $global:PoolResult = @{ Ok = $true; Items = @() }
+        Get-TargetIssue -RepositoryRoot 'x' -RepoSlug 'o/r' | Should -BeNullOrEmpty
+        $msg = Get-TargetSkipMessage -Reason $script:TargetSkipReason
+        $msg | Should -Match '0 open issues labeled copilot-target'
+        $msg | Should -Match 'coordinator'
+    }
+
+    It 'none-actionable: says N in pool, 0 actionable' {
+        $global:PoolResult = @{ Ok = $true; Items = @(@{ number = 1; title = 'heartbeat listener'; labels = @() }, @{ number = 2; title = 'triage meta'; labels = @() }) }
+        Get-TargetIssue -RepositoryRoot 'x' -RepoSlug 'o/r' | Should -BeNullOrEmpty
+        Get-TargetSkipMessage -Reason $script:TargetSkipReason | Should -Match '2 in pool, 0 actionable'
+    }
+
+    It 'skip stays fail-closed: idle, zero premium, reason wired into the skip log' {
+        $script:src | Should -Match 'Write-Log \(Get-TargetSkipMessage -Reason \$script:TargetSkipReason\)'
+        $script:src | Should -Match "(?s)Get-TargetSkipMessage -Reason.*?\`$status = 'idle'.*?premiumRequests = 0\.0"
+    }
+}
