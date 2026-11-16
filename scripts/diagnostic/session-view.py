@@ -26,6 +26,13 @@ mode flag is given); ``--write`` additionally overwrites, atomically, one JSON
 state file per machine under ``$ROOSYNC_SHARED_PATH/<subdir>/<machine>.json``.
 No dashboard append: this is a quiet per-machine state file, per #3833.
 
+``machine`` is the LOCAL seat (``COMPUTERNAME``, lowercased) — the registry
+read here is per-machine by construction, so a record's ``pidDomain`` (the
+hostname at write time, stale after a seat rename) never names the bucket
+(#4777). Each ``--write`` run first removes ``.session-view-*.tmp`` debris
+older than one hour from the target directory only (a process killed between
+``mkstemp`` and ``os.replace`` leaves such files behind).
+
 Only ``*.json`` files directly inside the sessions directory are read — nothing
 else in that directory is opened, listed or displayed.
 """
@@ -43,6 +50,9 @@ import time
 
 DEFAULT_REST_SECONDS = 3600
 DEFAULT_SUBDIR = "session-view"
+DEFAULT_TMP_MAX_AGE_SECONDS = 3600
+_TMP_PREFIX = ".session-view-"
+_TMP_SUFFIX = ".tmp"
 
 STATUS_ACTIF = "actif"
 STATUS_REPOS_RECENT = "repos-recent"
@@ -108,13 +118,17 @@ probe_process = _probe_win32 if os.name == "nt" else _probe_unsupported
 # Registry reading and classification
 # ---------------------------------------------------------------------------
 
-def _machine_of(record):
-    domain = record.get("pidDomain")
-    if isinstance(domain, str) and ":" in domain:
-        candidate = domain.split(":", 1)[1].strip()
-        if candidate:
-            return candidate.lower()
-    return os.environ.get("COMPUTERNAME", socket.gethostname() or "unknown").lower()
+def _machine_of():
+    """The seat this registry belongs to.
+
+    ``~/.claude/sessions`` is per-machine by construction: every record was
+    written by a session on THIS host. A record's ``pidDomain`` carries the
+    hostname at write time and goes stale when a seat is renamed — dead
+    records from before the rename used to publish a ghost machine file at
+    every tick (#4777). Same local-seat rule as config-view.py.
+    """
+    name = os.environ.get("COMPUTERNAME") or socket.gethostname() or "unknown"
+    return name.lower()
 
 
 def _workspace_of(record):
@@ -225,6 +239,34 @@ def load_sessions(sessions_dir):
 # State file writing (atomic, one file per machine)
 # ---------------------------------------------------------------------------
 
+def cleanup_stale_tmp_files(target_dir, now_s, max_age_seconds=DEFAULT_TMP_MAX_AGE_SECONDS):
+    """Remove ``.session-view-*.tmp`` debris older than ``max_age_seconds``
+    from ``target_dir`` (that directory only, no recursion).
+
+    A process killed between ``mkstemp`` and ``os.replace`` leaves a 0-byte
+    temporary behind (#4777). Fresh ones are kept: a concurrent publisher may
+    be between its own mkstemp and replace. Returns the removed paths.
+    """
+    removed = []
+    try:
+        names = os.listdir(target_dir)
+    except OSError:
+        return removed
+    cutoff = now_s - max_age_seconds
+    for name in names:
+        if not (name.startswith(_TMP_PREFIX) and name.endswith(_TMP_SUFFIX)):
+            continue
+        path = os.path.join(target_dir, name)
+        try:
+            if not os.path.isfile(path) or os.stat(path).st_mtime >= cutoff:
+                continue
+            os.unlink(path)
+        except OSError:
+            continue  # vanished, or locked: the next tick retries
+        removed.append(path)
+    return removed
+
+
 def write_state_files(shared_path, subdir, machines, now_ms):
     """Atomically overwrite ``<shared_path>/<subdir>/<machine>.json`` for each
     machine. Returns the list of written paths."""
@@ -232,6 +274,7 @@ def write_state_files(shared_path, subdir, machines, now_ms):
 
     target_dir = os.path.join(shared_path, subdir)
     os.makedirs(target_dir, exist_ok=True)
+    cleanup_stale_tmp_files(target_dir, now_ms / 1000.0)
     written = []
     for machine, payload in machines.items():
         payload = dict(payload)
@@ -240,7 +283,7 @@ def write_state_files(shared_path, subdir, machines, now_ms):
             now_ms / 1000.0, tz=datetime.timezone.utc
         ).isoformat(timespec="seconds")
         target = os.path.join(target_dir, f"{machine}.json")
-        fd, tmp_path = tempfile.mkstemp(dir=target_dir, prefix=".session-view-", suffix=".tmp")
+        fd, tmp_path = tempfile.mkstemp(dir=target_dir, prefix=_TMP_PREFIX, suffix=_TMP_SUFFIX)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(payload, handle, indent=2, ensure_ascii=False)
@@ -317,15 +360,14 @@ def main(argv=None):
     lines = []
     for record in records:
         pid = record.get("pid")
+        machine = _machine_of()
         if "__error__" in record or not isinstance(pid, int):
             status, age_ms = STATUS_INVALIDE, None
-            machine = _machine_of({}) if "__error__" in record else _machine_of(record)
             workspace, kind, entrypoint = "?", "?", "?"
             start = None
         else:
             start = probe_process(pid)
             status, age_ms = classify(record, start, now_ms, rest_ms)
-            machine = _machine_of(record)
             workspace = _workspace_of(record)
             kind = str(record.get("kind", "?"))
             entrypoint = str(record.get("entrypoint", "?"))
