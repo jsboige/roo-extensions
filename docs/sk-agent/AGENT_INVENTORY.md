@@ -12,7 +12,7 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total models** | 11 (11 enabled, 0 disabled) |
+| **Total models** | 9 (9 enabled, 0 disabled) |
 | **Top-level agents** | 42 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
@@ -28,14 +28,12 @@
 | `glm-5.3` | 192.168.0.50:3000/v1 | 200000 | N | Y | Y | GLM-5.3 reasoning via the fleet hub — quality roles. Supersedes glm-5.1/glm-5 (user mandate 22/09: glm-5.1 obsolete). |
 | `glm-5.3-flash` | 192.168.0.50:3000/v1 | 131072 | N | N | Y | GLM-5.3-Flash via the fleet hub — fast/cheap text roles. Supersedes glm-5.1-fast/glm-5-fast/glm-4.7-flash. vision=false on purpose: the hub strips image parts (#794); cloud vision waits for the claudish passthrough fix. 320B/18B active, MIT (#3389). |
 | `frognano-4b` | 192.168.0.50:3000/v1 | 32768 | N | N | Y | FrogNano-4B (alias `mini`) — fleet mini tier, po-2025, Apache 2.0, 32K context served. RL-trained on corrective missions (Leaf 5-tool format); tool-calling qwen3_coder validated in a real multi-turn loop. Economy routing (#63): send it reading and mechanical recomputation against objective criteria, keep judgement on the medium. enable_thinking=false is declared both as a profile flag and via extra_body so it holds on the conversation path too (#2002). |
-| `swift-1.5-27b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Swift-1.5-27B (Qwen3.8 base, AWQ W4A16) — fleet vLLM medium (ai-01), 262K ctx, vision+thinking. Canonical id since 11/10 (fleet audit #3411, option A): the served engine name, so list_agents states what actually runs. The historical id qwen3.6-35b-a3b (deprecated alias below) resolves to the same engine on the server side. Fleet default since 22/09 (user mandate). |
+| `swift-1.5-27b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Swift-1.5-27B (Qwen3.8 base, AWQ W4A16) — fleet vLLM medium (ai-01), 262K ctx, vision+thinking. Canonical id since 11/10 (fleet audit #3411, option A): the served engine name, so list_agents states what actually runs. Supersedes a pre-rename alias id (template alias retired 2026-11-15, #3401) — the succeeds field lets a not-yet-synced seat inherit its local pre-rename entry's key and endpoint. Fleet default since 22/09 (user mandate). |
 | `swift-1.5-27b-no-thinking` | api.medium.text-generation-webui... | 262144 | N | N | Y | Swift-1.5-27B (fleet vLLM medium, ai-01) — no-thinking mode. Faster inference for short/cheap tasks (summaries, classification, formatting). Same hardware as swift-1.5-27b. enable_thinking=false also declared via extra_body (#3797) so the profile holds on the conversation path, not just call_agent (#2002). |
-| `qwen3.6-35b-a3b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | DEPRECATED alias of swift-1.5-27b (#3411 option A) — removal ~2026-11-10. Swift-1.5-27B (Qwen3.8 base, AWQ W4A16) — fleet vLLM medium (ai-01), 262K ctx, vision+thinking, served under this historical id and as swift-1.5-27b since 25/09, replacing Qwen3.6 35B MoE (retired). Kept 30 days because ad hoc agent_specs (extends + model) may cite it; new specs use swift-1.5-27b. |
-| `qwen3.6-35b-no-thinking` | api.medium.text-generation-webui... | 262144 | N | N | Y | DEPRECATED alias of swift-1.5-27b-no-thinking (#3411 option A) — removal ~2026-11-10. Swift-1.5-27B (fleet vLLM medium, ai-01) — no-thinking mode. Faster inference for short/cheap tasks (summaries, classification, formatting). Same hardware as qwen3.6-35b-a3b. enable_thinking=false also declared via extra_body (#3797) so the profile holds on the conversation path, not just call_agent (#2002). Kept 30 days because ad hoc agent_specs may cite it; new specs use swift-1.5-27b-no-thinking. |
-| `owui-qwen3.6-35b` | open-webui.myia.io/openai | 262144 | Y | Y | Y | Fleet medium model (Swift-1.5-27B) via OWUI proxy (bénéficie des filters/pipelines OWUI). Renommé depuis qwen3.5 (OWUI commit 4b8d8d521). Fallback direct vLLM via id qwen3.6-35b-a3b. |
-| `owui-expert-analyste` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Expert Analyste (wrapper qwen3.6-35b-a3b, thinking enabled). |
-| `owui-redacteur-technique` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Rédacteur Technique (wrapper qwen3.6-35b-a3b, thinking enabled). |
-| `owui-vision-expert` | open-webui.myia.io/openai | 131072 | Y | Y | Y | OWUI Expert Vision (wrapper qwen3.6-35b-a3b, vision+thinking). |
+| `owui-swift-1.5-27b` | open-webui.myia.io/openai | 262144 | Y | Y | Y | Fleet medium model (Swift-1.5-27B) via OWUI proxy (bénéficie des filters/pipelines OWUI). Entrée renommée owui-qwen3.6-35b -> owui-swift-1.5-27b (#3401), model_id audité Local.swift-1.5-27b : vérifié chat-level 200 par ai-01 15/11 12:10Z (contrôle nom-inconnu -> 404, pas de fallback ; Local.* ids servis par la connexion OWUI->vLLM, invisibles dans la table custom — d'où les lectures divergentes du 15/11 matin). succeeds hérite la clé et la base_url de l'entrée locale pré-renommage au sync (ms#1421). Fallback direct vLLM via id swift-1.5-27b. |
+| `owui-expert-analyste` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Expert Analyste (wrapper Swift via owui-swift-1.5-27b, thinking enabled). |
+| `owui-redacteur-technique` | open-webui.myia.io/openai | 131072 | N | Y | Y | OWUI Rédacteur Technique (wrapper Swift via owui-swift-1.5-27b, thinking enabled). |
+| `owui-vision-expert` | open-webui.myia.io/openai | 131072 | Y | Y | Y | OWUI Expert Vision (wrapper Swift via owui-swift-1.5-27b, vision+thinking). |
 
 ## Agents
 
@@ -47,15 +45,15 @@
 | `coder` | `swift-1.5-27b-no-thinking` | open_terminal, searxng | N | Agentic coding assistant with terminal access and web search (Swift-1.5-27B — fleet vLLM ai-01, 262K ctx, no-thinking mode). Can execute commands and search documentation |
 | `fast` | `swift-1.5-27b-no-thinking` | — | N | Fast responses via local vLLM Swift-1.5-27B no-thinking (fleet vLLM ai-01, 262K ctx). No tools, fastest reliable option (glm-4.7-flash deprecated: 60% rate-limit failures in benchmark) |
 | `fast-local` | `swift-1.5-27b-no-thinking` | — | N | Quick local responses via direct vLLM Swift-1.5-27B no-thinking mode (fleet vLLM ai-01, 262K ctx). No tools, no thinking overhead |
-| `summarizer-local` | `swift-1.5-27b-no-thinking` | — | N | Condenses logs, conversations, dumps and documents into short structured summaries — local Swift-1.5-27B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
+| `summarizer-local` | `frognano-4b` | — | N | Condenses logs, conversations, dumps and documents into short structured summaries — frognano-4b since #1748 casting (concise_summary measured: fastest of the park at 2.5 s median, 4.5/5 heuristic, no oracle gap on this task; swift-1.5-27b-no-thinking was 29.8 s). 32k context (frognano window 32,768): no caller-side chunking or swift fallback is implemented in sk-agent — the caller keeps inputs within the window. Cheap lane of #2002/#2404 |
 | `classifier-local` | `swift-1.5-27b-no-thinking` | — | N | Classifies items (issues, PRs, alerts, notebooks, log lines) into a caller-provided label set — local Swift-1.5-27B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
 | `formatter-local` | `swift-1.5-27b-no-thinking` | — | N | Normalizes and reformats text (markdown cleanup, dump normalization, consistent formatting) without changing meaning — local Swift-1.5-27B no-thinking (fleet vLLM ai-01, 262K ctx). Cheap lane of #2002/#2404 |
 | `fast-local-thinking` | `swift-1.5-27b` | — | N | Local responses with thinking mode via direct vLLM Swift-1.5-27B (fleet vLLM ai-01, 262K ctx, vision+thinking). Better reasoning, slightly slower |
 | `analyst-glm5` | `glm-5.3` | searxng, playwright, markitdown | Y | Cloud twin of analyst for heavy tasks — GLM-5.3 via fleet hub (200K ctx, thinking mode), same tools and memory. Operational fallback when the local endpoint is down; id kept as analyst-glm5 for config compatibility. |
 | `analyst-fast` | `glm-5.3-flash` | searxng | N | Fast analyst using GLM-5.3-Flash via fleet hub — lower latency for straightforward analysis and classification tasks |
 | `fast-responder` | `glm-5.3-flash` | — | N | Fast responder using GLM-5.3-Flash via fleet hub — quick answers for simple queries and triage |
-| `coder-local` | `owui-qwen3.6-35b` | — | N | Local coding via OWUI proxy to Swift-1.5-27B — vision+thinking+tool calling through OWUI |
-| `vision-local-owui` | `owui-qwen3.6-35b` | — | N | Local vision via OWUI proxy to Swift-1.5-27B — highest quality local vision+thinking model |
+| `coder-local` | `owui-swift-1.5-27b` | — | N | Local coding via OWUI proxy to Swift-1.5-27B — vision+thinking+tool calling through OWUI |
+| `vision-local-owui` | `owui-swift-1.5-27b` | — | N | Local vision via OWUI proxy to Swift-1.5-27B — highest quality local vision+thinking model |
 | `qwen-local` | `swift-1.5-27b` | — | N | Direct vLLM access to Swift-1.5-27B — fleet vLLM ai-01, 262K ctx, vision+thinking. Best local quality, no OWUI overhead |
 | `researcher` | `glm-5.3` | searxng, playwright, open_terminal, markitdown | Y | Investigative researcher with web search, terminal access, document conversion, and memory. Cloud: GLM-5.3 via fleet hub (supersedes glm-5.1, user mandate 22/09). Local alternative: Swift-1.5-27B (262K ctx). |
 | `synthesizer` | `glm-5.3-flash` | — | N | Expert at turning complex multi-source findings into clear, structured reports (non-thinking: synthesis = pattern matching, benchmark showed quality-neutral) |
@@ -66,11 +64,11 @@
 | `mediator` | `glm-5.3-flash` | — | N | Diplomatic synthesizer who builds consensus from competing perspectives (non-thinking: consensus building, benchmark showed quality-neutral) |
 | `config-auditor` | `glm-5.3` | — | N | Audits MCP and Roo configuration for inconsistencies, drift, and security issues |
 | `log-analyzer` | `glm-5.3` | — | N | Analyzes application logs to identify errors, patterns, and root causes |
-| `commit-reviewer` | `glm-5.3` | — | N | Specialized code reviewer for git diffs with structured findings table |
+| `commit-reviewer` | `glm-5.3-flash` | — | N | Specialized code reviewer for git diffs with structured findings table. glm-5.3-flash since #1748 casting (code_review measured: flash 9.60/10 oracle, 4.3 s median, no factual error; glm-5.3 9.40 remains the fallback on tier-2/3 reviewers whose input exceeds the 131k flash window) |
 | `guardian-sentinel` | `glm-5.3` | — | Y | Real-time surveillance agent for multi-machine system health and anomaly detection |
 | `owui-analyst` | `owui-expert-analyste` | searxng | Y | Expert analyst via OWUI (enriched system prompt, structured French output) |
 | `owui-writer` | `owui-redacteur-technique` | — | N | Technical documentation writer via OWUI (enriched system prompt) |
-| `owui-vision` | `owui-qwen3.6-35b` | — | N | Vision analysis via OWUI proxy to Swift-1.5-27B (vision+thinking, enriched system prompt) |
+| `owui-vision` | `owui-swift-1.5-27b` | — | N | Vision analysis via OWUI proxy to Swift-1.5-27B (vision+thinking, enriched system prompt) |
 | `fast-reviewer` | `glm-5.3-flash` | — | N | Tier 1 fast diff-only reviewer. GLM-5.3-Flash via fleet hub for speed + reliability (glm-4.7-flash had 60% rate-limit failures in benchmark). |
 | `integration-reviewer` | `glm-5.3` | — | N | Tier 2 context-aware reviewer with GitHub tools for PR analysis. GLM-5.3 via fleet hub for thorough reviews (historical benchmark: 3062 chars vs 1827 for glm-5.1). |
 | `context-explorer` | `glm-5.3` | — | N | Explores code context around PR changes — reads files, searches callers, checks history. GLM-5.3. |
@@ -100,7 +98,7 @@
 | `config-harmonization` | `risk-assessor` | `glm-5.3-flash` | Assesses risk of each configuration difference |
 | `config-harmonization` | `resolution-planner` | `glm-5.3` | Plans concrete resolution steps |
 | `config-harmonization` | `harmonization-synthesizer` | `glm-5.3-flash` | Produces final harmonization report with decisions |
-| `pr-review-tier1` | `review-synthesizer` | `swift-1.5-27b-no-thinking` | Formats review findings into structured JSON |
+| `pr-review-tier1` | `review-synthesizer` | `glm-5.3-flash` | Formats review findings into structured JSON. glm-5.3-flash since #1748 casting (json_output measured: flash is the only model qualified exact on the complexity answer; swift-1.5-27b-no-thinking carried the bare O(n^3) factual error) |
 | `pr-review-tier2` | `review-synthesizer-t2` | `glm-5.3` | Aggregates Tier 2 review findings into final structured verdict |
 | `pr-review-tier3` | `review-synthesizer-t3` | `glm-5.3` | Aggregates Tier 3 review findings from all specialists into final structured verdict |
 
@@ -112,7 +110,7 @@
 | `playwright` | `npx -y @playwright/mcp@latest` | Browser automation and web scraping |
 | `sk_agent` | `VENV_PATH/Scripts/python.exe INSTALLATION_PATH/sk_agent.py` | Self-inclusion for recursive tool chaining |
 | `open_terminal` | `python ../open-terminal-mcp/open_terminal_mcp.py` | Remote terminal access (shell commands, file operations, grep/glob) via Open Terminal API |
-| `markitdown` | `markitdown-mcp ` | Document conversion (PDF/DOCX/XLSX/PPTX/HTML/images) to Markdown via Microsoft markitdown |
+| `markitdown` | `INSTALLATION_PATH/venv-markitdown/Scripts/markitdown-mcp.exe ` | Document conversion (PDF/DOCX/XLSX/PPTX/HTML/images) to Markdown via Microsoft markitdown |
 | `roo_state_manager` | `node ../roo-state-manager/build/index.js` | RooSync fleet coordination: dashboards read/append, messages inbox/send, conversation search |
 
 ## Conversations

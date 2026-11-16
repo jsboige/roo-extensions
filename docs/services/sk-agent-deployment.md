@@ -49,7 +49,7 @@ Verified by `test_inventory_validation.py::test_template_counts_match_expected_b
 
 | Metric | Count | Notes |
 |--------|-------|-------|
-| **Models** | 11 | 11 enabled, 0 disabled (fleet hub 3 incl. `frognano-4b` added in submod #1401, vLLM direct 4 incl. canonical `swift-1.5-27b` + no-thinking preset added in submod #1421 — historical `qwen3.6` ids kept as 30-day deprecated aliases, removal ~2026-11-10; OWUI 4) — dead entries purged by submod #1197 |
+| **Models** | 9 | 9 enabled, 0 disabled (fleet hub 3 incl. `frognano-4b` added in submod #1401; vLLM direct 2: canonical `swift-1.5-27b` + its no-thinking preset, submod #1421 — the historical `qwen3.6` aliases were retired in submod #1770 (#3401 item 3), their `succeeds` fields keep key inheritance at sync; OWUI 4, the swift entry renamed `owui-swift-1.5-27b` in the same PR) — dead entries purged by submod #1197 |
 | **Top-level agents** | 42 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI); core gained the no-thinking `summarizer-local`, `classifier-local`, `formatter-local` in submod #1211; LOT E presets `terminal-analyst`, `coordination-agent` added in submod #1294 (vllm#63); mini presets `mini-coder-fix`, `mini-repo-scan`, `mini-summarizer`, `mini-web-research` and the delegating `swift-delegator` added in submod #1401 (#4107) |
 | **Inline agents** (conversation-scoped) | 15 | Defined inside `code-review`, `research-debate`, `config-harmonization`, `pr-review-tier1/2/3` |
 | **Memory-enabled agents** | 5 | `analyst`, `analyst-glm5`, `researcher`, `guardian-sentinel`, `owui-analyst` |
@@ -172,7 +172,7 @@ Use case: quick classification, triage, "yes/no" routing. No MCP overhead.
 {
   "id": "triage",
   "description": "Fast yes/no classification — no tools, no thinking",
-  "model": "qwen3.6-35b-no-thinking",
+  "model": "swift-1.5-27b-no-thinking",
   "system_prompt": "Reply with one of: YES, NO, MAYBE, NEED_INFO. Be concise.",
   "mcps": [],
   "memory": { "enabled": false }
@@ -210,7 +210,7 @@ Use case: run shell commands inside an isolated environment. Uses the
 {
   "id": "coder",
   "description": "Agentic coding with terminal access",
-  "model": "qwen3.6-35b-no-thinking",
+  "model": "swift-1.5-27b-no-thinking",
   "system_prompt": "You are an agentic coding assistant. Plan, implement, verify. Use terminal to run commands.",
   "mcps": ["open_terminal", "searxng"],
   "memory": { "enabled": false }
@@ -357,11 +357,10 @@ OWUI workspace (`D:\Open-WebUI\myia-open-webui\`) maintains:
 
 **Graceful degradation:** If OWUI models are unavailable, set `"enabled": false`
 on `owui-expert-analyste`, `owui-redacteur-technique`, `owui-vision-expert`,
-`owui-qwen3.6-35b`, `owui-omnicoder-9b`, `owui-glm-4.7-flash-fast`,
-`owui-glm-4.7-flash-thinking` in config. **The 3 owui-* top-level agents
+`owui-swift-1.5-27b` in config. **The 3 owui-* top-level agents
 (`owui-analyst`, `owui-writer`, `owui-vision`) and `coder-local` /
-`vision-local-owui` (which use `owui-qwen3.6-35b`) become non-functional —
-that is 5 agents, not 3.** Verify enabled-only counts via
+`vision-local-owui` (which, like `owui-vision`, use
+`owui-swift-1.5-27b`) become non-functional — that is 5 agents, not 3.** Verify enabled-only counts via
 `python mcps/internal/servers/sk-agent/generate_inventory.py --json-out`.
 
 ## Related documentation
