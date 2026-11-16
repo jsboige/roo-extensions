@@ -1,6 +1,6 @@
 # Boucle de rafraîchissement de l'index `ws-*` (#4736 P4)
 
-**Version :** 1.0.0 · **Issues :** #4736 (P3 writer, P4 loop) · **MAJ :** 2026-11-16
+**Version :** 1.1.0 · **Issues :** #4736 (P3 writer, P4 loop) · **MAJ :** 2026-11-16
 **Source :** `ms#1782` (merge `6c43013d`), `src/services/code-index/ws-refresh-loop.ts`, `src/index.ts` (`initializeWsRefreshLoop`).
 
 ---
@@ -33,7 +33,7 @@ Lecture seule, servie par l'hôte **écrivain**. Rend : `loop_running`, la confi
 | Assertion | Sens |
 |---|---|
 | `indexed_head` | commit actuellement servi ; avance **uniquement sur `success`** |
-| `partial` / `failed` | n'avancent PAS `indexed_head` ; retry avec backoff exponentiel (plafond 1 h) et rejeu à coût réduit (cache de hash) |
+| `partial` / `failed` | n'avancent PAS `indexed_head` ; retry avec backoff exponentiel (plafond 1 h). Le « rejeu à coût réduit » n'est effectif qu'**après merge de `ms#1789`** — avant, le cache de hash ne pouvait pas répondre (voir § Résultat mesuré) |
 | `announced_delay_s` | SLO **dérivé**, jamais déclaré : `poll_seconds + ceil(passe réussie en s)` |
 | `last_refresh_ms` | détection→servi mesuré ; c'est lui qu'on compare au SLO |
 
@@ -44,8 +44,22 @@ Lecture seule, servie par l'hôte **écrivain**. Rend : `loop_running`, la confi
 - Passe 2 = incrémentale canari (commit markdown via PR) : contrôle SLO `last_refresh_ms` vs `announced_delay_s`, symbole nouveau servi, chunk périmé disparu.
 - Le jeton de canari de cette mesure est `WSIDX-P4-CANARY-20261116` (cette phrase n'existe nulle part ailleurs dans le dépôt).
 
+### Résultat mesuré — 3 passes (16/11/2026)
+
+| Passe | HEAD | Statut | Fichiers | Écrits / supprimés | Durée |
+|---|---|---|---|---|---|
+| 1 (catch-up) | `efc64c2c` | success | 662 | 16 364 / 0 | 19 min 02 s |
+| 2 (canari #4782) | `608ba87c` | **partial** | 604 | 14 930 / 16 364 | 20 min 56 s |
+| 3 (retry auto) | `608ba87c` | **success** | 663 | 16 370 / 14 930 | 22 min 53 s |
+
+- `indexed_head` = `608ba87c…` ; `last_refresh_ms` = 1 372 804 ms ≤ `announced_delay_s` = 1 493 s.
+- **La passe 2 `partial` venait d'une coupure d'embedding externe** (502 `embeddings.myia.io`, incident ai-01 10:32–11:02Z), pas de la boucle. Le contrat a tenu : `partial` ⇒ `indexed_head` figé ⇒ retry armé (`fails=1`, backoff 240 s).
+- **Contenu vérifié au payload**, pas au score : le fichier de ce runbook porte 6 points dont 1 avec le jeton, `INDEX.md` 30 points dont 1 avec la nouvelle ligne, `README.md` 12 points (restauré — il était dans le lot échoué).
+- **Défaut trouvé en mesurant (`ms#1789`)** : `retrieve` de `@qdrant/js-client-rest` rend `{ result: PointArray }` alors que `scroll` rend `{ result: { points } }`. Le writer ne lisait que `result.points` ⇒ **le cache de hash n'a jamais rien sauté** (3 passes, `files_skipped_unchanged = 0`, prouvé par le `points_deleted` d'une passe égal au `points_written` de la précédente) et **la sentinelle mono-écrivain lisait toujours « absent »** (`previous_writer` toujours `null`). Tant que `ms#1789` n'est pas mergée, **chaque changement de HEAD coûte un ré-embedding complet du corpus**.
+- **Écart non expliqué à re-mesurer** : la passe 2 a planifié 604 fichiers là où les passes 1 et 3 en ont traité 662/663 sur le même arbre. Sans cache effectif, les trois passes devraient être équivalentes. À re-mesurer après `ms#1789`, quand `files_skipped_unchanged` devient un discriminant.
+
 ## Pièges connus
 
 - Le nom de collection dépend du **chemin VS Code brut** (casse et séparateurs natifs) : deux sièges avec des chemins différents produisent des hashs différents — mais la résolution lecteur par **content-match** peut servir une collection écrite ailleurs. C'est le préfixe de l'écrivain qui fixe la collection cible, pas le chemin local.
-- Le bail hôte est renouvelé à chaque tick : une passe unique plus longue que le seuil de vol (~15 min) ouvre une fenêtre où un second hôte peut voler le bail (note non bloquante de la review ms#1782, correctif séparé).
-- Une passe `partial` est normale en cas de coupure d'embedding : la suivante ne ré-embedde que les lots manquants.
+- Le bail hôte est **renouvelé pendant une passe** (`ms#1785`, merge `7f9c3920`) toutes les `staleMs/3` : une passe longue ne se fait plus voler son bail. La fenêtre d'origine ne subsiste que si le renouvellement lui-même cesse (processus figé).
+- Une passe `partial` est normale en cas de coupure d'embedding — mais **la purge précède l'écriture** : les fichiers du lot échoué restent **sans aucun point** jusqu'au retry (mesuré : 3 fichiers vides de 11:10:50Z à 11:37:39Z). `partial` est visible dans `last_run`, mais un lecteur peut interroger cette fenêtre.
