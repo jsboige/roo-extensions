@@ -1,9 +1,9 @@
 # Checklist de fiabilité du harnais — par machine
 
-**Version :** 1.0.0
-**Date :** 2026-10-02
+**Version :** 1.1.0
+**Date :** 2026-11-16
 **Provenance :** reliquat de #1069 (fermée le 02/10 sur décision utilisateur, tri de l'epic #1298), reporté sur #2307 par ai-01.
-**Surface de référence :** 17 outils roo-state-manager, vérifiée firsthand le 02/10 (deux instruments concordants : `allToolDefinitions` dans `tool-definitions.ts` **et** la surface `tools/list` exposée en session).
+**Surface de référence :** 18 outils roo-state-manager — 17 vérifiés firsthand le 02/10 (deux instruments concordants : `allToolDefinitions` dans `tool-definitions.ts` **et** la surface `tools/list` exposée en session) ; 18ᵉ `roosync_claudish_cascade` ajoutée le 16/11 (#2766 pt 1 : servie au `tools/list`, `list` testé PASS sur po-2028).
 
 ---
 
@@ -15,7 +15,7 @@ Redistribuer la checklist en l'état ferait tester des outils absents : chaque m
 
 ---
 
-## §1 — Référentiel courant : 17 outils actifs
+## §1 — Référentiel courant : 18 outils actifs
 
 Colonne *Test* = appel minimal qui doit rendre une réponse utile (jamais une erreur de schéma). Un outil qui rend une erreur **métier** lisible (store absent, index froid) est **conforme** ; un outil qui rend `tool not found`, une erreur de validation de schéma, ou rien du tout est **en panne**.
 
@@ -41,7 +41,7 @@ Colonne *Test* = appel minimal qui doit rendre une réponse utile (jamais une er
 
 > Les 4 outils historiques `roosync_send` / `roosync_read` / `roosync_manage` / `roosync_attachments` sont **fusionnés** dans `roosync_messages` (voir §2) : tester les anciens noms ne teste rien.
 
-### Configuration (4)
+### Configuration (5)
 
 | # | Outil | Actions | Test minimal | Attendu |
 |---|-------|---------|--------------|---------|
@@ -49,18 +49,21 @@ Colonne *Test* = appel minimal qui doit rendre une réponse utile (jamais une er
 | 10 | `roosync_compare_config` | *(pas d'enum — `granularity`)* : `mcp`, `mode`, `settings`, `claude-settings`, `claude`, `modes-yaml`, `boot-resilience`, `full` | `granularity:"mcp"`, `detail:"values"` | Diff par serveur MCP |
 | 11 | `roosync_baseline` | `update`, `version`, `restore`, `export`, `list_versions`, `current_version` | `action:"current_version"` | Version courante de la baseline |
 | 12 | `roosync_harmonization` | `create`, `dispatch`, `remind`, `apply`, `confirm`, `status`, `list`, `close` | `action:"list"` | Campagnes d'harmonisation |
+| 13 | `roosync_claudish_cascade` | `publish`, `list`, `compare`, `apply`, `collect`, `confirm`, `status` | `action:"list"` | Versions publiées du canon de cascade |
 
 > `roosync_baseline` est **rarement utilisé opérationnellement** — un échec ici doit être qualifié avant d'être traité comme panne.
+>
+> **Piège documenté** : `roosync_claudish_cascade` — `compare`/`status`/`apply` exigent `env_path` (chemin du `.env` du siège), `collect` exige `container` ; **`apply` est dry-run par défaut** (`dry_run:false` explicite requis pour écrire). Un refus de schéma sur ces appels est le comportement attendu, pas une panne.
 
 ### Infrastructure & Diagnostic (5)
 
 | # | Outil | Actions | Test minimal | Attendu |
 |---|-------|---------|--------------|---------|
-| 13 | `roosync_mcp_management` | `manage`, `rebuild`, `touch` (`subAction`) | `action:"manage"`, `subAction:"read"` | Config MCP du siège |
-| 14 | `roosync_storage_management` | `storage` (`detect`/`stats`), `maintenance` (`cache_rebuild`/`diagnose_bom`/`repair_bom`/`rebuild_index`) | `action:"storage"`, `storageAction:"stats"` | Statistiques de stockage |
-| 15 | `roosync_diagnose` | `env`, `debug`, `reset`, `test`, `health`, `lifecycle`, `recovery`, `analyze`, `best-practices`, `reload` | `action:"test"` | Statut MCP |
-| 16 | `claudish_traffic` | *(pas d'enum — `bucket_minutes` **requis**)* | `bucket_minutes:15` | Histogramme de trafic |
-| 17 | `export_data` | *(pas d'enum — `target`/`format`)* : `task`/`conversation`/`project` × `xml`/`json`/`csv`/`markdown`/`debug` | `format:"markdown"`, `target:"conversation"` | Export markdown |
+| 14 | `roosync_mcp_management` | `manage`, `rebuild`, `touch` (`subAction`) | `action:"manage"`, `subAction:"read"` | Config MCP du siège |
+| 15 | `roosync_storage_management` | `storage` (`detect`/`stats`), `maintenance` (`cache_rebuild`/`diagnose_bom`/`repair_bom`/`rebuild_index`) | `action:"storage"`, `storageAction:"stats"` | Statistiques de stockage |
+| 16 | `roosync_diagnose` | `env`, `debug`, `reset`, `test`, `health`, `lifecycle`, `recovery`, `analyze`, `best-practices`, `reload` | `action:"test"` | Statut MCP |
+| 17 | `claudish_traffic` | *(pas d'enum — `bucket_minutes` **requis**)* | `bucket_minutes:15` | Histogramme de trafic |
+| 18 | `export_data` | *(pas d'enum — `target`/`format`)* : `task`/`conversation`/`project` × `xml`/`json`/`csv`/`markdown`/`debug` | `format:"markdown"`, `target:"conversation"` | Export markdown |
 
 ---
 
@@ -105,7 +108,7 @@ Ces items viennent de #1069 (leçon #1068 : un composant du harnais peut casser 
 | 5 | **`gh`** | `gh auth status` + `gh api user --jq .login` | identité attendue pour la machine, **API répond** (un 401 sur SSH est attendu sur web2) |
 | 6 | **`git`** | `git status --porcelain`, branche, `git ls-tree HEAD mcps/internal` | worktree **propre**, branche par défaut, gitlink submodule aligné sur le build servi |
 | 7 | **Claim worker** | `python scripts/github/check_issue_claim.py <NNN> --claim "<une ligne>"` | **claim posé** (le test réel de la leçon #1068 : un worker qui ne peut pas claimer est un harnais mort) |
-| 8 | **Surface MCP** | `tools/list` du serveur en session | **17 outils** (§1) ; toute divergence = drift à signaler |
+| 8 | **Surface MCP** | `tools/list` du serveur en session | **18 outils** (§1) ; toute divergence = drift à signaler |
 
 ### Artefact attendu par machine
 
