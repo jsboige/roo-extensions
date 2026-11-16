@@ -254,7 +254,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 | Provider profiles configurés (Étape 2b) | ⬜ | `sync-api-configs.js --resolve-secrets` + setting `autoImportSettingsPath` + profils visibles post-restart (#2543) |
 | mcp_settings.json valide | ⬜ | `ConvertFrom-Json` OK |
 | custom_modes.yaml présent | ⬜ | > 1000 chars |
-| MCP roo-state-manager (17 outils) | ⬜ | Dashboard + CB + search |
+| MCP roo-state-manager (18 outils) | ⬜ | Dashboard + CB + search |
 | DashboardListener Running | ⬜ | PT0S, IgnoreNew, 3 triggers |
 | Claude-Worker Ready | ⬜ | `start-claude-worker.ps1` |
 | Roo Code désinstallé | ⬜ | 0 résultat `rooveterinaryinc` |

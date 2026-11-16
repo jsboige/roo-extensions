@@ -112,7 +112,7 @@ Si critique absent : signaler [CRITICAL], terminer proprement.
 
 **OBLIGATION apres TOUT changement de config :**
 1. Lister 6 machines
-2. Verifier Claude (roo-state-manager 17 tools) + Roo (win-cli fork local) + pas de MCP retire
+2. Verifier Claude (roo-state-manager 18 tools) + Roo (win-cli fork local) + pas de MCP retire
 3. Si divergence → directive corrective URGENTE
 
 ## MCP désactivés ≠ absents (#3137) — déporté de la règle (#2368)
