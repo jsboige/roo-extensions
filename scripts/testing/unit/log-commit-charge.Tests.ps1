@@ -15,6 +15,14 @@
 #     lands even though the run ends via DurationSec (same finally block a
 #     Ctrl+C takes).
 #
+# Why the slow-runner case can no longer redden (#4774): the script's duration
+# window now opens when the FIRST sample completes (log-commit-charge.ps1
+# $windowStartUtc), not at process start. The first break check therefore sees
+# ~0 s elapsed and cannot fire, so at least one more sample always happens for
+# any DurationSec > 0 — however long the first CIM enumeration takes on a
+# loaded runner (measured repro: 4 s injected into sample 1, DurationSec 3 —
+# old code stopped at 1 sample, current code at 2+).
+#
 # The identity check is the issue's own open question (« la mesure repose sur
 # Win32_OperatingSystem.FreeVirtualMemory, dont la sémantique mériterait
 # d'être confirmée par une seconde source »): FreeVirtualMemory must track
