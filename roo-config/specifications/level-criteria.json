@@ -92,12 +92,12 @@
   },
 
   "glm_models": {
-    "description": "Critères spécifiques pour routage entre GLM 4.7 Flash (simple) et GLM 4.7 (complex)",
+    "description": "Critères spécifiques pour routage entre GLM-5.3-Flash (simple) et GLM 4.7 (complex)",
     "provider": "z.ai",
     "note": "Section ajoutée pour #351 - Spécifications modèles GLM pour Roo Code",
 
-    "glm-4.7-flash": {
-      "model_id": "z-ai/glm-4.7-flash",
+    "glm-5.3-flash": {
+      "model_id": "z-ai/glm-5.3-flash",
       "tier": "simple",
       "temperature": 0.6,
       "max_context_tokens": 131072,
@@ -155,7 +155,7 @@
     },
 
     "routing_examples": {
-      "glm-4.7-flash_tasks": [
+      "glm-5.3-flash_tasks": [
         "Ajouter JSDoc à une fonction",
         "Renommer variable pour clarté (camelCase)",
         "Corriger faute de frappe dans message erreur",
@@ -176,7 +176,7 @@
 
     "metrics": {
       "tracked_kpis": {
-        "glm-4.7-flash_success_rate": "> 85%",
+        "glm-5.3-flash_success_rate": "> 85%",
         "escalation_rate": "< 15%",
         "avg_resolution_time_air": "< 5 min",
         "avg_resolution_time_full": "< 30 min",

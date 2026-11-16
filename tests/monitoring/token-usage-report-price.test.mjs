@@ -50,3 +50,18 @@ test('existing exact rows keep working (caller contract)', () => {
     assert.deepEqual(getPrice('glm-5'),                      { input: 0.70, output: 2.80 });
     assert.deepEqual(getPrice('glm-4.7'),                    { input: 0.14, output: 0.56 });
 });
+
+test('GLM-5.3 generation is priced from its own rows (#4768)', () => {
+    // z.ai list prices read 2026-11-16: https://docs.z.ai/guides/overview/pricing
+    assert.deepEqual(getPrice('glm-5.3'),       { input: 1.40, output: 4.40 });
+    assert.deepEqual(getPrice('glm-5.3-flash'), { input: 0.15, output: 0.50 });
+    // glm-5-turbo: no published price on that page → deliberately unpriced.
+    // This lock follows the file's established pattern: adding its PRICING row
+    // tomorrow must read as a test regression so both move together.
+    assert.equal(getPrice('glm-5-turbo'), null);
+    // retired rows stay retired (#4768): the old gen-4.x light pair is gone —
+    // historical prices live in git history only. The literal ids below are
+    // the lock; if a row reappears, this reads as a regression on purpose.
+    assert.equal(getPrice('glm-4.7-flash'), null);
+    assert.equal(getPrice('glm-4.5-air'), null);
+});

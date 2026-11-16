@@ -32,11 +32,17 @@ const PRICING = {
     'claude-opus-5-5':             { input:  4.00, output: 20.00 },
     'claude-sonnet-5-5':           { input:  2.00, output: 10.00 },
     'claude-haiku-5-5':            { input:  0.10, output:  0.50 },
-    // z.ai / GLM
-    'glm-5':                       { input:  0.70, output:  2.80 },
-    'glm-4.7':                     { input:  0.14, output:  0.56 },
-    'glm-4.7-flash':               { input:  0.07, output:  0.28 },
-    'glm-4.5-air':                 { input:  0.07, output:  0.14 },
+    // z.ai / GLM — GLM-5.3 generation, list prices per 1M tokens USD:
+    // GLM-5.3 $1.40/$4.40 · GLM-5.3-Flash $0.15/$0.50
+    // Source (read 2026-11-16): https://docs.z.ai/guides/overview/pricing
+    // glm-5-turbo: no published price on that page → no row (never guess, #4768).
+    // The retired gen-4.x light rows (the old flash/air pair — now Free-tier /
+    // superseded by glm-5.3-flash per #4765) were removed here: values preserved
+    // in git history; historical JSONL usage of those ids now reports as unpriced.
+    'glm-5.3':                    { input:  1.40, output:  4.40 },
+    'glm-5.3-flash':              { input:  0.15, output:  0.50 },
+    'glm-5':                      { input:  0.70, output:  2.80 },
+    'glm-4.7':                    { input:  0.14, output:  0.56 },
 };
 
 // Strip a trailing context-window suffix, e.g. 'claude-haiku-5-5[1m]' → 'claude-haiku-5-5'

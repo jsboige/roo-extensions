@@ -200,7 +200,7 @@ global_settings:
   # Fallback configuration
   fallback:
     enabled: true
-    default_model: "glm-4.5-air"
+    default_model: "glm-5.3-flash"
     timeout_seconds: 30
 
 # ============================================
