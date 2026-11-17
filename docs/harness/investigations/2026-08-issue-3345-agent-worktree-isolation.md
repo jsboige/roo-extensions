@@ -4,7 +4,7 @@
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
 **Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07), myia-ai-01 (live reproduction + validator static read on 2.1.269, 2026-09-13), myia-po-2023 (partial-retry datapoint on 2.1.274, 2026-09-17), myia-po-2026 (live reproduction on 2.1.277 + F2 re-confirmed, 2026-09-18), myia-po-2023 (two-arm repair verification on 2.1.283 + in-session reproduction on 2.1.323, 2026-11-17)
-**Status:** ⚠️ **UPSTREAM BUG — STILL LIVE ON 2.1.323 (2026-11-16/17; VS Code extension channel: in-session ai-01 23:57Z + po-203, plus the po-2025 adjoint-belt canary refused pre-launch 16/11) and on 2.1.283 (npm headless)** — root cause lives in the Claude Code Agent tool, not in this repository. Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 / 2.1.283 / 2.1.323 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17; no auto-retry observed on 2.1.323). **Spawn-site repair verified 2026-11-17** (uppercase-drive cwd → provisioning succeeds; two-arm canary, § below). No CHANGELOG entry through 2.1.277 matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
+**Status:** ⚠️ **UPSTREAM BUG — STILL LIVE ON 2.1.323 (2026-11-16/17; VS Code extension channel: in-session ai-01 23:57Z + po-203, plus the po-2025 adjoint-belt canary refused pre-launch 16/11) and on 2.1.283 (npm headless)** — root cause lives in the Claude Code Agent tool, not in this repository. Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 / 2.1.283 / 2.1.323 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17; no auto-retry observed on 2.1.323). **Spawn-site repair verified on 2.1.283 headless 2026-11-17; not re-tested on 2.1.323** (uppercase-drive cwd → provisioning succeeds; two-arm canary, § below — arm B is the repair witness; 2.1.323 datapoint is reproduction only). No CHANGELOG entry as of 2.1.277 (last checked) matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
 
 ---
 
@@ -483,16 +483,17 @@ after their adjoint-belt canary was refused pre-launch; ai-01 replied 23:58Z (sa
 canaries could not show: **the discriminator is the cwd case form, and a launcher that controls its
 spawn cwd can make isolation work again.**
 
-Method: two-arm headless canary on the SAME scratch repo (`%TEMP%\3345probe323\repo`, one commit,
-npm `claude` 2.1.283, `DISABLE_AUTOUPDATER=1`), identical prompt and Task call
+Method: two-arm headless canary on the SAME scratch repo (`%TEMP%\3345probe323\repo` — scratch name
+inherited from the earlier 2.1.323 in-session probe; the arms below ran the 2.1.283 npm build — one
+commit, npm `claude` 2.1.283, `DISABLE_AUTOUPDATER=1`), identical prompt and Task call
 (`isolation=worktree`, general-purpose, sonnet) — only the `ProcessStartInfo.WorkingDirectory`
 case form differs between arms. Cwd preservation into the child confirmed (arm A's refusal prints
 the lowercase form the harness held).
 
 | Arm | cwd form | Result |
 |---|---|---|
-| A | `c:\Users\jsboi\AppData\Local\Temp\3345probe323\repo` | **Refusal, verbatim D1** (`c:\…` refused vs `C:/…` resolved) + `agent-ab0ccaeeea4b69fab` left `locked` (D3) |
-| B | `C:\Users\jsboi\AppData\Local\Temp\3345probe323\repo` | **Success** — sub-agent provisioned, replied `OK` (~6 s), zero debris (auto-cleaned) |
+| A | `c:\…\Temp\3345probe323\repo` | **Refusal, verbatim D1** (`c:\…` refused vs `C:/…` resolved) + `agent-ab0ccaeeea4b69fab` left `locked` (D3) |
+| B | `C:\…\Temp\3345probe323\repo` | **Success** — sub-agent provisioned, replied `OK` (~6 s), zero debris (auto-cleaned) |
 
 Also reproduced in-session on myia-po-2023 the same night (VS Code extension 2.1.323, session cwd
 `d:\Dev\roo-extensions`): verbatim refusal, and R4′ falsified firsthand on the leftover
