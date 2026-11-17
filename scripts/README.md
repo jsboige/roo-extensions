@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-10-07 (complément #3465 : section `claude/` — compte recompté 16→19, `worktree-cleanup.Tests.ps1` ajouté au détail, 2 descriptions reformulées sur l'en-tête `.SYNOPSIS`)
+**Dernière mise à jour :** 2026-11-16 (#4801 : `analysis/` gagne le sous-dossier `memorilla-pilot/` — graine éval 15 paires + exporteur parquet Memorilla ; complément #3465 historique : section `claude/` recomptée 16→19)
 
 ---
 
@@ -168,7 +168,7 @@ différent.
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `analysis/` | 8 | Analyse de code et métriques (branches, commits, complexity) |
+| `analysis/` | 8 + `memorilla-pilot/` (2) | Analyse de code et métriques (branches, commits, complexity) ; `memorilla-pilot/` : éval #4801 — 15 paires question/réponse-or + exporteur vers le layout parquet Memorilla (bench sur une carte 24 Go libre, sous Linux) |
 | `docs/` | 8 | Génération et maintenance de documentation |
 | `benchmarks/` | 3 | Benchmarks de performance |
 | `common/` | 4 | Utilitaires partagés (extension paths, submodule deletion guards) |

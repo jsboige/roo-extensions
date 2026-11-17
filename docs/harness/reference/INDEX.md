@@ -110,6 +110,7 @@
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
 | **Inventaire gates CoursIA (#3673)** | 162 workflows classés par famille, verdicts porter/adapter/ignorer ; réalisé : secret-scan gitleaks + parité pre-commit, schedule CI main-vert (anti time-bomb), drift-scan doc↔arbre | `../reports/coursia-gates-inventory-2026-09-16.md` |
+| **Exploration Memorilla (#4801)** | Pilote mémoire latente (snap-stanford) vs recall RooSync : verdict VRAM révisé au code (une 4090 24 Go suffit au chemin d'évaluation, non mesuré), graine éval 15 paires + baseline mesurée (hit@1 20 %, 60 % rien d'utilisable), exporteur parquet Memorilla, protocole bench sur carte 24 Go libre, gate user tranchée (pas de location), enseignements distillation-à-la-lecture | `../reports/memorilla-exploration-2026-11-16.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
 | **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |
 | **Findability decisions historiques (#1819)** | Retrouvabilite des decisions historiques — ou chercher, ancrages, index | `findability-historical-decisions.md` |
