@@ -1,8 +1,8 @@
 # Zoo Migration Fleet Rollout Runbook
 
-**Version:** 1.1.0
-**Issue:** #2379, #2381, #2678
-**MAJ:** 2026-06-25
+**Version:** 1.2.0
+**Issue:** #2379, #2381, #2678, #4025
+**MAJ:** 2026-11-17
 **Pilote validé:** po-2025 (2026-06-11, #2381 PASS)
 
 ---
@@ -28,6 +28,29 @@ Migration Roo Code (`rooveterinaryinc.roo-cline`) → Zoo Code (`zoocodeorganiza
 | `mcp_settings.json` Zoo = copie directe | Les 7 MCPs fonctionnent à l'identique | Vérifier post-copy |
 | `custom_modes.yaml` Zoo = copie directe | 60KB de modes générés | Vérifier post-copy |
 | Roo Code peut rester installé | Coexistence possible | Désinstaller après validation |
+
+---
+
+## Réactivation ciblée de Zoo (siège unique, sans propagation flotte)
+
+**Statut flotte :** Zoo est **désactivé sur toute la flotte** depuis le 08/11/2026 — décision user (RX138) : « la désactivation sur toute la flotte est assumée, au moins pour l'instant. Son redémarrage ciblé sur une instance sera possible, mais il faudra faire en sorte que l'extension n'allourdisse pas toutes les instancs de la flotte ». L'état désactivé d'un siège s'est recopié sur les autres par la synchronisation des réglages VS Code (mesuré sur deux sièges, #4025) : **toute réactivation sans la séquence ci-dessous se propage à la flotte entière — y compris le scheduler Zoo.**
+
+Séquence de réactivation ciblée — condition posée par le user, proposée par le coordinateur le 08/11 (#4025). **Jamais exécutée à ce jour : à mesurer au moment venu, pas avant.**
+
+1. **Sortir Zoo de la synchronisation d'extensions AVANT toute réactivation** — sinon l'état activé du siège cible se recopie sur les autres sièges (mécanisme mesuré, #4025) :
+
+```jsonc
+// settings.json user du siège cible
+"settingsSync.ignoredExtensions": [
+  "zoocodeorganization.zoo-code",
+  "jsboige.zoo-scheduler"
+]
+```
+
+2. **Réactiver Zoo sur le siège cible uniquement.**
+3. **Mesurer sur un second siège que l'activation ne s'est PAS propagée** : sur une **copie read-only de `state.vscdb`** du second siège, vérifier que `zoocodeorganization.zoo-code` figure toujours dans `extensionsIdentifiers/disabled`.
+
+**Exclusion :** réactiver Zoo sur `myia-ai-01` reste exclu (décision user du 29/10).
 
 ---
 
