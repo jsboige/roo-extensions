@@ -1147,6 +1147,94 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         file_reads = [a for a in self.archive_reads if a.get("archiveFile")]
         self.assertEqual(len(file_reads), 1)
 
+    def test_out_of_window_fallback_archive_husk_warns_not_exit_one(self):
+        # #4804 : la famille `-fallback.md` (dashboard.ts l.6777/l.6864,
+        # 38 archives en 14 jours, census c.5852733240) ne se datait pas —
+        # une `-fallback` rejetee « frontmatter manquant » restait « de la
+        # fenetre » A VIE (exit 1 a chaque passage ; mesure po-2024 :
+        # global-2026-11-07T16-06-11-fallback.md, 9 jours, etiquetee « de
+        # la fenetre »). Datee, une `-fallback` hors fenetre suit la
+        # seconde passe : WARN coque non bloquant, verdict selon le reste
+        # (exit 2 sur l'escalade vivante non fermee). Tueur : sur
+        # b5e77f4d, ce test rend 1.
+        husk_text = ("Error: Format archive invalide: frontmatter manquant "
+                     "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
+                     "workspace-ws-2026-10-31T04-00-00-fallback.md")
+        self.fake_store(
+            {}, keys=["workspace-ws"],
+            structured={"ws": [self.message("2026-10-30T00:30:00.000Z",
+                                            tags=["DEGRADED"])]},
+            archives={"ws": ["workspace-ws-2026-10-31T04-00-00-fallback.md"]},
+            archive_rejected={
+                "workspace-ws-2026-10-31T04-00-00-fallback.md": husk_text})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 2)
+        self.assertIn("coque", err.getvalue())
+
+    def test_in_window_fallback_archive_husk_still_partial_measure(self):
+        # #4804, reciproque : une `-fallback` DANS la fenetre rejetee husk
+        # reste une mesure partielle (exit 1) — le correctif date les noms,
+        # il n'exempte pas les archives recentes (#4796 tient).
+        husk_text = ("Error: Format archive invalide: frontmatter manquant "
+                     "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
+                     "workspace-y-2026-11-03T04-00-00-fallback.md")
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-2026-11-03T04-00-00-fallback.md"]},
+            archive_rejected={
+                "workspace-y-2026-11-03T04-00-00-fallback.md": husk_text})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 1)
+        self.assertIn("mesure partielle", err.getvalue())
+
+    def test_undatable_name_husk_is_reported_as_such(self):
+        # #4804 : un nom qui reste NON DATABLE apres le correctif (aucune
+        # famille connue) est signale « non datable », jamais « de la
+        # fenetre » — le rapport ne pretend plus une appartenance qu'il ne
+        # peut pas etablir. Verdict inchange : exit 1, impossible de prouver
+        # l'anciennete d'un nom sans horodatage.
+        husk_text = ("Error: Format archive invalide: frontmatter manquant "
+                     "dans G:\\Mon Drive\\RooSync\\dashboards\\archives\\"
+                     "workspace-y-legacy-no-timestamp.md")
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": ["workspace-y-legacy-no-timestamp.md"]},
+            archive_rejected={"workspace-y-legacy-no-timestamp.md": husk_text})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        self.assertEqual(code, 1)
+        self.assertIn("non datable", err.getvalue())
+        self.assertNotIn("de la fenetre", err.getvalue())
+
+    def test_fallback_archive_names_are_dated(self):
+        # #4804, unites : `archive_name_stamp` date la famille `-fallback`
+        # (format ecrit par dashboard.ts l.6864, deja date cote serveur par
+        # countRecentFallbackArchives l.6777) ; `select_recent_archives`
+        # rend une vieille `-fallback` a son age — elle SORT de la fenetre
+        # lue, une recente y reste.
+        self.assertEqual(
+            cde.archive_name_stamp("global-2026-11-07T16-06-11-fallback.md"),
+            cde.parse_ts("2026-11-07T16:06:11Z"))
+        self.assertEqual(
+            cde.archive_name_stamp(
+                "workspace-roo-extensions-2026-11-10T21-00-47.md"),
+            cde.parse_ts("2026-11-10T21:00:47Z"))
+        now = cde.parse_ts("2026-11-03T09:00:00Z")
+        kept = cde.select_recent_archives(
+            ["workspace-y-2026-11-02T04-00-00-fallback.md",
+             "workspace-y-2026-10-31T04-00-00-fallback.md"],
+            now, window_hours=48)
+        self.assertEqual(kept, ["workspace-y-2026-11-02T04-00-00-fallback.md"])
+
     def test_other_iserror_rejection_is_instrument_error(self):
         # #4643 : tout rejet isError SANS la signature coque reste une erreur
         # d'instrument — « rejet serveur » dans les erreurs, exit 1.

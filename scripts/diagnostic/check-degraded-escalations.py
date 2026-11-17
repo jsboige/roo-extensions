@@ -203,7 +203,15 @@ RING_TAG = "degraded-escalation"
 # Nom d'un fichier d'archive de condensation (#4643) :
 # `workspace-roo-extensions-2026-11-10T21-00-47.md` — l'horodatage du nom est
 # l'instant de la condensation (les millisecondes ne sont pas ecrites).
-ARCHIVE_NAME_TS_RE = re.compile(r"-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})\.md$")
+# #4804 : la famille `-fallback` (dashboard.ts l.6864 ecrit
+# `<key>-<dateStr>-fallback.md`, passe de secours de la condensation ;
+# 38 archives en 14 jours, census c.5852733240) porte le MEME horodatage —
+# le serveur la date deja (countRecentFallbackArchives, dashboard.ts
+# l.6777). Non datee ici, une `-fallback` restait « de la fenetre » a vie
+# (exit 1 a chaque passage sur un placeholder DriveFS) et la seconde passe
+# l'ignorait : le suffixe fait donc partie du nom datable.
+ARCHIVE_NAME_TS_RE = re.compile(
+    r"-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})(?:-fallback)?\.md$")
 # #4730 (decision user 14/11/2026, RX160 (a)) : un defaut CONNU de l'hote --
 # le harnais Claude Code lui-meme, pas un MCP d'une lane -- ne se repare par
 # aucune lane. Il reste une escalade comme les autres (ouverte, due, jamais
@@ -1107,8 +1115,17 @@ def archive_window_husk_error(key, name, detail):
     exit 2 fantome). L'instrument ne peut pas trancher : le rejet entre
     dans les erreurs, le fail-closed rend exit 1 et annule la sonnerie —
     jamais un verdict confiant sur une fenetre partiellement lue.
+
+    #4804 : un nom que la regex ne date PAS n'est pas « de la fenetre » —
+    il est conserve faute de preuve d'anciennete, c'est tout ce que
+    l'instrument sait en dire. Le rapport le nomme « non datable » au lieu
+    de pretendre une appartenance etablie ; le verdict ne change pas.
     """
-    return (f"{key}/{name}: archive de la fenetre rejetee (frontmatter "
+    dated = archive_name_stamp(name) is not None
+    window_label = ("archive de la fenetre" if dated else
+                    "archive non datable (nom sans horodatage, conservee "
+                    "faute de preuve d'anciennete, #4804)")
+    return (f"{key}/{name}: {window_label} rejetee (frontmatter "
             f"manquant) ({detail[:120]}) — coque vide OU archive fraiche "
             f"mal hydratee (placeholder DriveFS, #4796) : un [REPAIRED] ou "
             f"une escalade archivee serait invisible ; mesure partielle")
