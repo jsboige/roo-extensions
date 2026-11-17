@@ -88,3 +88,26 @@ libre. Un 403 de limite secondaire n'est pas un 404 — « l'instrument n'a rien
 **Frontière de mot (mesures 05/09).** Le filtre `--search "#NNN"` de GitHub est **flou** : `#34`
 ramène des PRs sans rapport même quoté, et `#109` matche `#1091` — sans frontière, une issue est
 skippée à tort. `\b` est fragilisé par les couches de quoting bash→gh : d'où `([^0-9]|$)`.
+
+## `--claim` vérifie avant de poster + citations multi-marqueurs inertes (#4818, 17/11)
+
+Deux défauts réparés dans `check_issue_claim.py` :
+
+1. **`--claim` applique la même garde que le mode vérification AVANT de poster.** Jusqu'ici la
+   mutation postait sans lire l'issue : elle s'autorisait à poser un verrou sur une issue fermée ou
+   **par-dessus un claim étranger frais** — exactement la collision que la barrière pré-claim devait
+   empêcher. Désormais `--claim` fetch l'issue (exit 2 si la lecture échoue, fail-closed), refuse
+   une issue non-OPEN (exit 1, aucun post), réduit/classifie les claims existants, et **retourne
+   exit 1 sans poster** sur un claim étranger actif dans le seuil. Le claim **de sa propre lane**
+   reste une reprise (post autorisé), et un claim étranger **périmé** (> seuil) laisse passer avec
+   l'avertissement `STALE_CLAIM` habituel. `--release` n'est pas concerné : lever un verrou ne peut
+   pas créer de collision.
+
+2. **Un commentaire d'état qui ÉNUMÈRE des marqueurs n'est plus une série d'événements.** Fil
+   fondateur #4814 : un commentaire de statut citant « `` `[CLAIMED]` **lane** à 08:31Z » » pour
+   plusieurs lanes rafraîchissait/rouvrait chaque verrou cité (last-marker-wins sur le `createdAt`
+   du citant). Règle : un commentaire portant **plusieurs** marqueurs est une énumération — ses
+   marqueurs **backtiqués** y sont des citations et sont ignorés ; seuls les marqueurs **nus**
+   comptent (le protocole worker #4000 poste `RESULT` puis `CLAIMED` nus dans un même corps).
+   Un marqueur backtiqué **seul** dans un commentaire garde sa sémantique d'événement complète
+   (#3826 : les releases réelles backtiquées doivent toujours fermer).

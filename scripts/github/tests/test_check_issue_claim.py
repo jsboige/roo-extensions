@@ -31,7 +31,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 # Permet l'import depuis le repertoire parent
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -152,6 +152,29 @@ class TestScanCommentEvents(unittest.TestCase):
         events = list(scan_comment_events(body))
         self.assertEqual([e[0] for e in events], ["CLAIMED", "DONE"])
 
+    def test_status_comment_citing_multiple_backticked_markers_is_inert(self):
+        # #4818 : un commentaire d'état qui ÉNUMÈRE les claims d'autres lanes
+        # (puce + marqueur entre backticks, forme du fil #4814) n'est pas une
+        # série d'événements. Sur la base, les deux citations rouvrent/rajeunissent.
+        body = (
+            "État des claims :\n"
+            "- `[CLAIMED]` **myia-po-2024:roo-extensions** à 08:31:43Z\n"
+            "- `[CLAIMED]` **myia-po-2028:roo-extensions** à 10:14:56Z\n"
+        )
+        self.assertEqual(list(scan_comment_events(body)), [])
+
+    def test_mixed_comment_keeps_unquoted_events_only(self):
+        # Garde-fou du discriminant : dans un commentaire multi-marqueurs, seule
+        # la citation backtiquée est ignorée ; un marqueur NU reste un événement
+        # (le protocole worker #4000 met RESULT puis CLAIMED nus dans un corps).
+        body = (
+            "- `[CLAIMED]` **myia-po-2024:roo-extensions** à 08:31:43Z\n"
+            "[CLAIMED] myia-po-2026 -- real event on the next line\n"
+        )
+        events = list(scan_comment_events(body))
+        self.assertEqual([e[0] for e in events], ["CLAIMED"])
+        self.assertEqual(events[0][1], "myia-po-2026")
+
     def test_marker_at_line_start_only(self):
         # un marqueur précédé de texte sur la même ligne = prose
         self.assertEqual(
@@ -263,6 +286,39 @@ class TestReduceClaims(unittest.TestCase):
         ]
         state = reduce_claims(comments)
         self.assertEqual(state["myia-po-2023"]["state"], "released")
+
+    def test_status_comment_citing_claims_neither_refreshes_nor_reopens(self):
+        # #4818 défaut 2, sens ouverture : le claim d'origine garde son createdAt
+        # serveur ET sa ligne de preuve -- la citation ne rajeunit rien.
+        original_line = "[CLAIMED] myia-po-2024:roo-extensions -- start"
+        status_body = (
+            "État des claims :\n"
+            "- `[CLAIMED]` **myia-po-2024:roo-extensions** à 08:31:43Z\n"
+            "- `[CLAIMED]` **myia-po-2028:roo-extensions** à 10:14:56Z\n"
+        )
+        state = reduce_claims([
+            comment(original_line, T0),
+            comment(status_body, T0 + timedelta(hours=3)),
+        ])
+        self.assertEqual(state["myia-po-2024:roo-extensions"]["state"], "active")
+        self.assertEqual(state["myia-po-2024:roo-extensions"]["since"], T0)
+        self.assertEqual(state["myia-po-2024:roo-extensions"]["line"], original_line)
+        self.assertNotIn("myia-po-2028:roo-extensions", state)
+
+    def test_status_comment_citing_release_does_not_free_active_claim(self):
+        # #4818 défaut 2, sens libération : citer un [RELEASED] dans une
+        # énumération multi-marqueurs ne ferme pas le claim actif cité.
+        status_body = (
+            "État des claims :\n"
+            "- `[RELEASED]` **myia-po-2024:roo-extensions** à 08:31:43Z\n"
+            "- `[CLAIMED]` **myia-po-2028:roo-extensions** à 10:14:56Z\n"
+        )
+        state = reduce_claims([
+            comment("[CLAIMED] myia-po-2024:roo-extensions -- start", T0),
+            comment(status_body, T0 + timedelta(hours=3)),
+        ])
+        self.assertEqual(state["myia-po-2024:roo-extensions"]["state"], "active")
+        self.assertNotIn("myia-po-2028:roo-extensions", state)
 
     def test_worker_hold_line_keeps_claim_after_result(self):
         # #4000 (02/10): the worker's "do not redispatch" verdicts (rescue branch,
@@ -703,6 +759,77 @@ class TestMain(unittest.TestCase):
                 rc = main(["123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026"])
         self.assertEqual(rc, 1)
 
+    def test_claim_refuses_foreign_active_claim_without_posting(self):
+        # #4818 défaut 1 : --claim doit appliquer LA MÊME garde que le mode
+        # vérification -- exit 1 et aucun POST -- pas poster par-dessus.
+        issue = self._issue([comment("[CLAIMED] myia-po-2025 -- on it", T0)])
+        poster = Mock()
+        out = io.StringIO()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                with patch("check_issue_claim.post_comment", poster):
+                    with contextlib.redirect_stdout(out):
+                        rc = main([
+                            "123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026",
+                            "--claim", "taking the grain",
+                        ])
+        self.assertEqual(rc, 1)
+        poster.assert_not_called()
+        self.assertIn("BLOCKED", out.getvalue())
+        self.assertIn(
+            "Another lane holds an active claim", out.getvalue()
+        )
+
+    def test_claim_allows_own_active_claim_and_posts(self):
+        # Reprise : le claim de SA propre lane reste une autorisation de poster.
+        issue = self._issue([
+            comment("[CLAIMED] myia-po-2026:roo-extensions -- mine", T0)
+        ])
+        poster = Mock()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                with patch("check_issue_claim.post_comment", poster):
+                    rc = main([
+                        "123", "--repo", DEFAULT_REPO,
+                        "--agent", "myia-po-2026:roo-extensions",
+                        "--claim", "resuming",
+                    ])
+        self.assertEqual(rc, 0)
+        poster.assert_called_once()
+
+    def test_claim_allows_stale_foreign_claim_and_posts(self):
+        # Péremption : un claim étranger > seuil ne bloque pas la pose, avec
+        # le même avertissement STALE_CLAIM que le mode vérification.
+        issue = self._issue([comment("[CLAIMED] myia-po-2025 -- on it", T0)])
+        poster = Mock()
+        out = io.StringIO()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch(
+                "check_issue_claim.now_utc",
+                return_value=T0 + timedelta(hours=30),
+            ):
+                with patch("check_issue_claim.post_comment", poster):
+                    with contextlib.redirect_stdout(out):
+                        rc = main([
+                            "123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026",
+                            "--claim", "taking over the stale grain",
+                        ])
+        self.assertEqual(rc, 0)
+        poster.assert_called_once()
+        self.assertIn("STALE_CLAIM", out.getvalue())
+
+    def test_claim_refuses_closed_issue_without_posting(self):
+        issue = self._issue([], state="CLOSED")
+        poster = Mock()
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.post_comment", poster):
+                rc = main([
+                    "123", "--repo", DEFAULT_REPO, "--agent", "myia-po-2026",
+                    "--claim", "too late",
+                ])
+        self.assertEqual(rc, 1)
+        poster.assert_not_called()
+
     def test_foreign_block_does_not_print_unowned_hint(self):
         # #4481 (02/11) : un claim étranger qui parse vers une lane est un
         # état SAIN -- le hint "unowned marker" affiché aussi sur ce chemin a
@@ -1125,11 +1252,16 @@ class TestMainRepoResolution(unittest.TestCase):
 
     def test_mutation_under_auto_repo_says_which_ticket_it_targets(self):
         stub = gh_stub({DEFAULT_REPO: OK_PR, SUBMODULE_REPO: OK_ISSUE})
+        # #4818: --claim now FETCHES the target issue before posting; the gh
+        # stub above only speaks the --jq resolution protocol, so the fetch is
+        # patched here -- this test is about the resolution note and target.
+        issue = {"number": 980, "state": "OPEN", "comments": []}
         err = io.StringIO()
         with patch("check_issue_claim._gh_exec", stub):
-            with patch("check_issue_claim.post_comment") as post:
-                with contextlib.redirect_stderr(err):
-                    rc = main(["980", "--claim", "on it", "--agent", "myia-po-2026"])
+            with patch("check_issue_claim.fetch_issue", return_value=issue):
+                with patch("check_issue_claim.post_comment") as post:
+                    with contextlib.redirect_stderr(err):
+                        rc = main(["980", "--claim", "on it", "--agent", "myia-po-2026"])
         self.assertEqual(rc, 0)
         self.assertIn("this MUTATION targets", err.getvalue())
         self.assertIn(SUBMODULE_REPO, err.getvalue())
