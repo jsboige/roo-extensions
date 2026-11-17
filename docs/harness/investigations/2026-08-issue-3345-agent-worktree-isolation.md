@@ -3,8 +3,8 @@
 **Date:** 2026-08-31
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
-**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07), myia-ai-01 (live reproduction + validator static read on 2.1.269, 2026-09-13), myia-po-2023 (partial-retry datapoint on 2.1.274, 2026-09-17), myia-po-2026 (live reproduction on 2.1.277 + F2 re-confirmed, 2026-09-18)
-**Status:** ⚠️ **UPSTREAM BUG — REPRODUCES ON 2.1.277 (2026-09-18, dist-tag `latest`; terminal refusal, orphan locks, `remote` silent local fallback all live)** — root cause lives in the Claude Code Agent tool, not in this repository. Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17). No CHANGELOG entry through 2.1.277 matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
+**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07), myia-ai-01 (live reproduction + validator static read on 2.1.269, 2026-09-13), myia-po-2023 (partial-retry datapoint on 2.1.274, 2026-09-17), myia-po-2026 (live reproduction on 2.1.277 + F2 re-confirmed, 2026-09-18), myia-po-2023 (two-arm repair verification on 2.1.283 + in-session reproduction on 2.1.323, 2026-11-17)
+**Status:** ⚠️ **UPSTREAM BUG — STILL LIVE ON 2.1.323 (2026-11-16/17; VS Code extension channel: in-session ai-01 23:57Z + po-203, plus the po-2025 adjoint-belt canary refused pre-launch 16/11) and on 2.1.283 (npm headless)** — root cause lives in the Claude Code Agent tool, not in this repository. Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 / 2.1.283 / 2.1.323 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17; no auto-retry observed on 2.1.323). **Spawn-site repair verified 2026-11-17** (uppercase-drive cwd → provisioning succeeds; two-arm canary, § below). No CHANGELOG entry through 2.1.277 matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
 
 ---
 
@@ -221,6 +221,12 @@ locked claude agent agent-a75f651045fa09cc5 (pid 30992)
 - 2.1.277 — **reproduces, terminal** (myia-po-2026, 2026-09-18 — see the dedicated section above;
   dist-tag `latest` that day). F2 silent local fallback re-confirmed live on this build.
   CHANGELOG 2.1.275–2.1.277 has no matching fix entry (checked 2026-09-18).
+- 2.1.283 — **reproduces (npm headless, arm A) and repair-arm verified green (arm B)** (myia-po-2023,
+  2026-11-17 — see the two-arm section below; two months after the previous datapoint, D1 unchanged).
+- 2.1.323 — **reproduces, terminal, no auto-retry** (VS Code extension channel): in-session canaries
+  myia-ai-01 2026-11-16 23:57Z and myia-po-2023 2026-11-17 (both lowercase-drive session cwd →
+  verbatim refusal), and the myia-po-2025 `adjoint-belt-20261116-45` canary refused pre-launch
+  2026-11-16 (escalated `[DEGRADED]` on the roo-extensions dashboard 20:03Z).
 
 Upstream tracker: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618)
 (OPEN, labels `bug`/`has repro`/`platform:windows`/`area:agents`). The 2.1.236 reproduction was posted
@@ -466,6 +472,45 @@ the worktree-lifecycle problem (#2638), not the #3345 failure path itself:
 
 Provenance note: ai-01's npm-global `claude` is 2.1.17 (feature-absent), so these were created by a
 newer harness — consistent with the VS Code extension lineage identified above.
+
+---
+
+## Spawn-site repair verified — two-arm canary (2026-11-17, myia-po-2023)
+
+Context: po-2025:CoursIA-2 escalated `[DEGRADED]` (roo-extensions dashboard, 2026-11-16 20:03Z)
+after their adjoint-belt canary was refused pre-launch; ai-01 replied 23:58Z (same refusal on
+2.1.323, cause upstream, "no repair possible in our repos"). The measurement below adds what both
+canaries could not show: **the discriminator is the cwd case form, and a launcher that controls its
+spawn cwd can make isolation work again.**
+
+Method: two-arm headless canary on the SAME scratch repo (`%TEMP%\3345probe323\repo`, one commit,
+npm `claude` 2.1.283, `DISABLE_AUTOUPDATER=1`), identical prompt and Task call
+(`isolation=worktree`, general-purpose, sonnet) — only the `ProcessStartInfo.WorkingDirectory`
+case form differs between arms. Cwd preservation into the child confirmed (arm A's refusal prints
+the lowercase form the harness held).
+
+| Arm | cwd form | Result |
+|---|---|---|
+| A | `c:\Users\jsboi\AppData\Local\Temp\3345probe323\repo` | **Refusal, verbatim D1** (`c:\…` refused vs `C:/…` resolved) + `agent-ab0ccaeeea4b69fab` left `locked` (D3) |
+| B | `C:\Users\jsboi\AppData\Local\Temp\3345probe323\repo` | **Success** — sub-agent provisioned, replied `OK` (~6 s), zero debris (auto-cleaned) |
+
+Also reproduced in-session on myia-po-2023 the same night (VS Code extension 2.1.323, session cwd
+`d:\Dev\roo-extensions`): verbatim refusal, and R4′ falsified firsthand on the leftover
+`agent-a249c8e310470274b` — `gitdir` back-pointer consistent, `core.worktree` unset,
+`git -C <worktree> rev-parse --show-toplevel` returns the worktree itself. The refused path and
+the resolved path denote the same location, exactly as measured on 2.1.236/2.1.277.
+
+**Repair recipe (programmatic launchers — belts, workers, `claude -p` spawners):** normalize the
+drive letter to uppercase in the WorkingDirectory passed to the child process (git canonicalizes
+separators on its own; only the drive-letter case form discriminates). Verified green by arm B.
+For interactive VS Code sessions — where the session cwd is imposed by the window and cannot be
+re-cased from inside — the manual-worktree workaround stands (create
+`git worktree add .claude/worktrees/wt-<desc> -b wt/<desc>` yourself, launch the sub-agent without
+`isolation`, give it the absolute path in the prompt).
+
+Orphan cleanup unchanged: `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` (dry-run
+default; skips entries whose locking PID is alive — a canary refusal inside a live session leaves
+a PID-locked orphan that only becomes removable after that session exits).
 
 ---
 
