@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""#4434 — Condensation status-leg replay (read-only instrument).
+"""#4434 — Condensation replay, status leg + summary leg (read-only instrument).
 
 RECONSTRUCTION (2026-11-16, lane myia-ai-01:roo-extensions): the original
 `replay-4434.py` that produced the 02/11 measurement (issue comment
@@ -25,6 +25,23 @@ Protocol (per c.6572874103):
 - Conservation (structural, no content judgment): canonical sections present
   in BOTH input and output / canonical sections present in the input.
 
+Summary leg (--leg summary, added 2026-11-17 for the #4434 G-series; the
+status leg alone says nothing about the OTHER condensation pass):
+- entry = the messages archive T archived (feed rebuilt in the PRODUCTION
+  format of generateLLMSummary: `[ts] machineId|workspace` + content, joined
+  by blank `---` separators, no [SERA ARCHIVÉ] annotation — the summary pass
+  receives the raw messages);
+- comparator = the `CONDENSATION-SUMMARY` system message condensation T
+  posted (it lives in archive T+1's feed; joined by the footer line naming
+  `archive/<fn T>`, falling back to nearest timestamp to T's archivedAt);
+- templates extracted MECHANICALLY from `generateLLMSummary` in dashboard.ts
+  (same file/revision mechanics as the status leg); params identical;
+- structural metric = the three imposed FORMAT sections (Thèmes principaux,
+  Actions et résultats, Décisions et métriques) present in the output,
+  compared case- and accent-insensitively, mirroring the production guard
+  `validateSummaryCompleteness` (dashboard.ts); plus finish reason, output
+  bytes vs the 5 Ko prompt ceiling and line count vs the 20-line ceiling.
+
 Read-only: no dashboard/PG/Qdrant write. The output JSON holds counters,
 sizes and section NAMES only — never status or message content, no API key.
 
@@ -35,6 +52,8 @@ Usage:
     python scripts/analysis/replay-4434.py 10
     # current regime (statuses 4-7 KB): widen the size window
     python scripts/analysis/replay-4434.py 10 --min-bytes 3000 --max-bytes 9000
+    # summary leg (the size window then applies to the summed message bytes):
+    python scripts/analysis/replay-4434.py 5 --leg summary
 """
 
 import argparse
@@ -45,6 +64,7 @@ import re
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.request
 
 STATUS_BEFORE_RE = re.compile(r"## Statut avant condensation \(#3962\)\n(.*?)\n---", re.S)
@@ -65,6 +85,25 @@ SECTION_RES = [
     ("Métriques de référence", re.compile(r"^#{1,6}\s*M[ée]triques de r[ée]f[ée]rence(?![A-Za-zÀ-ÿ])", re.I | re.M)),
     ("Patterns appris", re.compile(r"^#{1,6}\s*Patterns appris(?![A-Za-zÀ-ÿ])", re.I | re.M)),
 ]
+
+# Summary leg — ported from SUMMARY_REQUIRED_SECTIONS / validateSummaryCompleteness
+# (dashboard.ts): the three FORMAT headings the summary prompt imposes,
+# matched on a case- and accent-folded copy of the text (the production guard
+# normalizes NFD, strips combining marks, lowercases — reproduced here so the
+# instrument stays self-contained and faithful to the gate it mirrors).
+SUMMARY_REQUIRED_SECTIONS = ["themes principaux", "actions et resultats", "decisions et metriques"]
+CONDENSE_SUMMARY_TS_RE = re.compile(r"\*\*CONDENSATION-SUMMARY\*\* - ([0-9T:.Z-]+)")
+
+
+def normalize_fold(s: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", s) if not unicodedata.combining(ch)
+    ).lower()
+
+
+def summary_sections_present(text: str) -> list:
+    n = normalize_fold(text)
+    return [s for s in SUMMARY_REQUIRED_SECTIONS if s in n]
 
 
 def sections_of(status: str) -> list:
@@ -127,7 +166,11 @@ def load_dashboard_ts(path: str, ref: str | None) -> tuple:
     except subprocess.CalledProcessError:
         pass
     with open(path, encoding="utf-8", errors="replace") as f:
-        return f.read(), {"path": os.path.relpath(path), "git_sha": sha}
+        try:
+            rel = os.path.relpath(path)
+        except ValueError:  # different drives (Windows) — keep the absolute form
+            rel = os.path.abspath(path)
+        return f.read(), {"path": rel, "git_sha": sha}
 
 
 def extract_templates(ts_text: str) -> tuple:
@@ -155,6 +198,75 @@ def extract_budget_lines(ts_text: str) -> list:
     if not out:
         raise RuntimeError("no budget entries parsed from dashboard.ts")
     return out
+
+
+def extract_summary_templates(ts_text: str) -> tuple:
+    """System + user prompt templates of generateLLMSummary, verbatim."""
+    i = ts_text.find("async function generateLLMSummary")
+    if i < 0:
+        raise RuntimeError("generateLLMSummary not found in dashboard.ts")
+    seg = ts_text[i:]
+    sm = re.search(r"const systemPrompt = `(.*?)`;", seg, re.S)
+    um = re.search(r"const userPrompt = `(.*?)`;", seg, re.S)
+    if not sm or not um:
+        raise RuntimeError("summary-leg prompt templates not found in dashboard.ts")
+    return sm.group(1), um.group(1)
+
+
+def fill_summary_prompts(sys_tpl: str, usr_tpl: str, msgs: list) -> tuple:
+    """Rebuild the production feed of generateLLMSummary from parsed messages.
+
+    Production format (dashboard.ts): `[ts] machineId|workspace\\ncontent`
+    joined by blank `---` separators — the summary pass sees the raw messages,
+    with no [SERA ARCHIVÉ] annotation (that annotation belongs to the status
+    leg's approximation of its own feed).
+    """
+    feed = "\n\n---\n\n".join(f"[{ts}] {author}\n{content}" for ts, author, content in msgs)
+    n = str(len(msgs))
+    system = sys_tpl.replace("${messages.length}", n)
+    user = usr_tpl.replace("${messages.length}", n).replace("${messagesContent}", feed)
+    return system, user
+
+
+def find_summary_comparator(text_next: str, fn_in: str, archived_at: str) -> tuple:
+    """Locate the summary condensation T actually wrote, inside archive T+1.
+
+    Condensation T posts its summary as a `system|system` CONDENSATION-SUMMARY
+    intercom message, which the NEXT condensation archives — so the comparator
+    lives in archive T+1's feed. Primary join: the message footer names
+    ``archive/<fn T>`` verbatim. Fallback: the CONDENSATION-SUMMARY message
+    whose embedded timestamp is nearest T's archivedAt. Returns
+    (content, posted_ts) or (None, None).
+    """
+    _s, msgs_next = split_status_and_messages(text_next)
+    exact = None
+    best = None  # (abs_delta_seconds, content, posted_ts)
+    for ts, author, content in msgs_next:
+        if author != "system|system" or "**CONDENSATION-SUMMARY**" not in content:
+            continue
+        m = CONDENSE_SUMMARY_TS_RE.search(content)
+        if not m:
+            continue
+        posted = m.group(1)
+        if f"archive/{fn_in}" in content:
+            exact = (content, posted)
+            break
+        try:
+            from datetime import datetime, timezone
+
+            def _parse(x):
+                return datetime.fromisoformat(x.replace("Z", "+00:00"))
+
+            delta = abs((_parse(posted) - _parse(archived_at)).total_seconds())
+        except ValueError:
+            continue
+        if best is None or delta < best[0]:
+            best = (delta, content, posted)
+    if exact:
+        return exact
+    if best and best[0] <= 600:
+        return best[1], best[2]
+    return None, None
 
 
 def fill_prompts(sys_tpl: str, usr_tpl: str, budget_lines: list, key: str, status: str, msgs: list):
@@ -197,6 +309,34 @@ def build_pairs(archive_dir: str, args) -> list:
             fn_in, path_in, text_in, fm_in, at_in = archives[t]
             fn_out, _p, text_out, _f, at_out = archives[t + 1]
             if at_in < args.since:
+                continue
+            if getattr(args, "leg", "status") == "summary":
+                # Summary leg: input = T's messages (production feed format);
+                # comparator = the CONDENSATION-SUMMARY message T posted, found
+                # in T+1's feed. Comparator filter: T's summary pass must be
+                # LLM-written ('ok' / 'ok-with-fallback') — a husk/truncated
+                # comparator (circuit-open, timeout, error) is not a reference.
+                if not str(fm_in.get("summaryOutcome", "")).startswith("ok"):
+                    continue
+                _status_in, msgs = split_status_and_messages(text_in)
+                if not msgs:
+                    continue
+                feed_bytes = sum(len(c.encode("utf-8")) for _ts, _a, c in msgs)
+                if not (args.min_bytes <= feed_bytes <= args.max_bytes):
+                    continue
+                cmp_content, cmp_ts = find_summary_comparator(text_out, fn_in, at_in)
+                if cmp_content is None:
+                    continue
+                pairs.append({
+                    "key": key,
+                    "archive_in": fn_in,
+                    "archive_out": fn_out,
+                    "msgs": msgs,
+                    "comparator": cmp_content,
+                    "comparator_ts": cmp_ts,
+                    "comparator_model": fm_in.get("summaryFallbackModel", ""),
+                    "feed_bytes": feed_bytes,
+                })
                 continue
             status_in, msgs = split_status_and_messages(text_in)
             status_out, _ = split_status_and_messages(text_out)
@@ -269,9 +409,17 @@ def main() -> int:
     )
     ap.add_argument("n", nargs="?", type=int, default=10)
     ap.add_argument("--shared-state", default=default_state)
+    ap.add_argument(
+        "--leg", choices=("status", "summary"), default="status",
+        help="condensation pass to replay: status (generateStatusUpdate) or "
+             "summary (generateLLMSummary)",
+    )
     ap.add_argument("--since", default="2026-10-04")  # first archives embedding the status
-    ap.add_argument("--min-bytes", type=int, default=12000)
-    ap.add_argument("--max-bytes", type=int, default=16500)
+    ap.add_argument("--min-bytes", type=int, default=None,
+                    help="status leg: input status bytes (default 12000); summary leg: "
+                         "summed message bytes (default 3000)")
+    ap.add_argument("--max-bytes", type=int, default=None,
+                    help="status leg: default 16500; summary leg: default 60000")
     ap.add_argument("--min-sections", type=int, default=3)
     ap.add_argument("--require-comparator-fallback", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--seed", type=int, default=4434)
@@ -290,19 +438,28 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     args.since = args.since + "T00:00:00"
+    if args.min_bytes is None:
+        args.min_bytes = 12000 if args.leg == "status" else 3000
+    if args.max_bytes is None:
+        args.max_bytes = 16500 if args.leg == "status" else 60000
 
     ts_text, prov = load_dashboard_ts(args.dashboard_ts, args.ref)
-    sys_tpl, usr_tpl = extract_templates(ts_text)
-    budget_lines = extract_budget_lines(ts_text)
+    if args.leg == "summary":
+        sys_tpl, usr_tpl = extract_summary_templates(ts_text)
+        budget_lines = None
+    else:
+        sys_tpl, usr_tpl = extract_templates(ts_text)
+        budget_lines = extract_budget_lines(ts_text)
 
     archive_dir = os.path.join(args.shared_state, "dashboards", "archive")
     if not os.path.isdir(archive_dir):
         print(f"error: archive dir not found: {archive_dir}", file=sys.stderr)
         return 2
     pairs = build_pairs(archive_dir, args)
-    print(f"eligible_pairs={len(pairs)} (filters: {args.min_bytes}-{args.max_bytes} o, "
+    print(f"leg={args.leg} eligible_pairs={len(pairs)} (filters: {args.min_bytes}-{args.max_bytes} o, "
           f">= {args.min_sections} sections, comparator ok-with-fallback="
-          f"{args.require_comparator_fallback}, since {args.since})")
+          f"{args.require_comparator_fallback if args.leg == 'status' else 'n/a (summaryOutcome ok*)'}, "
+          f"since {args.since})")
     if not pairs:
         print("no eligible pair — widen --min-bytes/--max-bytes for the current 4-7 KB regime",
               file=sys.stderr)
@@ -320,45 +477,87 @@ def main() -> int:
 
     results = []
     for i, p in enumerate(selected, 1):
-        system, user, last_date = fill_prompts(sys_tpl, usr_tpl, budget_lines, p["key"], p["status_in"], p["msgs"])
-        secs_in = sections_of(p["status_in"])
-        row = {
-            "key": p["key"],
-            "archive_in": p["archive_in"],
-            "archive_out": p["archive_out"],
-            "last_date": last_date,
-            "in_bytes": len(p["status_in"].encode("utf-8")),
-            "comparator_bytes": len(p["comparator"].encode("utf-8")),
-            "comparator_model": p["comparator_model"],
-            "sections_in": secs_in,
-            "system_prompt_bytes": len(system.encode("utf-8")),
-            "user_prompt_bytes": len(user.encode("utf-8")),
-        }
-        row["sections_comparator"] = sections_of(p["comparator"])
-        row["conservation_comparator"] = f"{len(set(secs_in) & set(row['sections_comparator']))}/{len(secs_in)}"
+        if args.leg == "summary":
+            system, user = fill_summary_prompts(sys_tpl, usr_tpl, p["msgs"])
+            secs_cmp = summary_sections_present(p["comparator"])
+            row = {
+                "key": p["key"],
+                "archive_in": p["archive_in"],
+                "archive_out": p["archive_out"],
+                "comparator_ts": p["comparator_ts"],
+                "msg_count": len(p["msgs"]),
+                "last_date": p["msgs"][-1][0] if p["msgs"] else "",
+                "feed_bytes": p["feed_bytes"],
+                "comparator_bytes": len(p["comparator"].encode("utf-8")),
+                "comparator_model": p["comparator_model"],
+                "sections_comparator": secs_cmp,
+                "system_prompt_bytes": len(system.encode("utf-8")),
+                "user_prompt_bytes": len(user.encode("utf-8")),
+            }
+            metric_in = f"comparator {len(secs_cmp)}/{len(SUMMARY_REQUIRED_SECTIONS)}"
+        else:
+            system, user, last_date = fill_prompts(sys_tpl, usr_tpl, budget_lines, p["key"], p["status_in"], p["msgs"])
+            secs_in = sections_of(p["status_in"])
+            row = {
+                "key": p["key"],
+                "archive_in": p["archive_in"],
+                "archive_out": p["archive_out"],
+                "last_date": last_date,
+                "in_bytes": len(p["status_in"].encode("utf-8")),
+                "comparator_bytes": len(p["comparator"].encode("utf-8")),
+                "comparator_model": p["comparator_model"],
+                "sections_in": secs_in,
+                "system_prompt_bytes": len(system.encode("utf-8")),
+                "user_prompt_bytes": len(user.encode("utf-8")),
+            }
+            row["sections_comparator"] = sections_of(p["comparator"])
+            row["conservation_comparator"] = f"{len(set(secs_in) & set(row['sections_comparator']))}/{len(secs_in)}"
+            metric_in = f"in={row['in_bytes']} o, {len(secs_in)} sections"
         if args.dry_run:
             row["mode"] = "dry-run"
             results.append(row)
-            print(f"[{i}/{len(selected)}] {p['key']} dry-run: in={row['in_bytes']} o, "
-                  f"{len(secs_in)} sections, prompt={row['system_prompt_bytes']}+{row['user_prompt_bytes']} o")
+            print(f"[{i}/{len(selected)}] {p['key']} dry-run: {metric_in}, "
+                  f"prompt={row['system_prompt_bytes']}+{row['user_prompt_bytes']} o")
             continue
         try:
             r = call_primary(system, user, args, is_vllm)
-            secs_out = sections_of(r["content"])
-            row.update({
-                "mode": "live",
-                "out_bytes": len(r["content"].encode("utf-8")),
-                "sections_primary": secs_out,
-                "conservation_primary": f"{len(set(secs_in) & set(secs_out))}/{len(secs_in)}",
-                "finish": r["finish"],
-                "latency_s": r["latency_s"],
-                "tokens_in": r["tokens_in"],
-                "tokens_out": r["tokens_out"],
-                "tok_s": round(r["tokens_out"] / r["latency_s"], 1) if r.get("tokens_out") else None,
-            })
-            print(f"[{i}/{len(selected)}] {p['key']}: conservation {row['conservation_primary']} "
-                  f"(comparator {row['conservation_comparator']}), finish={r['finish']}, "
-                  f"{r['latency_s']}s")
+            if args.leg == "summary":
+                secs_out = summary_sections_present(r["content"])
+                out_bytes = len(r["content"].encode("utf-8"))
+                lines_out = r["content"].count("\n") + 1
+                row.update({
+                    "mode": "live",
+                    "out_bytes": out_bytes,
+                    "lines_out": lines_out,
+                    "sections_primary": secs_out,
+                    "format_ok": len(secs_out) == len(SUMMARY_REQUIRED_SECTIONS),
+                    "within_5kb": out_bytes <= 5120,
+                    "within_20_lines": lines_out <= 20,
+                    "finish": r["finish"],
+                    "latency_s": r["latency_s"],
+                    "tokens_in": r["tokens_in"],
+                    "tokens_out": r["tokens_out"],
+                    "tok_s": round(r["tokens_out"] / r["latency_s"], 1) if r.get("tokens_out") else None,
+                })
+                print(f"[{i}/{len(selected)}] {p['key']}: sections {len(secs_out)}/{len(SUMMARY_REQUIRED_SECTIONS)} "
+                      f"({metric_in}), finish={r['finish']}, {out_bytes} o/{lines_out} lignes, "
+                      f"{r['latency_s']}s")
+            else:
+                secs_out = sections_of(r["content"])
+                row.update({
+                    "mode": "live",
+                    "out_bytes": len(r["content"].encode("utf-8")),
+                    "sections_primary": secs_out,
+                    "conservation_primary": f"{len(set(secs_in) & set(secs_out))}/{len(secs_in)}",
+                    "finish": r["finish"],
+                    "latency_s": r["latency_s"],
+                    "tokens_in": r["tokens_in"],
+                    "tokens_out": r["tokens_out"],
+                    "tok_s": round(r["tokens_out"] / r["latency_s"], 1) if r.get("tokens_out") else None,
+                })
+                print(f"[{i}/{len(selected)}] {p['key']}: conservation {row['conservation_primary']} "
+                      f"(comparator {row['conservation_comparator']}), finish={r['finish']}, "
+                      f"{r['latency_s']}s")
         except Exception as e:  # noqa: BLE001 — one failure must not stop the sequence
             row.update({"mode": "live", "error": f"{type(e).__name__}: {e}"})
             print(f"[{i}/{len(selected)}] {p['key']}: ERROR {type(e).__name__}: {e}", file=sys.stderr)
@@ -366,7 +565,9 @@ def main() -> int:
 
     out = {
         "instrument": "replay-4434.py RECONSTRUCTION 2026-11-16 (myia-ai-01:roo-extensions), "
-                      "protocol from issue #4434 comment 6572874103 (02/11, po-2025)",
+                      "protocol from issue #4434 comment 6572874103 (02/11, po-2025); "
+                      "summary leg added 2026-11-17 (myia-po-2023:roo-extensions)",
+        "leg": args.leg,
         "dashboard_ts": prov,
         "params": {
             "model": args.model,
@@ -388,15 +589,28 @@ def main() -> int:
         "pairs": results,
     }
     if not args.dry_run:
-        prim = [r for r in results if r.get("conservation_primary")]
-        if prim:
-            tot_in = sum(int(r["conservation_primary"].split("/")[1]) for r in prim)
-            tot_out = sum(int(r["conservation_primary"].split("/")[0]) for r in prim)
+        if args.leg == "summary":
+            live_rows = [r for r in results if r.get("mode") == "live" and "error" not in r]
             out["aggregate"] = {
-                "pairs_answered": len(prim),
-                "primary_conservation": f"{tot_out}/{tot_in}",
-                "primary_conservation_pct": round(100 * tot_out / tot_in, 1) if tot_in else None,
+                "pairs_answered": len(live_rows),
+                "format_ok_3_of_3": len([r for r in live_rows if r.get("format_ok")]),
+                "finish_stop": len([r for r in live_rows if r.get("finish") == "stop"]),
+                "within_5kb": len([r for r in live_rows if r.get("within_5kb")]),
+                "within_20_lines": len([r for r in live_rows if r.get("within_20_lines")]),
+                "comparator_format_ok": len(
+                    [r for r in results if len(r.get("sections_comparator", [])) == len(SUMMARY_REQUIRED_SECTIONS)]
+                ),
             }
+        else:
+            prim = [r for r in results if r.get("conservation_primary")]
+            if prim:
+                tot_in = sum(int(r["conservation_primary"].split("/")[1]) for r in prim)
+                tot_out = sum(int(r["conservation_primary"].split("/")[0]) for r in prim)
+                out["aggregate"] = {
+                    "pairs_answered": len(prim),
+                    "primary_conservation": f"{tot_out}/{tot_in}",
+                    "primary_conservation_pct": round(100 * tot_out / tot_in, 1) if tot_in else None,
+                }
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
     print(f"wrote {args.out}")
