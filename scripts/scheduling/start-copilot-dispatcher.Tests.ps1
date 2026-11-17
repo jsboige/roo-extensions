@@ -251,7 +251,9 @@ Describe 'start-copilot-dispatcher.ps1 — 16/11 delivery verification (exit 0 i
         $script:src | Should -Match '-HeadBefore \(\[string\]\$dispatch\.headBefore\)'
         # delivered sets active EXPLICITLY (an idle-like text must not cap it).
         $script:src | Should -Match "'delivered' \{ \`$status = 'active' \}"
-        $script:src | Should -Match "'no-production' \{ \`$status = 'idle' \}"
+        # no-production sets idle (multi-line branch since #4806 fix 2 —
+        # length-bounded: the branch body contains $(...) subexpression braces).
+        $script:src | Should -Match "(?s)'no-production' \{.{0,1200}?\`$status = 'idle'"
         $script:src | Should -Match "default \{ \`$status = 'blocked' \}"
         # The contradictory legacy reason is gone.
         $script:src | Should -Not -Match 'exit 0 without repository change'
@@ -278,5 +280,128 @@ Describe 'start-copilot-dispatcher.ps1 — 16/11 delivery verification (exit 0 i
         $allCalls = @($script:src -split '\r?\n' | Where-Object { $_ -match '\$dispatch = Invoke-PhaseCDispatch' })
         $allCalls | Should -HaveCount 1
         @($allCalls | Where-Object { $_ -match '-DetectHeadMoves:\$canDeliver' }) | Should -HaveCount 1
+    }
+}
+
+Describe 'start-copilot-dispatcher.ps1 — 17/11 #4806: a delivered grain is never paid twice' {
+    # Measured 16/11 21:28 tir: #4766 already delivered by MERGED PR #4783 was
+    # picked again and paid 18.98 premium for nothing. Three fixes: skip with a
+    # distinct already-delivered reason before ANY paid call (zero premium),
+    # retire copilot-target after a no-production run, and the Phase C prompt
+    # mandates 'Closes #N' (not a bare mention) so merges close the grain.
+    BeforeAll {
+        foreach ($fn in 'Select-DeliveredPr', 'Test-GrainAlreadyDelivered', 'Invoke-CopilotGhMutation', 'Invoke-CopilotIssueComment', 'Remove-CopilotTargetLabel', 'Get-WorkPrompt', 'Get-TargetSkipMessage') {
+            $m = [regex]::Match($script:src, "(?s)(function $fn \{.*?\r?\n\})")
+            if (-not $m.Success) { throw "$fn not found in start-copilot-dispatcher.ps1" }
+            Invoke-Expression $m.Groups[1].Value
+        }
+        # Test-only stub: Test-GrainAlreadyDelivered delegates to the shared
+        # REST helper (scripts/common/gh-pull-requests.ps1), which this file
+        # never loads — the mock in the fail-closed test needs a command to
+        # replace in THIS session state.
+        function Get-PullRequestSummary { param([string]$Repo, [string]$State, [string]$Head, [switch]$IncludeBody, [int]$MaxCount) throw 'stub: mock me' }
+    }
+
+    It 'fix 1 (behavioral): Select-DeliveredPr matches a MERGED PR referencing the grain with a word boundary' {
+        function New-DeliveredPr {
+            param([int]$Number = 4783, [string]$State = 'MERGED', [string]$Title = 'test(scheduling,#4766): realign fixture', [string]$Body = 'Refs #4766', [string]$Url = 'https://example.test/pr/4783')
+            [pscustomobject]@{ Number = $Number; State = $State; Title = $Title; Body = $Body; Url = $Url }
+        }
+        # body reference
+        $hit = Select-DeliveredPr -Items @(New-DeliveredPr) -IssueNumber 4766
+        $hit | Should -Not -BeNullOrEmpty
+        $hit.Number | Should -Be 4783
+        # title-only reference also counts (word boundary on '#4766' in title)
+        $hit = Select-DeliveredPr -Items @(New-DeliveredPr -Body 'no ref here' -Title 'fix: thing (#4766)') -IssueNumber 4766
+        $hit | Should -Not -BeNullOrEmpty
+        # WORD BOUNDARY: '#476' must NOT deliver grain 4766, and '#47661' must not either
+        Select-DeliveredPr -Items @(New-DeliveredPr -Body 'Refs #4766') -IssueNumber 476 | Should -BeNullOrEmpty
+        Select-DeliveredPr -Items @(New-DeliveredPr -Body 'Refs #4766') -IssueNumber 47661 | Should -BeNullOrEmpty
+        # OPEN or CLOSED-unmerged PRs do not deliver
+        Select-DeliveredPr -Items @(New-DeliveredPr -State 'OPEN') -IssueNumber 4766 | Should -BeNullOrEmpty
+        Select-DeliveredPr -Items @(New-DeliveredPr -State 'CLOSED') -IssueNumber 4766 | Should -BeNullOrEmpty
+    }
+
+    It 'fix 1 (behavioral): Test-GrainAlreadyDelivered fails closed on a PR-query failure' {
+        Mock Get-PullRequestSummary { [pscustomobject]@{ Ok = $false; Items = @(); Error = 'gh api exit 1' } }
+        $r = Test-GrainAlreadyDelivered -RepoSlug 'o/r' -IssueNumber 4766
+        $r.Ok | Should -BeFalse
+        $r.Pr | Should -BeNullOrEmpty
+        # and succeeds to a delivered PR when the query is healthy
+        Mock Get-PullRequestSummary { [pscustomobject]@{ Ok = $true; Items = @([pscustomobject]@{ Number = 4783; State = 'MERGED'; Title = 't #4766'; Body = ''; Url = 'u' }); Error = $null } }
+        $r2 = Test-GrainAlreadyDelivered -RepoSlug 'o/r' -IssueNumber 4766
+        $r2.Ok | Should -BeTrue
+        $r2.Pr.Number | Should -Be 4783
+    }
+
+    It 'fix 1 (wiring): the delivered gate sits between the geometry guard and the paid call, skips at zero premium, and comments the PR URL' {
+        # The check runs AFTER #4669's geometry guard (no wasted REST call on paths that already skip)
+        # and BEFORE Invoke-PhaseCDispatch (the paid call).
+        $lines = $script:src -split '\r?\n'
+        $guardIdx = [array]::IndexOf(($lines | ForEach-Object { [bool]($_ -match 'no delivery geometry') }), $true)
+        $checkIdx = [array]::IndexOf(($lines | ForEach-Object { [bool]($_ -match 'Test-GrainAlreadyDelivered -RepoSlug') }), $true)
+        $paidIdx = [array]::IndexOf(($lines | ForEach-Object { [bool]($_ -match '\$dispatch = Invoke-PhaseCDispatch') }), $true)
+        $checkIdx | Should -BeGreaterThan $guardIdx
+        $paidIdx | Should -BeGreaterThan $checkIdx
+        # Both skip shapes carry premium 0.0 (never an implicit paid default).
+        $script:src | Should -Match "(?s)Test-GrainAlreadyDelivered.*?already-delivered.*?premiumRequests = 0\.0"
+        # The issue comment carries the delivered PR's URL for coordinator triage.
+        $script:src | Should -Match 'Invoke-CopilotIssueComment -RepoSlug \$queueSlug'
+        $script:src | Should -Match '\$deliveredCheck\.Pr\.Url'
+        # A failed delivered-check is its own fail-closed skip reason, distinct from already-delivered.
+        $script:src | Should -Match "Get-TargetSkipMessage -Reason 'delivered-check-failed'"
+        # Empty queue slug (local mode) never reaches the PR query: Get-PullRequestSummary
+        # rejects an empty -Repo with a binding exception (measured: the #4669 positive
+        # control crashed the child before this guard was added).
+        $script:src | Should -Match '\$null -eq \$dispatch -and -not \[string\]::IsNullOrWhiteSpace\(\$queueSlug\)'
+    }
+
+    It 'fix 2 (behavioral): Remove-CopilotTargetLabel DELETEs the label and comments the reason, never throws on gh failure' {
+        $script:SeenCalls = @()
+        Mock gh {
+            $script:SeenCalls += , @($args)
+            $global:LASTEXITCODE = 0
+            return
+        }
+        $r = Remove-CopilotTargetLabel -RepoSlug 'o/r' -IssueNumber 4766 -Reason 'HEAD unchanged since before the run'
+        $r.Ok | Should -BeTrue
+        $delete = @($script:SeenCalls | Where-Object { $_ -contains 'DELETE' })
+        $delete | Should -HaveCount 1
+        ($delete[0] -join ' ') | Should -Match 'repos/o/r/issues/4766/labels/copilot-target'
+        $comment = @($script:SeenCalls | Where-Object { $_ -contains 'POST' })
+        $comment | Should -HaveCount 1
+        ($comment[0] -join ' ') | Should -Match 'repos/o/r/issues/4766/comments'
+        # gh failure (exit 1) degrades to Ok=false, no exception
+        Mock gh { $global:LASTEXITCODE = 1; return }
+        $r2 = Remove-CopilotTargetLabel -RepoSlug 'o/r' -IssueNumber 4766 -Reason 'x'
+        $r2.Ok | Should -BeFalse
+    }
+
+    It 'fix 2 (wiring): the no-production branch retires copilot-target' {
+        $np = @($script:src -split '\r?\n' | Where-Object { $_ -match "^\s+'no-production' \{" })
+        $np | Should -HaveCount 1
+        # within the switch branch (next few lines) the label retirement is invoked
+        $lines = $script:src -split '\r?\n'
+        $i = [array]::IndexOf($lines, $np[0])
+        ($lines[$i..($i + 8)] -join "`n") | Should -Match 'Remove-CopilotTargetLabel -RepoSlug \$queueSlug'
+    }
+
+    It 'fix 3 (behavioral): the delivery-mandate prompt demands Closes #N, not a bare reference' {
+        $prompt = Get-WorkPrompt -Profile 'standard' -State @{ lastStatus = 'none' } -RepositoryRoot 'x' -TargetIssue ([pscustomobject]@{ number = 4766; title = 'T' }) -CanDeliver $true
+        $prompt | Should -Match 'Closes #4766'
+        $prompt | Should -Not -Match 'Refs #4766'
+        # idle mandate unchanged: no delivery instructions without geometry
+        $idlePrompt = Get-WorkPrompt -Profile 'standard' -State @{ lastStatus = 'none' } -RepositoryRoot 'x' -TargetIssue ([pscustomobject]@{ number = 4766; title = 'T' }) -CanDeliver $false
+        $idlePrompt | Should -Match 'Do not run mutating GitHub commands'
+    }
+
+    It 'skip message: already-delivered and delivered-check-failed are distinct, greppable reasons' {
+        $msg = Get-TargetSkipMessage -Reason 'already-delivered:#4766:PR#4783'
+        $msg | Should -Match 'already-delivered'
+        $msg | Should -Match 'PR#4783'
+        $msg | Should -Match 'zero premium'
+        $msg2 = Get-TargetSkipMessage -Reason 'delivered-check-failed'
+        $msg2 | Should -Match 'delivered-check-failed'
+        $msg2 | Should -Not -Match 'already-delivered'
     }
 }

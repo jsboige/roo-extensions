@@ -693,6 +693,82 @@ function Get-LocalWorkEvidence {
     return $evidence
 }
 
+function Select-DeliveredPr {
+    # #4806 fix 1 (pure selection): the delivery unit of a GRAIN is a MERGED PR
+    # whose title or body references its number with a word boundary — same
+    # discipline as the pre-claim check ('#476' must not match '#4766'). OPEN
+    # or closed-unmerged PRs do not deliver a grain.
+    param([object[]]$Items, [int]$IssueNumber)
+
+    $pattern = "#$IssueNumber([^0-9]|$)"
+    foreach ($pr in @($Items)) {
+        if ($null -eq $pr) { continue }
+        if ("$($pr.State)" -ne 'MERGED') { continue }
+        $hay = "{0}`n{1}" -f ([string]$pr.Title), ([string]$pr.Body)
+        if ($hay -match $pattern) { return $pr }
+    }
+    return $null
+}
+
+function Test-GrainAlreadyDelivered {
+    # #4806 fix 1: was this grain already delivered by a MERGED PR? Read in
+    # REST (doctrine #4604): the most recent closed PRs WITH bodies, one page.
+    # A query failure returns Ok = $false so the caller can fail CLOSED (skip,
+    # zero premium) instead of paying again on an unreadable state.
+    param([string]$RepoSlug, [int]$IssueNumber, [int]$MaxCount = 30)
+
+    $r = Get-PullRequestSummary -Repo $RepoSlug -State closed -IncludeBody -MaxCount $MaxCount
+    if ($null -eq $r -or -not $r.Ok) {
+        $err = if ($null -ne $r) { [string]$r.Error } else { 'PR query unavailable' }
+        return @{ Ok = $false; Pr = $null; Error = $err }
+    }
+    return @{ Ok = $true; Pr = (Select-DeliveredPr -Items @($r.Items) -IssueNumber $IssueNumber); Error = '' }
+}
+
+function Invoke-CopilotGhMutation {
+    # #4806: dispatcher-local gh api mutation (POST/DELETE). Invoke-GhApiJson
+    # (shared module) is read-only by design — mutations stay here so the
+    # shared helper's consumers see no contract change. Scoped EAP: PS 5.1 +
+    # EAP=Stop turns native stderr into a terminating error (same trap as
+    # `git worktree add`, documented in Initialize-CopilotWorktree).
+    param([string]$Method, [string]$Endpoint, [hashtable]$Fields = @{})
+
+    $ghArgs = @('api', '-X', $Method, $Endpoint)
+    foreach ($k in $Fields.Keys) { $ghArgs += @('-f', "$k=$($Fields[$k])") }
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & gh @ghArgs 2>$null | Out-Null
+        $code = $LASTEXITCODE
+    } catch {
+        $code = 1
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+    return @{ Ok = ($code -eq 0); ExitCode = $code }
+}
+
+function Invoke-CopilotIssueComment {
+    param([string]$RepoSlug, [int]$IssueNumber, [string]$Body)
+    return Invoke-CopilotGhMutation -Method 'POST' -Endpoint "repos/$RepoSlug/issues/$IssueNumber/comments" -Fields @{ body = $Body }
+}
+
+function Remove-CopilotTargetLabel {
+    # #4806 fix 2: after a no-production run the grain leaves the pool —
+    # DELETE the copilot-target label (single-label endpoint, never a
+    # whole-set PATCH that could clobber other labels) and comment the
+    # measured reason so the coordinator triages without re-reading logs.
+    # Failures degrade to Ok = $false with the reason logged by the caller.
+    param([string]$RepoSlug, [int]$IssueNumber, [string]$Reason)
+
+    $del = Invoke-CopilotGhMutation -Method 'DELETE' -Endpoint "repos/$RepoSlug/issues/$IssueNumber/labels/copilot-target"
+    $commentBody = "[COPILOT-DISPATCHER] no-production on #$IssueNumber - copilot-target retired so the grain cannot be paid twice. Reason: $Reason. Re-provisioning is a coordinator action."
+    $cmt = Invoke-CopilotIssueComment -RepoSlug $RepoSlug -IssueNumber $IssueNumber -Body $commentBody
+    if (-not $del.Ok) { return @{ Ok = $false; Error = "label DELETE exit $($del.ExitCode)" } }
+    if (-not $cmt.Ok) { return @{ Ok = $false; Error = "reason comment exit $($cmt.ExitCode)" } }
+    return @{ Ok = $true; Error = '' }
+}
+
 function Select-DeliveryPr {
     # Pure selection: the delivery unit of a branch is its newest non-closed PR
     # (an older MERGED PR may precede a replaced one). A closed-unmerged PR is
@@ -881,10 +957,17 @@ function Get-WorkPrompt {
     # work on that one, not re-select from the unfiltered seed — otherwise the premium
     # spend the gate avoids can land right back on the noise it just excluded.
     $targetIssueLine = if ($null -ne $TargetIssue) { "#$($TargetIssue.number) — $($TargetIssue.title)" } else { 'none' }
+    # #4806 fix 3: the PR body must CLOSE the grain (Closes #N), not merely
+    # mention it — a bare Refs leaves the issue open, so the grain stays
+    # label-eligible and a later tir can pay for it again. The dispatcher-side
+    # delivered gate (fix 1) keys on a MERGED PR referencing the number; the
+    # Closes line is what makes the merge actually retire the grain.
+    $targetIssueNumber = if ($null -ne $TargetIssue) { [int]$TargetIssue.number } else { 0 }
 
     $deliveryMandate = if ($CanDeliver) {
 @("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue).",
 "- Then open a pull request from that branch: write the PR body to a file first, then gh pr create with a short title and --body-file <path> (never an inline body) describing the change and the issue it addresses.",
+"- The PR body MUST end with a closing line for the target issue: Closes #$targetIssueNumber (not a bare Refs mention) when #$targetIssueNumber is not zero, so the merge retires the grain.",
 "- Never push to, rebase onto, or mutate a default branch directly. If the pull request command fails, keep the commit and report the exact error in next_action.") -join "`n"
     } else {
         "- Do not run mutating GitHub commands. Do not create commits or pull requests."
@@ -1057,6 +1140,14 @@ function Get-TargetSkipMessage {
     }
     if ($Reason -eq 'pool-query-failed') {
         return "No actionable target issue (pool-query-failed: copilot-target pool query did not succeed); skipping Copilot call to avoid idle premium burn"
+    }
+    # #4806 fix 1: a delivered grain is never paid twice — distinct, greppable reasons.
+    if ($Reason -like 'already-delivered:*') {
+        $detail = $Reason.Substring('already-delivered:'.Length)
+        return "Skip (already-delivered: $detail): the grain is delivered by a MERGED PR - no Copilot call, zero premium"
+    }
+    if ($Reason -eq 'delivered-check-failed') {
+        return "Skip (delivered-check-failed): merged-PR lookup did not succeed - failing closed before any Copilot call, zero premium"
     }
     return "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
 }
@@ -1358,7 +1449,51 @@ if ($status -ne 'blocked') {
             $status = 'blocked'
         }
 
-        if ($status -ne 'blocked') {
+        # #4806 fix 1: a delivered grain is never paid twice. Sitting AFTER the
+        # #4669 geometry guard and BEFORE Invoke-PhaseCDispatch — the only paid
+        # call in this script. A MERGED PR already referencing this grain number
+        # (word boundary, title or body) means the work is live: skip at zero
+        # premium and say so on the issue, so a human reading the grain sees why
+        # the dispatcher stopped touching it. Fail closed: if the merged-PR
+        # lookup itself fails, block rather than pay on an unverifiable grain.
+        # Empty $queueSlug (local mode) never reaches here past the geometry
+        # guard — and the check is skipped rather than crashed: Get-PullRequestSummary
+        # rejects an empty -Repo (binding exception, measured in the #4669
+        # positive control), and a deliverable geometry always sets the slug.
+        if ($status -ne 'blocked' -and $null -eq $dispatch -and -not [string]::IsNullOrWhiteSpace($queueSlug)) {
+            $deliveredCheck = Test-GrainAlreadyDelivered -RepoSlug $queueSlug -IssueNumber ([int]$targetIssue.number)
+            if (-not $deliveredCheck.Ok) {
+                Write-Log (Get-TargetSkipMessage -Reason 'delivered-check-failed')
+                $status = 'idle'
+                $dispatch = @{
+                    status = 'idle'
+                    exitCode = 0
+                    premiumRequests = 0.0
+                    output = @('Skipped: delivered-check-failed')
+                    error = ''
+                    report = ''
+                    repositoryChanges = $false
+                }
+            } elseif ($null -ne $deliveredCheck.Pr) {
+                Write-Log (Get-TargetSkipMessage -Reason ("already-delivered:#$($targetIssue.number):PR#$($deliveredCheck.Pr.Number)"))
+                $commentOk = Invoke-CopilotIssueComment -RepoSlug $queueSlug -IssueNumber ([int]$targetIssue.number) -Body "[COPILOT-DISPATCHER] Grain already delivered by MERGED PR #$($deliveredCheck.Pr.Number) ($($deliveredCheck.Pr.Url)) - skipping at zero premium. Re-provisioning is a coordinator action."
+                if (-not $commentOk.Ok) {
+                    Write-Log "already-delivered notice comment failed (exit $($commentOk.ExitCode)) - skip stands, the gate is the log line"
+                }
+                $status = 'idle'
+                $dispatch = @{
+                    status = 'idle'
+                    exitCode = 0
+                    premiumRequests = 0.0
+                    output = @("Skipped: already-delivered by PR #$($deliveredCheck.Pr.Number)")
+                    error = ''
+                    report = ''
+                    repositoryChanges = $false
+                }
+            }
+        }
+
+        if ($status -ne 'blocked' -and $null -eq $dispatch) {
             $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
             # The prompt file MUST live inside the work root: Copilot's sandbox
             # refuses any read outside its working directory without an
@@ -1389,7 +1524,19 @@ if ($status -ne 'blocked') {
                     Write-Log ("Delivery: outcome={0}; {1}; branch={2}; head={3}; commits-ahead-of-base={4}; commits-ahead-of-pr={5}; {6}" -f $delivery.Outcome, $prLabel, [string]$copilotWt.Branch, $delivery.HeadSha, $delivery.CommitCount, $delivery.CommitsAheadOfPr, $delivery.Reason)
                     switch ($delivery.Outcome) {
                         'delivered' { $status = 'active' }
-                        'no-production' { $status = 'idle' }
+                        'no-production' {
+                            # #4806 fix 2: a paid call that produced nothing retires
+                            # the grain (single copilot-target DELETE + reason
+                            # comment) so the next tir cannot re-pay it — the
+                            # measured loop was wt-copilot-4766 reused, PR #4783
+                            # relic, ~19 premium per tir. Re-provisioning is a
+                            # coordinator action, never a dispatcher loop.
+                            $retireR = Remove-CopilotTargetLabel -RepoSlug $queueSlug -IssueNumber ([int]$targetIssue.number) -Reason ([string]$delivery.Reason)
+                            if (-not $retireR.Ok) {
+                                Write-Log "copilot-target retirement failed ($($retireR.Error)) - pool still holds the grain, coordinator attention needed"
+                            }
+                            $status = 'idle'
+                        }
                         default { $status = 'blocked' }
                     }
                 } else {
