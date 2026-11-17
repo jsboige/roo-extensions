@@ -24,7 +24,7 @@ Mesuré sur le [repo GitHub](https://github.com/snap-stanford/memorilla) (README
 - **Memory cache (profiling) :** KV de la cross-attention précalculée à l'écriture — question à 8,1 ms pour 1 M documents ; cache 4× la taille des embeddings (80 GiB pour 4 M docs, tient sur 1 GPU). Précision FactKG à ±0,06 point du défaut.
 - **Exigences d'exécution (README, verbatim) :** « Linux with CUDA GPUs and Python 3.11 », recettes sur H100 80 Go ; « **You need one 80 GB GPU**, and the first run downloads about 25 GB of models ». Dépendances épinglées avec advisories publics (vLLM 0.9.1, transformers 4.53.3, torch 2.7.0 — GHSA cités dans leur README ; applicables aux modèles/checkpoints non fiables seulement).
 - **Données personnelles :** PersonaMem-v2 (107 conversations ~32k tokens → question), PersonalizationV4 (149 utilisateurs fictifs × 200 conversations) — **le format exact de notre cas conversation_browser/memory**.
-- **Format own-data :** un parquet par split, colonnes `collection_id`, `question`, `answer`, `documents` — consommé tel quel par `evaluate.py`/`train.py`.
+- **Format own-data :** un parquet par split, colonnes `collection_id` (entier `int64`, que le lecteur convertit par `int()`), `question`, `answer`, `documents` — consommé tel quel par `evaluate.py`/`train.py`.
 
 ## 2. Étape 1 — Inventaire VRAM : verdict bloquant pour la flotte
 

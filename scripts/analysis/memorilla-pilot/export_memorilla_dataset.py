@@ -51,7 +51,9 @@ def main() -> int:
     ap.add_argument("--output-dir", required=True,
                     help="Output data-repo root (will contain data/<task>/)")
     ap.add_argument("--task", default="roo_memory")
-    ap.add_argument("--collection", default="roo-memory-fiches-v1")
+    # Memorilla's reader does int(collection_id) (EmbeddingStore._position), so
+    # the column must be int64: a string id stops the bench before generation.
+    ap.add_argument("--collection", type=int, default=0)
     ap.add_argument("--max-chars-per-doc", type=int, default=120_000,
                     help="Hard cap per document; a fiche is ~1-8 KB so this never bites")
     args = ap.parse_args()
@@ -93,7 +95,7 @@ def main() -> int:
     task_dir.mkdir(parents=True, exist_ok=True)
     parquet_path = task_dir / "test-00000-of-00001.parquet"
     df = pd.DataFrame({
-        "collection_id": [args.collection] * len(rows),
+        "collection_id": pd.Series([args.collection] * len(rows), dtype="int64"),
         "question": [r["question"] for r in rows],
         "answer": [r["gold_answer"] for r in rows],
         "documents": [documents] * len(rows),
