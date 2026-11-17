@@ -137,9 +137,15 @@ SLOW_READ_S = 5.0
 # #4643 : signature du rejet d'une coque vide par read_archive (dashboard.ts,
 # « Format archive invalide: frontmatter manquant dans ... ») — rejet isError
 # dont le transport rend le texte (opt-in return_rejected_text). Une coque de
-# 0 octet n'a jamais porte de messages : WARN non bloquant, pas un echec
-# d'instrument (mesure ai-01 12/11 : 5 coques vides sur G: ; le writer
-# corrige temp+rename n'en pose plus).
+# 0 octet n'a jamais porte de messages (mesure ai-01 12/11 : 5 coques vides
+# sur G: ; le writer corrige temp+rename n'en pose plus).
+# #4796 : la premisse « coque vide » ne se prouve PAS depuis un siege — le
+# meme rejet a servi une archive PLEINE de 18 messages mal hydratee par
+# DriveFS (po-2024 16/11 : placeholder lu vide, exit 2 fantome sur deux runs
+# propres ; la meme archive se lisait normalement depuis ai-01). Dans la
+# fenetre lue, ce rejet vaut donc LECTURE PARTIELLE (erreur d'instrument,
+# exit 1) ; il ne reste un WARN que hors fenetre (seconde passe), ou la
+# coque ne peut plus masquer une fermeture de la fenetre.
 ARCHIVE_HUSK_SIGNATURE = "frontmatter manquant"
 
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
@@ -1091,6 +1097,23 @@ def archive_rejected_text(result):
     return result if isinstance(result, str) else None
 
 
+def archive_window_husk_error(key, name, detail):
+    """#4796 : erreur de mesure partielle pour une archive de la FENETRE
+    rejetee « frontmatter manquant ».
+
+    Depuis un siege, le vide n'est pas une preuve de coque : un fichier
+    DriveFS encore en placeholder se rejette exactement comme une coque de
+    0 octet (po-2024, 16/11 : archive de 18 messages, [REPAIRED] invisible,
+    exit 2 fantome). L'instrument ne peut pas trancher : le rejet entre
+    dans les erreurs, le fail-closed rend exit 1 et annule la sonnerie —
+    jamais un verdict confiant sur une fenetre partiellement lue.
+    """
+    return (f"{key}/{name}: archive de la fenetre rejetee (frontmatter "
+            f"manquant) ({detail[:120]}) — coque vide OU archive fraiche "
+            f"mal hydratee (placeholder DriveFS, #4796) : un [REPAIRED] ou "
+            f"une escalade archivee serait invisible ; mesure partielle")
+
+
 def store_keys_from_listing(result):
     """Cles de dashboards depuis un `action: list`, ou None (fail-closed :
     une liste illisible ne se sert jamais comme « zero dashboard »)."""
@@ -1229,9 +1252,10 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     sporadique sur une archive saine (5 releves sur des fichiers de 32-39 Ko).
     Un rejet serveur isError ne se relance pas (deterministe, 7 ms mesures
     post-gel, c.6823202164) : son texte, rendu par le transport avec
-    return_rejected_text, se classifie — signature de coque vide = WARN non
-    bloquant (une coque n'a jamais porte de messages), tout autre rejet =
-    erreur d'instrument.
+    return_rejected_text, se classifie — signature coque sur une archive de
+    la fenetre = lecture partielle #4796 (le vide ne prouve pas la coque
+    depuis un siege : placeholder DriveFS), tout autre rejet = erreur
+    d'instrument.
 
     #4729 : la relance muette est GENERALISEE a toutes les lectures (listing,
     vif, listings d'archives, fichiers d'archives, seconde passe) — sous
@@ -1367,17 +1391,16 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                 rejected = archive_rejected_text(archive_result)
                 if rejected is not None:
                     # #4643 : rejet serveur isError, texte rendu par le
-                    # transport (opt-in). Coque de 0 octet = signature
-                    # « frontmatter manquant » — elle n'a jamais porte de
-                    # messages, ce n'est pas un echec d'instrument : WARN
-                    # non bloquant (les coques viennent du writer d'avant le
-                    # correctif temp+rename, ms#1740). Tout autre rejet =
-                    # erreur d'instrument.
+                    # transport (opt-in). Tout rejet autre que la signature
+                    # coque = erreur d'instrument.
+                    # #4796 : la signature « frontmatter manquant » sur une
+                    # archive de la FENETRE n'est plus un WARN — depuis un
+                    # siege, le vide ne prouve pas la coque (placeholder
+                    # DriveFS encore vide, mesure po-2024 16/11) : lecture
+                    # partielle, comme un dashboard illisible.
                     if ARCHIVE_HUSK_SIGNATURE in rejected.lower():
-                        print(f"WARNING: {key}/{name}: coque d'archive "
-                              f"vide ignoree ({rejected[:120]}) — sans "
-                              f"contenu, rien a lire : non bloquant",
-                              file=sys.stderr)
+                        errors.append(archive_window_husk_error(key, name,
+                                                                rejected))
                     else:
                         errors.append(f"{key}/{name}: rejet serveur "
                                       f"({rejected[:120]})")
@@ -1391,15 +1414,15 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     structured = entries_from_archive_json(archive_text)
                 except ValueError as exc:
                     if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
-                        # #4643, couche JSON : une enveloppe succes portant
-                        # l'erreur (rejet non-isError) garde le meme
-                        # traitement coque que la couche transport.
-                        print(f"WARNING: {key}/{name}: coque d'archive "
-                              f"vide ignoree ({exc}) — sans contenu, rien "
-                              f"a lire : non bloquant", file=sys.stderr)
-                        continue
-                    errors.append(f"{key}/{name}: enveloppe archive "
-                                  f"inexploitable ({exc})")
+                        # #4643 -> #4796, couche JSON : une enveloppe en
+                        # echec portant la signature husk garde le meme
+                        # traitement que la couche transport — dans la
+                        # fenetre, lecture partielle, pas un WARN.
+                        errors.append(archive_window_husk_error(key, name,
+                                                                str(exc)))
+                    else:
+                        errors.append(f"{key}/{name}: enveloppe archive "
+                                      f"inexploitable ({exc})")
                     continue
                 entries.extend(structured)
     # #4643 (rouverte 14/11) : la fenetre d'archives est SYMETRIQUE, et c'est
@@ -2053,11 +2076,13 @@ le harnais au motif que Git resoudrait hors isolation
         assert budget_calls["archive_files"] < len(budget_names), \
             budget_calls
 
-        # #4643 (c.6823202164) — coque vide : rejet serveur isError VERBATIM,
+        # #4643 (c.6823202164) -> #4796 — rejet serveur isError VERBATIM,
         # texte rendu par le transport (opt-in return_rejected_text) au
         # PREMIER appel — deterministe (7 ms mesures post-gel), la relance
-        # relirait le meme rejet. WARN non bloquant, pas d'erreur
-        # d'instrument, entrees vivantes intactes, AUCUNE relance.
+        # relirait le meme rejet. Depuis #4796, une archive FRAICHE (dans la
+        # fenetre de 48 h) rejetee « frontmatter manquant » vaut LECTURE
+        # PARTIELLE (erreur d'instrument) : depuis un siege, le vide ne
+        # prouve pas la coque. Entrees vivantes intactes, AUCUNE relance.
         _spec = importlib.util.spec_from_file_location(
             "detect_approval_stalls_selftest",
             Path(__file__).resolve().parent / "detect-approval-stalls.py")
@@ -2100,17 +2125,22 @@ le harnais au motif que Git resoudrait hors isolation
 
         try:
             globals()["_load_transport"] = lambda: husk_fake_call
-            with contextlib.redirect_stderr(io.StringIO()) as husk_err:
-                husk_entries, husk_errors, husk_keys = load_entries_from_store(
-                    None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+            husk_entries, husk_errors, husk_keys = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0)
         finally:
             globals()["_load_transport"] = saved_transport
-        assert husk_errors == [] and husk_keys == ["workspace-x"], \
-            (husk_errors, husk_keys)
+        # #4796 : l'archive (04:00, dans la fenetre de 48 h) est FRAICHE —
+        # son rejet « frontmatter manquant » vaut lecture partielle, pas une
+        # coque prouvee : UNE erreur d'instrument nommant le fichier, les
+        # entrees vivantes restant intactes.
+        assert husk_keys == ["workspace-x"], husk_keys
+        assert (len(husk_errors) == 1
+                and "mesure partielle" in husk_errors[0]
+                and "workspace-x-2026-11-03T04-00-00.md" in husk_errors[0]), \
+            husk_errors
         assert (len(husk_entries) == 1
                 and husk_entries[0]["body"] == "[DONE] cycle normal"), \
             husk_entries
-        assert "coque" in husk_err.getvalue(), husk_err.getvalue()
         # UN SEUL appel, avec l'opt-in — le rejet deterministe ne se relance
         # PAS (mesure ai-01 : 7 ms, la relance relirait le meme rejet).
         assert husk_reads == [(1.0, True)], husk_reads
@@ -2189,8 +2219,9 @@ le harnais au motif que Git resoudrait hors isolation
           "token de declaration ; #4643 : crossPost dedoublonne sur (lane, poste), "
           "enveloppe archive archiveData parsee et fail-closed, listing "
           "d'archives None != [], fenetre 48 h par le nom, identification "
-          "d'archive = celle du read vivant, coque vide isError (enveloppe "
-          "verbatim) classee WARN sans relance, autre rejet isError = erreur, "
+          "d'archive = celle du read vivant, rejet husk isError (enveloppe "
+          "verbatim) classee lecture partielle sans relance (#4796), autre "
+          "rejet isError = erreur, "
           "timeout client sporadique recouvre par la relance ; #4661 : "
           "budget d'archives global — saut signale, "
           "entrees vivantes intactes, appels bornes ; #4730 : defaut connu de "
