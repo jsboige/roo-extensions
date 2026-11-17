@@ -168,7 +168,7 @@ différent.
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `analysis/` | 8 + `memorilla-pilot/` (2) | Analyse de code et métriques (branches, commits, complexity) ; `memorilla-pilot/` : éval #4801 — 15 paires question/réponse-or + exporteur vers le layout parquet Memorilla (bench sur GPU loué) |
+| `analysis/` | 8 + `memorilla-pilot/` (2) | Analyse de code et métriques (branches, commits, complexity) ; `memorilla-pilot/` : éval #4801 — 15 paires question/réponse-or + exporteur vers le layout parquet Memorilla (bench sur une carte 24 Go libre, sous Linux) |
 | `docs/` | 8 | Génération et maintenance de documentation |
 | `benchmarks/` | 3 | Benchmarks de performance |
 | `common/` | 4 | Utilitaires partagés (extension paths, submodule deletion guards) |

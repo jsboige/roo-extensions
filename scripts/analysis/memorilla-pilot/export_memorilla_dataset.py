@@ -15,14 +15,15 @@ shape. Only the `test` split is written: this export is for EVALUATION
 (evaluate.py --split test), never for training (a train split copied from eval
 rows would be leakage).
 
-Usage (on the rented 80 GB GPU box, inside the memorilla venv):
+Usage (on Linux with one free 24 GB GPU, inside the memorilla venv; see the
+report, section 2, for why 24 GB is enough on the evaluate.py path):
     python export_memorilla_dataset.py \
         --eval seed-eval.jsonl \
         --corpus-dir <workspace memory dir> \
         --output-dir .tmp/memorilla-dataset/my_data
 
     cd memorilla && python evaluate.py --data_repo ../.tmp/memorilla-dataset/my_data \
-        --config roo_memory --split test --scoring generation \
+        --config roo_memory --split test --scoring generation --gpu_memory_utilization 0.8 \
         --checkpoint <path or memorilla/Memorilla-Qwen3-8B:pmv2>
 
 Requires: pandas, pyarrow (present in the memorilla venv).
