@@ -118,13 +118,16 @@ GH_UNRUNNABLE = -1
 # of its own inside a QUOTATION (a fenced example block, or a quoted reply
 # where the quote marker was stripped and the line rejoins column 0) is
 # indistinguishable from a real event -- the line anchor cannot see quoting
-# context. Tolerated because the false direction is a RELEASE (cost: one
-# re-claim race, bounded by the pre-claim check), while excluding backticks
-# entirely would drop REAL release comments again (#3826). Mitigation, such
-# as it is: the lane token still has to resolve (extract_lane), so a quote
-# naming no machine stays inert.
+# context. Mitigations, layered:
+#   - #4818: a comment carrying SEVERAL markers is an enumeration/status block;
+#     its backticked markers are CITATIONS, dropped by scan_comment_events
+#     (bare markers in the same comment still count -- worker protocol #4000).
+#   - the lane token still has to resolve (extract_lane), so a quote naming no
+#     machine stays inert.
+# A SINGLE backticked marker keeps full event semantics (#3826: a release
+# comment whose marker is wrapped in backticks must still close the claim).
 MARKER_RE = re.compile(
-    r"(?im)^#{0,6}\s*[-*]?\s*[*/`]{0,2}\["
+    r"(?im)^#{0,6}\s*[-*]?\s*(?P<deco>[*/`]{0,2})\["
     r"(?P<marker>CLAIMED|RELEASED|RESULT|DONE|CANCELLED|ABANDONED|DELIVERED)"
     r"\]",
 )
@@ -181,11 +184,26 @@ def scan_comment_events(body: str):
 
     Ordered top-to-bottom as written -- the reducer applies them in that order
     per lane ("last marker wins").
+
+    #4818: a comment listing SEVERAL markers is an enumeration/status block
+    (e.g. "- `[CLAIMED]` **lane** at 08:31Z" per lane). Its backticked markers
+    are citations, not events: when the comment holds more than one marker,
+    backticked ones are dropped and only bare markers survive (worker protocol
+    #4000 posts RESULT then CLAIMED bare in one body). A SINGLE backticked
+    marker keeps full event semantics (#3826 release comments).
     """
+    events = []
     for line in body.splitlines():
         match = MARKER_RE.search(line)
         if match:
-            yield match.group("marker").upper(), extract_lane(line), line.strip()
+            quoted = "`" in match.group("deco")
+            events.append(
+                (match.group("marker").upper(), extract_lane(line), line.strip(), quoted)
+            )
+    if len(events) > 1:
+        events = [event for event in events if not event[3]]
+    for marker, lane, line, _quoted in events:
+        yield marker, lane, line
 
 
 def reduce_claims(comments):
@@ -630,6 +648,36 @@ def main(argv=None) -> int:
         if args.claim and args.release:
             print("error: --claim and --release are mutually exclusive", file=sys.stderr)
             return 2
+        if args.claim:
+            # #4818: --claim applies the SAME guard as check mode BEFORE
+            # posting -- posting over a fresh foreign claim (or on a closed
+            # issue) was the defect: the lock landed on top of a conflict.
+            try:
+                issue = fetch_issue(args.issue, args.repo)
+            except (RuntimeError, json.JSONDecodeError) as err:
+                print(f"error: {err}", file=sys.stderr)
+                return 2
+            if issue.get("state") != "OPEN":
+                print(
+                    f"BLOCKED: issue #{args.issue} is {issue.get('state')} "
+                    "-- do not post a claim"
+                )
+                return 1
+            state = reduce_claims(issue.get("comments", []))
+            blocking, warnings, notes = classify(
+                state, args.agent, args.stale_threshold
+            )
+            for note in notes:
+                print(f"note: {note}")
+            for warning in warnings:
+                print(warning)
+            for lane, age, line in blocking:
+                print(f"BLOCKED: active claim by {lane} ({age:.1f}h) -- {line}")
+            if blocking:
+                print(
+                    "Another lane holds an active claim -- do not start, pick elsewhere."
+                )
+                return 1
         body = (
             f"[CLAIMED] {args.agent} -- {args.claim}\n"
             "(lock per ADR 017 -- server createdAt is authoritative; "
