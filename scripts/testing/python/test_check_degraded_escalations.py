@@ -372,7 +372,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.archive_reads = []
 
         def call(arguments, url, bearer, timeout=10.0, client="x",
-                 return_rejected_text=False):
+                 return_rejected_text=False, telemetry=None):
             if arguments.get("action") == "list":
                 body = json.dumps({"success": True,
                                    "dashboards": [{"key": k} for k in keys]})
@@ -1291,7 +1291,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         archive_timeouts = []
 
         def call(arguments, url, bearer, timeout=10.0, client="x",
-                 return_rejected_text=False):
+                 return_rejected_text=False, telemetry=None):
             name = arguments.get("archiveFile")
             if name and name not in muted:
                 muted.add(name)
@@ -1300,7 +1300,8 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             if name:
                 archive_timeouts.append(timeout)
             return inner(arguments, url, bearer, timeout=timeout,
-                         client=client, return_rejected_text=return_rejected_text)
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
 
         cde._load_transport = lambda: call
         self.assertEqual(self.run_store_main(), 0)
@@ -1325,12 +1326,13 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         muted_list = [True]
 
         def call(arguments, url, bearer, timeout=10.0, client="x",
-                 return_rejected_text=False):
+                 return_rejected_text=False, telemetry=None):
             if arguments.get("action") == "list" and muted_list[0]:
                 muted_list[0] = False
                 return None  # premier essai : timeout client sur le listing
             return inner(arguments, url, bearer, timeout=timeout,
-                         client=client, return_rejected_text=return_rejected_text)
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
 
         cde._load_transport = lambda: call
         with contextlib.redirect_stderr(io.StringIO()) as err:
@@ -1354,14 +1356,15 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         muted = set()
 
         def call(arguments, url, bearer, timeout=10.0, client="x",
-                 return_rejected_text=False):
+                 return_rejected_text=False, telemetry=None):
             if (arguments.get("action") == "read"
                     and arguments.get("workspace") == "y"
                     and "y" not in muted):
                 muted.add("y")
                 return None  # timeout client sporadique sur le vif
             return inner(arguments, url, bearer, timeout=timeout,
-                         client=client, return_rejected_text=return_rejected_text)
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
 
         cde._load_transport = lambda: call
         with contextlib.redirect_stderr(io.StringIO()) as err:
@@ -1382,12 +1385,13 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         muted = [True]
 
         def call(arguments, url, bearer, timeout=10.0, client="x",
-                 return_rejected_text=False):
+                 return_rejected_text=False, telemetry=None):
             if arguments.get("action") == "read" and muted[0]:
                 muted[0] = False
                 return None
             return inner(arguments, url, bearer, timeout=timeout,
-                         client=client, return_rejected_text=return_rejected_text)
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
 
         cde._load_transport = lambda: call
         out, err = io.StringIO(), io.StringIO()
@@ -1403,6 +1407,47 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(tel["recovered"], 1)
         self.assertEqual(tel["failed"], 1)  # l'essai muet reste compte
         self.assertIn("telemetrie lectures store", err.getvalue())
+
+    def test_muted_read_names_its_phase(self):
+        # #4729 recidive (18/11) : 2 archives muettes A TRAVERS premier essai
+        # + relance, meme archive servie en 154 ms juste apres — l'organe
+        # doit dire QUELLE phase MCP a muet la lecture, pas seulement
+        # « sans contenu ». Le transport remplit la telemetrie de defaut ;
+        # l'organe l'agrege (json + stderr) et la relance reste unique.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DONE"])]},
+            archives={"y": []})
+        inner = cde._load_transport()
+        muted = [True]
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False, telemetry=None):
+            if arguments.get("action") == "read" and muted[0]:
+                muted[0] = False
+                if telemetry is not None:
+                    telemetry["failure"] = {
+                        "phase": "lecture", "exception": "TimeoutError",
+                        "elapsed_ms": 10017.3}
+                return None
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
+
+        cde._load_transport = lambda: call
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", "", "--json"])
+        self.assertEqual(code, 0)
+        tel = json.loads(out.getvalue())["read_telemetry"]
+        self.assertEqual(tel["failed"], 1)
+        self.assertEqual(tel["muted_by_phase"], {"lecture": 1})
+        self.assertEqual(tel["muted_exceptions"], {"lecture:TimeoutError": 1})
+        self.assertEqual(tel["muted_phase_max_ms"], {"lecture": 10017.3})
+        self.assertEqual(tel["muted_no_phase"], 0)
+        self.assertIn("muets par phase : lecturex1", err.getvalue())
 
     def test_read_telemetry_slow_classification(self):
         # Unite pure : seuil SLOW et percentiles rendent les chiffres qui

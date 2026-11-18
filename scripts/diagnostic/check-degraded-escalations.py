@@ -1168,12 +1168,39 @@ class ReadTelemetry:
         self.retried = 0
         self.recovered = 0
         self._latencies = []
+        # #4729 recidive (18/11) : attribution par PHASE des lectures
+        # muettes — le transport dit quelle phase MCP est morte ; l'agregat
+        # rend le diagnostic sans rejouer la passe.
+        self._muted_phases = {}       # phase -> nb de lectures muettes
+        self._muted_phase_exc = {}    # "phase:Exception" -> nb
+        self._muted_phase_max_ms = {}  # phase -> elapsed_ms max du defaut
+        self._muted_no_phase = 0      # muettes sans telemetrie de phase
 
-    def observe(self, seconds, result):
-        """Un appel transport termine : sa duree, et None s'il a echoue."""
+    def observe(self, seconds, result, telemetry=None):
+        """Un appel transport termine : sa duree, et None s'il a echoue.
+
+        #4729 recidive : la telemetrie du transport (si presente) dit
+        QUELLE phase a muet l'appel — on l'agrege, un exit 1 sous charge
+        se diagnostique par phase (establishment vs appel vs lecture)."""
         self.calls += 1
         if result is None:
             self.failed += 1
+            failure = None
+            if isinstance(telemetry, dict):
+                failure = telemetry.get("failure")
+            if isinstance(failure, dict) and failure.get("phase"):
+                phase = str(failure["phase"])
+                self._muted_phases[phase] = self._muted_phases.get(phase, 0) + 1
+                exc_key = f"{phase}:{failure.get('exception') or 'unknown'}"
+                self._muted_phase_exc[exc_key] = \
+                    self._muted_phase_exc.get(exc_key, 0) + 1
+                ms = failure.get("elapsed_ms")
+                if isinstance(ms, (int, float)) and \
+                        ms > self._muted_phase_max_ms.get(phase,
+                                                          float("-inf")):
+                    self._muted_phase_max_ms[phase] = ms
+            else:
+                self._muted_no_phase += 1
         self._latencies.append(seconds)
 
     def mark_retry(self):
@@ -1203,16 +1230,27 @@ class ReadTelemetry:
             "p50_ms": self._pct_ms(0.50),
             "p95_ms": self._pct_ms(0.95),
             "max_ms": round(lats[-1] * 1000.0, 1) if lats else None,
+            # #4729 recidive : phase(s) des lectures muettes
+            "muted_by_phase": dict(self._muted_phases),
+            "muted_exceptions": dict(self._muted_phase_exc),
+            "muted_phase_max_ms": {k: round(v, 1)
+                                   for k, v in self._muted_phase_max_ms.items()},
+            "muted_no_phase": self._muted_no_phase,
         }
 
     def render(self):
         """Une ligne stderr, pour le run texte comme pour le run --json."""
         s = self.snapshot()
-        return (f"telemetrie lectures store : {s['calls']} appel(s), "
+        line = (f"telemetrie lectures store : {s['calls']} appel(s), "
                 f"{s['ok']} ok dont {s['slow']} lent(s) >= {self.slow_s:g} s, "
                 f"{s['failed']} muet(s) ; relances {s['retried']} "
                 f"({s['recovered']} recuperee(s)) ; p50 {s['p50_ms']} ms, "
                 f"p95 {s['p95_ms']} ms, max {s['max_ms']} ms")
+        if s["muted_by_phase"]:
+            detail = ", ".join(f"{p}x{n}"
+                               for p, n in sorted(s["muted_by_phase"].items()))
+            line += f" ; muets par phase : {detail}"
+        return line
 
 
 def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
@@ -1291,17 +1329,21 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     def read_store(arguments, _url=None, _bearer=None, timeout_s=None,
                    return_rejected_text=False, **_ignored):
         first_s = timeout_s if timeout_s is not None else timeout
+        call_telemetry = {}
         t0 = time.monotonic()
         result = call(arguments, url, bearer, timeout=first_s,
-                      return_rejected_text=return_rejected_text)
-        tel.observe(time.monotonic() - t0, result)
+                      return_rejected_text=return_rejected_text,
+                      telemetry=call_telemetry)
+        tel.observe(time.monotonic() - t0, result, call_telemetry)
         if result is None:
             tel.mark_retry()
+            call_telemetry = {}
             t0 = time.monotonic()
             result = call(arguments, url, bearer,
                           timeout=STORE_READ_RETRY_TIMEOUT_S,
-                          return_rejected_text=return_rejected_text)
-            tel.observe(time.monotonic() - t0, result)
+                          return_rejected_text=return_rejected_text,
+                          telemetry=call_telemetry)
+            tel.observe(time.monotonic() - t0, result, call_telemetry)
             if result is not None:
                 tel.mark_recovered()
         return result
