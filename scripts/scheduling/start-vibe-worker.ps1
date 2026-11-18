@@ -156,6 +156,10 @@ if (-not [string]::IsNullOrWhiteSpace($WorkspacePath) -and (Test-Path $Workspace
     Set-Location (ConvertTo-SpawnCwd $WorkspacePath)   # #3345 D1: uppercase drive for the child cwd
     Write-Log "Working directory: $WorkspacePath"
 } else {
+    # #3345 D1 (review ai-01 18/11): the fallback branch also spawns the harness
+    # from the inherited cwd — normalize it too, a lowercase drive letter must not
+    # survive into the child's session cwd just because no workspace was resolved.
+    Set-Location (ConvertTo-SpawnCwd $PWD.Path)
     Write-Log "No workspace path resolved for '$Workspace' — running from $PWD" "WARN"
 }
 
