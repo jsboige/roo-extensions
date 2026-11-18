@@ -89,6 +89,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# #3345 D1: spawn-cwd guard (see path-guards.ps1) — Claude Code's isolation-worktree
+# provisioner compares the child cwd against git's toplevel case-sensitively (upstream
+# anthropics/claude-code#91618) and refuses its own worktree on a lowercase drive.
+. (Join-Path $PSScriptRoot '..\common\path-guards.ps1')
+
 # Compaction: settings.json is authoritative. This script sets NO compaction env var.
 #
 # It used to force 200000/90 unconditionally here, which silently clamped every
@@ -375,14 +380,16 @@ Commence.
 
     # Working directory = target workspace (so claude -p loads its CLAUDE.md / .claude/rules).
     # Fall back to listener's repo root only if caller didn't resolve a path.
+    # #3345 D1: ConvertTo-SpawnCwd upper-cases the drive letter — lowercase makes the
+    # child refuse its own isolation worktree before the agent starts.
     if (-not [string]::IsNullOrEmpty($WorkspacePath) -and (Test-Path $WorkspacePath -PathType Container)) {
-        $psi.WorkingDirectory = $WorkspacePath
-        Write-Log "INFO" "WorkingDirectory = $WorkspacePath"
+        $psi.WorkingDirectory = ConvertTo-SpawnCwd $WorkspacePath
+        Write-Log "INFO" "WorkingDirectory = $($psi.WorkingDirectory)"
     } else {
         if (-not [string]::IsNullOrEmpty($WorkspacePath)) {
             Write-Log "WARN" "WorkspacePath not found on disk: $WorkspacePath — falling back to RepoRoot"
         }
-        $psi.WorkingDirectory = $RepoRoot
+        $psi.WorkingDirectory = ConvertTo-SpawnCwd $RepoRoot
     }
 
     $proc = [System.Diagnostics.Process]::Start($psi)

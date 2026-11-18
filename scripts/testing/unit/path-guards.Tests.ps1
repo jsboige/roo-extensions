@@ -521,4 +521,71 @@ Describe "Path Guards - #2772 couche 3b (deletion-time)" {
             }
         }
     }
+
+    # ---------------------------------------------------------------------------
+    # ConvertTo-SpawnCwd — #3345 D1 spawn-site normalization (drive-letter case).
+    # Claude Code's isolation-worktree provisioner compares the child cwd against
+    # git's resolved toplevel case-sensitively (upstream #91618, OPEN) and refuses
+    # its OWN generated worktree on a lowercase drive, leaving a locked orphan.
+    # #4805 verified: uppercase drive provisions again.
+    # ---------------------------------------------------------------------------
+
+    Context "ConvertTo-SpawnCwd - drive-letter case normalization (#3345)" {
+
+        It "upper-cases a lowercase drive letter (the #3345 D1 refusal form)" {
+            ConvertTo-SpawnCwd 'd:\dev\roo-extensions' | Should -Be 'D:\dev\roo-extensions'
+        }
+
+        It "is idempotent on an already-uppercase drive" {
+            ConvertTo-SpawnCwd 'D:\dev\roo-extensions' | Should -Be 'D:\dev\roo-extensions'
+        }
+
+        It "normalizes the drive letter only — the rest of the path is untouched" {
+            ConvertTo-SpawnCwd 'c:\MiXeD\Case\Path.txt' | Should -Be 'C:\MiXeD\Case\Path.txt'
+        }
+
+        It "normalizes a bare drive-relative path (d: -> D:)" {
+            ConvertTo-SpawnCwd 'd:' | Should -Be 'D:'
+        }
+
+        It "leaves UNC paths unchanged" {
+            ConvertTo-SpawnCwd '\\server\share\repo' | Should -Be '\\server\share\repo'
+        }
+
+        It "leaves relative paths unchanged" {
+            ConvertTo-SpawnCwd 'repo\sub' | Should -Be 'repo\sub'
+        }
+
+        It "leaves the long-path prefix form unchanged (no prefix stripping here)" {
+            ConvertTo-SpawnCwd '\\?\d:\dev\repo' | Should -Be '\\?\d:\dev\repo'
+        }
+    }
+
+    Context "Wiring - #3345 spawn-cwd normalization in claude launchers" {
+
+        BeforeAll {
+            $script:Launchers = @(
+                'scripts/dashboard-scheduler/spawn-claude.ps1',
+                'scripts/scheduling/start-vibe-worker.ps1',
+                'scripts/scheduling/start-meta-audit.ps1',
+                'scripts/claude/run-eval-harness.ps1',
+                'scripts/scheduling/start-claude-worker.ps1',
+                'scripts/scheduling/start-claude-coordinator.ps1'
+            )
+        }
+
+        It "every claude-spawning launcher dot-sources path-guards.ps1" {
+            foreach ($rel in $script:Launchers) {
+                $src = Get-Content (Join-Path $projectRoot $rel) -Raw
+                ($src -match 'path-guards\.ps1') | Should -Be $true -Because $rel
+            }
+        }
+
+        It "every claude-spawning launcher routes its spawn cwd through ConvertTo-SpawnCwd" {
+            foreach ($rel in $script:Launchers) {
+                $src = Get-Content (Join-Path $projectRoot $rel) -Raw
+                ($src -match 'ConvertTo-SpawnCwd') | Should -Be $true -Because $rel
+            }
+        }
+    }
 }

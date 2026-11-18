@@ -78,6 +78,9 @@ $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # (Ok = $false) suit le même fail-safe que l'ancien $LASTEXITCODE non-nul.
 . (Join-Path $ScriptDir '..\common\gh-issues.ps1')
 . (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
+# #3345 D1: spawn-cwd guard — Claude Code refuses its own isolation worktree when
+# the child cwd's drive letter case mismatches git's toplevel (upstream #91618).
+. (Join-Path $ScriptDir '..\common\path-guards.ps1')
 # Claim lane identity (#4114, producer side): every GitHub [CLAIMED]/[RELEASED]/
 # [RESULT] marker below must carry machine:workspace — the same derivation as
 # check_issue_claim.py (COMPUTERNAME + basename of the git toplevel). A machine-only
@@ -2180,7 +2183,7 @@ function Find-ExistingWorktree {
     Write-Log "Vérification de $($CandidateDirs.Count) worktree(s) existant(s) pour reprise..."
 
     foreach ($Dir in $CandidateDirs) {
-        $WorktreePath = $Dir.FullName
+        $WorktreePath = ConvertTo-SpawnCwd $Dir.FullName   # #3345 D1: uppercase drive
 
         # Vérifier que c'est bien un worktree git valide
         $GitDir = Join-Path $WorktreePath ".git"
@@ -2684,7 +2687,7 @@ function Create-Worktree {
     if (-not (Test-Path $WorktreeDir)) {
         New-Item -ItemType Directory -Path $WorktreeDir -Force | Out-Null
     }
-    $WorktreePath = Join-Path $WorktreeDir $BranchName.Replace("/", "-")
+    $WorktreePath = ConvertTo-SpawnCwd (Join-Path $WorktreeDir $BranchName.Replace("/", "-"))   # #3345 D1
 
     Write-Log "Création worktree: $WorktreePath (branch: $BranchName)"
 
@@ -5733,6 +5736,9 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
     if (-not $WorktreePath) {
         $WorktreePath = $RepoRoot
     }
+    # #3345 D1: single normalization point — the spawned child's cwd must match
+    # git's toplevel casing (covers both branches above; idempotent).
+    $WorktreePath = ConvertTo-SpawnCwd $WorktreePath
 
     # 3a. Track active worktree for graceful shutdown (#1147)
     $script:ActiveWorktreePath = $WorktreePath
