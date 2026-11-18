@@ -26,6 +26,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 ## Git
 
 - **Conventional commits** : `type(scope): description`. `Co-Authored-By: Claude-Code <noreply@anthropic.com>` si assiste.
+- **Signature de lane (mandat user 17/11, ASK CoursIA-2 18/11)** : chaque commit produit par une lane porte le trailer `Lane: <machine[:workspace]>` (ex. `Lane: myia-po-2024:roo-extensions`) — l'attribution se lit dans git (`git log --format="%(trailers:key=Lane)"`), pas seulement sur le dashboard. Choix de design : **trailer**, pas changement de `user.name` (l'identite d'auteur reste `jsboige`, que le tooling flotte interroge). Garde : `scripts/git/check_lane_signature.py` — CI `lane-signature.yml` sur chaque PR (merge commits exclus : artifact du merger) + pre-commit `commit-msg` opt-in. Machines croisees au fleet-manifest quand present ; format seul sinon (depot fils).
 - **Conflits** : JAMAIS de resolution aveugle. Lire les marqueurs, comprendre les deux cotes, decider deliberement.
 - **Submodules** : commiter DEDANS d'abord, push, puis bump le pointeur parent.
 - **Force push** : interdit sur branches partagees. Rejete -> fetch, merge, retry.

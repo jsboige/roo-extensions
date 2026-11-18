@@ -1,0 +1,51 @@
+name: Lane Signature
+
+# Garde signature de lane (ASK myia-ai-01:CoursIA-2 2026-11-18, user verbatim
+# 17/11 : toutes les lanes signent leurs contributions git a base de
+# machine:workspace). Chaque commit de CONTRIBUTION (branche de PR, non-merge)
+# doit porter le trailer `Lane: <machine[:workspace]>`.
+#
+# PORTER (pull_request SEULEMENT, volontairement) :
+#  - un push main POST-MERGE porte l'artifact squash-merge cree par le merger
+#    (sans trailer) — la signature vit sur les commits de la PR, le squash la
+#    reference par son numero (#N) et le corps de PR porte la lane ;
+#  - le push direct sur main est interdit de toute facon (pr-mandatory).
+#
+# AMORTISSEUR DE ROLLOUT : ENFORCED_SINCE exempte les commits anTERIEURS a la
+# regle (committer date) — les PR ouvertes avant la garde ne rougissent pas sur
+# leur historique. A retirer quand le backlog pre-regle est vide.
+#
+# Meme forme que secret-scan (#3685) : CI systematique + pre-commit opt-in
+# (.pre-commit-config.yaml, hook local commit-msg). Les depots fils qui
+# adoptent la gate copient ce workflow sans le bloc fleet-manifest (le garde
+# retombe en validation format-seul quand le manifeste est absent).
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lane-signature-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ENFORCED_SINCE: "2026-11-18T00:00:00Z"
+
+jobs:
+  lane-signature:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head (full history)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          # Pas de submodules : la gate du depot fils est portee par le fils.
+
+      - name: Verify Lane trailer on PR commits
+        run: |
+          python3 scripts/git/check_lane_signature.py origin/main..HEAD --since "$ENFORCED_SINCE"
