@@ -1,7 +1,7 @@
 # Qualité des statuts condensés — corpus historique et mécanismes identifiés (#4434)
 
 **Date :** 2026-10-29 · **Lane :** myia-po-2024:roo-extensions · **Périmètre :** volets 1-3 de #4434 (corpus, journal des changements, hypothèse auto-feedback — première passe)
-**MAJ :** 2026-11-15 — append « Suite de campagne 01/11 → 15/11 » (volet G5, lane myia-po-2023:roo-extensions) ; le corps du 29/10 ci-dessous reste celui de po-2024, inchangé.
+**MAJ :** 2026-11-18 — append « G4 : essai des petits modèles payants, verdicts et coûts » (volet G5, lane myia-po-2024:roo-extensions) ; 2026-11-15 — append « Suite de campagne 01/11 → 15/11 » (volet G5, lane myia-po-2023:roo-extensions) ; le corps du 29/10 ci-dessous reste celui de po-2024, inchangé.
 
 ## Résumé exécutif
 
@@ -126,14 +126,54 @@ Ce rapport décrivait l'état au 29/10. La campagne #4434 qui a suivi a corrigé
 | **Non-convergence au plancher** (C1, 45 h post-ms#1731, ai-01, c.6844511990) | 33 passes | — | — | **0/33** `did not converge` | — |
 | **Densité refs/Ko des statuts produits** (G3, post-ms#1731, po-203, c.6892881266) | 230 statuts | P25 5,36 · P50 9,79 · P90 16,66 refs/Ko ; **17,4 %** sous le seuil WARN 4,0 (vs 22,9 % baseline n=363) ; relecture omissions : global 2/15, roo-ext 1/18, CoursIA 11/14 | — | — | — |
 
-Cases « — » = non mesuré dans la campagne (jamais déduites). La colonne **coût** est volontairement absente : G4 reste au coordinateur (file 20261115d). Lecture d'ensemble : en **isolation** le primaire vaut le repli ou mieux sur chaque paire (la défaite de production se joue sur l'isolement sous charge et le budget, pas sur la capacité — c.6572874103 §5) ; en **production**, la jambe statut est servie par le repli cloud depuis ms#1652 et **converge** désormais (0/33 au plancher) ; le plafond `max_tokens = 7200` reste contraignant (4/10 appels du rejeu en `finish_reason=length`, les deux sections perdues = `Patterns appris`, dernière du canevas).
+Cases « — » = non mesuré dans la campagne (jamais déduites). La colonne **coût** est tenue dans la section G4 ci-dessous (coûts mesurés et projections, tarifs datés) — remplie par les verdicts du 17/11. Lecture d'ensemble : en **isolation** le primaire vaut le repli ou mieux sur chaque paire (la défaite de production se joue sur l'isolement sous charge et le budget, pas sur la capacité — c.6572874103 §5) ; en **production**, la jambe statut est servie par le repli cloud depuis ms#1652 et **converge** désormais (0/33 au plancher) ; le plafond `max_tokens = 7200` reste contraignant (4/10 appels du rejeu en `finish_reason=length`, les deux sections perdues = `Patterns appris`, dernière du canevas).
+
+## G4 — essai borné des petits modèles payants et verdicts (16-17/11)
+
+Protocole et plafond annoncés **avant tout appel** (c.6924889054) : 15 appels payants au plus, arrêt dur à 20 appels ou 2 USD. Consommé : **15 appels, 0,1596 USD** (+15 rejets 401 à 0 USD et 5 reprises gratuites, divulgés par la lane de mesure). Instrument : `replay-4434.py` (reconstruction #4793), prompts de production extraits de `dashboard.ts`, séquentiel. Siège de mesure : po-203 (départ c.6928168114, résultats c.6928668623).
+
+### Verdict auto-feedback (préfixé avant l'essai)
+
+Réfuté dans sa forme forte (549 paires, 01/11, c.6563081595) ; un mécanisme de propagation trouvé et corrigé (ms#1649) ; omissions de génération passagères, réparées à la passe suivante (10/11 et 13/11), qui ne s'accumulent pas. **L'auto-feedback ne justifie à lui seul ni changement de modèle, ni format imposé** (c.6924889054 §1).
+
+### Essai — jambe statut, 3 candidats × 5 paires (témoin swift au niveau clé : 17/19)
+
+| Modèle (prix liste $/M in/out) | Sections /19 | Mode d'échec | Coût 5 paires | Projection 30 j | Latences |
+|---|---|---|---|---|---|
+| `qwen3.6-flash` (0,1875 / 1,125) | 11 | hermes 1/5, Maintenance 0/3 — `finish=length` | $0,0531 | $6,11 | 35-52 s |
+| `MiniMax-M3.1-Flash` (0,15 / 0,60) | 12 | CoursIA-3 0/4, claudish 0/3 — `finish=length` | $0,0286 | $4,38 | 33-67 s |
+| **`glm-4.7` (0,60 / 2,20)** | **19** | aucun — 5/5 `finish=stop` (aucun timeout flotte : 15/15 dans le budget 600 s) | $0,0779 | $17,17 | 29-47 s |
+| Témoin swift local (niveau clé) | 17/19 | 2 sections | $0 (local) | $0 | — |
+
+Règles (a)-(d) fixées avant la mesure : seul **`glm-4.7` les passe toutes** — (a) 19/19 ≥ témoin 17/19 ; (b) aucune clé sous le repli d'époque ; (c) 5/5 sans timeout ; (d) projection présentée (verdict c.6933208060). Les deux moins chers échouent (a) et (b) par **troncature** (`finish=length`), pas par dérive de format : le verdict « format imposé écarté » tient, le levier restant est le budget de sortie. Projection = jambe résumé, 71 passes/j, profil de tokens de production ; les trois candidats roulent sur des abonnements déjà payés — **coût marginal réel ≈ 0 $**, la projection sert la comparabilité (règle d).
+
+### Verdict de bascule — jambe résumé (17/11)
+
+Mesure dédiée (les 5 mêmes paires, prompt **résumé** de production, instrument étendu `--leg summary` — PR #4811, mergée `7cec82b9`) : `glm-4.7` 5/5 `finish=stop`, à égalité avec le témoin swift rejoué 5/5 ; `glm-5.3-flash` absent du catalogue du hub au moment de la mesure — bras sauté comme prévu (c.6940185160).
+
+**Bascule décidée** (c.6940185160) — les deux conditions du user (RX149 b, c.6856871734) sont remplies :
+- **Libérer swift : oui** — la jambe statut ne passe déjà plus par swift (cloud-first ms#1652, 0 appel principal sur 74 passes en G2) ; la jambe résumé était la dernière charge de condensation sur swift.
+- **Faire mieux le travail : jambe statut 19/19 contre 17/19** (mieux que le témoin) ; jambe résumé à égalité 5/5 (la règle demandait « au moins autant » ; les sorties glm-4.7 sont 1,7× plus longues — la mesure ne dit pas si c'est contenu ou remplissage, d'où le garde-fou).
+
+| Poste de coût | Mesuré | Projection 30 j (prix liste) | Source |
+|---|---|---|---|
+| `glm-4.7` jambe statut (essai) | $0,0779 / 5 paires | $17,17 (jambe résumé, 71 passes/j) | c.6928668623 |
+| `glm-4.7` jambe résumé (bascule) | ~$0,0073 / passe | **16-21 USD** (basse : 0,0073 × 74 × 30 ; haute : volume G2, sorties 1,7×) — **marginal ≈ 0** (abonnement déjà payé) | c.6940185160 §2 |
+| qwen3.6-flash / MiniMax (rejetés) | $0,0531 / $0,0286 / 5 paires | $6,11 / $4,38 — écartés sur (a)(b) | c.6928668623 |
+| swift local (témoin, ex-production jambe résumé) | $0 | $0 | c.6933208060 §3 |
+| Jambe statut production (repli cloud `deepseek-v4-flash`) | tokens G2 : 17 967 in / 2 523 out × 74 passes/j | tarif daté non publié dans le fil — case non déduite | c.6890386808 |
+
+- **Chemin** : `CONDENSE_SUMMARY_CLOUD_FIRST` (défaut **ON**, kill-switch `=0`) — même mécanisme que ms#1652, swift devient le **repli** ; ms#1797 (`a7e77522`, mergée `34e783c2`), pointeur parent bumpé par #4822 (`910dd07d`, mergé 17/11 18:30Z), builds par siège en cours de roulement (po-203 observé sur `c4b3be3d` le 18/11 05:46Z).
+- **Critère 24 h post-déploiement** (c.6947828962, à compter du déploiement effectif par siège) : `summaryPrimaryTokens` servi par `glm-4.7` sur ≥ 90 % des passes ; 0 résumé rejeté par `validateSummaryCompleteness` ; coût réel sur 24 h publié et comparé à la projection ; compte des passes « cloud-first échoué → primaire échoué → sauvetage cloud » (facture deux fois la même jambe, borné par `passDeadlineMs`).
+- **Garde-fou qualité** : une lane autre que l'auteur relit 3 résumés post-bascule contre leurs messages (omissions comptées) ; plus d'omissions que sur 3 résumés swift relus de la même façon → retour arrière par variable d'env, pas de revert de code.
 
 ## Décisions
 
 - **Seuil refs/Ko 4,0 : gardé** (G3, 15/11) — le seuil est passé sous le P25 actuel (flague la vraie queue, plus conservateur qu'à l'activation) ; monter = bruit (CoursIA-3/claudish légitimes) ; descendre ferme le signal `global` (16/16 statuts sous 4,0 — genre prose, 2,03 P25). Report-only : si le WARN devient bloquant, `global` exige une décision de genre. Trouvaille pour le template-statut : les vues [ASK-USER] deviennent invisibles dès la condensation (2/2 omissions du relecture global).
-- **Modèle** (décision user 13/11, c.6856871734) : option (b) conditionnelle — comparer de petits modèles payants **sans budget chiffré**, essai borné, coût mesuré par résumé ; verdict sur les deux conditions du user à poster dans l'issue.
+- **Auto-feedback : réfuté dans sa forme forte** (16/11, c.6924889054 §1) — ne justifie à lui seul ni changement de modèle ni format imposé.
+- **Petits modèles payants : `glm-4.7` adopté pour la jambe résumé** (bascule 17/11, c.6940185160, livrée par ms#1797) — les deux conditions du user (RX149 b) remplies. La jambe statut reste sur sa chaîne cloud actuelle : `deepseek-v4-flash` n'était pas dans la comparaison G4, il n'est pas remplacé sans le mesurer. `qwen3.6-flash` et `MiniMax-M3.1-Flash` rejetés sur (a)(b) — troncature, pas dérive de format. Format imposé : **écarté** (c.6924889054 §6) ; modèle dédié : le sort suit l'essai — tranché par le verdict ci-dessus.
 
-## Recommandations du 29/10 — état au 15/11
+## Recommandations du 29/10 — état au 18/11
 
 | Levier préliminaire du 29/10 | État |
 |---|---|
@@ -141,10 +181,10 @@ Cases « — » = non mesuré dans la campagne (jamais déduites). La colonne **
 | (b) troncature **par section** plutôt que par ligne depuis la fin | **Livré** — le plancher et la passe budget retirent des sections entières, jamais l'en-tête seul |
 | (b') borner la verbosité **par section dans le prompt** | **Livré** — bloc `BUDGET PAR SECTION (#4434)` ms#1633 (02/11, po-2025), déjà présent au 09/11 (c.6739556626 : le modèle le dépasse dans chaque section — d'où la passe déterministe ms#1712) |
 | (c) consigne/template pour les `update` manuels plats | **Non traité** — reste ouvert |
-| Modèle en tête de chaîne | Ouvert — décision user 13/11 (comparaison bornée petits modèles payants) |
+| Modèle en tête de chaîne | **Tranché 17/11** — jambe résumé basculée sur `glm-4.7` cloud-first (c.6940185160, ms#1797, kill-switch `CONDENSE_SUMMARY_CLOUD_FIRST=0`) ; jambe statut inchangée (`deepseek-v4-flash` à mesurer avant tout remplacement) |
 
 ## Instruments
 
 - `scripts/analysis/condensation_corpus_scan.py` — inchangé (fragilités ci-dessus toujours d'actualité).
-- `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. **Versionné le 16/11 sous forme de reconstruction étiquetée** (PR #4793, §1.3 de #4434) : l'original de po-2025 vivait sur un scratchpad de session et son transfert (`msg-20261115T150322-vl3zv0`, demandé le 15/11) n'a pas atterri. Si l'original atterrit, il remplace la reconstruction.
+- `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. **Versionné le 16/11 sous forme de reconstruction étiquetée** (PR #4793, §1.3 de #4434) : l'original de po-2025 vivait sur un scratchpad de session et son transfert (`msg-20261115T150322-vl3zv0`, demandé le 15/11) n'a pas atterri. Si l'original atterrit, il remplace la reconstruction. **Étendu le 17/11** : option `--leg summary` (PR #4811, mergée `7cec82b9`) avec test de parité du prompt résumé — instrument de la mesure G4 jambe résumé.
 - **Appariement statut ↔ messages** (G3, vérifié à la seconde près) : le statut produit par la passe T est horodaté ~T (26-31 s avant l'écriture de l'archive) et se lit dans l'archive T+1 au bloc « Statut avant condensation » ; une passe peut archiver **sans** produire de statut (cas CoursIA 06:49:55 — le premier statut consommant le feed est cloud-first, 09:06:03).
