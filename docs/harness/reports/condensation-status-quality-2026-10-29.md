@@ -142,7 +142,7 @@ Réfuté dans sa forme forte (549 paires, 01/11, c.6563081595) ; un mécanisme d
 |---|---|---|---|---|---|
 | `qwen3.6-flash` (0,1875 / 1,125) | 11 | hermes 1/5, Maintenance 0/3 — `finish=length` | $0,0531 | $6,11 | 35-52 s |
 | `MiniMax-M3.1-Flash` (0,15 / 0,60) | 12 | CoursIA-3 0/4, claudish 0/3 — `finish=length` | $0,0286 | $4,38 | 33-67 s |
-| **`glm-4.7` (0,60 / 2,20)** | **19** | aucun — 15/15 `finish=stop` | $0,0779 | $17,17 | 29-47 s |
+| **`glm-4.7` (0,60 / 2,20)** | **19** | aucun — 5/5 `finish=stop` (aucun timeout flotte : 15/15 dans le budget 600 s) | $0,0779 | $17,17 | 29-47 s |
 | Témoin swift local (niveau clé) | 17/19 | 2 sections | $0 (local) | $0 | — |
 
 Règles (a)-(d) fixées avant la mesure : seul **`glm-4.7` les passe toutes** — (a) 19/19 ≥ témoin 17/19 ; (b) aucune clé sous le repli d'époque ; (c) 5/5 sans timeout ; (d) projection présentée (verdict c.6933208060). Les deux moins chers échouent (a) et (b) par **troncature** (`finish=length`), pas par dérive de format : le verdict « format imposé écarté » tient, le levier restant est le budget de sortie. Projection = jambe résumé, 71 passes/j, profil de tokens de production ; les trois candidats roulent sur des abonnements déjà payés — **coût marginal réel ≈ 0 $**, la projection sert la comparabilité (règle d).
