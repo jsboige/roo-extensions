@@ -300,10 +300,24 @@ compte. Trois protections :
    sinon) : appels, ok/lents/muets (seuil `SLOW_READ_S`), relances posées et
    récupérées, p50/p95/max en ms. « Store lent » et « store mort » se
    distinguent en lisant la sortie, sans rejouer la passe.
-3. **Procédure exit 1 × 3 feux consécutifs.** Un organe qui rend exit 1 sur
+3. **Attribution par phase (récidive 18/11).** Une lecture muette dit
+   désormais **quelle phase MCP** est morte : le transport
+   (`call_dashboard_tool`) mesure `initialize` / `initialized` /
+   `tools-call` / `lecture` (durées, octets lus sur `lecture`) et, sur
+   échec, rend `failure = {phase, exception, elapsed_ms}` — type d'exception
+   et chiffres uniquement, jamais de secret ni de contenu. L'organe agrège
+   (`muted_by_phase`, `muted_exceptions`, `muted_phase_max_ms` dans
+   `read_telemetry`, plus « muets par phase » en stderr). Le témoin
+   fondateur : deux archives muettes **à travers premier essai et relance**,
+   la même archive servie en 154 ms juste après — sans attribution de phase,
+   un timeout d'establishment et un timeout de lecture de corps se
+   ressemblent exactement (« sans contenu »). Fail-closed, retry unique et
+   un-seul-transport inchangés.
+4. **Procédure exit 1 × 3 feux consécutifs.** Un organe qui rend exit 1 sur
    trois feux consécutifs du même siège est lui-même en panne d'instrument :
    la lane poste le constat sur le dashboard `global` (tag `ASK`, les trois
-   `read_telemetry` — le différenciel p50/p95/max tranche lent vs mort) et
+   `read_telemetry` — le différenciel p50/p95/max tranche lent vs mort, les
+   phases muettes tranchent establishment vs lecture) et
    demande au coordinateur l'ouverture d'une issue `[CLAUDE-MACHINE]`
    (l'ouverture d'issue reste gated). Le silence n'est pas une option :
    l'alarme muette pendant l'incendie est précisément le défaut que #4729
