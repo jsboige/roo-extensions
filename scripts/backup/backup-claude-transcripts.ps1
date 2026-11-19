@@ -42,6 +42,19 @@
 .PARAMETER SevenZip
   Path to 7z.exe. Auto-detected from PATH and the usual install locations.
 
+.PARAMETER DictSizeMB
+  LZMA2 dictionary size in MB. Default 32. Memory ceiling of the encoder
+  scales with this (measured 2026-11-18, 7-Zip 26.03, 325 MB transcript
+  corpus): peak commit 371 MB at 32m vs 1349 MB at 128m per encoder.
+
+.PARAMETER Threads
+  LZMA2 thread budget. Default 2. NEVER use "on" for this unattended job:
+  -mmt=on spawns one match-finder per chunk-encoder scaled to machine cores
+  (measured: 32m x mmt=on on 8 cores = 1750 MB; extrapolated 128m x mmt=on
+  on 12-16 cores = 16-17 GB, matching the 16.8 GB commit that starved
+  myia-po-2023 on 2026-11-18). With 2 threads the commit is dict-bound and
+  machine-independent, and compression speed still roughly doubles vs 1.
+
 .PARAMETER MinRetentionDays
   Floor enforced on cleanupPeriodDays. Below it (or absent), the setting is
   rewritten to 36500 and the event is logged as a repair.
@@ -71,6 +84,8 @@ param(
   [string]$ArchiveDir       = "",
   [string]$GDriveDir        = "G:\Mon Drive\Backups-Cloud\claude-transcripts",
   [string]$SevenZip         = "",
+  [int]   $DictSizeMB       = 32,
+  [int]   $Threads          = 2,
   [int]   $MinRetentionDays = 3650,
   [switch]$SkipRetentionGuard
 )
@@ -189,14 +204,23 @@ if ($changed.Count -gt 0) {
     [System.IO.File]::WriteAllLines($listFile, ($changed | ForEach-Object { $_.Rel }), (New-Object System.Text.UTF8Encoding($false)))
     Push-Location -LiteralPath $ProjectsDir
     try {
-      # LZMA2, large dictionary. Transcripts repeat their system prompts and
-      # conversation prefixes across thousands of sessions, so -md=128m pays
-      # for itself several times over while staying memory-safe (~1.5 GB) for
-      # an unattended job.
+      # LZMA2 with a BOUNDED memory profile. Transcripts repeat their system
+      # prompts and prefixes, so they compress ~20:1 even at -md=32m; the old
+      # -md=128m -mmt=on pair made the encoder's commit scale with machine
+      # core count (measured 16.8 GB on a 12-16-core box, 4th near-famine on
+      # myia-po-2023, 2026-11-18). Defaults 32m x 2 threads = 378 MB peak,
+      # +2.7% archive size vs 128m x 1 thread, ~2.3x faster than 1 thread
+      # (measured, 7-Zip 26.03). Tune per machine via -DictSizeMB/-Threads.
       # NB: no "--" here. 7-Zip treats "--" as end-of-switches for @listfile
       # too, which would make it read the list as a literal filename - the
       # exact failure this script hit on its first run.
-      & $SevenZip a -t7z -m0=lzma2 -mx=9 -md=128m -mfb=273 -mmt=on -bso0 -bsp0 "$archivePath" "@$listFile" | Out-Null
+      # NB: the -md/-mmt switches are precomputed variables, NOT inline
+      # "-md=$($DictSizeMB)m" tokens: in PS 5.1 argument mode the trailing
+      # "m" after the subexpression splits off as its own argv token, and
+      # 7z then reads it as the archive name (measured 2026-11-18).
+      $mdSwitch = "-md=$($DictSizeMB)m"
+      $mtSwitch = "-mmt=$Threads"
+      & $SevenZip a -t7z -m0=lzma2 -mx=9 $mdSwitch -mfb=273 $mtSwitch -bso0 -bsp0 "$archivePath" "@$listFile" | Out-Null
       $addRc = $LASTEXITCODE
       & $SevenZip t -bso0 -bsp0 "$archivePath" | Out-Null
       $testRc = $LASTEXITCODE
