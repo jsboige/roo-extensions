@@ -335,6 +335,87 @@ function ConvertFrom-RestCheckRun {
     }
 }
 
+function Get-CiCheckProfile {
+    <#
+    .SYNOPSIS
+        Résout le PROFIL CI d'un dépôt : le motif regex qui sélectionne les check-runs
+        de build/test dans un rollup, et le libellé du profil pour les messages.
+    .DESCRIPTION
+        #4150 (garde CI sous-dépôt, dispatch ai-01 19/11) : pr-review-and-merge
+        sélectionnait les check-runs par `-match "build-and-test"` en DUR — le profil
+        du dépôt PARENT (roo-extensions). Sur le SOUS-DÉPÔT (jsboige-mcp-servers), les
+        jobs s'appellent `test (…)`, `lint (…)`, `roo-state-manager`, `docs`,
+        `test-sk-agent` — aucun `build-and-test` : le dry-run de fusion refusait une PR
+        dont les 7 jobs étaient verts (« No build-and-test check-runs found », mesuré
+        sur ms#1806 head 24d2ddac). Le trou est dans la SÉLECTION, pas dans le
+        classifieur (Get-CiRollupGate, lot 4a, reste la source de Pending/Failed).
+        Un dépôt INCONNU est REFUSÉ (Ok = $false) : sans profil déclaré, la garde ne
+        peut pas certifier la CI — elle ne retombe JAMAIS sur le profil parent par
+        défaut (ce serait rejouer le bug sur tout nouveau dépôt). Le profil est une
+        liste de PASSAGE de noms de jobs : il sélectionne les runs que la porte classe
+        ensuite ; il ne certifie rien lui-même.
+        Required (optionnel) durcit le profil en COMPLÉTUDE : les jobs inconditionnels
+        que le rollup doit contenir au grand complet. Un rollup « docs seul » du
+        sous-dépôt est vert par la classification mais incomplet par Required — la
+        fusion refuse (review #4838 sur 061366c9). Le parent garde Required = $null :
+        son comportement historique (« au moins un build-and-test ») reste inchangé.
+    .OUTPUTS
+        @{ Ok = bool; Label = string; Pattern = string; Required = string[]|$null }
+        Ok = $false -> dépôt sans profil : l'appelant refuse (fail-closed).
+    #>
+    param([Parameter(Mandatory)][string]$Repo)
+
+    $key = "$Repo".ToLowerInvariant()
+    switch ($key) {
+        'jsboige/roo-extensions' {
+            return @{ Ok = $true; Label = 'build-and-test'; Pattern = 'build-and-test'; Required = $null }
+        }
+        'jsboige/jsboige-mcp-servers' {
+            # Jobs réels du sous-dépôt (mesuré ms#1806) : test/lint matricés par serveur,
+            # roo-state-manager, docs, test-sk-agent. Le motif sélectionne les jobs de
+            # build/test/lint ; Required en donne les 7 noms inconditionnels exacts —
+            # un rollup partiel ne peut plus se lire comme une CI complète.
+            return @{
+                Ok      = $true
+                Label   = 'build/test/lint'
+                Pattern = '^(test|lint)\s*\(|^roo-state-manager$|^test-sk-agent$|^docs$'
+                Required = @(
+                    'test (jupyter-mcp-server)', 'test (jinavigator-server)',
+                    'roo-state-manager', 'lint (jupyter-mcp-server)',
+                    'lint (jinavigator-server)', 'docs', 'test-sk-agent'
+                )
+            }
+        }
+        default {
+            return @{ Ok = $false; Label = 'unknown'; Pattern = $null; Required = $null }
+        }
+    }
+}
+
+function Get-CiMissingRequiredChecks {
+    <#
+    .SYNOPSIS
+        Jobs inconditionnels absents d'un rollup déjà sélectionné par le profil CI.
+    .DESCRIPTION
+        Complétude du rollup (#4838 review) : la classification seule (vert/rouge/
+        pending) certifie les runs PRÉSENTS, jamais les jobs ABSENTS — un rollup
+        « docs: SUCCESS » du sous-dépôt passait la porte avec 1 run sur 7. Le parent
+        n'a pas de Required déclaré : la fonction rend vide et son comportement
+        « au moins un run du profil » reste exactement celui d'avant.
+    .OUTPUTS
+        string[] — noms de jobs requis absents (vide = complet ou profil sans Required).
+    #>
+    param(
+        [Parameter(Mandatory)]$Profile,
+        [Parameter(Mandatory)]$Checks
+    )
+
+    $required = @($Profile.Required | Where-Object { $null -ne $_ -and "$_" -ne '' })
+    if ($required.Count -eq 0) { return @() }
+    $present = @($Checks | ForEach-Object { "$($_.Name)" })
+    return @($required | Where-Object { $present -notcontains "$_" })
+}
+
 function Get-CiRollupGate {
     <#
     .SYNOPSIS
