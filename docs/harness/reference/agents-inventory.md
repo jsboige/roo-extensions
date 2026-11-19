@@ -2,8 +2,8 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/agents-architecture.md`. Déplacé hors des rules auto-chargées car descriptif pur (inventaire de ce qui existe) — pas une règle de comportement. Référencé depuis `CLAUDE.md` projet section "Ressources".
 
-**Version:** 2.1.0 (skills et commands recomptés sur l'arbre — 9 et 5 ; 2.0.0 : condensed from audit #556)
-**MAJ:** 2026-11-13
+**Version:** 2.2.0 (grain-supervisor global #4833 ; 2.1.0 skills et commands recomptés sur l'arbre — 9 et 5 ; 2.0.0 : condensed from audit #556)
+**MAJ:** 2026-11-19
 
 ## Principe
 
@@ -17,7 +17,7 @@ Deleguer les taches verboses a des subagents. La conversation principale orchest
 
 ### Globaux (`~/.claude/agents/`)
 
-`git-sync`, `test-runner`, `code-explorer`
+`git-sync`, `test-runner`, `code-explorer`, `grain-supervisor` (supervision de grain en arrière-plan, #4833)
 
 ### Coordinateur (ai-01)
 
