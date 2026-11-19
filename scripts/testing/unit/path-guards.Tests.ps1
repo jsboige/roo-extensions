@@ -521,4 +521,107 @@ Describe "Path Guards - #2772 couche 3b (deletion-time)" {
             }
         }
     }
+
+    # ---------------------------------------------------------------------------
+    # ConvertTo-SpawnCwd — #3345 D1 spawn-site normalization (drive-letter case).
+    # Claude Code's isolation-worktree provisioner compares the child cwd against
+    # git's resolved toplevel case-sensitively (upstream #91618, OPEN) and refuses
+    # its OWN generated worktree on a lowercase drive, leaving a locked orphan.
+    # #4805 verified: uppercase drive provisions again.
+    # ---------------------------------------------------------------------------
+
+    Context "ConvertTo-SpawnCwd - drive-letter case normalization (#3345)" {
+
+        # NOTE (review ai-01 18/11): every assertion below is -BeExactly, NOT -Be.
+        # Should -Be is case-insensitive in Pester — a no-op helper (return $Path)
+        # passed the original suite. The casing/preservation contract is only
+        # guarded by an exact, case-sensitive comparison (verified by mutant).
+
+        It "upper-cases a lowercase drive letter (the #3345 D1 refusal form)" {
+            ConvertTo-SpawnCwd 'd:\dev\roo-extensions' | Should -BeExactly 'D:\dev\roo-extensions'
+        }
+
+        It "is idempotent on an already-uppercase drive" {
+            ConvertTo-SpawnCwd 'D:\dev\roo-extensions' | Should -BeExactly 'D:\dev\roo-extensions'
+        }
+
+        It "normalizes the drive letter only — the rest of the path is untouched" {
+            ConvertTo-SpawnCwd 'c:\MiXeD\Case\Path.txt' | Should -BeExactly 'C:\MiXeD\Case\Path.txt'
+        }
+
+        It "normalizes a bare drive-relative path (d: -> D:)" {
+            ConvertTo-SpawnCwd 'd:' | Should -BeExactly 'D:'
+        }
+
+        It "leaves UNC paths unchanged" {
+            ConvertTo-SpawnCwd '\\server\share\repo' | Should -BeExactly '\\server\share\repo'
+        }
+
+        It "leaves relative paths unchanged" {
+            ConvertTo-SpawnCwd 'repo\sub' | Should -BeExactly 'repo\sub'
+        }
+
+        It "leaves the long-path prefix form unchanged (no prefix stripping, no drive re-case)" {
+            ConvertTo-SpawnCwd '\\?\d:\dev\repo' | Should -BeExactly '\\?\d:\dev\repo'
+        }
+    }
+
+    Context "Wiring - #3345 spawn-cwd normalization in claude launchers" {
+
+        # NOTE (review ai-01 18/11): the call checks are AST-based, not regex — a
+        # textual -match also passes when the helper name only appears in a comment.
+        # Parsing the file and finding actual CommandAst nodes proves an executable
+        # call exists, which is mutation-sensitive to removal of the call.
+
+        BeforeAll {
+            $script:Launchers = @(
+                'scripts/dashboard-scheduler/spawn-claude.ps1',
+                'scripts/scheduling/start-vibe-worker.ps1',
+                'scripts/scheduling/start-meta-audit.ps1',
+                'scripts/claude/run-eval-harness.ps1',
+                'scripts/scheduling/start-claude-worker.ps1',
+                'scripts/scheduling/start-claude-coordinator.ps1'
+            )
+            $script:LauncherAsts = @{}
+            foreach ($rel in $script:Launchers) {
+                $src = Get-Content (Join-Path $projectRoot $rel) -Raw
+                $tokens = $null; $parseErrors = $null
+                $script:LauncherAsts[$rel] = [System.Management.Automation.Language.Parser]::ParseInput(
+                    $src, [ref]$tokens, [ref]$parseErrors)
+            }
+        }
+
+        It "every claude-spawning launcher dot-sources path-guards.ps1" {
+            foreach ($rel in $script:Launchers) {
+                $src = Get-Content (Join-Path $projectRoot $rel) -Raw
+                ($src -match 'path-guards\.ps1') | Should -Be $true -Because $rel
+            }
+        }
+
+        It "every claude-spawning launcher EXECUTES ConvertTo-SpawnCwd (AST command call, not a comment)" {
+            foreach ($rel in $script:Launchers) {
+                $calls = $script:LauncherAsts[$rel].FindAll({ param($node)
+                    $node -is [System.Management.Automation.Language.CommandAst] -and
+                    $node.GetCommandName() -eq 'ConvertTo-SpawnCwd' }, $true)
+                @($calls).Count | Should -BeGreaterThan 0 -Because $rel
+            }
+        }
+
+        It "start-vibe-worker.ps1 normalizes BOTH resolution branches (workspace AND fallback PWD)" {
+            # Review ai-01 18/11: the fallback branch used to keep the inherited PWD
+            # unnormalized — an inherited lowercase drive survived just because no
+            # workspace path was resolved. Both branches must route their Set-Location
+            # through the helper.
+            $rel = 'scripts/scheduling/start-vibe-worker.ps1'
+            $setLocations = $script:LauncherAsts[$rel].FindAll({ param($node)
+                $node -is [System.Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -eq 'Set-Location' }, $true)
+            $normalized = @($setLocations | Where-Object {
+                @($_.FindAll({ param($n)
+                    $n -is [System.Management.Automation.Language.CommandAst] -and
+                    $n.GetCommandName() -eq 'ConvertTo-SpawnCwd' }, $true)).Count -gt 0 })
+            @($setLocations).Count | Should -Be 2
+            $normalized.Count | Should -Be 2
+        }
+    }
 }

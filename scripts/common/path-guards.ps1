@@ -285,3 +285,36 @@ function Remove-ReparsePointsUnder {
     }
     return @{ AllUnlinked = ($failed.Count -eq 0); Unlinked = $unlinked; Failed = $failed }
 }
+
+function ConvertTo-SpawnCwd {
+    <#
+    .SYNOPSIS
+        Upper-cases the drive letter of a Windows path (#3345 D1 spawn-site repair).
+    .DESCRIPTION
+        Claude Code's isolation-worktree provisioner compares the session cwd
+        against git's resolved working tree case-sensitively (upstream
+        anthropics/claude-code#91618, still OPEN). A lowercase drive letter
+        (d:\dev\...) makes it refuse its OWN generated worktree before the agent
+        starts, leaving a locked orphan behind. #4805 verified the recipe on a
+        two-arm canary: passing an UPPERCASE drive (D:\dev\...) provisions again.
+
+        Every launcher that spawns `claude` (spawn-claude.ps1, start-*-worker /
+        coordinator / meta-audit, run-eval-harness) routes its WorkingDirectory
+        through this helper so the child's cwd matches git's toplevel casing.
+
+        Idempotent: an already-uppercase drive is returned unchanged. UNC
+        (\\server\share), relative and long-path-prefixed (\\?\...) forms are
+        returned unchanged. No character other than the drive letter is touched.
+    .EXAMPLE
+        ConvertTo-SpawnCwd 'd:\dev\roo-extensions'   # -> 'D:\dev\roo-extensions'
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+    if ($Path -match '^([a-z]):(.*)$') {
+        return $Matches[1].ToUpperInvariant() + ':' + $Matches[2]
+    }
+    return $Path
+}

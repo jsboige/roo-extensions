@@ -132,6 +132,11 @@ if ([string]::IsNullOrWhiteSpace($Workspace)) {
     $Workspace = Split-Path (Get-Location) -Leaf
 }
 
+# #3345 D1: spawn-cwd guard — the harness children inherit this script's cwd, and
+# Claude Code refuses its own isolation worktree when the drive letter is lowercase
+# (upstream anthropics/claude-code#91618).
+. (Join-Path $PSScriptRoot '..\common\path-guards.ps1')
+
 # Workspace path resolution: profile wins, else workspace-paths.json, else CWD
 $WorkspacePath = ""
 if ($profileObj -and $profileObj.workspacePath) {
@@ -148,9 +153,13 @@ if ($profileObj -and $profileObj.workspacePath) {
     }
 }
 if (-not [string]::IsNullOrWhiteSpace($WorkspacePath) -and (Test-Path $WorkspacePath)) {
-    Set-Location $WorkspacePath
+    Set-Location (ConvertTo-SpawnCwd $WorkspacePath)   # #3345 D1: uppercase drive for the child cwd
     Write-Log "Working directory: $WorkspacePath"
 } else {
+    # #3345 D1 (review ai-01 18/11): the fallback branch also spawns the harness
+    # from the inherited cwd — normalize it too, a lowercase drive letter must not
+    # survive into the child's session cwd just because no workspace was resolved.
+    Set-Location (ConvertTo-SpawnCwd $PWD.Path)
     Write-Log "No workspace path resolved for '$Workspace' — running from $PWD" "WARN"
 }
 

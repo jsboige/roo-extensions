@@ -66,6 +66,9 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
+# #3345 D1: spawn-cwd guard (see path-guards.ps1) — Claude Code refuses its own
+# isolation worktree when the child cwd's drive letter case mismatches git's toplevel.
+. (Join-Path $ScriptDir '..\common\path-guards.ps1')
 $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_META_AUDIT_LOG_DIR)) {
     $env:CLAUDE_META_AUDIT_LOG_DIR
 } else {
@@ -416,7 +419,7 @@ try {
     $env:MCP_TOOL_TIMEOUT = $McpToolTimeoutMs
     $ClaudeProcess = Start-Process -FilePath $ClaudeCmd `
         -ArgumentList $ClaudeArgs `
-        -WorkingDirectory $RepoRoot `
+        -WorkingDirectory (ConvertTo-SpawnCwd $RepoRoot) `
         -RedirectStandardInput $PromptFile `
         -RedirectStandardOutput $RawOutputFile `
         -RedirectStandardError $RawErrorFile `
