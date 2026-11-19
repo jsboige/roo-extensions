@@ -260,12 +260,19 @@ foreach ($pr in $prList) {
             Write-Log "CI: $ciPassed/$($ciChecks.Count) checks passed" "OK"
         }
 
-        # #4150 lot 5 suite (APPROVE #4628, trou a) : exiger au moins un run
-        # build-and-test, comme pr-review-and-merge — ici en WARN (le bot audite,
-        # il ne merge pas) : un rollup sans build-and-test n'est pas un CI certifié.
-        $bat = @($ciChecks | Where-Object { $_.name -match "build-and-test" })
-        if ($bat.Count -eq 0) {
-            Write-Log "PR #$prNumber has no build-and-test check-run — CI not certified (empty build-and-test set)" "WARN"
+        # #4150 lot 5 suite (APPROVE #4628, trou a) : exiger au moins un run du
+        # profil CI du dépôt, comme pr-review-and-merge — ici en WARN (le bot audite,
+        # il ne merge pas) : un rollup sans run du profil n'est pas un CI certifié.
+        # #4150 (garde sous-dépôt) : le profil dépend du DÉPÔT — un dépôt sans profil
+        # déclaré ne peut pas être certifié (fail-closed, WARN).
+        $ciProfile = Get-CiCheckProfile -Repo $Repo
+        if (-not $ciProfile.Ok) {
+            Write-Log "PR #$prNumber repo $Repo has no CI check profile — CI not certified (unknown repo)" "WARN"
+        } else {
+            $bat = @($ciChecks | Where-Object { $_.name -match $ciProfile.Pattern })
+            if ($bat.Count -eq 0) {
+                Write-Log "PR #$prNumber has no $($ciProfile.Label) check-run — CI not certified (empty $($ciProfile.Label) set)" "WARN"
+            }
         }
     }
     else {

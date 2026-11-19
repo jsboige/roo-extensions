@@ -665,18 +665,18 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         @($gate.Failed).Count  | Should -Be 0
     }
 
-    It 'trou a (APPROVE #4628) : pr-review-and-merge exige au moins un run build-and-test — un ensemble vide ne passe plus pour « CI passed »' {
+    It 'trou a (APPROVE #4628) : pr-review-and-merge exige au moins un run du profil CI — un ensemble vide ne passe plus pour « CI passed »' {
         $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
         $pram | Should -Match '\$ciChecks\.Count -eq 0'
-        $pram | Should -Match 'No build-and-test check-runs found'
+        $pram | Should -Match 'cannot certify CI \(empty set is not green\)'
         # Le bloc vide est AVANT le verdict « CI passed » (ancre ASCII : console 5.1).
         $pram | Should -Match '(?s)\$ciChecks\.Count -eq 0.*?CI passed'
     }
 
-    It 'trou a : review-bot signale un rollup sans build-and-test (WARN, non bloquant — le bot audite, ne merge pas)' {
+    It 'trou a : review-bot signale un rollup sans run du profil CI (WARN, non bloquant — le bot audite, ne merge pas)' {
         $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
-        $bot | Should -Match 'build-and-test check-run'
         $bot | Should -Match 'CI not certified'
+        $bot | Should -Match 'Get-CiCheckProfile'
     }
 
     It 'lot 6 (INFO ai-01) : la liste des statuts pending n existe plus qu en UN endroit dans Get-CiRollupGate' {
@@ -696,6 +696,56 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match 'proceeding without CI gate'
         $bot | Should -Match 'no CI check-runs at all'
         $bot | Should -Match 'CI not certified \(empty rollup\)'
+    }
+}
+
+Describe 'Get-CiCheckProfile — profil CI par dépôt (#4150 garde sous-dépôt)' {
+    # Reproduction du refus dry-run ms#1806 : le profil parent (« build-and-test »)
+    # appliqué au sous-dépôt rendait un ensemble VIDE alors que 7 jobs étaient verts.
+
+    It 'parent : jsboige/roo-extensions -> profil build-and-test' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/roo-extensions'
+        $p.Ok    | Should -BeTrue
+        $p.Label | Should -Be 'build-and-test'
+        'build-and-test (20)' | Should -Match $p.Pattern
+        'build-and-test'      | Should -Match $p.Pattern
+    }
+
+    It 'sous-dépôt : jsboige/jsboige-mcp-servers -> profil build/test/lint (les 7 jobs réels)' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $p.Ok | Should -BeTrue
+        # Forme EXACTE du rollup ms#1806 (head 24d2ddac, mesuré REST 19/11) :
+        $realJobs = @(
+            'test (jupyter-mcp-server)', 'test (jinavigator-server)',
+            'roo-state-manager', 'lint (jupyter-mcp-server)',
+            'lint (jinavigator-server)', 'docs', 'test-sk-agent'
+        )
+        $selected = @($realJobs | Where-Object { $_ -match $p.Pattern })
+        $selected.Count | Should -Be 7
+        # Un job « build-and-test » n'existe PAS au sous-dépôt : l'ancien motif dur
+        # rendait 0 run -> refus. Le nouveau motif les sélectionne TOUS.
+        'build-and-test' | Should -Not -Match $p.Pattern
+    }
+
+    It 'dépôt INCONNU : refus fail-closed (Ok = $false), jamais de repli parent muet' {
+        $p = Get-CiCheckProfile -Repo 'someone/unknown-repo'
+        $p.Ok      | Should -BeFalse
+        $p.Pattern | Should -BeNullOrEmpty
+    }
+
+    It 'le motif est insensible à la casse du dépôt (ToLowerInvariant)' {
+        $p = Get-CiCheckProfile -Repo 'JSBOIGE/Roo-Extensions'
+        $p.Ok | Should -BeTrue
+    }
+
+    It 'sentinelle : pr-review-and-merge et review-bot passent par Get-CiCheckProfile (plus de motif build-and-test en dur)' {
+        $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
+        $bot  = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        foreach ($src in @($pram, $bot)) {
+            $src | Should -Match 'Get-CiCheckProfile'
+            # Le filtre dur `-match "build-and-test"` ne pilote plus la sélection.
+            $src | Should -Not -Match '\-match\s+"build-and-test"'
+        }
     }
 }
 

@@ -335,6 +335,48 @@ function ConvertFrom-RestCheckRun {
     }
 }
 
+function Get-CiCheckProfile {
+    <#
+    .SYNOPSIS
+        Résout le PROFIL CI d'un dépôt : le motif regex qui sélectionne les check-runs
+        de build/test dans un rollup, et le libellé du profil pour les messages.
+    .DESCRIPTION
+        #4150 (garde CI sous-dépôt, dispatch ai-01 19/11) : pr-review-and-merge
+        sélectionnait les check-runs par `-match "build-and-test"` en DUR — le profil
+        du dépôt PARENT (roo-extensions). Sur le SOUS-DÉPÔT (jsboige-mcp-servers), les
+        jobs s'appellent `test (…)`, `lint (…)`, `roo-state-manager`, `docs`,
+        `test-sk-agent` — aucun `build-and-test` : le dry-run de fusion refusait une PR
+        dont les 7 jobs étaient verts (« No build-and-test check-runs found », mesuré
+        sur ms#1806 head 24d2ddac). Le trou est dans la SÉLECTION, pas dans le
+        classifieur (Get-CiRollupGate, lot 4a, reste la source de Pending/Failed).
+        Un dépôt INCONNU est REFUSÉ (Ok = $false) : sans profil déclaré, la garde ne
+        peut pas certifier la CI — elle ne retombe JAMAIS sur le profil parent par
+        défaut (ce serait rejouer le bug sur tout nouveau dépôt). Le profil est une
+        liste de PASSAGE de noms de jobs : il sélectionne les runs que la porte classe
+        ensuite ; il ne certifie rien lui-même.
+    .OUTPUTS
+        @{ Ok = bool; Label = string; Pattern = string }
+        Ok = $false -> dépôt sans profil : l'appelant refuse (fail-closed).
+    #>
+    param([Parameter(Mandatory)][string]$Repo)
+
+    $key = "$Repo".ToLowerInvariant()
+    switch ($key) {
+        'jsboige/roo-extensions' {
+            return @{ Ok = $true; Label = 'build-and-test'; Pattern = 'build-and-test' }
+        }
+        'jsboige/jsboige-mcp-servers' {
+            # Jobs réels du sous-dépôt (mesuré ms#1806) : test/lint matricés par serveur,
+            # roo-state-manager, docs, test-sk-agent. Le motif couvre les jobs de
+            # build/test/lint — les seuls qui attestent le code.
+            return @{ Ok = $true; Label = 'build/test/lint'; Pattern = '^(test|lint)\s*\(|^roo-state-manager$|^test-sk-agent$|^docs$' }
+        }
+        default {
+            return @{ Ok = $false; Label = 'unknown'; Pattern = $null }
+        }
+    }
+}
+
 function Get-CiRollupGate {
     <#
     .SYNOPSIS
