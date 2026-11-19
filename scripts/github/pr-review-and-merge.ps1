@@ -222,6 +222,19 @@ if (-not $ciProfile.Ok) {
 # l'ancien test PENDING/FAILED/EXPECTED sur .status lisait le vocabulaire des
 # commit-status legacy : un rouge (COMPLETED + FAILURE) ne bloquait jamais.
 $ciChecks = @($pr.statusCheckRollup | Where-Object { $_.name -match $ciProfile.Pattern })
+
+# #4838 review : un rollup PARTIEL n'est pas une CI verte. La classification ci-dessous
+# juge les runs présents ; elle ne voit pas les jobs absents — « docs: SUCCESS » seul
+# passait avec 1 run sur 7 au sous-dépôt. Required est $null sur le parent : ce bloc
+# est invisible pour lui et son comportement « au moins un run » reste inchangé.
+$ciMissing = Get-CiMissingRequiredChecks -Profile $ciProfile -Checks $ciChecks
+if ($ciMissing.Count -gt 0) {
+    Write-Host "✗ Incomplete $($ciProfile.Label) rollup — missing required check-run(s):" -ForegroundColor Red
+    $ciMissing | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+    Write-Host "Cannot merge. A partial rollup does not certify CI." -ForegroundColor Red
+    exit 1
+}
+
 $ciGate = Get-CiRollupGate -Checks $ciChecks
 $ciPending = $ciGate.Pending
 $ciFailed = $ciGate.Failed

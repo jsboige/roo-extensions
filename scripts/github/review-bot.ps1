@@ -272,6 +272,14 @@ foreach ($pr in $prList) {
             $bat = @($ciChecks | Where-Object { $_.name -match $ciProfile.Pattern })
             if ($bat.Count -eq 0) {
                 Write-Log "PR #$prNumber has no $($ciProfile.Label) check-run — CI not certified (empty $($ciProfile.Label) set)" "WARN"
+            } else {
+                # #4838 review : complétude du rollup — le bot audite (WARN, il ne
+                # merge pas), mais un job inconditionnel absent n'est pas un CI
+                # certifié, exactement comme un profil sans aucun run.
+                $missing = Get-CiMissingRequiredChecks -Profile $ciProfile -Checks $bat
+                if (@($missing).Count -gt 0) {
+                    Write-Log "PR #$prNumber CI not certified (incomplete $($ciProfile.Label) rollup, missing: $(@($missing) -join ', '))" "WARN"
+                }
             }
         }
     }
