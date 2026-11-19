@@ -13,7 +13,7 @@
 | Metric | Count |
 |--------|-------|
 | **Total models** | 9 (9 enabled, 0 disabled) |
-| **Top-level agents** | 42 |
+| **Top-level agents** | 43 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
 | **MCP plugins** | 6 |
@@ -25,7 +25,7 @@
 
 | ID | Provider / Base URL | Context | Vision | Thinking | Enabled | Description |
 |----|---------------------|---------|--------|----------|---------|-------------|
-| `glm-5.3` | 192.168.0.50:3000/v1 | 200000 | N | Y | Y | GLM-5.3 reasoning via the fleet hub — quality roles. Supersedes glm-5.1/glm-5 (user mandate 22/09: glm-5.1 obsolete). |
+| `glm-5.3` | 192.168.0.50:3000/v1 | 200000 | N | Y | Y | GLM-5.3 reasoning via the fleet hub — quality roles. Supersedes glm-5.1/glm-5 (user mandate 22/09: glm-5.1 obsolete). request_timeout_s 1200 (measured po-2028 18/11, nb_coder verify #27104): GLM-5.3 thinking on the ~97K-char verify prompt exceeds 10 min; the undeclared 300 s client budget killed the call at exactly 600 s (APITimeoutError after the openai retry). The coupled call_agent wait_for ceiling follows the declared budget (#3797). |
 | `glm-5.3-flash` | 192.168.0.50:3000/v1 | 131072 | N | N | Y | GLM-5.3-Flash via the fleet hub — fast/cheap text roles. Supersedes glm-5.1-fast/glm-5-fast/glm-4.7-flash. vision=false on purpose: the hub strips image parts (#794); cloud vision waits for the claudish passthrough fix. 320B/18B active, MIT (#3389). |
 | `frognano-4b` | 192.168.0.50:3000/v1 | 32768 | N | N | Y | FrogNano-4B (alias `mini`) — fleet mini tier, po-2025, Apache 2.0, 32K context served. RL-trained on corrective missions (Leaf 5-tool format); tool-calling qwen3_coder validated in a real multi-turn loop. Economy routing (#63): send it reading and mechanical recomputation against objective criteria, keep judgement on the medium. enable_thinking=false is declared both as a profile flag and via extra_body so it holds on the conversation path too (#2002). |
 | `swift-1.5-27b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Swift-1.5-27B (Qwen3.8 base, AWQ W4A16) — fleet vLLM medium (ai-01), 262K ctx, vision+thinking. Canonical id since 11/10 (fleet audit #3411, option A): the served engine name, so list_agents states what actually runs. Supersedes a pre-rename alias id (template alias retired 2026-11-15, #3401) — the succeeds field lets a not-yet-synced seat inherit its local pre-rename entry's key and endpoint. Fleet default since 22/09 (user mandate). |
@@ -81,6 +81,7 @@
 | `mini-summarizer` | `frognano-4b` | markitdown | N | Mini tier — summarization of texts and documents, and the flagship token-economy delegation: a big model reads a long document once, then delegates the condensation. DELEGATE HERE: condensation to a fixed, structured shape. Tools: markitdown (documents to Markdown). Economy (#63): the summarization itself is mechanical once the shape is fixed; keep the interpretation of the summary on the medium. |
 | `mini-web-research` | `frognano-4b` | searxng | N | Mini tier — web research relay: run the searches and return the raw findings with their sources, without interpretation. DELEGATE HERE: source collection against a precise question. Tools: searxng. Economy (#63): collection is mechanical; the weighing of sources and the conclusion stay on the medium. |
 | `swift-delegator` | `swift-1.5-27b` | sk_agent | N | Fleet medium (Swift-1.5-27B) that works by delegation: it keeps the judgement and hands the mechanical sub-tasks to the mini tier through the sk_agent plugin. DELEGATE TO IT: a task whose answer is a decision plus a set of short, tool-backed, verifiable sub-tasks. The child presets are mini-coder-fix, mini-repo-scan, mini-summarizer, mini-web-research — each states in its own description what it accepts and that code goes in the prompt. |
+| `pass-resumer` | `glm-5.3` | open_terminal | N | Medium tier — finalizes an inherited work pass. CALL IT WITH (the scheduler owns the pass and writes the prompt): (1) the inherited WORKTREE PATH — disk state is the truth of the pass; (2) the pass OBJECTIVE in 1-3 lines (the correction to finalize); (3) a BOUNDED summary of the dead pass, max 4000 chars — last actions, last known state, death point — NEVER the history or a transcript; (4) the EXPECTED DELIVERABLE (test to pass / file to produce / command that proves). The preset has no conversation history: anything not in the prompt must be re-derived from the worktree. Economy (#63): finalization is judgement on partial work — medium, not mini. |
 
 ## Inline Agents (conversation-scoped)
 
