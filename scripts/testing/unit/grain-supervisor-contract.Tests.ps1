@@ -1,8 +1,9 @@
 # grain-supervisor-contract.Tests.ps1
 #
 # Offline contract tests for #4833. No Agent invocation, sk-agent workflow,
-# network, provider credential or paid proof run. A real end-to-end PR run
-# remains a separate acceptance criterion.
+# network, provider credential or paid proof run. The end-to-end run was
+# observed on 2026-11-20 (see the acceptance section of the doc); these
+# tests stay offline.
 #
 # ASCII only: Windows PowerShell 5.1 reads BOM-less .ps1 as ANSI.
 # Run:
@@ -48,7 +49,8 @@ BeforeAll {
             'cost-wall' = @{ File = 'agent'; Pattern = 'duree murale totale et par etape' }
             'cost-tokens' = @{ File = 'agent'; Pattern = 'tokens input/output/cached' }
             'not-exposed' = @{ File = 'agent'; Pattern = 'NOT_EXPOSED' }
-            'acceptance-pending' = @{ File = 'doc'; Pattern = 'ne peut pas etre declare entierement accepte' }
+            'acceptance-observed' = @{ File = 'doc'; Pattern = 'Run de preuve' }
+            'acceptance-pr-evidence' = @{ File = 'doc'; Pattern = 'jsboige-mcp-servers/pull/1826' }
         }
 
         $findings = @()
@@ -154,8 +156,10 @@ Describe 'grain-supervisor routing and delivery contract' {
         $script:docText | Should -Match 'Opus/Fable natif exige necessite, cout approuve et justification ecrite'
     }
 
-    It 'does not claim the paid end-to-end acceptance has happened' {
+    It 'records an observed end-to-end run with its evidence and cost' {
         $script:docText | Should -Match 'ne lancent ni Agent, ni workflow sk-agent, ni appel payant'
-        $script:docText | Should -Match 'ne peut pas etre declare entierement accepte'
+        $script:docText | Should -Match 'Run de preuve'
+        $script:docText | Should -Match 'jsboige-mcp-servers/pull/1826'
+        $script:docText | Should -Match 'NOT_EXPOSED'
     }
 }
