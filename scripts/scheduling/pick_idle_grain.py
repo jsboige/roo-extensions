@@ -326,9 +326,13 @@ def cited_issues_by_open_prs(prs: list) -> dict:
     alors que ms#1798 la portait, #4824 rendue alors que ms#1805 la portait.
     C'est la politique de la garde anti-double-claim du skill executor (match
     par numero dans les DEUX depots, frontiere de mot, puis relecture du corps
-    au candidat retenu). Sur-exclusion assumee : un numero cite par une PR de
-    l'autre depot peut designer un objet different - le cout est un skip et une
-    relecture, jamais un double-claim (l'inverse couterait le travail entier).
+    au candidat retenu). Le fan-out s'applique a TOUTE source de numero ci-
+    dessous, titres ET closing-refs du corps (`Closes/Fixes/Resolves #N`) : un
+    `Closes #123` de PR submodule exclut l'issue parent roo#123 homonyme, meme
+    sur-exclusion assumee que pour les titres. Sur-exclusion assumee : un
+    numero cite par une PR de l'autre depot peut designer un objet different -
+    le cout est un skip et une relecture, jamais un double-claim (l'inverse
+    couterait le travail entier).
 
     `delivered` fournit les PRs deja collectees - aucun appel API en plus.
     """
