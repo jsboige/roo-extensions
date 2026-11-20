@@ -277,6 +277,51 @@ ferme. L'empreinte de la sonnerie ne porte que le lot réparable, donc une nouve
 escalade de défaut connu ne re-sonne pas le même jour. **Ajouter une entrée à
 `KNOWN_HOST_DEFECTS` exige une PR citant l'issue du défaut de l'hôte.**
 
+### Panne du lecteur de l'organe — rangée à part (GO coordinateur 20/11/2026, #4729)
+
+Une escalade peut être la panne de **l'instrument lui-même** : l'organe du siège a
+rendu `exit 1` (lecteur PG non configuré, `MCP_PROXY_BEARER` absent du processus,
+miroir non autoritatif) et la lane a escaladé **ce fait**. Un `[REPAIRED]` de lane
+ne ferme pas cette escalade tant que le lecteur manque — et le compteur
+« délai dépassé » gonflait d'entrées qu'aucune lane ne pouvait fermer, surestimant
+la dette de service (constat 20/11 00:21Z : 8 escalades sur 30, ≥ 6 sièges).
+
+L'organe range ces escalades **à part**, comme les défauts d'hôte #4730 : section
+nommée dans la sonnerie (avec le remède), marque `A-PART`, `overdue_reader_defect`
+en JSON, exclusion de l'empreinte quotidienne. Elles restent **ouvertes**,
+**visibles** et **dues** (exit `2` inchangé) — mais le compteur principal ne
+compte plus que la dette de service. Contrairement au défaut d'hôte, cette famille
+**se répare** :
+
+**Remède du siège (`--env-file`).** L'organe lit lui-même son fichier
+d'environnement (`MCP_PROXY_BEARER` / `MCP_PROXY_URL` / `MCP_PROXY_BASE_URL`,
+défaut `%USERPROFILE%\.roo-state-manager\stall-detector.env` — celui que dépose
+le lanceur compagnon ; sur un siège sans lanceur, tout fichier `CLE=valeur` portant
+déjà le bearer convient, rien n'est copié ni imprimé) :
+
+```bash
+python scripts/diagnostic/check-degraded-escalations.py --env-file <fichier-du-siège>
+```
+
+Mesuré sur ai-01 le 20/11 : exit 2 réel, 446 lectures. Si l'organe rend ensuite
+`0`, `2` ou `3`, la lane poste son `[REPAIRED]` avec sa ligne de portée
+(`scope:`). Si le fichier n'existe pas sur le siège — ou s'il existe et que
+l'organe rend **encore** `1` pour une cause aval (ex. mesuré po-2027 20/11 : le
+RSM derrière le proxy répond `store-absent` sur SON propre montage `G:`) — la lane
+le **dit sur #4729** : c'est une panne différente de « bearer absent », elle se
+répare côté proxy/hôte, jamais par un contournement de siège.
+
+**Le motif se lit sur le code, pas sur la prose** (GO c.7032224803) : la
+classification (`classify_reader_defect`) exige la conjonction de la citation
+littérale du code de sortie (`rc=1`, `exit 1`, `retourne 1`…) ou du nom de
+l'organe, avec le vocabulaire du lecteur (`lecteur`, `bearer`, `mcp_proxy`,
+`roosync_dashboard`, et `pg`/`store`/`miroir` seulement à côté du nom de
+l'organe) — jamais une interprétation sémantique du récit. Frontières de mot
+partout (`pg` dans « chatgpt » ne compte pas, `rc=1` dans « rc=15 » non plus).
+Un post qui relève des deux familles reste compté une seule fois, en défaut
+d'hôte. Un mutant sans classification fait rougir le témoin du selftest et le
+test unitaire (`ReaderDefectSetAside`).
+
 ---
 
 ## Lecture du store sous charge (#4729)

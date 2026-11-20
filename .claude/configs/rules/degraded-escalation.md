@@ -60,6 +60,7 @@ dans les temps entre 2 cycles. Pas de workaround consacré. »
 ```bash
 python scripts/diagnostic/check-degraded-escalations.py            # exit 0/3/2/1
 python scripts/diagnostic/check-degraded-escalations.py --ring     # sonnerie ASK-USER sur le global
+python scripts/diagnostic/check-degraded-escalations.py --env-file <fichier>  # remede exit 1 : bearer du siege (#4729)
 ```
 
 | Exit | Sens | Action |
