@@ -380,17 +380,27 @@ READER_DEFECT_EXIT_MARKERS = (
     "rc=1", "rc 1", "exit 1", "exit code 1", "code 1", "sortie 1",
     "retourne 1", "rend 1", "rendait 1",
 )
+# Vocabulaire de l'INSTRUMENT lui-meme. « lecteur » nu est retire (review
+# ai-01 20/11) : « le lecteur de videos rend exit 1 » n'est pas notre panne ;
+# seules les formes composees du label comptent, apostrophe droite ou
+# typographique (les deux existent dans les posts reels).
 READER_DEFECT_READER_MARKERS = (
-    "lecteur", "bearer", "mcp_proxy", "check-degraded-escalations",
-    "roosync_dashboard",
+    "lecteur de l'organe", "lecteur de l’organe", "bearer", "mcp_proxy",
+    "check-degraded-escalations", "roosync_dashboard",
 )
-# Chemin B seulement : « pg », « store » et « miroir » ne sont acceptables
-# qu'adjacents au nom de l'organe, sinon « PG down, export exit 1 » (panne de
-# SERVICE du store) ou « image miroir Docker relancee » seraient rangies a
-# tort parmi les pannes d'instrument.
+# Echec de LECTURE : code de sortie de l'instrument OU acte de lire rate.
+# « lecture » nu n'est acceptable que dans le chemin B, ou il est deja
+# accompagne du nom de l'organe ET d'un marqueur store.
+READER_DEFECT_READ_FAILURE_MARKERS = READER_DEFECT_EXIT_MARKERS + (
+    "ne lit pas", "pas lu", "non lu", "lecture", "store-absent",
+)
+# Chemin B : nom de l'organe + store + ECHEC DE LECTURE. Le nom de l'organe
+# seul ne suffit JAMAIS (review ai-01 20/11) : « check-degraded-escalations
+# a sonne 30 echeances » est un instrument sain, et « l'organe a detecte :
+# PG down, export en echec » est une panne de SERVICE rapportee par un
+# lecteur sain -- ni l'un ni l'autre ne sort du compteur principal.
 READER_DEFECT_ORGAN_NAMES = ("check-degraded-escalations", "organe")
-READER_DEFECT_STORE_MARKERS = (READER_DEFECT_READER_MARKERS
-                               + ("pg", "store", "miroir"))
+READER_DEFECT_STORE_MARKERS = ("pg", "store", "miroir")
 
 
 def _marker_in(word, lowered):
@@ -422,7 +432,11 @@ def classify_reader_defect(text):
         return True
     organ = any(_marker_in(w, lowered) for w in READER_DEFECT_ORGAN_NAMES)
     store = any(_marker_in(w, lowered) for w in READER_DEFECT_STORE_MARKERS)
-    return bool(organ and store)
+    failure = any(_marker_in(w, lowered)
+                  for w in READER_DEFECT_READ_FAILURE_MARKERS)
+    # Trois conjonctions : organ+store sans echec de lecture reste une
+    # panne de service rapportee (review ai-01 20/11).
+    return bool(organ and store and failure)
 
 
 def degraded_declarations(ordered):
@@ -2149,12 +2163,19 @@ le harnais au motif que Git resoudrait hors isolation
             "rc=1 du build CI, tests casses",  # pas de vocabulaire lecteur
             "D: mesure a 87,94 Gio libres",
             "l'organe a sonne 30 echeances ce matin",  # pas de panne lecteur
+            # Review ai-01 20/11 : l'instrument sain cite sans echec, la
+            # panne de SERVICE rapportee, et « lecteur » d'autre chose.
+            "check-degraded-escalations.py a sonne 30 echeances ce matin, "
+            "tout va bien",
+            "L'organe de controle a detecte : PG down, export en echec",
+            "le lecteur de videos rend exit 1",
             "",
         ):
             assert not classify_reader_defect(text), repr(text)
-        # Frontiere de mot : chatgpt ne contient pas « pg », rc=15 n'est pas
-        # « rc=1 ».
-        assert not classify_reader_defect("migration chatgpt terminee, rc=15")
+        # Frontiere de mot : « pgadmin » contient « pg » sans etre le store,
+        # rc=15 n'est pas « rc=1 » (review ai-01 20/11 : chatgpt ne
+        # contient pas « pg » et ne temoigne de rien).
+        assert not classify_reader_defect("migration pgadmin terminee, rc=15")
 
         # Fixture : une escalade d'instrument (overdue) + une de service.
         (root / "reader-defect.md").write_text(
@@ -2209,11 +2230,13 @@ le harnais au motif que Git resoudrait hors isolation
         # le compteur principal et le verdict perd sa decomposition.
         saved = (globals()["READER_DEFECT_EXIT_MARKERS"],
                  globals()["READER_DEFECT_READER_MARKERS"],
+                 globals()["READER_DEFECT_READ_FAILURE_MARKERS"],
                  globals()["READER_DEFECT_ORGAN_NAMES"],
                  globals()["READER_DEFECT_STORE_MARKERS"])
         try:
             globals()["READER_DEFECT_EXIT_MARKERS"] = ()
             globals()["READER_DEFECT_READER_MARKERS"] = ()
+            globals()["READER_DEFECT_READ_FAILURE_MARKERS"] = ()
             globals()["READER_DEFECT_ORGAN_NAMES"] = ()
             globals()["READER_DEFECT_STORE_MARKERS"] = ()
             assert classify_reader_defect(
@@ -2230,6 +2253,7 @@ le harnais au motif que Git resoudrait hors isolation
         finally:
             (globals()["READER_DEFECT_EXIT_MARKERS"],
              globals()["READER_DEFECT_READER_MARKERS"],
+             globals()["READER_DEFECT_READ_FAILURE_MARKERS"],
              globals()["READER_DEFECT_ORGAN_NAMES"],
              globals()["READER_DEFECT_STORE_MARKERS"]) = saved
         # Le mutant rendu : la classification est bien revenue.

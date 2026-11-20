@@ -16,6 +16,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1713,6 +1714,12 @@ class ReaderDefectSetAside(unittest.TestCase):
             "et signale son miroir perime",
             "Instrument check-degraded-escalations.py sur myia-po-2027 : "
             "deux passes completes terminent exit 1, aucun verdict opposable",
+            # Posts reels du 20/11 (review ai-01) : chemin B durci, sans
+            # code de sortie litteral.
+            "Le lecteur G: est absent sur ai-01 ; les dashboards s'ecrivent "
+            "en PG seul ; echeance de l'organe, verifier l'acces en lecture",
+            "la lecture de l'organe des escalades par le proxy RSM d'ai-01 "
+            "(store-absent)",
         ):
             self.assertTrue(cde.classify_reader_defect(text), repr(text))
 
@@ -1722,7 +1729,13 @@ class ReaderDefectSetAside(unittest.TestCase):
             "le runner Docker exit 1, image miroir relancee",  # service
             "rc=1 du build CI, tests casses",
             "l'organe a sonne 30 echeances ce matin",
-            "migration chatgpt terminee, rc=15",  # frontieres de mot
+            # Review ai-01 20/11 : instrument sain cite, panne de service
+            # rapportee, « lecteur » d'autre chose.
+            "check-degraded-escalations.py a sonne 30 echeances ce matin, "
+            "tout va bien",
+            "L'organe de controle a detecte : PG down, export en echec",
+            "le lecteur de videos rend exit 1",
+            "migration pgadmin terminee, rc=15",  # « pg » dans « pgadmin »
             "",
         ):
             self.assertFalse(cde.classify_reader_defect(text), repr(text))
@@ -1766,11 +1779,13 @@ class ReaderDefectSetAside(unittest.TestCase):
         # testent rien.
         saved = (cde.READER_DEFECT_EXIT_MARKERS,
                  cde.READER_DEFECT_READER_MARKERS,
+                 cde.READER_DEFECT_READ_FAILURE_MARKERS,
                  cde.READER_DEFECT_ORGAN_NAMES,
                  cde.READER_DEFECT_STORE_MARKERS)
         try:
             cde.READER_DEFECT_EXIT_MARKERS = ()
             cde.READER_DEFECT_READER_MARKERS = ()
+            cde.READER_DEFECT_READ_FAILURE_MARKERS = ()
             cde.READER_DEFECT_ORGAN_NAMES = ()
             cde.READER_DEFECT_STORE_MARKERS = ()
             self.assertFalse(cde.classify_reader_defect(
@@ -1787,10 +1802,21 @@ class ReaderDefectSetAside(unittest.TestCase):
         finally:
             (cde.READER_DEFECT_EXIT_MARKERS,
              cde.READER_DEFECT_READER_MARKERS,
+             cde.READER_DEFECT_READ_FAILURE_MARKERS,
              cde.READER_DEFECT_ORGAN_NAMES,
              cde.READER_DEFECT_STORE_MARKERS) = saved
         self.assertTrue(cde.classify_reader_defect(
             "organe rc=1, lecteur PG absent"))
+
+    def test_selftest_passes(self):
+        # Review ai-01 20/11 : sans ce temoin, une regression du selftest
+        # embarque (#4834) revient sans que la suite ne la voie.
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT), "--selftest"],
+            capture_output=True, text=True, encoding="utf-8", timeout=120)
+        self.assertEqual(proc.returncode, 0,
+                         f"stdout={proc.stdout[-500:]!r} "
+                         f"stderr={proc.stderr[-500:]!r}")
 
     def test_host_defect_takes_precedence_over_reader_mention(self):
         # Un post qui releve des DEUX familles reste compte une seule fois,

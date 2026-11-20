@@ -311,16 +311,32 @@ RSM derrière le proxy répond `store-absent` sur SON propre montage `G:`) — l
 le **dit sur #4729** : c'est une panne différente de « bearer absent », elle se
 répare côté proxy/hôte, jamais par un contournement de siège.
 
-**Le motif se lit sur le code, pas sur la prose** (GO c.7032224803) : la
-classification (`classify_reader_defect`) exige la conjonction de la citation
-littérale du code de sortie (`rc=1`, `exit 1`, `retourne 1`…) ou du nom de
-l'organe, avec le vocabulaire du lecteur (`lecteur`, `bearer`, `mcp_proxy`,
-`roosync_dashboard`, et `pg`/`store`/`miroir` seulement à côté du nom de
-l'organe) — jamais une interprétation sémantique du récit. Frontières de mot
-partout (`pg` dans « chatgpt » ne compte pas, `rc=1` dans « rc=15 » non plus).
-Un post qui relève des deux familles reste compté une seule fois, en défaut
-d'hôte. Un mutant sans classification fait rougir le témoin du selftest et le
-test unitaire (`ReaderDefectSetAside`).
+**Le motif se lit sur le code, pas sur la prose** (GO c.7032224803 ; durci par
+la review ai-01 du 20/11) : la classification (`classify_reader_defect`)
+exige la conjonction littérale de l'un de DEUX chemins, jamais une
+interprétation sémantique du récit —
+
+- **chemin A** : vocabulaire de l'instrument (`lecteur de l'organe`, `bearer`,
+  `mcp_proxy`, nom de l'organe, `roosync_dashboard`) **ET** code de sortie
+  (`rc=1`, `exit 1`, `retourne 1`…) ;
+- **chemin B** : nom de l'organe **ET** marqueur store (`pg`, `store`,
+  `miroir`) **ET** échec de lecture (code de sortie, ou `ne lit pas`,
+  `pas lu`, `non lu`, `lecture`, `store-absent`).
+
+Le nom de l'organe seul ne suffit **jamais** : « check-degraded-escalations a
+sonné 30 échéances » est un instrument sain, et « l'organe a détecté : PG
+down, export en échec » est une panne de **service** rapportée par un lecteur
+sain — ni l'un ni l'autre ne sort du compteur principal (les deux repros de
+la review du 20/11, tésés en négatif). Le marqueur `lecteur` nu est retiré :
+« le lecteur de vidéos rend exit 1 » n'est pas notre panne. Frontières de mot
+partout (`pg` dans « pgadmin » ne compte pas, `rc=1` dans « rc=15 » non
+plus). Un post qui relève des deux familles reste compté une seule fois, en
+défaut d'hôte. Un mutant sans classification fait rougir le témoin du
+selftest, le test unitaire (`ReaderDefectSetAside`) et un `--selftest`
+lancé en subprocess — sans ce dernier, la régression #4834 pouvait revenir
+sans que rien ne la voie. Vérifié sur le corpus réel du 20/11 (miroir G:) :
+les cinq posts de panne de lecteur restent rangés à part, la dette de
+service repasse à 5.
 
 ---
 
