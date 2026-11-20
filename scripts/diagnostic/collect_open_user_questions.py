@@ -345,7 +345,14 @@ def collect(boards, now):
 
 def render_markdown(data):
     total = sum(len(l["questions"]) for l in data["lanes"])
-    lines = [
+    lines = []
+    if data.get("degraded_source"):
+        # Règle 4 degraded-escalation (#4826) : une sortie dégradée ne se
+        # rapporte jamais comme un résultat normal — le label vit dans le
+        # bloc stdout lui-même, pas seulement en stderr/JSON.
+        lines.append(f"**[SOURCE DÉGRADÉE : {data['degraded_source']}]**")
+        lines.append("")
+    lines += [
         "# Questions ouvertes flotte",
         f"(reconstruit {data['generated_at']} par collect_open_user_questions.py — "
         "lecture seule, source : dashboards ; le registre local de chaque lane "
@@ -433,25 +440,39 @@ def main(argv=None):
         boards, errors = load_dashboards(paths)
         degraded_source = "miroir G: (export derive, peut etre stale/vide)"
     else:
-        organ = _load_store_reader()
-        file_values, env_warning = organ.load_organ_env_file(
-            args.env_file if args.env_file else organ.ORGAN_ENV_FILE)
-        if env_warning:
-            print(f"env-file : {env_warning}", file=sys.stderr)
-        url, bearer = organ.resolve_proxy_config(None, None, file_values)
-        boards, errors = load_dashboards_from_store(url, bearer)
+        try:
+            organ = _load_store_reader()
+            file_values, env_warning = organ.load_organ_env_file(
+                args.env_file if args.env_file else organ.ORGAN_ENV_FILE)
+            if env_warning:
+                print(f"env-file : {env_warning}", file=sys.stderr)
+            url, bearer = organ.resolve_proxy_config(None, None, file_values)
+            boards, errors = load_dashboards_from_store(url, bearer)
+        except Exception as exc:
+            # Exception d'import (lecteur store absent/cassé) ou de transport
+            # (appel levé, pas retour None) : instrument cassé, pas une lecture
+            # ratée — exit 1, distinct du 2 (review #4826).
+            print(f"exception d'import ou de transport : "
+                  f"{type(exc).__name__}: {exc}", file=sys.stderr)
+            return 1
         if errors and not boards:
             print("store PG illisible — repli miroir G: DEGRADE", file=sys.stderr)
+            for err in errors:
+                print(f"erreur de lecture store : {err}", file=sys.stderr)
             paths = default_dashboard_files(args.dashboards_dir)
             if not paths:
-                for err in errors:
-                    print(f"erreur de lecture store : {err}", file=sys.stderr)
                 print("source miroir absente ou sans dashboard — aucun verdict "
                       "de fond n'est rendu (un dashboard muet n'est pas un "
                       "« zero question »)", file=sys.stderr)
                 return 2
             boards, mirror_errors = load_dashboards(paths)
-            errors = errors + mirror_errors
+            if boards and not mirror_errors:
+                # Repli miroir RÉUSSI : rendu 0 dégradé, label en tête du bloc
+                # (review #4826) — la panne store est la RAISON du repli
+                # (stderr ci-dessus), pas un échec de l'instrument (exit 2).
+                errors = []
+            else:
+                errors = errors + mirror_errors
             degraded_source = "miroir G: (repli — store PG illisible)"
 
     if errors:

@@ -296,7 +296,7 @@ Organe **lecture seule** « questions ouvertes flotte » (#4821, directive owner
 - **Hors global** : les entrées qui posent une question au user sur un dashboard machine/workspace **sans** entrée `ASK-USER` global au moins aussi récente de la même lane — le trou exact de la directive (cas fondateur Q-P2023-9, invisible tant qu'aucun relais manuel).
 - **Déclaration ≠ mention** (contrat partagé #4517) : tag `ask-user` ou token `[ASK-USER]`/`[ASK USER]` en premier token du corps utile — jamais une citation en prose. Un `[ASK]` inter-agents n'est pas une question au user.
 - **Pas de fabrication** : une entrée dont le texte ne suit aucun format parsable est rendue « format non parsé — voir l'entrée », sans inventer de question (mesuré au premier run vivant : 3 lanes sur 5 publient en prose libre).
-- **Exit codes** : `0` bloc rendu / `2` dashboard illisible — un fichier muet n'est jamais un « zéro question » (fail-closed).
+- **Exit codes** : `0` bloc rendu — le repli miroir (store PG injoignable, miroir lisible) rend aussi `0`, **dégradé, avec le label `[SOURCE DÉGRADÉE : …]` en tête du bloc stdout** (règle 4 degraded-escalation : une sortie dégradée ne se rapporte jamais comme un résultat normal) / `1` exception d'import ou de transport (instrument cassé) / `2` dashboard illisible ou source absente — un fichier muet n'est jamais un « zéro question » (fail-closed).
 
 ```bash
 python scripts/diagnostic/collect_open_user_questions.py            # bloc markdown

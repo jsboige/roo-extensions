@@ -276,6 +276,91 @@ Deux questions en texte libre sans format Qxx.
         finally:
             couq.load_dashboards_from_store = original
 
+    # --- review #4826 : rendu dégradé étiqueté DANS le bloc stdout ----------
+
+    def test_mirror_degraded_label_heads_markdown_block(self):
+        """--mirror rend 0, mais la sortie markdown porte en TÊTE du bloc
+        stdout le label **[SOURCE DÉGRADÉE : <raison>]** (règle 4
+        degraded-escalation : une sortie dégradée ne se rapporte jamais comme
+        un résultat normal). Rouge si la ligne disparaît de render_markdown."""
+        self.dashboard("global.md", """### [2026-11-17T18:23:00.000Z] a|ws
+[tags: ASK-USER]
+
+- **Q4** (26 j, EPIC) — architecture
+""")
+        with contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()):
+            code = couq.main(["--mirror", "--dashboards-dir",
+                              str(self.root), "--now", NOW])
+        self.assertEqual(code, 0)
+        self.assertTrue(
+            out.getvalue().startswith("**[SOURCE DÉGRADÉE : miroir G:"),
+            msg="le label dégradé doit être la première ligne du bloc stdout")
+        self.assertIn("**[SOURCE DÉGRADÉE : miroir G: (export derive, "
+                      "peut etre stale/vide)]**", out.getvalue())
+
+    def test_store_fallback_degraded_label_heads_markdown_block(self):
+        """Store PG injoignable + miroir présent : repli à 0 dégradé — le bloc
+        stdout porte aussi le label (deuxième chemin dégradé, raison distincte)."""
+        self.dashboard("global.md", """### [2026-11-17T18:23:00.000Z] a|ws
+[tags: ASK-USER]
+
+- **Q4** (26 j, EPIC) — architecture
+""")
+        def fake_store(url, bearer, timeout=10.0, intercom_limit=500):
+            return [], ["store injoignable (test)"]
+        original = couq.load_dashboards_from_store
+        couq.load_dashboards_from_store = fake_store
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()):
+                code = couq.main(["--dashboards-dir",
+                                  str(self.root), "--now", NOW])
+            self.assertEqual(code, 0)
+            self.assertTrue(
+                out.getvalue().startswith("**[SOURCE DÉGRADÉE : miroir G:"),
+                msg="le label dégradé doit être la première ligne du bloc stdout")
+            self.assertIn("**[SOURCE DÉGRADÉE : miroir G: (repli — "
+                          "store PG illisible)]**", out.getvalue())
+        finally:
+            couq.load_dashboards_from_store = original
+
+    def test_transport_exception_is_one(self):
+        """Une exception de transport (appel qui LÈVE, pas qui rend None) est un
+        instrument cassé : exit 1, stdout vide — distinct du 2 (lecture ratée)."""
+        def raising_store(url, bearer, timeout=10.0, intercom_limit=500):
+            raise ConnectionError("transport mort (test)")
+        original = couq.load_dashboards_from_store
+        couq.load_dashboards_from_store = raising_store
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                code = couq.main(["--dashboards-dir",
+                                  str(self.root), "--now", NOW])
+            self.assertEqual(code, 1)
+            self.assertEqual(out.getvalue(), "")
+            self.assertIn("exception d'import ou de transport", err.getvalue())
+        finally:
+            couq.load_dashboards_from_store = original
+
+    def test_import_exception_is_one(self):
+        """Lecteur store importable pas (primitives #4517 absentes/cassées) :
+        exit 1 également — l'exception d'import ne traverse pas l'organe."""
+        original = couq._load_store_reader
+        def broken_reader():
+            raise ImportError("check-degraded-escalations illisible (test)")
+        couq._load_store_reader = broken_reader
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                code = couq.main(["--dashboards-dir",
+                                  str(self.root), "--now", NOW])
+            self.assertEqual(code, 1)
+            self.assertEqual(out.getvalue(), "")
+            self.assertIn("ImportError", err.getvalue())
+        finally:
+            couq._load_store_reader = original
+
 
 if __name__ == "__main__":
     unittest.main()
