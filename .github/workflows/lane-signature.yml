@@ -14,6 +14,10 @@ name: Lane Signature
 # AMORTISSEUR DE ROLLOUT : ENFORCED_SINCE exempte les commits anTERIEURS a la
 # regle (committer date) — les PR ouvertes avant la garde ne rougissent pas sur
 # leur historique. A retirer quand le backlog pre-regle est vide.
+# DATE RETENUE (review ai-01 20/11, 3a) : merge + 48 h — une lane ne relit son
+# CLAUDE.md global qu'au prochain demarrage apres Deploy-GlobalConfig.ps1
+# -Target claude-md ; la date reste posterieure au merge et est annoncee par le
+# post global de rollout (calcul J+2, jamais le 18/11).
 #
 # Meme forme que secret-scan (#3685) : CI systematique + pre-commit opt-in
 # (.pre-commit-config.yaml, hook local commit-msg). Les depots fils qui
@@ -33,7 +37,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ENFORCED_SINCE: "2026-11-18T00:00:00Z"
+  ENFORCED_SINCE: "2026-11-22T00:00:00Z"  # merge annonce + 48 h (20/11 -> 22/11)
 
 jobs:
   lane-signature:

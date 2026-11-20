@@ -964,8 +964,14 @@ function Get-WorkPrompt {
     # Closes line is what makes the merge actually retire the grain.
     $targetIssueNumber = if ($null -ne $TargetIssue) { [int]$TargetIssue.number } else { 0 }
 
+    # Lane-signature (#4827 review ai-01 3b): the dispatcher's commit mandate must
+    # carry the Lane: trailer, computed HERE from the checkout's workspace (the
+    # target repo, not the host lane) — after ENFORCED_SINCE an unsigned Copilot
+    # commit reddens its own PR (#4783 precedent).
+    $laneId = "$env:COMPUTERNAME:$(Split-Path $RepositoryRoot -Leaf)"
+
     $deliveryMandate = if ($CanDeliver) {
-@("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue).",
+@("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue). The commit MUST carry the trailer: Lane: $laneId (as a separate -m flag or final body line).",
 "- Then open a pull request from that branch: write the PR body to a file first, then gh pr create with a short title and --body-file <path> (never an inline body) describing the change and the issue it addresses.",
 "- The PR body MUST end with a closing line for the target issue: Closes #$targetIssueNumber (not a bare Refs mention) when #$targetIssueNumber is not zero, so the merge retires the grain.",
 "- Never push to, rebase onto, or mutate a default branch directly. If the pull request command fails, keep the commit and report the exact error in next_action.") -join "`n"
