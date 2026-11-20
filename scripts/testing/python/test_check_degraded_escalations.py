@@ -16,6 +16,7 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1672,6 +1673,162 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         entries, _ = cde.load_entries([path])
         self.assertEqual(cde.repair_notices(
             cde.collect_escalations(entries, cde.parse_ts(NOW))), [])
+
+
+class ReaderDefectSetAside(unittest.TestCase):
+    """#4729 (GO c.7032224803) : la panne du LECTEUR de l'organe (exit 1 --
+    lecteur PG absent, bearer absent du processus) est rangie a part comme
+    les defauts d'hote #4730 : ouverte, visible, due -- mais le compteur
+    principal ne compte que la dette de service. Le motif se lit sur le
+    CODE (citation litterale de exit 1 / du script + famille du lecteur),
+    jamais sur la prose."""
+
+    FIXTURE = (
+        "### [2026-11-02T22:00:00.000Z] myia-j|ws\n\n"
+        "[DEGRADED] Instrument check-degraded-escalations.py : rc=1, "
+        "lecteur PG non configure dans ce siege\n\n"
+        "### [2026-11-02T22:30:00.000Z] myia-k|ws\n\n"
+        "[DEGRADED] Pile vLLM injoignable : modeles en 500 depuis 6 h\n"
+    )
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.now = cde.parse_ts(NOW)
+        path = self.root / "reader.md"
+        path.write_text(self.FIXTURE, encoding="utf-8")
+        self.entries, errors = cde.load_entries([path])
+        assert not errors, errors
+        self.items = cde.collect_escalations(self.entries, self.now)
+        self.by_lane = {i["lane"]: i for i in self.items}
+
+    def test_real_post_paraphrases_are_classified(self):
+        # Textes paraphrases des posts reels du 19/11 : CoursIA 12:57Z,
+        # EPITA 17:48Z, claudish, po-2027:roo-extensions 11:17Z.
+        for text in (
+            "check-degraded-escalations.py rc=1, lecteur PG non configure",
+            "Le controle retourne 1 : le processus ne lit pas PG, "
+            "`MCP_PROXY_Bearer` absent du shell",
+            "check-degraded-escalations.py ne lit pas PG sur ai-01:claudish "
+            "et signale son miroir perime",
+            "Instrument check-degraded-escalations.py sur myia-po-2027 : "
+            "deux passes completes terminent exit 1, aucun verdict opposable",
+            # Posts reels du 20/11 (review ai-01) : chemin B durci, sans
+            # code de sortie litteral.
+            "Le lecteur G: est absent sur ai-01 ; les dashboards s'ecrivent "
+            "en PG seul ; echeance de l'organe, verifier l'acces en lecture",
+            "la lecture de l'organe des escalades par le proxy RSM d'ai-01 "
+            "(store-absent)",
+        ):
+            self.assertTrue(cde.classify_reader_defect(text), repr(text))
+
+    def test_service_degradations_are_not_classified(self):
+        for text in (
+            "PG down : l'export exit 1, le store ne repond plus",  # service
+            "le runner Docker exit 1, image miroir relancee",  # service
+            "rc=1 du build CI, tests casses",
+            "l'organe a sonne 30 echeances ce matin",
+            # Review ai-01 20/11 : instrument sain cite, panne de service
+            # rapportee, « lecteur » d'autre chose.
+            "check-degraded-escalations.py a sonne 30 echeances ce matin, "
+            "tout va bien",
+            "L'organe de controle a detecte : PG down, export en echec",
+            "le lecteur de videos rend exit 1",
+            "migration pgadmin terminee, rc=15",  # « pg » dans « pgadmin »
+            "",
+        ):
+            self.assertFalse(cde.classify_reader_defect(text), repr(text))
+
+    def test_only_service_stays_in_the_main_counter(self):
+        # Le critere de fin du GO : l'escalade d'instrument est due comme
+        # l'autre (exit 2, statut overdue), mais seule la dette de service
+        # porte l'empreinte de sonnerie.
+        self.assertEqual(self.by_lane["myia-j|ws"]["status"], "overdue")
+        self.assertEqual(self.by_lane["myia-k|ws"]["status"], "overdue")
+        self.assertIs(self.by_lane["myia-j|ws"]["reader_defect"], True)
+        self.assertIs(self.by_lane["myia-k|ws"]["reader_defect"], False)
+        self.assertEqual(
+            cde.verdict(self.items),
+            (2, "2 echeance(s) depassee(s) sans [REPAIRED], "
+                "1 panne(s) du lecteur de l'organe"))
+        self.assertEqual(
+            cde.build_ring_id(self.items, now=1750000000),
+            cde.build_ring_id([self.by_lane["myia-k|ws"]], now=1750000000))
+
+    def test_ring_names_the_remedy_and_keeps_items_visible(self):
+        ring = cde.build_ring_content(self.items)
+        self.assertIn("1 rangee(s) a part : panne du lecteur", ring)
+        self.assertIn("Rangees a part -- panne du lecteur", ring)
+        self.assertIn("--env-file", ring)  # le remede est nomme
+        self.assertIn("[lecteur] Instrument check-degraded-escalations", ring)
+        self.assertIn("Pile vLLM", ring)  # la dette de service reste visible
+        self.assertFalse(cde.DECLARATION_TOKEN_RE.search(ring), ring)
+
+    def test_json_totals_carry_the_subcount(self):
+        out = io.StringIO()
+        cde.report(self.items, *cde.verdict(self.items), True, stream=out)
+        totals = json.loads(out.getvalue())["totals"]
+        self.assertEqual(totals["overdue"], 2)
+        self.assertEqual(totals["overdue_reader_defect"], 1)
+        self.assertEqual(totals["overdue_known_defect"], 0)
+
+    def test_mutant_without_classification_goes_red(self):
+        # Critere de fin du GO : retirer la classification (marqueurs vides)
+        # doit changer les observables -- sinon les temoins ci-dessus ne
+        # testent rien.
+        saved = (cde.READER_DEFECT_EXIT_MARKERS,
+                 cde.READER_DEFECT_READER_MARKERS,
+                 cde.READER_DEFECT_READ_FAILURE_MARKERS,
+                 cde.READER_DEFECT_ORGAN_NAMES,
+                 cde.READER_DEFECT_STORE_MARKERS)
+        try:
+            cde.READER_DEFECT_EXIT_MARKERS = ()
+            cde.READER_DEFECT_READER_MARKERS = ()
+            cde.READER_DEFECT_READ_FAILURE_MARKERS = ()
+            cde.READER_DEFECT_ORGAN_NAMES = ()
+            cde.READER_DEFECT_STORE_MARKERS = ()
+            self.assertFalse(cde.classify_reader_defect(
+                "check-degraded-escalations.py rc=1, lecteur PG absent"))
+            mutant = cde.collect_escalations(self.entries, self.now)
+            by_lane = {i["lane"]: i for i in mutant}
+            self.assertIs(by_lane["myia-j|ws"]["reader_defect"], False)
+            self.assertEqual(
+                cde.verdict(mutant),
+                (2, "2 echeance(s) depassee(s) sans [REPAIRED]"))
+            self.assertNotEqual(
+                cde.build_ring_id(mutant, now=1750000000),
+                cde.build_ring_id(self.items, now=1750000000))
+        finally:
+            (cde.READER_DEFECT_EXIT_MARKERS,
+             cde.READER_DEFECT_READER_MARKERS,
+             cde.READER_DEFECT_READ_FAILURE_MARKERS,
+             cde.READER_DEFECT_ORGAN_NAMES,
+             cde.READER_DEFECT_STORE_MARKERS) = saved
+        self.assertTrue(cde.classify_reader_defect(
+            "organe rc=1, lecteur PG absent"))
+
+    def test_selftest_passes(self):
+        # Review ai-01 20/11 : sans ce temoin, une regression du selftest
+        # embarque (#4834) revient sans que la suite ne la voie.
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPT), "--selftest"],
+            capture_output=True, text=True, encoding="utf-8", timeout=120)
+        self.assertEqual(proc.returncode, 0,
+                         f"stdout={proc.stdout[-500:]!r} "
+                         f"stderr={proc.stderr[-500:]!r}")
+
+    def test_host_defect_takes_precedence_over_reader_mention(self):
+        # Un post qui releve des DEUX familles reste compte une seule fois,
+        # en defaut d'hote (la famille la plus forte).
+        both = dict(self.by_lane["myia-j|ws"],
+                    known_defect="#3345")
+        self.assertEqual(
+            cde.verdict([both, self.by_lane["myia-k|ws"]]),
+            (2, "2 echeance(s) depassee(s) sans [REPAIRED], "
+                "dont 1 sur defaut connu de l'hote"))
+        ring = cde.build_ring_content([both, self.by_lane["myia-k|ws"]])
+        self.assertNotIn("[lecteur]", ring)  # jamais double-rangi
 
 
 if __name__ == "__main__":
