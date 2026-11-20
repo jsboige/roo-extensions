@@ -3606,7 +3606,15 @@ function Test-WorktreeHasChanges {
                 & cmd /c "git add -u -- "":!mcps"" "":!roo-code"" 2>&1" | Out-Null
                 # Two -m flags: git joins them with a blank line, byte-identical to the
                 # previous single multiline -m (which cannot cross the cmd.exe layer).
-                & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
+                # Lane-signature (#4827 review ai-01 3b, r2): the auto-commit must
+                # carry the Lane: trailer, computed by THIS script — after
+                # ENFORCED_SINCE an unsigned auto-commit reddens the lane's own PR.
+                # Machine is LOWERCASED ($env:COMPUTERNAME is uppercase; the guard's
+                # LANE_RE is case-sensitive) and the workspace is the MAIN checkout's
+                # leaf ($RepoRoot) — NOT the worktree leaf, which is a wt-* name.
+                $workerMachine = "${env:COMPUTERNAME}".ToLower()
+                $workerLane = "${workerMachine}:$(Split-Path $RepoRoot -Leaf)"
+                & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" -m ""Lane: $workerLane"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
 
                 # #1666 Phase A2 Guard A2.1: Post-commit verification.
                 # Even with Guard #1613 firing, verify HEAD is now attached AND the commit is reachable

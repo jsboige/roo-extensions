@@ -272,6 +272,34 @@ Ce n'est plus une préférence contournable : c'est une **impossibilité** outil
 
 ---
 
+## Git — Signature de lane (trailer `Lane:`)
+
+**Origine :** mandat user (verbatim 17/11/2026, relayé par myia-ai-01:CoursIA-2 le 18/11) — « toutes les lanes doivent signer leurs contributions sur git à base de machine:workspace pour qu'on comprenne qui fait quoi ». Avant la règle, l'attribution reposait sur des marqueurs déclaratifs (dashboard, claims d'issue) : rien dans git ne disait quelle lane a produit un commit.
+
+### Arbitrage a/b — trailer, pas identité d'auteur
+
+Deux mécaniques possédaient l'exigence :
+
+| Option | Verdict | Pourquoi |
+|---|---|---|
+| **(a) trailer** `Lane: <machine[:workspace]>` | **retenue** | lisible par `git log --format="%(trailers:key=Lane)"` ; l'identité d'auteur reste `jsboige` (les requêtes flotte `--author` et le lien avatar GitHub, fait par l'email, restent intacts) ; même mécanique append-only que `Co-Authored-By` ; s'amende par `commit --amend` sans toucher la config. |
+| (b) `git user.name` par lane | écartée | change l'identité lue par tout le tooling existant ; une config locale mal posée fuite sur d'autres repos ; ne distingue pas deux lanes de la même machine. |
+
+### Surfaces de garde (forme gitleaks, #3685)
+
+1. **CI systématique** : `lane-signature.yml` sur chaque PR — plage `origin/main..HEAD`, commits non-merge uniquement. L'artifact squash-merge (créé par le merger, sans trailer) est hors périmètre par construction : la signature vit sur les commits de contribution, le squash la référence par son numéro.
+2. **Pre-commit `commit-msg`** (opt-in par machine) : `pre-commit install --hook-type commit-msg` — refuse le commit au plus tôt, avant création de l'objet.
+3. **Manuel** : `python scripts/git/check_lane_signature.py [plage]` avant tout push, depuis n'importe quel checkout.
+
+### Validation et portabilité
+
+- Format : `^myia-[a-z0-9-]+(?::[A-Za-z0-9._-]+)?$` — machine seule acceptée (une lane par machine signe sans workspace).
+- Machine croisée au `.claude/configs/fleet-manifest.json` quand le fichier existe dans le dépôt (roo-extensions) ; **format seul** sinon — le garde reste portable aux dépôts fils qui adoptent la gate sans notre manifeste.
+- `--since <ISO>` (committer date) : amortisseur de rollout — les PR ouvertes avant la garde ne rougissent pas sur leur historique pré-règle. À retirer du workflow quand le backlog pré-règle est vide.
+- Tests : `scripts/testing/python/test_check_lane_signature.py` (9 cas — vrais dépôts temp, subprocess du vrai script, comme `test_check_gitlinks_pushed.py`).
+
+---
+
 ## Git — Checkout Safety
 
 `git checkout -- <fichier>` restaure un fichier depuis l'**INDEX**, pas depuis « avant ma dernière modification ». Sur une branche de travail où un fix n'est jamais commité, ce checkout efface **l'intégralité du fix** — pas seulement la dernière manipulation.

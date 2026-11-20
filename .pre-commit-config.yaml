@@ -30,3 +30,17 @@ repos:
         # `detect --no-git` : gitleaks rejette les drapeaux combines (CoursIA
         # #9888). La config allowlist (.gitleaks.toml) est decouverte
         # automatiquement a la racine du depot.
+
+  # Signature de lane (ASK CoursIA-2 2026-11-18) : hook LOCAL commit-msg —
+  # refuse le commit dont le message ne porte pas `Lane: <machine[:workspace]>`.
+  # Refuse au plus tot (avant creation de l'objet), la CI lane-signature.yml
+  # reste le filet systematique. Installation opt-in, comme gitleaks :
+  #   pip install pre-commit && pre-commit install --hook-type commit-msg
+  - repo: local
+    hooks:
+      - id: lane-signature
+        name: "Lane signature (Lane: machine:workspace trailer)"
+        entry: python3 scripts/git/check_lane_signature.py --commit-msg
+        language: system
+        stages: [commit-msg]
+        always_run: true
