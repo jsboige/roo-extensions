@@ -235,6 +235,47 @@ Deux questions en texte libre sans format Qxx.
         names = [p.name for p in couq.default_dashboard_files(self.root)]
         self.assertEqual(names, ["global.md", "machine-po.md"])
 
+    # --- review #4826 : source absente = exit 2, jamais « zero question » ----
+
+    def test_missing_mirror_dir_is_two(self):
+        """--mirror sur un répertoire inexistant : la découverte rend [], sans
+        erreur de chargement — le défaut exact de la review. Doit rendre 2."""
+        with contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            code = couq.main(["--mirror", "--dashboards-dir",
+                              str(self.root / "absent"), "--now", NOW])
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+        self.assertIn("absente ou sans dashboard", err.getvalue())
+
+    def test_empty_mirror_dir_is_two(self):
+        """Répertoire présent mais sans dashboard : idem, pas un 0 confiant."""
+        with contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()):
+            code = couq.main(["--mirror", "--dashboards-dir",
+                              str(self.root), "--now", NOW])
+        self.assertEqual(code, 2)
+        self.assertEqual(out.getvalue(), "")
+
+    def test_default_source_is_store_not_mirror(self):
+        """Sans --mirror ni --dashboard-file, la source par défaut est le store
+        PG : une panne de transport ne doit PAS être silencieusement absorbée
+        en « zero question » par un miroir absent."""
+        def fake_store(url, bearer, timeout=10.0, intercom_limit=500):
+            return [], ["store injoignable (test)"]
+        original = couq.load_dashboards_from_store
+        couq.load_dashboards_from_store = fake_store
+        try:
+            with contextlib.redirect_stdout(io.StringIO()) as out, \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                code = couq.main(["--dashboards-dir",
+                                  str(self.root / "absent"), "--now", NOW])
+            self.assertEqual(code, 2)
+            self.assertEqual(out.getvalue(), "")
+            self.assertIn("repli miroir", err.getvalue())
+        finally:
+            couq.load_dashboards_from_store = original
+
 
 if __name__ == "__main__":
     unittest.main()

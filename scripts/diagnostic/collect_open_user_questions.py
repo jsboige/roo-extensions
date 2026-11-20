@@ -5,8 +5,11 @@ Directive owner 17/11 : « Il faudrait que tout le monde puisse me présenter le
 questions de tout le monde car mon attention sur les 40 fenêtres ouvertes est
 une ressource rare. » La règle de consolidation (#4196) fait de l'entrée
 ASK-USER sur le dashboard global une **VUE** du registre local de chaque lane ;
-cet organe RECONSTRUIT cette vue depuis les dashboards du miroir G:, en lecture
-seule, sans muter quoi que ce soit :
+cet organe RECONSTRUIT cette vue depuis les dashboards servis par le **store
+PG** (autorité depuis #4131 G-DASH), en lecture seule, sans muter quoi que ce
+soit. Le miroir G: n'est qu'un export dérivé : il reste un canal de rejeu
+**explicitement dégradé** (`--mirror`, ou repli automatique quand le store est
+illisible — la sortie est alors étiquetée) :
 
   - **vue global** : pour chaque lane, la **dernière** entrée ASK-USER du
     dashboard global (une entrée plus ancienne de la même lane est remplacée
@@ -35,11 +38,19 @@ cf. check-degraded-escalations #4517 — une mention en prose ne compte pas) :
 Codes de sortie :
     0   bloc rendu (avec ou sans questions — un « zéro question » n'est rendu
         que si TOUS les dashboards ont été lus)
-    2   instrument défaillant (dashboard illisible) — un fichier muet n'est
-        jamais un « zéro question » (fail-closed)
+    2   instrument défaillant (dashboard illisible, source absente ou sans
+        dashboard) — un fichier muet n'est jamais un « zéro question »
+        (fail-closed)
+
+Limite connue (vivant seulement) : seules les entrées intercom vivantes sont
+lues. Une question dont le post a été condensé dans une archive disparaît de
+la vue ; et une entrée global plus récente de la même lane est lue comme
+couvrant les questions hors-global de cette lane sans preuve de contenu.
+Le registre local reste la source de vérité.
 """
 
 import argparse
+import importlib.util
 import json
 import re
 import sys
@@ -47,6 +58,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_SHARED = Path("G:/Mon Drive/Synchronisation/RooSync/.shared-state")
+
+_HERE = Path(__file__).resolve().parent
+
+
+def _load_store_reader():
+    """Primitives de lecture store du lecteur d'escalades (#4517/#4519) :
+    transport MCP `call_dashboard_tool`, parse JSON `entries_from_store_json`,
+    resolution bearer `resolve_proxy_config` + `load_organ_env_file`. Meme
+    transport, meme precedence — la lecture prend le chemin de l'ecriture."""
+    spec = importlib.util.spec_from_file_location(
+        "check_degraded_escalations", _HERE / "check-degraded-escalations.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 # Mêmes primitives que check-degraded-escalations.py (l.154-195) : le format
 # intercom du miroir est un contrat partagé, pas une coïncidence.
@@ -215,6 +240,51 @@ def default_dashboard_files(dashboard_dir):
                   if " (" not in p.name and p.name != "mcp-dashboard.md")
 
 
+def load_dashboards_from_store(url, bearer, timeout=10.0, intercom_limit=500):
+    """(boards, errors) — dashboards servis par le STORE (PG), autorite depuis
+    #4131 G-DASH : le miroir G: est un export derive, repare toutes les 6 h,
+    sans marqueur de vétusté ; une vue ASK-USER lue sur le miroir serait
+    presentee comme fraiche alors qu'elle peut etre vide ou gelee.
+
+    Lecture JSON (`entries_from_store_json`) : les tags du CHAMP sont unis a
+    ceux du CORPS par cette primitive (review #4519 SHOULD-2) — une entree
+    declaree par `[tags: ask-user]` dans le corps est reconnue sur les deux
+    surfaces.
+
+    Une lecture en echec ou un dashboard absent du listing est une erreur
+    d'instrument : « je ne vois pas le dashboard » n'est jamais « zero
+    question » (fail-closed)."""
+    organ = _load_store_reader()
+    call = organ._load_transport()
+    boards, errors = [], []
+    listing = call({"action": "list"}, url, bearer, timeout=timeout)
+    if listing is None:
+        return [], ["store injoignable (listing)"]
+    keys = organ.store_keys_from_listing(listing)
+    if not keys:
+        return [], ["listing store vide ou illisible — aucun dashboard servi"]
+    for key in keys:
+        args = organ.read_arguments_for_key(key, intercom_limit)
+        result = call(args, url, bearer, timeout=timeout)
+        if result is None:
+            errors.append(f"{key}: lecture store muette")
+            continue
+        text = organ.tool_result_text(result)
+        try:
+            entries = organ.entries_from_store_json(text)
+        except Exception as exc:  # enveloppe inattendue = instrument, pas repli
+            errors.append(f"{key}: {type(exc).__name__}: {exc}")
+            continue
+        if entries is None:  # hote ancien sans JSON — repli parse markdown
+            entries = parse_entries(text)
+        for entry in entries:
+            if "tags" not in entry or entry["tags"] is None:
+                entry["tags"] = set()
+        boards.append({"path": key, "type": type_from_name(key),
+                       "entries": entries})
+    return boards, errors
+
+
 def collect(boards, now):
     """La matière de la sortie. boards = sortie de load_dashboards()."""
     # 1. Vue global : dernière entrée ASK-USER par lane.
@@ -331,6 +401,13 @@ def main(argv=None):
                         dest="dashboard_files", metavar="FILE",
                         help="dashboard explicite (répétable ; remplace --dashboards-dir) "
                              "— canal fixtures/tests, sans réseau")
+    parser.add_argument("--mirror", action="store_true",
+                        help="forcer la lecture du miroir G: au lieu du store PG — "
+                             "canal de rejeu DEGRADE (export derive, sans marqueur de "
+                             "vétusté) ; la sortie est etiquetee")
+    parser.add_argument("--env-file", default=None,
+                        help="fichier d'environnement de l'organe "
+                             "(defaut : ~/.roo-state-manager/stall-detector.env)")
     parser.add_argument("--now", default=None,
                         help="horloge (ISO-8601) — déterminisme des tests")
     parser.add_argument("--json", action="store_true", dest="as_json",
@@ -339,12 +416,44 @@ def main(argv=None):
 
     now = parse_ts(args.now) if args.now else datetime.now(timezone.utc)
 
+    degraded_source = None
     if args.dashboard_files:
         paths = [Path(p) for p in args.dashboard_files]
-    else:
+        if not paths:
+            print("aucun dashboard source — aucun verdict de fond n'est rendu",
+                  file=sys.stderr)
+            return 2
+        boards, errors = load_dashboards(paths)
+    elif args.mirror:
         paths = default_dashboard_files(args.dashboards_dir)
+        if not paths:
+            print("source miroir absente ou sans dashboard — un repertoire vide "
+                  "n'est pas un « zero question »", file=sys.stderr)
+            return 2
+        boards, errors = load_dashboards(paths)
+        degraded_source = "miroir G: (export derive, peut etre stale/vide)"
+    else:
+        organ = _load_store_reader()
+        file_values, env_warning = organ.load_organ_env_file(
+            args.env_file if args.env_file else organ.ORGAN_ENV_FILE)
+        if env_warning:
+            print(f"env-file : {env_warning}", file=sys.stderr)
+        url, bearer = organ.resolve_proxy_config(None, None, file_values)
+        boards, errors = load_dashboards_from_store(url, bearer)
+        if errors and not boards:
+            print("store PG illisible — repli miroir G: DEGRADE", file=sys.stderr)
+            paths = default_dashboard_files(args.dashboards_dir)
+            if not paths:
+                for err in errors:
+                    print(f"erreur de lecture store : {err}", file=sys.stderr)
+                print("source miroir absente ou sans dashboard — aucun verdict "
+                      "de fond n'est rendu (un dashboard muet n'est pas un "
+                      "« zero question »)", file=sys.stderr)
+                return 2
+            boards, mirror_errors = load_dashboards(paths)
+            errors = errors + mirror_errors
+            degraded_source = "miroir G: (repli — store PG illisible)"
 
-    boards, errors = load_dashboards(paths)
     if errors:
         for err in errors:
             print(f"erreur de lecture : {err}", file=sys.stderr)
@@ -353,9 +462,14 @@ def main(argv=None):
         return 2
 
     data = collect(boards, now)
+    if degraded_source:
+        data["degraded_source"] = degraded_source
     if args.as_json:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:
+        if degraded_source:
+            print(f"[SOURCE DEGRADEE : {degraded_source} — la vue peut etre "
+                  "stale ou incomplete]", file=sys.stderr)
         print(render_markdown(data))
     return 0
 
