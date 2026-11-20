@@ -929,6 +929,11 @@ function Get-WorkPrompt {
         [string]$Profile,
         [hashtable]$State,
         [string]$RepositoryRoot,
+        # Lane-signature (#4827 r2): the workspace leaf comes from the MAIN
+        # checkout of the target repo, not from the isolated copilot worktree
+        # ($RepositoryRoot here IS that worktree when CanDeliver) — a wt-copilot-*
+        # leaf is not a workspace.
+        [string]$MainRepositoryRoot = '',
         [psobject]$TargetIssue,
         # #622 (item 3 of the 05/11 roadmap): when work runs in a dedicated
         # copilot worktree, the dispatcher LIFTS the commit/PR ban there —
@@ -964,11 +969,14 @@ function Get-WorkPrompt {
     # Closes line is what makes the merge actually retire the grain.
     $targetIssueNumber = if ($null -ne $TargetIssue) { [int]$TargetIssue.number } else { 0 }
 
-    # Lane-signature (#4827 review ai-01 3b): the dispatcher's commit mandate must
-    # carry the Lane: trailer, computed HERE from the checkout's workspace (the
-    # target repo, not the host lane) — after ENFORCED_SINCE an unsigned Copilot
-    # commit reddens its own PR (#4783 precedent).
-    $laneId = "$env:COMPUTERNAME:$(Split-Path $RepositoryRoot -Leaf)"
+    # Lane-signature (#4827 review ai-01 3b, r2): the dispatcher's commit mandate
+    # must carry the Lane: trailer, computed HERE from the target repo's MAIN
+    # checkout workspace — after ENFORCED_SINCE an unsigned Copilot commit reddens
+    # its own PR (#4783 precedent). Machine is LOWERCASED ($env:COMPUTERNAME is
+    # uppercase; the guard's LANE_RE is case-sensitive).
+    $laneWorkspaceRoot = if (-not [string]::IsNullOrWhiteSpace($MainRepositoryRoot)) { $MainRepositoryRoot } else { $RepositoryRoot }
+    $laneMachine = "${env:COMPUTERNAME}".ToLower()
+    $laneId = "${laneMachine}:$(Split-Path $laneWorkspaceRoot -Leaf)"
 
     $deliveryMandate = if ($CanDeliver) {
 @("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue). The commit MUST carry the trailer: Lane: $laneId (as a separate -m flag or final body line).",
@@ -1500,7 +1508,7 @@ if ($status -ne 'blocked') {
         }
 
         if ($status -ne 'blocked' -and $null -eq $dispatch) {
-            $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
+            $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $workRoot -MainRepositoryRoot $queueRepoRoot -TargetIssue $targetIssue -CanDeliver $canDeliver
             # The prompt file MUST live inside the work root: Copilot's sandbox
             # refuses any read outside its working directory without an
             # interactive approval, and the CLI's working directory IS the work
