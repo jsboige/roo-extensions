@@ -266,6 +266,43 @@ Follow-up hardening (ai-01 review, same day):
   harness dot-sources the sanitation span on ubuntu CI, so both the env branch
   and the `MountPath` fallback build the path lexically.
 
+### The watchdog must never make an outage worse (#4843)
+
+Measured on ai-01 (20/11 07:24-12:15Z): the schtask runs
+`RunLevel HighestAvailable`, so a bare `Start-Process` handed GoogleDriveFS.exe
+the **elevated** token (WebView2 UI death loop, `taskkill` denied from standard
+lanes); a failed kill was followed by "continuing with relaunch" (a second
+instance beside a wedged one); three watchdogs polled in the same second
+(`PT5M` kills wscript but leaves the pwsh child alive, `IgnoreNew` stops
+protecting); and the watchdog relaunched **50 s after boot**, before Drive's
+HKCU Run auto-start had a chance. Four guards, one per defect:
+
+1. **Never relaunch elevated.** `Invoke-RelaunchGDriveFS` resolves the launch
+   method from `Test-CallerElevation` FIRST and logs `Relaunch path: <method>`.
+   An elevated caller is delegated to the user's non-elevated shell
+   (`explorer.exe "<binary>"`); only a non-elevated caller launches the binary
+   directly. The resolved path (`$launch.FilePath`) is the only thing
+   `Start-Process` ever sees.
+2. **No relaunch beside a survivor.** After the kill (and its 3 s settle), a
+   survivor check (`Test-NoSurvivingInstance`) decides: anything still alive →
+   `relaunch-aborted-survivor-alive` ERROR + alert + return. The
+   "continuing with relaunch" branch is gone.
+3. **One watchdog at a time.** A named mutex (`Global\gdrivefs-watchdog`,
+   `New-WatchdogInstanceMutex`) is taken before any probing; a second live
+   instance logs one line and exits 0. The mutex dies with its last handle —
+   no ghost lock after a scheduler kill — and an abandoned mutex is acquired
+   (the holder died). Open/wait failures fail OPEN (two watchdogs = the status
+   quo ante; zero watchdogs = worse).
+4. **No relaunch at session start.** `LogonGraceSeconds` (default `600`):
+   a Drive absent while the interactive session (oldest `explorer.exe`
+   `StartTime`, `Get-InteractiveLogonTime`) is younger than the window is
+   Drive's auto-start pending — C0 logs INFO and does not relaunch, and the
+   exit code stays 0. `0` judges C0 from the first poll (kill-switch).
+
+The decisions live in `gdrivefs-watchdog.lib.ps1` and are Pester-tested
+(`scripts/testing/unit/gdrivefs-watchdog.Tests.ps1`, suite `#4843`), including
+a cross-process held-mutex witness (`Start-Job`) and the ghost-lock witness.
+
 ### Status of the #2875 workaround — permanent (production control)
 
 Original framing called this watchdog an interim fix pending a root-cause
@@ -391,6 +428,7 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | `WriteProbeDir` (body) | `<ROOSYNC_SHARED_PATH>\gdrivefs-watchdog` | #4508 — deep folder on the mount for the write/read/delete sentinel. |
 | `WriteProbeTimeoutSeconds` (body) | `45` | #4508 — bound for the sentinel write probe (job pattern, as `Invoke-BoundedMountProbe`). `0` restores the unbounded inline probe (kill-switch). |
 | `WritePendingEscalationPolls` (body) | `3` | #4508 — consecutive refused write polls before `write-pending` escalates to the survivor channel. `0` disables the escalation (kill-switch). |
+| `LogonGraceSeconds` (body) | `600` | #4843 — C0 (process absent) is not judged — no relaunch, exit 0 — while the interactive session is younger than this window (Drive auto-start pending). `0` judges from the first poll (kill-switch). |
 | `RepeatMinutes` (installer) | `15` | Poll cadence. |
 | `StartupDelayMinutes` (installer) | `2` | Delay after boot (let GDrive settle). |
 | `FastPollRepeatMinutes` (installer) | `1` | #3678 — companion task repeat interval. |
