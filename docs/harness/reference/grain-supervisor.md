@@ -60,4 +60,13 @@ Sur un siège `always-sonnet-subagent`, l'appel `Agent` du parent reste explicit
 
 Les tests Pester `scripts/testing/unit/grain-supervisor-contract.Tests.ps1` valident hors ligne le frontmatter, le déploiement, le mapping, l'invocation background et les garde-fous. Ils ne lancent ni Agent, ni workflow sk-agent, ni appel payant.
 
-Le critère de bout en bout reste distinct : une lane tierce invoque réellement le superviseur en arrière-plan, continue un autre travail, obtient une PR et rapporte tokens/murs. Tant que ce run et son coût ne sont pas observés, #4833 ne peut pas etre declare entierement accepte.
+### Run de preuve observé — 2026-11-20
+
+La lane `myia-ai-01:roo-extensions` a invoqué ce superviseur en `run_in_background:true` sur un grain réel (jsboige-mcp-servers#1530, profil `standard`) et a continué son propre travail pendant le run (vérification firsthand des tests de contrat, lecture du dashboard, baseline des acceptations) — son tour n'a pas été bloqué.
+
+- **Verdict** : `READY_FOR_COORDINATOR` ; PR [jsboige-mcp-servers#1826](https://github.com/jsboige/jsboige-mcp-servers/pull/1826), tête `371807e6`, CI non finale au rapport.
+- **Producteur** : session Claude Code du superviseur (rôle Sonnet), `model_used` non exposé par le harnais. **Vérificateur** : `analyst-glm5`, `model_used: glm-5.3`, conversation `459739ea-655e-4b3b-bc66-83424383d605`, aucun fallback.
+- **Coût mesuré** : durée murale superviseur **5 min 51 s** (16:49:33Z→16:55:24Z), durée observée par l'appelant **6 min 22 s** ; **154 306 tokens** de session du sous-agent (mesure du harnais) ; vérificateur **4 465 input / 618 output**, `cached` NOT_EXPOSED ; 1 `list_agents` + 1 `call_agent`, zéro retry.
+- **Non vérifié au rapport** : état CI final au head, exécution des tests par le vérificateur (sans outils), run E2E du preset sur un siège déployé.
+
+Le merge et la fermeture de #4833 restent au coordinateur.
