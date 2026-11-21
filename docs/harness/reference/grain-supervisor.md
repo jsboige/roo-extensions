@@ -64,9 +64,15 @@ Les tests Pester `scripts/testing/unit/grain-supervisor-contract.Tests.ps1` vali
 
 La lane `myia-ai-01:roo-extensions` a invoqué ce superviseur en `run_in_background:true` sur un grain réel (jsboige-mcp-servers#1530, profil `standard`) et a continué son propre travail pendant le run (vérification firsthand des tests de contrat, lecture du dashboard, baseline des acceptations) — son tour n'a pas été bloqué.
 
-- **Verdict** : `READY_FOR_COORDINATOR` ; PR [jsboige-mcp-servers#1826](https://github.com/jsboige/jsboige-mcp-servers/pull/1826), tête `371807e6`, CI non finale au rapport.
+- **Verdict** : `READY_FOR_COORDINATOR` ; PR [jsboige-mcp-servers#1826](https://github.com/jsboige/jsboige-mcp-servers/pull/1826), tête `371807e6`, mergée `53112d89` le 2026-11-20 ; CI non finale au rapport, finale vérifiée verte le 2026-11-21.
 - **Producteur** : session Claude Code du superviseur (rôle Sonnet), `model_used` non exposé par le harnais. **Vérificateur** : `analyst-glm5`, `model_used: glm-5.3`, conversation `459739ea-655e-4b3b-bc66-83424383d605`, aucun fallback.
 - **Coût mesuré** : durée murale superviseur **5 min 51 s** (16:49:33Z→16:55:24Z), durée observée par l'appelant **6 min 22 s** ; **154 306 tokens** de session du sous-agent (mesure du harnais) ; vérificateur **4 465 input / 618 output**, `cached` NOT_EXPOSED ; 1 `list_agents` + 1 `call_agent`, zéro retry.
-- **Non vérifié au rapport** : état CI final au head, exécution des tests par le vérificateur (sans outils), run E2E du preset sur un siège déployé.
+- **Non vérifié au rapport** : exécution des tests par le vérificateur (preset sans outils — conformité diff/spécification seulement) ; run E2E d'un preset sk-agent comme producteur (celui du run observé était la session Claude Code du superviseur).
 
-Le merge et la fermeture de #4833 restent au coordinateur.
+### Résidus clos — 2026-11-21 (po-204)
+
+- **CI finale au head, verte** : ms#1826 7/7 (`test-sk-agent` pass) ; #4846 13/13 (Node 20/22, gitleaks, Pester, pointeur submodule).
+- **Chaîne de livraison complète** : ms#1826 merge `53112d89` ancêtre du gitlink `36945178` (bumps #4852 + #4855) ; #4846 merge `ae98e59b` (2026-11-20).
+- **Second siège déployé** : `myia-po-2024` — déploiement canonique depuis le checkout principal (`Deploy-GlobalConfig.ps1 -Target agents`), parité SHA-256 source ↔ `~/.claude/agents/grain-supervisor.md`, 12/12 tests de contrat rejoués firsthand.
+
+La fermeture de #4833 reste au coordinateur.
