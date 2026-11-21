@@ -26,6 +26,12 @@
 #     est deploye dans `~/.claude/rules/` et se chargeait EN PLUS de la copie projet). Plafonds
 #     ABAISSES d'autant : regles 61324 -> 57734, 22 -> 20 fichiers ; global 26117 -> 26103 (le lien
 #     vers le canon raccourcit, `rules/harnais-tightening.md` resout aussi dans la copie deployee).
+#   2026-11-17, #4821 : plafond global releve 26103 -> 26554. Justification (precedent update-branch
+#     04/11) : contenu MANDATE par directive user 17/11, pas du gras incidentel — les 3 clauses de
+#     consolidation des questions (items 7-9 § User Arbitration), compressee de 848 -> 453 o a la
+#     livraison (citation de la directive deportee dans l'issue #4821, rationale des clauses retire).
+#     La coupe de #2368 n'est pas remise en cause : le fichier sous ce commit reste plus petit que
+#     sous le lot 1 (27174).
 #
 # Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
 # scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux.
@@ -50,9 +56,9 @@ BeforeAll {
 
 Describe "Rules footprint budget (#2368)" {
 
-    It "user-global-claude.md <= 26103 octets normalises (volet 2 : lien vers le canon raccourci)" {
+    It "user-global-claude.md <= 26554 octets normalises #4821" {
         $bytes = Get-NormalizedByteCount -Path (Join-Path $projectRoot ".claude/configs/user-global-claude.md")
-        $bytes | Should -BeLessOrEqual 26103
+        $bytes | Should -BeLessOrEqual 26554
     }
 
     It "rules dir <= 57734 octets normalises (volet 2 : deux sommaires projet de 3590 o supprimes)" {

@@ -71,6 +71,9 @@ Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est pose
 4. Champs obligatoires par entree : **ce qui est attendu du user** et **comment verifier qu'elle est morte** — sans retrait, une question repondue se re-pose indefiniment.
 5. Entree repondue -> **sort des ouvertes** (section courte « repondues »).
 6. Plan demandant validation : **scratchpad** (`$TEMP`) ; on rend le **chemin** du scratchpad, jamais le plan recopie dans le fil.
+7. Question user posée **hors du global** (registre, dashboard machine/workspace, fenêtre interactive) -> **consolidée au global** (`ASK-USER`) au **premier cycle suivant** (directive 17/11, #4821).
+8. Chaque entrée porte l'**âge par question** (« sans réponse depuis X j »).
+9. Présenter ses questions à l'owner -> **renvoyer aussi vers la vue global** consolidée. Organe lecture seule : `scripts/diagnostic/collect_open_user_questions.py`.
 
 **Format d'ecriture (escalade user 25/09/2026)** : phrases simples, sans jargon non explique — (1) **ce qui se passe** ; (2) **ce qui est demande** (oui/non, ou un choix a/b/c) ; (3) **ce qui arrive sans reponse** ; (4) **ce que la lane recommande** ; (5) **l'echeance** s'il y en a une. Des chiffres seulement s'ils aident a decider. **Jamais un mot plus fort que ce qui a ete mesure.**
 
