@@ -319,6 +319,21 @@ def cited_issues_by_open_prs(prs: list) -> dict:
     Le premier citant gagne (`setdefault`) : l'ordre de collecte est stable et
     une seule PR nommee suffit a rendre l'ecart auditable dans `reason`.
 
+    Chaque numero cite est enregistre sous la cle de CHAQUE depot scanne, pas
+    seulement celui de la PR (cross-repo, 20/11) : une PR submodule qui porte
+    "#4824" dans son titre couvre l'issue parent #4824, meme si le titre ne dit
+    pas ou vit l'issue. Mesures fondateurs (po-2027, 19-20/11) : #4814 rendue
+    alors que ms#1798 la portait, #4824 rendue alors que ms#1805 la portait.
+    C'est la politique de la garde anti-double-claim du skill executor (match
+    par numero dans les DEUX depots, frontiere de mot, puis relecture du corps
+    au candidat retenu). Le fan-out s'applique a TOUTE source de numero ci-
+    dessous, titres ET closing-refs du corps (`Closes/Fixes/Resolves #N`) : un
+    `Closes #123` de PR submodule exclut l'issue parent roo#123 homonyme, meme
+    sur-exclusion assumee que pour les titres. Sur-exclusion assumee : un
+    numero cite par une PR de l'autre depot peut designer un objet different -
+    le cout est un skip et une relecture, jamais un double-claim (l'inverse
+    couterait le travail entier).
+
     `delivered` fournit les PRs deja collectees - aucun appel API en plus.
     """
     cited = {}
@@ -327,7 +342,12 @@ def cited_issues_by_open_prs(prs: list) -> dict:
         numbers = [int(n) for n in CITATION_IN_TITLE_RE.findall(pr.get("title") or "")]
         numbers += [int(n) for n in CLOSING_REFERENCE_RE.findall(pr.get("body") or "")]
         for number in numbers:
-            cited.setdefault((repo, number), pr.get("number"))
+            for key_repo in REPOS:
+                cited.setdefault((key_repo, number), pr.get("number"))
+            # La cle du depot d'origine meme hors REPOS reste servie (PR d'un
+            # tiers depot citee par un futur appelant) :
+            if repo not in REPOS:
+                cited.setdefault((repo, number), pr.get("number"))
     return cited
 
 

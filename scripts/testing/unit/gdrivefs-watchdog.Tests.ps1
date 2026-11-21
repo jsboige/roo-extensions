@@ -606,3 +606,168 @@ Describe 'cycle-failure wiring (#4508 sibling)' {
         (Get-Content -LiteralPath $script:libPath -Raw) | Should -Match 'function Test-RelaunchCycleFailed'
     }
 }
+
+# ============================================================================
+# po-203 suite (20/11, #4843): the watchdog itself must never make an outage
+# worse. Measured on ai-01 that morning (issue #4843, 07:24-12:15Z):
+#   1. the task runs RunLevel HighestAvailable, so a direct Start-Process
+#      handed GoogleDriveFS.exe the ELEVATED token (WebView2 UI death loop,
+#      taskkill denied from standard lanes) -- an elevated caller must
+#      delegate to the user's non-elevated shell (explorer.exe);
+#   2. a failed kill was followed by "continuing with relaunch" -- a second
+#      instance beside a wedged one: never relaunch while a survivor lives;
+#   3. THREE watchdogs ran in the same second (PT5M kills wscript, leaves
+#      the pwsh child alive, IgnoreNew stops protecting) -- a named mutex
+#      makes the second live instance exit at once;
+#   4. the watchdog relaunched 50 s after boot -- a Drive absent in the
+#      first minutes after logon is Drive's auto-start pending, not a
+#      failure: judge C0 only past a logon grace.
+# Red on 783497d5 for every item below (the lib functions and the wiring do
+# not exist there).
+# ============================================================================
+
+Describe 'Resolve-DriveLaunchMethod (#4843 criterion 1: never relaunch elevated)' {
+
+    It 'an ELEVATED caller is delegated to the user shell, never Start-Process of the binary' {
+        $bin = 'C:\Program Files\Google\Drive File Stream\128.0.0.0\GoogleDriveFS.exe'
+        $binEscaped = [regex]::Escape($bin)
+        $r = Resolve-DriveLaunchMethod -CallerElevated $true -BinaryPath $bin
+        $r.Method       | Should -Be 'explorer-delegated'
+        $r.FilePath     | Should -Not -Match 'GoogleDriveFS\.exe'   # the watchdog never launches the binary itself
+        $r.FilePath     | Should -Match 'explorer\.exe'
+        $r.ArgumentList | Should -Match $binEscaped                # the binary rides as the delegated argument
+    }
+
+    It 'a NON-elevated caller launches the binary directly with --startup_mode' {
+        $bin = 'C:\Program Files\Google\Drive File Stream\128.0.0.0\GoogleDriveFS.exe'
+        $r = Resolve-DriveLaunchMethod -CallerElevated $false -BinaryPath $bin
+        $r.Method   | Should -Be 'direct'
+        $r.FilePath | Should -Be $bin
+        (@($r.ArgumentList) -join ' ') | Should -Match '--startup_mode'
+    }
+
+    It 'Test-CallerElevation answers a boolean without throwing (any host)' {
+        { [bool](Test-CallerElevation) } | Should -Not -Throw
+    }
+}
+
+Describe 'kill-abort (#4843 criterion 2: no relaunch beside a survivor)' {
+
+    It 'Test-NoSurvivingInstance: survivors present -> relaunch NOT allowed' {
+        Test-NoSurvivingInstance -SurvivingProcesses @([pscustomobject]@{ Id = 4242 }) | Should -BeFalse
+    }
+
+    It 'Test-NoSurvivingInstance: nothing survives -> relaunch allowed' {
+        Test-NoSurvivingInstance -SurvivingProcesses $null | Should -BeTrue
+        Test-NoSurvivingInstance -SurvivingProcesses @()    | Should -BeTrue
+    }
+}
+
+Describe 'New-WatchdogInstanceMutex (#4843 criterion 3: one watchdog at a time)' {
+
+    It 'a mutex destroyed with its last handle leaves NO ghost: the next run starts clean' -Skip:($env:OS -ne 'Windows_NT') {
+        # The scheduler-kill shape (PT5M): the holder died without releasing,
+        # every handle closed, the named object died with them. The next run
+        # must acquire fresh -- a ghost lock would disable the watchdog forever.
+        $name  = 'Global\gdfs-4843-ghost-' + [guid]::NewGuid().ToString('N')
+        $first = New-WatchdogInstanceMutex -MutexName $name
+        $first.Acquired | Should -BeTrue
+        $first.Mutex.Dispose()   # death: handle closed WITHOUT ReleaseMutex
+        $second = New-WatchdogInstanceMutex -MutexName $name
+        $second.Acquired | Should -BeTrue
+        $second.Mutex.Dispose()
+    }
+
+    It 'a mutex HELD by a live process blocks a second watchdog (cross-process)' -Skip:($env:OS -ne 'Windows_NT') {
+        $name  = 'Global\gdfs-4843-held-' + [guid]::NewGuid().ToString('N')
+        $first = New-WatchdogInstanceMutex -MutexName $name
+        $first.Acquired | Should -BeTrue
+        try {
+            # A separate process, like the duplicated schtask exemplar: the
+            # same-thread recursion escape must not apply.
+            $job = Start-Job -ScriptBlock {
+                param($LibPath, $MutexName)
+                . $LibPath
+                New-WatchdogInstanceMutex -MutexName $MutexName
+            } -ArgumentList $script:libPath, $name
+            $second = Receive-Job -Job $job -Wait -AutoRemoveJob
+            $second.Acquired | Should -BeFalse
+            $second.Note     | Should -Be 'held-by-live-instance'
+        } finally {
+            $first.Mutex.ReleaseMutex()
+            $first.Mutex.Dispose()
+        }
+    }
+}
+
+Describe 'logon grace (#4843 criterion 4: no relaunch at session start)' {
+
+    It 'logon 90 s ago, grace 600 s -> grace ACTIVE (the boot+50 s incident shape)' {
+        Test-IsInLogonGrace -Now (Get-Date) -LogonTime ((Get-Date).AddSeconds(-90)) -GraceSeconds 600 | Should -BeTrue
+    }
+
+    It 'logon 30 min ago, grace 600 s -> no grace (a genuine outage is judged)' {
+        Test-IsInLogonGrace -Now (Get-Date) -LogonTime ((Get-Date).AddMinutes(-30)) -GraceSeconds 600 | Should -BeFalse
+    }
+
+    It 'null logon time (headless host, no explorer) -> no grace' {
+        Test-IsInLogonGrace -Now (Get-Date) -LogonTime $null -GraceSeconds 600 | Should -BeFalse
+    }
+
+    It 'grace 0 is the kill-switch: always judge' {
+        Test-IsInLogonGrace -Now (Get-Date) -LogonTime ((Get-Date).AddSeconds(-5)) -GraceSeconds 0 | Should -BeFalse
+    }
+}
+
+Describe 'relaunch + poll wiring (#4843)' {
+
+    BeforeAll {
+        $script:relaunchFn = [regex]::Match(
+            $script:mainText,
+            '(?s)function Invoke-RelaunchGDriveFS \{.*?\r?\n\}'
+        )
+        if (-not $script:relaunchFn.Success) { throw 'Invoke-RelaunchGDriveFS not found' }
+    }
+
+    It 'the relaunch resolves the launch method from the CALLER elevation and LOGS the path taken' {
+        $script:relaunchFn.Value | Should -Match 'Test-CallerElevation'
+        $script:relaunchFn.Value | Should -Match 'Resolve-DriveLaunchMethod'
+        $script:relaunchFn.Value | Should -Match 'Relaunch path'
+    }
+
+    It 'the resolution precedes the rehearsal return: dry-run announces the non-elevated path (ai-01 proof)' {
+        $resolveAt = $script:relaunchFn.Value.IndexOf('Resolve-DriveLaunchMethod')
+        $dryAt     = $script:relaunchFn.Value.IndexOf("if (`$Mode -eq 'dry-run')")
+        $resolveAt | Should -BeGreaterOrEqual 0
+        $dryAt     | Should -BeGreaterOrEqual 0
+        $resolveAt | Should -BeLessThan $dryAt
+    }
+
+    It 'the launch goes through the RESOLVED file path, never a bare Start-Process of the binary' {
+        $script:relaunchFn.Value | Should -Match 'Start-Process -FilePath \$launch\.FilePath'
+        $script:mainText        | Should -Not -Match 'Start-Process -FilePath \$BinaryPath'
+    }
+
+    It 'a failed kill ABORTS the relaunch: the "continuing with relaunch" defect string is gone' {
+        $script:relaunchFn.Value | Should -Match 'Test-NoSurvivingInstance'
+        $script:relaunchFn.Value | Should -Match 'relaunch-aborted-survivor-alive'
+        $script:mainText         | Should -Not -Match 'continuing with relaunch'
+    }
+
+    It 'the body takes the single-instance mutex before the poll and exits on a held lock' {
+        $script:mainText | Should -Match 'New-WatchdogInstanceMutex'
+        $script:mainText | Should -Match 'Another watchdog instance holds the mutex'
+        # The gate must sit BEFORE the mount sanitation: the first thing a
+        # second instance does is log one line and exit.
+        $mutexAt = $script:mainText.IndexOf('New-WatchdogInstanceMutex')
+        $sanAt   = $script:mainText.IndexOf('# ---------- MountPath sanitation')
+        $mutexAt | Should -BeGreaterOrEqual 0
+        $mutexAt | Should -BeLessThan $sanAt
+    }
+
+    It 'the C0 branch consults the logon grace before triggering a relaunch' {
+        $script:mainText | Should -Match 'Test-IsInLogonGrace'
+        $script:mainText | Should -Match 'Get-InteractiveLogonTime'
+        $script:mainText | Should -Match '\[int\]\$LogonGraceSeconds = 600'
+    }
+}

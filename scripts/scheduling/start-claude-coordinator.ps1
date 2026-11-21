@@ -84,7 +84,10 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 # helpers consomment le budget core, jamais epuise en pratique.
 . (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
 . (Join-Path $ScriptDir '..\common\gh-issues.ps1')
-$RepoRoot = Resolve-Path "$ScriptDir\..\.."
+# #3345 D1: spawn-cwd guard (see path-guards.ps1) — Claude Code refuses its own
+# isolation worktree when the child cwd's drive letter case mismatches git's toplevel.
+. (Join-Path $ScriptDir '..\common\path-guards.ps1')
+$RepoRoot = ConvertTo-SpawnCwd (Resolve-Path "$ScriptDir\..\..").Path   # #3345 D1: uppercase drive
 $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_COORDINATOR_LOG_DIR)) {
     $env:CLAUDE_COORDINATOR_LOG_DIR
 } else {

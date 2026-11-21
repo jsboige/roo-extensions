@@ -209,23 +209,45 @@ if ($tier -eq 'glm' -and $isTrivial) {
 # Step 2: Check CI status
 Write-Host "`n[Step 2] Checking CI status..." -ForegroundColor Cyan
 
+# #4150 (garde CI sous-dépôt) : le profil CI dépend du DÉPÔT. L'ancien filtre
+# en dur sur le nom de job parent refusait toute PR du sous-dépôt (jobs test/lint/
+# roo-state-manager/docs, aucun job du profil parent) — dry-run ms#1806 rouge sur
+# 7 jobs verts. Un dépôt SANS profil est refusé (fail-closed) : pas de repli parent.
+$ciProfile = Get-CiCheckProfile -Repo $Repo
+if (-not $ciProfile.Ok) {
+    Write-Host "✗ No CI check profile declared for repo $Repo — cannot certify CI (fail-closed)" -ForegroundColor Red
+    exit 1
+}
 # #4150 lot 4a : classification check-run (status/conclusion) via le helper —
 # l'ancien test PENDING/FAILED/EXPECTED sur .status lisait le vocabulaire des
 # commit-status legacy : un rouge (COMPLETED + FAILURE) ne bloquait jamais.
-$ciChecks = @($pr.statusCheckRollup | Where-Object { $_.name -match "build-and-test" })
+$ciChecks = @($pr.statusCheckRollup | Where-Object { $_.name -match $ciProfile.Pattern })
+
+# #4838 review : un rollup PARTIEL n'est pas une CI verte. La classification ci-dessous
+# juge les runs présents ; elle ne voit pas les jobs absents — « docs: SUCCESS » seul
+# passait avec 1 run sur 7 au sous-dépôt. Required est $null sur le parent : ce bloc
+# est invisible pour lui et son comportement « au moins un run » reste inchangé.
+$ciMissing = Get-CiMissingRequiredChecks -Profile $ciProfile -Checks $ciChecks
+if ($ciMissing.Count -gt 0) {
+    Write-Host "✗ Incomplete $($ciProfile.Label) rollup — missing required check-run(s):" -ForegroundColor Red
+    $ciMissing | ForEach-Object { Write-Host "  - $_" -ForegroundColor Gray }
+    Write-Host "Cannot merge. A partial rollup does not certify CI." -ForegroundColor Red
+    exit 1
+}
+
 $ciGate = Get-CiRollupGate -Checks $ciChecks
 $ciPending = $ciGate.Pending
 $ciFailed = $ciGate.Failed
 
-# #4150 lot 5 suite (APPROVE #4628, trou a) : un ensemble build-and-test VIDE
+# #4150 lot 5 suite (APPROVE #4628, trou a) : un ensemble de runs du profil VIDE
 # rendait "✓ CI passed" — zéro run n'est pas un CI vert. Exiger au moins un run.
 if ($ciChecks.Count -eq 0) {
-    Write-Host "✗ No build-and-test check-runs found — cannot certify CI (empty set is not green)" -ForegroundColor Red
+    Write-Host "✗ No $($ciProfile.Label) check-runs found — cannot certify CI (empty set is not green)" -ForegroundColor Red
     if (!$Force) {
         Write-Host "Use -Force to merge anyway (not recommended)" -ForegroundColor Yellow
         exit 1
     }
-    Write-Host "  -Force: proceeding WITHOUT any build-and-test run" -ForegroundColor Yellow
+    Write-Host "  -Force: proceeding WITHOUT any $($ciProfile.Label) run" -ForegroundColor Yellow
 }
 
 if ($ciPending) {

@@ -750,7 +750,7 @@ def rejected_text_from_result(result):
 
 
 def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-detector",
-                        return_rejected_text=False):
+                        return_rejected_text=False, telemetry=None):
     """One `roosync_dashboard` tools/call over the bots' JSON-RPC path.
 
     Returns the JSON-RPC result dict (the MCP tool result -- `content` list
@@ -759,6 +759,23 @@ def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-dete
     #4643 opt-in: with return_rejected_text=True, a server-side isError
     rejection returns its text (str) instead of None, so the organ can
     classify it. Every other caller keeps the fail-closed None.
+
+    #4729 recidive (witness 18/11): an optional `telemetry` dict, when
+    passed, is filled with WHERE the exchange spent its time and, on
+    failure, WHICH of the four MCP phases died --
+
+        {"phases": {"initialize": {"ms": ...}, "initialized": {"ms": ...},
+                    "tools-call": {"ms": ...},
+                    "lecture": {"ms": ..., "bytes": N}},
+         "failure": {"phase": "tools-call", "exception": "URLError",
+                     "elapsed_ms": 45210.0}}     # present only on failure
+
+    Durations, byte counts and the exception TYPE only: never a header,
+    never the bearer, never body content. Before this, a muted read was
+    just None -- the recurrence of 18/11 (two archives muted through first
+    read AND retry, the same archive served in 154 ms right after) was
+    undiagnosable because establishment, tool call and body read all
+    collapsed behind the same "sans contenu".
 
     Generic transport, deliberately argument-agnostic: the CALLER decides what
     is worth a note and what goes in `arguments`; this function only moves the
@@ -791,13 +808,40 @@ def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-dete
     if not base.endswith(DASHBOARD_PATH):
         base += DASHBOARD_PATH
 
-    def post(body, extra=None):
+    # #4729 : phase courante + debut de phase. Le except ci-dessous est le
+    # seul filet d'echec ; sans cet etat, une exception pendant la lecture
+    # du corps et une exception d'establishment de session se ressemblent
+    # exactement (le meme None, le meme message).
+    where = {"phase": None, "t0": time.monotonic()}
+
+    def record_phase(name, t0, extra=None):
+        if telemetry is not None:
+            entry = {"ms": round((time.monotonic() - t0) * 1000.0, 1)}
+            if extra:
+                entry.update(extra)
+            telemetry.setdefault("phases", {})[name] = entry
+
+    def post(body, extra=None, phase=None, read_phase=None):
+        """One POST timed as `phase`. With `read_phase`, the response open
+        is timed as `phase` and the BODY read as its own phase (#4729: a
+        body-read timeout -- big archive, cut body -- is a different animal
+        from an establishment timeout; both used to be the same None)."""
         req_headers = dict(headers)
         if extra:
             req_headers.update(extra)
         req = urllib.request.Request(base, data=body, headers=req_headers, method="POST")
+        where["phase"], where["t0"] = phase, time.monotonic()
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.headers, resp.read()
+            got = resp.headers
+            if read_phase is not None:
+                record_phase(phase, where["t0"])
+                where["phase"], where["t0"] = read_phase, time.monotonic()
+            raw = resp.read()
+        if read_phase is not None:
+            record_phase(read_phase, where["t0"], {"bytes": len(raw)})
+        elif phase is not None:
+            record_phase(phase, where["t0"])
+        return got, raw
 
     def result_payload(raw):
         """First JSON-RPC result in the body, or None. Tolerates SSE framing
@@ -817,13 +861,16 @@ def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-dete
         return None
 
     try:
-        init_headers, _init_raw = post(init_body)
+        init_headers, _init_raw = post(init_body, phase="initialize")
         session_header = init_headers.get("mcp-session-id")
         extra = {"mcp-session-id": session_header} if session_header else None
         if extra:
             # notification -- no id, no response expected
-            post(b'{"jsonrpc":"2.0","method":"notifications/initialized"}', extra)
-        _call_headers, call_raw = post(call_body, extra)
+            post(b'{"jsonrpc":"2.0","method":"notifications/initialized"}', extra,
+                 phase="initialized")
+        _call_headers, call_raw = post(call_body, extra, phase="tools-call",
+                                       read_phase="lecture")
+        where["phase"] = None  # body read OK: a later error is not a phase loss
         result = result_payload(call_raw)
         rejected = rejected_text_from_result(result)
         if rejected is not None:
@@ -839,8 +886,18 @@ def call_dashboard_tool(arguments, url, bearer, timeout=10.0, client="stall-dete
     except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
         # HTTPException: a body cut mid-read (IncompleteRead) on a slow proxy
         # must stay a warning, not a traceback that replaces the exit code.
+        phase = where["phase"] or "unknown"
+        fail_ms = round((time.monotonic() - where["t0"]) * 1000.0, 1)
+        if telemetry is not None and where["phase"] is not None:
+            telemetry["failure"] = {
+                "phase": where["phase"],
+                "exception": type(exc).__name__,
+                "elapsed_ms": fail_ms,
+            }
         print(f"WARNING: dashboard call NOT completed ({exc}) -- signal is "
-              f"best-effort, the caller's own verdict stands", file=sys.stderr)
+              f"best-effort, the caller's own verdict stands "
+              f"[phase {phase}, {type(exc).__name__} after {fail_ms} ms]",
+              file=sys.stderr)
         return None
 
 
@@ -1225,11 +1282,17 @@ def selftest():
         #     initialized -> tools/call, idempotent messageId, redacted content.
         #     Non-waiting verdicts earn no note; transport failure is swallowed.
         import threading
-        from http.server import BaseHTTPRequestHandler, HTTPServer
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
         requests_seen = []
         call_response = {"body": '{"jsonrpc":"2.0","id":3,"result":{}}',
                          "sse": False, "truncate": False}
+        # #4729 recidive : modes de defaillance par phase. Le serveur peut
+        # suspendre la N-ieme requete (open en timeout : phase initialize /
+        # initialized / tools-call) ou servir les en-tetes puis suspendre le
+        # corps (read en timeout : phase lecture). ThreadingHTTPServer : les
+        # handlers suspendus ne serialisent pas les requetes suivantes.
+        server_control = {"hang_request": None, "hang_body": False}
 
         class _Handler(BaseHTTPRequestHandler):
             def do_POST(self):
@@ -1237,6 +1300,15 @@ def selftest():
                 body = self.rfile.read(length).decode("utf-8")
                 requests_seen.append((self.path, dict(self.headers), body))
                 is_call = '"tools/call"' in body
+                if server_control["hang_request"] == len(requests_seen):
+                    time.sleep(3.0)   # > client timeout: the OPEN times out
+                    return
+                if is_call and server_control["hang_body"]:
+                    self.send_response(200)
+                    self.send_header("Content-Length", "100")
+                    self.end_headers()
+                    time.sleep(3.0)   # body withheld: the READ times out
+                    return
                 self.send_response(200)
                 self.send_header("mcp-session-id", "sess-1")
                 if is_call and call_response["sse"]:
@@ -1260,7 +1332,7 @@ def selftest():
             def log_message(self, *_a):
                 pass
 
-        srv = HTTPServer(("127.0.0.1", 0), _Handler)
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), _Handler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         base_url = f"http://127.0.0.1:{srv.server_port}"
 
@@ -1314,6 +1386,46 @@ def selftest():
         assert maybe_publish_dashboard_note(_totals2, stalls2, "roo-extensions",
                                             base_url, "tok") is False
         call_response["truncate"] = False
+        # 10e. #4729 recidive (18/11) : un timeout NOMME sa phase. Quatre
+        #      temoins deterministes, un par phase MCP — le serveur suspend
+        #      le stade vise, la telemetrie et le stderr disent LEQUEL. Sur
+        #      la base, tout echec se ressemblait : None, puis « sans
+        #      contenu » — deux archives muettes A TRAVERS la relance, la
+        #      meme archive servie en 154 ms juste apres, cause inconnue.
+        tel = {}
+        ok = call_dashboard_tool({"action": "list"}, base_url, "tok",
+                                 timeout=5.0, telemetry=tel)
+        assert ok is not None
+        assert set(tel["phases"]) == {"initialize", "initialized",
+                                      "tools-call", "lecture"}, tel
+        assert tel["phases"]["lecture"]["bytes"] == \
+            len(call_response["body"].encode()), tel
+        assert "failure" not in tel, tel
+        for phase_name, hang_request, hang_body in (
+                ("initialize", 1, False),
+                ("initialized", 2, False),
+                ("tools-call", 3, False),
+                ("lecture", None, True)):
+            server_control["hang_request"] = (
+                len(requests_seen) + hang_request if hang_request else None)
+            server_control["hang_body"] = hang_body
+            hung_err = io.StringIO()
+            t = {}
+            try:
+                with contextlib.redirect_stderr(hung_err):
+                    hung = call_dashboard_tool({"action": "list"}, base_url,
+                                               "tok", timeout=0.5, telemetry=t)
+            finally:
+                server_control["hang_request"] = None
+                server_control["hang_body"] = False
+            assert hung is None, (phase_name, hung)
+            assert t.get("failure", {}).get("phase") == phase_name, (phase_name, t)
+            assert t["failure"]["exception"], t
+            assert t["failure"]["elapsed_ms"] >= 400.0, (phase_name, t)
+            assert f"phase {phase_name}" in hung_err.getvalue(), \
+                (phase_name, hung_err.getvalue())
+            # the failing phase earned no successful timing entry
+            assert phase_name not in t.get("phases", {}), (phase_name, t)
         # Transport failure: best-effort -> False, no raise.
         srv.shutdown()
         srv.server_close()

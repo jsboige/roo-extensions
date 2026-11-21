@@ -277,6 +277,67 @@ ferme. L'empreinte de la sonnerie ne porte que le lot réparable, donc une nouve
 escalade de défaut connu ne re-sonne pas le même jour. **Ajouter une entrée à
 `KNOWN_HOST_DEFECTS` exige une PR citant l'issue du défaut de l'hôte.**
 
+### Panne du lecteur de l'organe — rangée à part (GO coordinateur 20/11/2026, #4729)
+
+Une escalade peut être la panne de **l'instrument lui-même** : l'organe du siège a
+rendu `exit 1` (lecteur PG non configuré, `MCP_PROXY_BEARER` absent du processus,
+miroir non autoritatif) et la lane a escaladé **ce fait**. Un `[REPAIRED]` de lane
+ne ferme pas cette escalade tant que le lecteur manque — et le compteur
+« délai dépassé » gonflait d'entrées qu'aucune lane ne pouvait fermer, surestimant
+la dette de service (constat 20/11 00:21Z : 8 escalades sur 30, ≥ 6 sièges).
+
+L'organe range ces escalades **à part**, comme les défauts d'hôte #4730 : section
+nommée dans la sonnerie (avec le remède), marque `A-PART`, `overdue_reader_defect`
+en JSON, exclusion de l'empreinte quotidienne. Elles restent **ouvertes**,
+**visibles** et **dues** (exit `2` inchangé) — mais le compteur principal ne
+compte plus que la dette de service. Contrairement au défaut d'hôte, cette famille
+**se répare** :
+
+**Remède du siège (`--env-file`).** L'organe lit lui-même son fichier
+d'environnement (`MCP_PROXY_BEARER` / `MCP_PROXY_URL` / `MCP_PROXY_BASE_URL`,
+défaut `%USERPROFILE%\.roo-state-manager\stall-detector.env` — celui que dépose
+le lanceur compagnon ; sur un siège sans lanceur, tout fichier `CLE=valeur` portant
+déjà le bearer convient, rien n'est copié ni imprimé) :
+
+```bash
+python scripts/diagnostic/check-degraded-escalations.py --env-file <fichier-du-siège>
+```
+
+Mesuré sur ai-01 le 20/11 : exit 2 réel, 446 lectures. Si l'organe rend ensuite
+`0`, `2` ou `3`, la lane poste son `[REPAIRED]` avec sa ligne de portée
+(`scope:`). Si le fichier n'existe pas sur le siège — ou s'il existe et que
+l'organe rend **encore** `1` pour une cause aval (ex. mesuré po-2027 20/11 : le
+RSM derrière le proxy répond `store-absent` sur SON propre montage `G:`) — la lane
+le **dit sur #4729** : c'est une panne différente de « bearer absent », elle se
+répare côté proxy/hôte, jamais par un contournement de siège.
+
+**Le motif se lit sur le code, pas sur la prose** (GO c.7032224803 ; durci par
+la review ai-01 du 20/11) : la classification (`classify_reader_defect`)
+exige la conjonction littérale de l'un de DEUX chemins, jamais une
+interprétation sémantique du récit —
+
+- **chemin A** : vocabulaire de l'instrument (`lecteur de l'organe`, `bearer`,
+  `mcp_proxy`, nom de l'organe, `roosync_dashboard`) **ET** code de sortie
+  (`rc=1`, `exit 1`, `retourne 1`…) ;
+- **chemin B** : nom de l'organe **ET** marqueur store (`pg`, `store`,
+  `miroir`) **ET** échec de lecture (code de sortie, ou `ne lit pas`,
+  `pas lu`, `non lu`, `lecture`, `store-absent`).
+
+Le nom de l'organe seul ne suffit **jamais** : « check-degraded-escalations a
+sonné 30 échéances » est un instrument sain, et « l'organe a détecté : PG
+down, export en échec » est une panne de **service** rapportée par un lecteur
+sain — ni l'un ni l'autre ne sort du compteur principal (les deux repros de
+la review du 20/11, tésés en négatif). Le marqueur `lecteur` nu est retiré :
+« le lecteur de vidéos rend exit 1 » n'est pas notre panne. Frontières de mot
+partout (`pg` dans « pgadmin » ne compte pas, `rc=1` dans « rc=15 » non
+plus). Un post qui relève des deux familles reste compté une seule fois, en
+défaut d'hôte. Un mutant sans classification fait rougir le témoin du
+selftest, le test unitaire (`ReaderDefectSetAside`) et un `--selftest`
+lancé en subprocess — sans ce dernier, la régression #4834 pouvait revenir
+sans que rien ne la voie. Vérifié sur le corpus réel du 20/11 (miroir G:) :
+les cinq posts de panne de lecteur restent rangés à part, la dette de
+service repasse à 5.
+
 ---
 
 ## Lecture du store sous charge (#4729)
@@ -300,10 +361,24 @@ compte. Trois protections :
    sinon) : appels, ok/lents/muets (seuil `SLOW_READ_S`), relances posées et
    récupérées, p50/p95/max en ms. « Store lent » et « store mort » se
    distinguent en lisant la sortie, sans rejouer la passe.
-3. **Procédure exit 1 × 3 feux consécutifs.** Un organe qui rend exit 1 sur
+3. **Attribution par phase (récidive 18/11).** Une lecture muette dit
+   désormais **quelle phase MCP** est morte : le transport
+   (`call_dashboard_tool`) mesure `initialize` / `initialized` /
+   `tools-call` / `lecture` (durées, octets lus sur `lecture`) et, sur
+   échec, rend `failure = {phase, exception, elapsed_ms}` — type d'exception
+   et chiffres uniquement, jamais de secret ni de contenu. L'organe agrège
+   (`muted_by_phase`, `muted_exceptions`, `muted_phase_max_ms` dans
+   `read_telemetry`, plus « muets par phase » en stderr). Le témoin
+   fondateur : deux archives muettes **à travers premier essai et relance**,
+   la même archive servie en 154 ms juste après — sans attribution de phase,
+   un timeout d'establishment et un timeout de lecture de corps se
+   ressemblent exactement (« sans contenu »). Fail-closed, retry unique et
+   un-seul-transport inchangés.
+4. **Procédure exit 1 × 3 feux consécutifs.** Un organe qui rend exit 1 sur
    trois feux consécutifs du même siège est lui-même en panne d'instrument :
    la lane poste le constat sur le dashboard `global` (tag `ASK`, les trois
-   `read_telemetry` — le différenciel p50/p95/max tranche lent vs mort) et
+   `read_telemetry` — le différenciel p50/p95/max tranche lent vs mort, les
+   phases muettes tranchent establishment vs lecture) et
    demande au coordinateur l'ouverture d'une issue `[CLAUDE-MACHINE]`
    (l'ouverture d'issue reste gated). Le silence n'est pas une option :
    l'alarme muette pendant l'incendie est précisément le défaut que #4729

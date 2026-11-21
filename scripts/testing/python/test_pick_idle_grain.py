@@ -103,6 +103,31 @@ class OpenPrIsNeverFree(unittest.TestCase):
         cited = pick.cited_issues_by_open_prs(buckets["delivered"])
         self.assertEqual(cited.get(("jsboige/jsboige-mcp-servers", 4151)), 1549)
 
+    def test_a_submodule_pr_citing_a_parent_issue_excludes_it_cross_repo(self):
+        # Mesures fondateurs (po-2027, 19-20/11) : #4814 rendue alors que ms#1798
+        # ouverte la portait, #4824 rendue alors que ms#1805 ouverte la portait.
+        # A PR of repo B citing "#N" must also exclude the candidate issue #N of
+        # repo A -- same policy as the executor skill's anti-double-claim guard
+        # (match by number in BOTH repos, then re-read the body on the survivor).
+        pr = {"number": 1805, "title": "fix(rsm,#4824): cover remaining POST paths",
+              "body": "", "labels": [], "is_pr": True,
+              "repo": "jsboige/jsboige-mcp-servers"}
+        issue = _item(4824)  # lives in jsboige/roo-extensions
+        buckets, _unlabelled, _open = pick.bucketize_items([pr, issue])
+        cited = pick.cited_issues_by_open_prs(buckets["delivered"])
+        self.assertEqual(
+            cited.get(("jsboige/roo-extensions", 4824)), 1805,
+            "a submodule PR citing #4824 must exclude parent issue #4824")
+        # And the exclusion must actually fire through check_candidate, without
+        # any claim lookup (local data only, like the same-repo path):
+        with mock.patch.object(pick.check_issue_claim, "fetch_issue",
+                               side_effect=AssertionError("no claim lookup on a PR-carried issue")):
+            skip, reason = pick.check_candidate("grain", issue, "myia-po-2027",
+                                                "myia-po-2027:roo-extensions",
+                                                cited_by=cited)
+        self.assertTrue(skip)
+        self.assertEqual(reason, "cited by open PR #1805")
+
 
 class CopilotTargetIsReservedToTheBridge(unittest.TestCase):
     """#622 (decision ai-01, c.6554348206): the lane pickers draw faster than the

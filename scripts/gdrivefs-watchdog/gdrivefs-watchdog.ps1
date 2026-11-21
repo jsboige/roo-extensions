@@ -117,6 +117,14 @@
     Default: <ROOSYNC_SHARED_PATH>\gdrivefs-watchdog (fleet canonical env),
     falling back to <MountPath>\gdrivefs-watchdog-writeprobe.
 
+.PARAMETER LogonGraceSeconds
+    #4843 — a Drive absent in the first minutes after an interactive logon is
+    Drive's HKCU Run auto-start still pending, not an outage (elevated relaunch
+    measured 50 s after boot on ai-01, 20/11). C0 (process absent) is not judged
+    — no relaunch — until the session is older than this window. The exit code
+    also stays 0 inside the window. Default 600.
+    KILL-SWITCH: 0 judges C0 from the first poll after logon.
+
 .EXAMPLE
     .\gdrivefs-watchdog.ps1
     .\gdrivefs-watchdog.ps1 -Mode dry-run
@@ -135,6 +143,10 @@ param(
     [int]$CooldownHours = 24,
     [ValidateRange(0, 86400)]
     [int]$StartupGraceSeconds = 1200,
+    # #4843 (ai-01, 20/11): no C0 relaunch while the interactive session
+    # itself is younger than this window (Drive auto-start pending).
+    [ValidateRange(0, 86400)]
+    [int]$LogonGraceSeconds = 600,
     [string]$AlertGitHubRepo = 'jsboige/roo-extensions',
     [ValidateRange(0, 168)]
     [int]$AlertMinIntervalHours = 6,
@@ -187,6 +199,18 @@ function Write-Log {
     $line = "{0} [{1,-5}] {2}" -f $ts, $Level, $Message
     Add-Content -Path $logFile -Value $line -Encoding utf8
     Write-Host $line
+}
+
+# ---------- single-instance gate (#4843 criterion 3) ----------
+# PT5M (ExecutionTimeLimit) kills wscript but leaves its pwsh child alive:
+# IgnoreNew stops protecting and three watchdogs polled in the same second
+# (ai-01, 20/11 07:24-12:15Z). The first thing a second LIVE instance does is
+# log one line and leave. The named mutex dies with its last handle, so a
+# scheduler-killed holder never leaves a ghost lock.
+$script:watchdogMutex = New-WatchdogInstanceMutex -MutexName 'Global\gdrivefs-watchdog'
+if (-not $script:watchdogMutex.Acquired) {
+    Write-Log 'INFO' "Another watchdog instance holds the mutex ($($script:watchdogMutex.Note)) — exiting without probing."
+    exit 0
 }
 
 # ---------- MountPath sanitation (argv corruption guard, #3979) ----------
@@ -601,8 +625,16 @@ function Test-IsInStartupGrace {
 # ---------- relaunch ----------
 function Invoke-RelaunchGDriveFS {
     param([string]$BinaryPath)
+    # #4843 criterion 1: resolve HOW we may launch BEFORE anything else. The
+    # ai-01 task runs RunLevel HighestAvailable — a bare Start-Process hands
+    # GoogleDriveFS.exe the ELEVATED token (WebView2 UI death loop, taskkill
+    # denied from standard lanes, measured 20/11). An elevated caller
+    # delegates to the user's non-elevated shell instead.
+    $callerElevated = Test-CallerElevation
+    $launch = Resolve-DriveLaunchMethod -CallerElevated $callerElevated -BinaryPath $BinaryPath
+    Write-Log 'INFO' "Relaunch path: $($launch.Method) (callerElevated=$callerElevated)"
     if ($Mode -eq 'dry-run') {
-        Write-Log 'INFO' "DRY-RUN: would Start-Process '$BinaryPath' --startup_mode"
+        Write-Log 'INFO' "DRY-RUN: would launch '$BinaryPath' via $($launch.Method) -> $($launch.FilePath)"
         return
     }
     # DriveFS is single-instance: Start-Process while a wedged instance is still alive
@@ -615,13 +647,27 @@ function Invoke-RelaunchGDriveFS {
         try {
             $existing | Stop-Process -Force -ErrorAction Stop
         } catch {
-            Write-Log 'WARN' "Stop-Process reported: $($_.Exception.Message) — continuing with relaunch"
+            # #4843 criterion 2: a kill that reports failure may have left the
+            # instance alive — the survivor check below decides. Never a
+            # "continue anyway" verdict here.
+            Write-Log 'WARN' "Stop-Process reported: $($_.Exception.Message)"
         }
         Start-Sleep -Seconds 3
+        # #4843 criterion 2: never relaunch while an instance survives. DriveFS
+        # is mono-instance: relaunching beside a survivor (Stop-Process failed,
+        # wedged instance) just parks a healthy binary next to a dead one
+        # (measured ai-01 20/11) — alert and abort, the next poll re-judges.
+        $survivors = @(Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue)
+        if (-not (Test-NoSurvivingInstance -SurvivingProcesses $survivors)) {
+            $pids = (@($survivors) | ForEach-Object { $_.Id }) -join ','
+            Write-Log 'ERROR' "relaunch-aborted-survivor-alive: GoogleDriveFS still running after kill (pids=$pids) — NOT relaunching (single-instance binary)"
+            $script:alerts += "relaunch-aborted-survivor-alive (pids=$pids)"
+            return
+        }
     }
-    Write-Log 'WARN' "Relaunching GoogleDriveFS.exe (user context, --startup_mode)"
+    Write-Log 'WARN' "Relaunching GoogleDriveFS.exe via $($launch.Method) (--startup_mode)"
     try {
-        Start-Process -FilePath $BinaryPath -ArgumentList '--startup_mode' -ErrorAction Stop
+        Start-Process -FilePath $launch.FilePath -ArgumentList $launch.ArgumentList -ErrorAction Stop
         # #4508: Start-Process returning proves NOTHING about the disk. The
         # 03/11 log shows 'repaired' at 03:04:38 while the very next line said
         # the G: drive did not exist yet. Default: relaunch-issued only; the
@@ -637,7 +683,7 @@ function Invoke-RelaunchGDriveFS {
         # caller defers the verdict to the startup-grace window (StartupGraceSeconds),
         # so a relaunch still in init is never declared failed or re-killed by the
         # next poll. A bounded probe runs immediately for fast-success feedback.
-        Write-Log 'INFO' "Start-Process issued for $BinaryPath — verdict deferred to startup grace window ($StartupGraceSeconds s) pending core_controller init"
+        Write-Log 'INFO' "Start-Process issued via $($launch.Method) — verdict deferred to startup grace window ($StartupGraceSeconds s) pending core_controller init"
         $script:probeAfterLaunch = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
     } catch {
         Write-Log 'ERROR' "Start-Process failed: $($_.Exception.Message)"
@@ -681,9 +727,20 @@ if (-not $binary -or -not (Test-Path $binary)) {
     # C0: process existence check (existing behavior)
     $live = Test-GDriveFSAlive
     if (-not $live.Alive) {
-        $needsRelaunch = $true
-        $reason        = 'process-absent'
-        Write-Log 'FAIL' "GoogleDriveFS.exe NOT running — triggering relaunch"
+        # #4843 criterion 4: a Drive absent in the first minutes after an
+        # interactive logon is Drive's HKCU Run auto-start still pending, not
+        # an outage — the elevated relaunch measured 50 s after boot (ai-01,
+        # 20/11) is exactly this defect. Judge C0 only past the logon grace.
+        $logonTime    = Get-InteractiveLogonTime
+        $inLogonGrace = Test-IsInLogonGrace -Now (Get-Date) -LogonTime $logonTime -GraceSeconds $LogonGraceSeconds
+        if ($inLogonGrace) {
+            $reason = 'process-absent-in-logon-grace'
+            Write-Log 'INFO' "GoogleDriveFS.exe not running BUT session younger than ${LogonGraceSeconds}s — Drive auto-start likely pending, no relaunch"
+        } else {
+            $needsRelaunch = $true
+            $reason        = 'process-absent'
+            Write-Log 'FAIL' "GoogleDriveFS.exe NOT running — triggering relaunch"
+        }
     } else {
         Write-Log 'OK' "GoogleDriveFS.exe alive (pids=$($live.Pids)) — checking health (C1)"
 
@@ -991,4 +1048,7 @@ if ($final.Alive) {
     $finalProcs = Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue
     $finalGrace = Test-IsInStartupGrace -Now (Get-Date) -Processes $finalProcs -LastRelaunchAttempt $state.last_relaunch_attempt -GraceSeconds $StartupGraceSeconds
 }
-if ($Mode -eq 'dry-run' -or ($final.Alive -and $finalProbe.Live) -or $finalGrace) { exit 0 } else { exit 1 }
+# #4843 criterion 4: same judgement at exit time — a session younger than the
+# logon grace with Drive auto-start pending is not a failure exit.
+$finalLogonGrace = Test-IsInLogonGrace -Now (Get-Date) -LogonTime (Get-InteractiveLogonTime) -GraceSeconds $LogonGraceSeconds
+if ($Mode -eq 'dry-run' -or ($final.Alive -and $finalProbe.Live) -or $finalGrace -or $finalLogonGrace) { exit 0 } else { exit 1 }

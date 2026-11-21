@@ -957,9 +957,19 @@ class CitedByOpenPrSkipRules(unittest.TestCase):
         data = json.loads(out)
         self.assertEqual(data["pick"]["number"], 4352)
 
-    def test_citation_in_another_repo_does_not_skip(self):
-        # Les numeros vivent dans l'espace de leur depot (#608 existe des deux
-        # cotes) : une PR du depot 2 citant #4348 n'ecarte pas l'issue du depot 1.
+    def test_a_cross_repo_citation_skips_the_homonym_issue_too(self):
+        # RENVERSEMENT assume du scoping same-repo de #4356 (fb5a04bf), qui
+        # visait le "zero faux positif" sur les numeros homonymes (#608 existe
+        # des deux cotes) : la convention de titres des PRs submodule porte le
+        # numero de l'issue PARENT (fix(rsm,#4823), feat(sk-agent,#4814)) et
+        # l'exclusion same-repo rendait ces grains parent "sans claim" en
+        # permanence - mesures po-2027 19-20/11 : #4814 servie alors que
+        # ms#1798 la portait, #4824 servie alors que ms#1805 la portait.
+        # Le numero seul ecarte maintenant, comme la garde anti-double-claim
+        # du skill executor (match par numero dans les DEUX depots, puis
+        # relecture du corps au survivant) ; le cas homonyme #608 devient une
+        # sur-exclusion ASSUMEE : le cout est un skip + relecture, jamais un
+        # double-claim (l'inverse coute le travail entier).
         # Ici la PR est collectee sur le depot 2, l'issue sur le depot 1.
         issue_page = rest_page([rest_issue(4348, ["bug"])])
         pr_page = rest_page([rest_pr(4400, title="fix(#4348): other repo")])
@@ -969,7 +979,11 @@ class CitedByOpenPrSkipRules(unittest.TestCase):
             code, out = run_main(picker, ["--json", "--top", "1", "--seed", "11"])
         self.assertEqual(code, 0)
         data = json.loads(out)
-        self.assertEqual(data["pick"]["number"], 4348)
+        # L'issue du depot 1 est ecartee : plus de pick sur 4348.
+        self.assertNotEqual((data["pick"] or {}).get("number"), 4348)
+        cited = [c for c in data["candidates"] if c["number"] == 4348]
+        self.assertTrue(cited and cited[0]["skipped"])
+        self.assertEqual(cited[0]["reason"], "cited by open PR #4400")
         # et si l'urne delivered sert un candidat, il est ecarte comme PR
         # (contrat c.309) - jamais pour une citation, jamais libre.
         self.assertTrue(all("open PR" in (c["reason"] or "")

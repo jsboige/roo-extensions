@@ -358,6 +358,87 @@ def classify_known_host_defect(text):
     return None
 
 
+# #4729 (GO coordinateur 20/11, c.7032224803) : une escalade peut etre la
+# panne de L'INSTRUMENT LUI-MEME -- l'organe du siege a rendu exit 1 (lecteur
+# PG non configure, bearer absent du processus, miroir non autoritatif) et la
+# lane a escalade CE fait. Un `[REPAIRED]` de lane ne la ferme pas tant que
+# le lecteur manque ; le compteur principal ne doit compter que la dette de
+# service. Le motif se lit sur le CODE -- la citation LITTERALE du code de
+# sortie de l'organe ou de son script, avec la famille du lecteur -- jamais
+# sur une prose qui raconterait un repli qui s'ouvre par sa propre chaine
+# d'erreur. Deux chemins, tous deux conjonctifs :
+#   - code de sortie cite + vocabulaire du lecteur (lecteur, bearer,
+#     mcp_proxy, nom de l'organe, roosync_dashboard) ;
+#   - nom de l'organe + vocabulaire du lecteur/store/miroir, code de sortie
+#     non cite (post claudish reel : « ne lit pas PG ... miroir perime »).
+# Frontiere de mot partout : « pg » dans chatgpt ne compte pas, « rc=1 »
+# dans « rc=15 » non plus. Les marqueurs se lisent comme des GLOBALES a
+# l'execution (jamais lies a la definition) : le mutant du selftest les
+# vide et le temoin doit rougir.
+READER_DEFECT_LABEL = "panne du lecteur de l'organe (exit 1)"
+READER_DEFECT_EXIT_MARKERS = (
+    "rc=1", "rc 1", "exit 1", "exit code 1", "code 1", "sortie 1",
+    "retourne 1", "rend 1", "rendait 1",
+)
+# Vocabulaire de l'INSTRUMENT lui-meme. « lecteur » nu est retire (review
+# ai-01 20/11) : « le lecteur de videos rend exit 1 » n'est pas notre panne ;
+# seules les formes composees du label comptent, apostrophe droite ou
+# typographique (les deux existent dans les posts reels).
+READER_DEFECT_READER_MARKERS = (
+    "lecteur de l'organe", "lecteur de l’organe", "bearer", "mcp_proxy",
+    "check-degraded-escalations", "roosync_dashboard",
+)
+# Echec de LECTURE : code de sortie de l'instrument OU acte de lire rate.
+# « lecture » nu n'est acceptable que dans le chemin B, ou il est deja
+# accompagne du nom de l'organe ET d'un marqueur store.
+READER_DEFECT_READ_FAILURE_MARKERS = READER_DEFECT_EXIT_MARKERS + (
+    "ne lit pas", "pas lu", "non lu", "lecture", "store-absent",
+)
+# Chemin B : nom de l'organe + store + ECHEC DE LECTURE. Le nom de l'organe
+# seul ne suffit JAMAIS (review ai-01 20/11) : « check-degraded-escalations
+# a sonne 30 echeances » est un instrument sain, et « l'organe a detecte :
+# PG down, export en echec » est une panne de SERVICE rapportee par un
+# lecteur sain -- ni l'un ni l'autre ne sort du compteur principal.
+READER_DEFECT_ORGAN_NAMES = ("check-degraded-escalations", "organe")
+READER_DEFECT_STORE_MARKERS = ("pg", "store", "miroir")
+
+
+def _marker_in(word, lowered):
+    """Frontiere de mot alphanumerique : ni lettre ni chiffre autour.
+
+    Le soulignement compte comme frontiere : `mcp_proxy` matche dans
+    `MCP_PROXY_BEARER` (cle reellement citee par les posts).
+    """
+    pattern = r"(?<![a-z0-9])" + re.escape(word) + r"(?![a-z0-9])"
+    return re.search(pattern, lowered) is not None
+
+
+def classify_reader_defect(text):
+    """Vrai si `text` decrit la panne du LECTEUR de l'organe lui-meme (#4729).
+
+    A appliquer au corps ENTIER, comme classify_known_host_defect. Rend un
+    bool (pas une ref d'issue) : contrairement au defaut connu de l'hote,
+    la panne du lecteur SE REPARE -- remede du siege (`--env-file` vers le
+    fichier qui porte deja le bearer), puis `[REPAIRED]` de la lane. Rangi
+    a part veut donc dire « pas une dette de service », jamais « hors de
+    portee de toute lane ».
+    """
+    lowered = (text or "").lower()
+    if not lowered:
+        return False
+    reader = any(_marker_in(w, lowered) for w in READER_DEFECT_READER_MARKERS)
+    if reader and any(_marker_in(w, lowered)
+                      for w in READER_DEFECT_EXIT_MARKERS):
+        return True
+    organ = any(_marker_in(w, lowered) for w in READER_DEFECT_ORGAN_NAMES)
+    store = any(_marker_in(w, lowered) for w in READER_DEFECT_STORE_MARKERS)
+    failure = any(_marker_in(w, lowered)
+                  for w in READER_DEFECT_READ_FAILURE_MARKERS)
+    # Trois conjonctions : organ+store sans echec de lecture reste une
+    # panne de service rapportee (review ai-01 20/11).
+    return bool(organ and store and failure)
+
+
 def degraded_declarations(ordered):
     """Declarations `[DEGRADED]` dedoublonnees sur (lane, poste), avec leur
     index dans `ordered`.
@@ -529,6 +610,9 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
             "excerpt": prose[:excerpt_chars],
             # #4730 : sur le corps ENTIER, jamais sur l'extrait tronque.
             "known_defect": classify_known_host_defect(prose),
+            # #4729 : idem, corps entier -- la panne du lecteur se cite
+            # parfois apres le 160e caractere.
+            "reader_defect": classify_reader_defect(prose),
         })
     return found
 
@@ -1168,12 +1252,39 @@ class ReadTelemetry:
         self.retried = 0
         self.recovered = 0
         self._latencies = []
+        # #4729 recidive (18/11) : attribution par PHASE des lectures
+        # muettes — le transport dit quelle phase MCP est morte ; l'agregat
+        # rend le diagnostic sans rejouer la passe.
+        self._muted_phases = {}       # phase -> nb de lectures muettes
+        self._muted_phase_exc = {}    # "phase:Exception" -> nb
+        self._muted_phase_max_ms = {}  # phase -> elapsed_ms max du defaut
+        self._muted_no_phase = 0      # muettes sans telemetrie de phase
 
-    def observe(self, seconds, result):
-        """Un appel transport termine : sa duree, et None s'il a echoue."""
+    def observe(self, seconds, result, telemetry=None):
+        """Un appel transport termine : sa duree, et None s'il a echoue.
+
+        #4729 recidive : la telemetrie du transport (si presente) dit
+        QUELLE phase a muet l'appel — on l'agrege, un exit 1 sous charge
+        se diagnostique par phase (establishment vs appel vs lecture)."""
         self.calls += 1
         if result is None:
             self.failed += 1
+            failure = None
+            if isinstance(telemetry, dict):
+                failure = telemetry.get("failure")
+            if isinstance(failure, dict) and failure.get("phase"):
+                phase = str(failure["phase"])
+                self._muted_phases[phase] = self._muted_phases.get(phase, 0) + 1
+                exc_key = f"{phase}:{failure.get('exception') or 'unknown'}"
+                self._muted_phase_exc[exc_key] = \
+                    self._muted_phase_exc.get(exc_key, 0) + 1
+                ms = failure.get("elapsed_ms")
+                if isinstance(ms, (int, float)) and \
+                        ms > self._muted_phase_max_ms.get(phase,
+                                                          float("-inf")):
+                    self._muted_phase_max_ms[phase] = ms
+            else:
+                self._muted_no_phase += 1
         self._latencies.append(seconds)
 
     def mark_retry(self):
@@ -1203,16 +1314,27 @@ class ReadTelemetry:
             "p50_ms": self._pct_ms(0.50),
             "p95_ms": self._pct_ms(0.95),
             "max_ms": round(lats[-1] * 1000.0, 1) if lats else None,
+            # #4729 recidive : phase(s) des lectures muettes
+            "muted_by_phase": dict(self._muted_phases),
+            "muted_exceptions": dict(self._muted_phase_exc),
+            "muted_phase_max_ms": {k: round(v, 1)
+                                   for k, v in self._muted_phase_max_ms.items()},
+            "muted_no_phase": self._muted_no_phase,
         }
 
     def render(self):
         """Une ligne stderr, pour le run texte comme pour le run --json."""
         s = self.snapshot()
-        return (f"telemetrie lectures store : {s['calls']} appel(s), "
+        line = (f"telemetrie lectures store : {s['calls']} appel(s), "
                 f"{s['ok']} ok dont {s['slow']} lent(s) >= {self.slow_s:g} s, "
                 f"{s['failed']} muet(s) ; relances {s['retried']} "
                 f"({s['recovered']} recuperee(s)) ; p50 {s['p50_ms']} ms, "
                 f"p95 {s['p95_ms']} ms, max {s['max_ms']} ms")
+        if s["muted_by_phase"]:
+            detail = ", ".join(f"{p}x{n}"
+                               for p, n in sorted(s["muted_by_phase"].items()))
+            line += f" ; muets par phase : {detail}"
+        return line
 
 
 def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
@@ -1291,17 +1413,21 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     def read_store(arguments, _url=None, _bearer=None, timeout_s=None,
                    return_rejected_text=False, **_ignored):
         first_s = timeout_s if timeout_s is not None else timeout
+        call_telemetry = {}
         t0 = time.monotonic()
         result = call(arguments, url, bearer, timeout=first_s,
-                      return_rejected_text=return_rejected_text)
-        tel.observe(time.monotonic() - t0, result)
+                      return_rejected_text=return_rejected_text,
+                      telemetry=call_telemetry)
+        tel.observe(time.monotonic() - t0, result, call_telemetry)
         if result is None:
             tel.mark_retry()
+            call_telemetry = {}
             t0 = time.monotonic()
             result = call(arguments, url, bearer,
                           timeout=STORE_READ_RETRY_TIMEOUT_S,
-                          return_rejected_text=return_rejected_text)
-            tel.observe(time.monotonic() - t0, result)
+                          return_rejected_text=return_rejected_text,
+                          telemetry=call_telemetry)
+            tel.observe(time.monotonic() - t0, result, call_telemetry)
             if result is not None:
                 tel.mark_recovered()
         return result
@@ -1488,8 +1614,14 @@ def build_ring_content(overdue):
     # #4730 : un defaut connu de l'hote reste une escalade due, mais aucune
     # lane ne peut le reparer : il est range A PART, apres les pannes
     # reparables, pour ne pas noyer celles-ci.
-    repairable = [i for i in overdue if not i.get("known_defect")]
+    # #4729 : la panne du LECTEUR de l'organe (exit 1) est rangie a part
+    # aussi -- ouverte et visible, mais hors du compteur de dette de
+    # service ; un defaut d'hote prime sur la mention lecteur.
+    repairable = [i for i in overdue
+                  if not i.get("known_defect") and not i.get("reader_defect")]
     host = [i for i in overdue if i.get("known_defect")]
+    reader = [i for i in overdue
+              if i.get("reader_defect") and not i.get("known_defect")]
     if repairable:
         headline = (f"[ASK-USER][DEGRADED-ESCALATION] {len(repairable)} "
                     f"escalade(s) d'environnement degrade non reparee(s) dans "
@@ -1497,13 +1629,18 @@ def build_ring_content(overdue):
         if host:
             headline += (f" ; {len(host)} autre(s) rangee(s) a part : defaut "
                          f"connu de l'hote, qu'aucune lane ne peut reparer.")
-        else:
+        if reader:
+            headline += (f" ; {len(reader)} rangee(s) a part : panne du "
+                         f"lecteur de l'organe (exit 1), remede siege : "
+                         f"--env-file.")
+        if not host and not reader:
             headline += "."
         lines = [headline]
     else:
         lines = [f"[ASK-USER][DEGRADED-ESCALATION] aucune panne reparable en "
-                 f"retard ; {len(host)} escalade(s) rangee(s) a part : defaut "
-                 f"connu de l'hote."]
+                 f"retard ; {len(host) + len(reader)} escalade(s) rangee(s) "
+                 f"a part ({len(host)} defaut connu de l'hote, "
+                 f"{len(reader)} panne du lecteur)."]
     for item in repairable:
         lines.append(strip_declaration_tokens(
             f"- {item['lane']} — degrade depuis {item['posted']}, "
@@ -1516,6 +1653,18 @@ def build_ring_content(overdue):
                 f"- {item['lane']} — degrade depuis {item['posted']}, "
                 f"echeance {item['deadline']} depassee : "
                 f"[{item['known_defect']}] {item['excerpt'][:120]}"))
+    if reader:
+        # #4729 : visibles, dues, mais pas de la dette de service -- et le
+        # remede est nomme : la lane concernee peut repararer son lecteur
+        # elle-meme via --env-file (GO c.7032224803).
+        lines.append("Rangees a part -- panne du lecteur de l'organe exit 1 "
+                     "(lecteur PG/bearer manquant sur le siege ; remede : "
+                     "organe lance avec --env-file, sinon le dire sur #4729) :")
+        for item in reader:
+            lines.append(strip_declaration_tokens(
+                f"- {item['lane']} — degrade depuis {item['posted']}, "
+                f"echeance {item['deadline']} depassee : "
+                f"[lecteur] {item['excerpt'][:120]}"))
     lines.append("Le mecanisme porte l'echeance, pas la memoire de la lane : "
                  "un `REPAIRED` de la lane ferme l'escalade ; un bilan de "
                  "cycle ne ferme rien.")
@@ -1541,7 +1690,11 @@ def build_ring_id(overdue, now=None):
     des pannes deja rangees a part.
     """
     now = now or time.time()
-    repairable = [i for i in overdue if not i.get("known_defect")]
+    # #4729 : la panne du lecteur est exclue du lot comme le defaut d'hote --
+    # une nouvelle escalade d'instrument ne re-sonne pas le user le jour ou
+    # la dette de service n'a pas bouge.
+    repairable = [i for i in overdue
+                  if not i.get("known_defect") and not i.get("reader_defect")]
     lot = repairable or overdue
     payload = "|".join(sorted(f"{i['lane']}:{i['posted']}" for i in lot))
     digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
@@ -1687,11 +1840,18 @@ def verdict(escalations):
     if overdue:
         # #4730 : le code ne change pas ; la raison dit seulement combien
         # d'echeances relevent d'un defaut que personne ne peut reparer.
+        # #4729 : ... et combien relevent de la panne du lecteur de l'organe
+        # lui-meme -- le compteur principal ne compte que la dette de
+        # service (GO c.7032224803).
         host = sum(1 for e in overdue if e.get("known_defect"))
+        reader = sum(1 for e in overdue
+                     if e.get("reader_defect") and not e.get("known_defect"))
+        parts = [f"{len(overdue)} echeance(s) depassee(s) sans [REPAIRED]"]
         if host:
-            return 2, (f"{len(overdue)} echeance(s) depassee(s) sans [REPAIRED], "
-                       f"dont {host} sur defaut connu de l'hote")
-        return 2, f"{len(overdue)} echeance(s) depassee(s) sans [REPAIRED]"
+            parts.append(f"dont {host} sur defaut connu de l'hote")
+        if reader:
+            parts.append(f"{reader} panne(s) du lecteur de l'organe")
+        return 2, ", ".join(parts)
     if waiting:
         return 3, f"{len(waiting)} escalade(s) ouverte(s), dans les delais"
     return 0, "aucune escalade [DEGRADED]"
@@ -1713,6 +1873,12 @@ def report(escalations, code, reason, as_json, stream=None,
         totals["overdue_known_defect"] = sum(
             1 for e in escalations
             if e["status"] == "overdue" and e.get("known_defect"))
+        # #4729 : sous-compte des pannes du lecteur -- une lecture machine
+        # distingue la dette de service de la dette d'instrument.
+        totals["overdue_reader_defect"] = sum(
+            1 for e in escalations
+            if e["status"] == "overdue" and e.get("reader_defect")
+            and not e.get("known_defect"))
         payload = {"exit": code, "reason": reason, "totals": totals,
                    "escalations": escalations,
                    # #4746 : ce qu'un [REPAIRED] sans portee a ferme.
@@ -1731,6 +1897,10 @@ def report(escalations, code, reason, as_json, stream=None,
             # #4730 : du, mais hors de portee de toute lane.
             mark = "A-PART"
             suffix = f" [defaut connu de l'hote {item['known_defect']}]"
+        elif item["status"] == "overdue" and item.get("reader_defect"):
+            # #4729 : due, mais panne d'instrument, pas de service.
+            mark = "A-PART"
+            suffix = f" [{READER_DEFECT_LABEL}]"
         print(f"{mark:<8} {item['lane']:<38} postee {item['posted']} "
               f"echeance {item['deadline']}")
         print(f"         {item['excerpt'][:120]}{suffix}")
@@ -1942,7 +2112,8 @@ le harnais au motif que Git resoudrait hors isolation
         host_ring = build_ring_content(host_items)
         assert host_ring.startswith(
             "[ASK-USER][DEGRADED-ESCALATION] aucune panne reparable en retard "
-            "; 1 escalade(s) rangee(s) a part : defaut connu de l'hote."), host_ring
+            "; 1 escalade(s) rangee(s) a part (1 defaut connu de l'hote, "
+            "0 panne du lecteur)."), host_ring
         # Les tokens cites en prose restent assainis, section hote comprise.
         noisy_host = [dict(host_items[0],
                            excerpt="defaut `[DEGRADED]` puis `[REPAIRED]` en prose")]
@@ -1968,6 +2139,125 @@ le harnais au motif que Git resoudrait hors isolation
         report(mixed, *verdict(mixed), True, stream=json_out)
         totals = json.loads(json_out.getvalue())["totals"]
         assert totals["overdue_known_defect"] == 1, totals
+
+        # ---------------------------------------------------------- #4729 --
+        # Pannes du LECTEUR de l'organe (exit 1) : rangees a part comme les
+        # defauts d'hote, mais reparables par le siege (--env-file). Textes
+        # paraphrases des posts reels du 19/11 (ai-01:CoursIA 12:57Z, EPITA
+        # 17:48Z, ai-01:claudish, po-2027:roo-extensions 11:17Z).
+        for text in (
+            "CoursIA ai-01 : check-degraded-escalations.py rc=1, lecteur PG "
+            "non configure dans ce siege",
+            "Le controle des echeances depuis le siege EPITA retourne 1 : le "
+            "processus ne lit pas PG, `MCP_PROXY_Bearer` absent du shell",
+            "Contrrole reconfirme : check-degraded-escalations.py ne lit pas "
+            "PG sur ai-01:claudish et signale son miroir perime",
+            "Instrument check-degraded-escalations.py sur myia-po-2027 : deux "
+            "passes completes terminent exit 1, aucun verdict 0/2/3 opposable",
+            "organe exit 1 : lecteur PG absent du processus",
+        ):
+            assert classify_reader_defect(text), repr(text)
+        for text in (
+            "PG down : l'export exit 1, le store ne repond plus",  # service
+            "le runner Docker exit 1, image miroir relancee a la main",  # service
+            "rc=1 du build CI, tests casses",  # pas de vocabulaire lecteur
+            "D: mesure a 87,94 Gio libres",
+            "l'organe a sonne 30 echeances ce matin",  # pas de panne lecteur
+            # Review ai-01 20/11 : l'instrument sain cite sans echec, la
+            # panne de SERVICE rapportee, et « lecteur » d'autre chose.
+            "check-degraded-escalations.py a sonne 30 echeances ce matin, "
+            "tout va bien",
+            "L'organe de controle a detecte : PG down, export en echec",
+            "le lecteur de videos rend exit 1",
+            "",
+        ):
+            assert not classify_reader_defect(text), repr(text)
+        # Frontiere de mot : « pgadmin » contient « pg » sans etre le store,
+        # rc=15 n'est pas « rc=1 » (review ai-01 20/11 : chatgpt ne
+        # contient pas « pg » et ne temoigne de rien).
+        assert not classify_reader_defect("migration pgadmin terminee, rc=15")
+
+        # Fixture : une escalade d'instrument (overdue) + une de service.
+        (root / "reader-defect.md").write_text(
+            "### [2026-11-02T22:00:00.000Z] myia-j|ws\n\n"
+            "[DEGRADED] Instrument check-degraded-escalations.py : rc=1, "
+            "lecteur PG non configure dans ce siege\n\n"
+            "### [2026-11-02T22:30:00.000Z] myia-k|ws\n\n"
+            "[DEGRADED] Pile vLLM injoignable : modeles en 500 depuis 6 h\n",
+            encoding="utf-8")
+        reader_items = collect_escalations(
+            load_entries([root / "reader-defect.md"])[0], now)
+        assert len(reader_items) == 2, reader_items
+        by_lane = {i["lane"]: i for i in reader_items}
+        assert by_lane["myia-j|ws"]["reader_defect"] is True, by_lane
+        assert by_lane["myia-k|ws"]["reader_defect"] is False, by_lane
+        # Toutes deux DUES (exit 2) -- le statut ne change pas, seule la
+        # decomposition change.
+        assert verdict(reader_items) == (
+            2, "2 echeance(s) depassee(s) sans [REPAIRED], "
+               "1 panne(s) du lecteur de l'organe"), verdict(reader_items)
+        # Le critere du GO : seule la seconde reste dans le compteur
+        # principal -- l'empreinte porte le lot de service.
+        assert build_ring_id(reader_items, now=1750000000) == build_ring_id(
+            [by_lane["myia-k|ws"]], now=1750000000)
+        # La sonnerie : panne de service en tete, section lecteur NOMMEE
+        # avec le remede, apres la section hote le cas echeant.
+        ring = build_ring_content(mixed + reader_items)
+        assert ring.index("myia-c|ws") < ring.index(
+            "Rangees a part -- panne du lecteur"), ring
+        assert "remede" in ring and "--env-file" in ring, ring
+        assert "[lecteur]" in ring, ring
+        assert not DECLARATION_TOKEN_RE.search(ring), ring
+        # Sortie texte : marque A-PART + suffixe ; JSON : sous-compte. La
+        # branche texte de report() ecrit sur sys.stdout resolu a l'appel
+        # (stream= n'affecte que la branche JSON, #4729) : redirect_stdout.
+        text_out = io.StringIO()
+        with contextlib.redirect_stdout(text_out):
+            report(reader_items, *verdict(reader_items), False)
+        assert "A-PART" in text_out.getvalue(), text_out.getvalue()
+        assert "[panne du lecteur de l'organe (exit 1)]" in \
+            text_out.getvalue(), text_out.getvalue()
+        json_out = io.StringIO()
+        report(reader_items, *verdict(reader_items), True, stream=json_out)
+        totals = json.loads(json_out.getvalue())["totals"]
+        assert totals["overdue"] == 2, totals
+        assert totals["overdue_reader_defect"] == 1, totals
+        assert totals["overdue_known_defect"] == 0, totals
+
+        # MUTANT (#4729, critere de fin du GO) : classification RETIREE --
+        # les marqueurs vides, la meme fixture doit cesser d'etre rangie a
+        # part. Le temoin rougit : sans classe, l'instrument revient dans
+        # le compteur principal et le verdict perd sa decomposition.
+        saved = (globals()["READER_DEFECT_EXIT_MARKERS"],
+                 globals()["READER_DEFECT_READER_MARKERS"],
+                 globals()["READER_DEFECT_READ_FAILURE_MARKERS"],
+                 globals()["READER_DEFECT_ORGAN_NAMES"],
+                 globals()["READER_DEFECT_STORE_MARKERS"])
+        try:
+            globals()["READER_DEFECT_EXIT_MARKERS"] = ()
+            globals()["READER_DEFECT_READER_MARKERS"] = ()
+            globals()["READER_DEFECT_READ_FAILURE_MARKERS"] = ()
+            globals()["READER_DEFECT_ORGAN_NAMES"] = ()
+            globals()["READER_DEFECT_STORE_MARKERS"] = ()
+            assert classify_reader_defect(
+                "check-degraded-escalations.py rc=1, lecteur PG absent") is False
+            mutant_items = collect_escalations(
+                load_entries([root / "reader-defect.md"])[0], now)
+            mutant_by_lane = {i["lane"]: i for i in mutant_items}
+            assert mutant_by_lane["myia-j|ws"]["reader_defect"] is False
+            assert verdict(mutant_items) == (
+                2, "2 echeance(s) depassee(s) sans [REPAIRED]"), \
+                verdict(mutant_items)
+            assert build_ring_id(mutant_items, now=1750000000) != \
+                build_ring_id(reader_items, now=1750000000)
+        finally:
+            (globals()["READER_DEFECT_EXIT_MARKERS"],
+             globals()["READER_DEFECT_READER_MARKERS"],
+             globals()["READER_DEFECT_READ_FAILURE_MARKERS"],
+             globals()["READER_DEFECT_ORGAN_NAMES"],
+             globals()["READER_DEFECT_STORE_MARKERS"]) = saved
+        # Le mutant rendu : la classification est bien revenue.
+        assert classify_reader_defect("organe rc=1, lecteur PG absent")
 
         # #4643 — dedoublonnage crossPost : la MEME declaration (meme lane,
         # meme horodatage) servie par deux dashboards n'ouvre QU'UNE escalade.
@@ -2059,7 +2349,8 @@ le harnais au motif que Git resoudrait hors isolation
         budget_calls = {"archive_files": 0}
 
         def budget_fake_call(arguments, url, bearer, timeout=10.0,
-                             client="x", return_rejected_text=False):
+                             client="x", return_rejected_text=False,
+                             telemetry=None):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -2123,7 +2414,7 @@ le harnais au motif que Git resoudrait hors isolation
         husk_reads = []
 
         def husk_fake_call(arguments, url, bearer, timeout=10.0, client="x",
-                           return_rejected_text=False):
+                           return_rejected_text=False, telemetry=None):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -2165,7 +2456,8 @@ le harnais au motif que Git resoudrait hors isolation
         # #4643 — tout AUTRE rejet isError reste une erreur d'instrument :
         # pas la signature coque -> « rejet serveur » dans les erreurs.
         def other_reject_fake_call(arguments, url, bearer, timeout=10.0,
-                                   client="x", return_rejected_text=False):
+                                   client="x", return_rejected_text=False,
+                                   telemetry=None):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -2193,7 +2485,8 @@ le harnais au motif que Git resoudrait hors isolation
         recover_reads = []
 
         def recover_fake_call(arguments, url, bearer, timeout=10.0,
-                              client="x", return_rejected_text=False):
+                              client="x", return_rejected_text=False,
+                              telemetry=None):
             action = arguments.get("action")
             if action == "list":
                 return {"content": [{"type": "text", "text": json.dumps(
@@ -2243,7 +2536,10 @@ le harnais au motif que Git resoudrait hors isolation
           "budget d'archives global — saut signale, "
           "entrees vivantes intactes, appels bornes ; #4730 : defaut connu de "
           "l'hote classe A-PART (sonnerie separee, verdict explicite, "
-          "idempotence sur le lot reparable, statut et sortie inchanges).")
+          "idempotence sur le lot reparable, statut et sortie inchanges) ; "
+          "#4729 : panne du lecteur de l'organe (exit 1) rangee a part -- "
+          "compteur principal = dette de service, remede siege --env-file "
+          "nomme dans la sonnerie, mutant sans classification rouge.")
 
 
 def main(argv=None):

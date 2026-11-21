@@ -78,6 +78,9 @@ $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # (Ok = $false) suit le même fail-safe que l'ancien $LASTEXITCODE non-nul.
 . (Join-Path $ScriptDir '..\common\gh-issues.ps1')
 . (Join-Path $ScriptDir '..\common\gh-pull-requests.ps1')
+# #3345 D1: spawn-cwd guard — Claude Code refuses its own isolation worktree when
+# the child cwd's drive letter case mismatches git's toplevel (upstream #91618).
+. (Join-Path $ScriptDir '..\common\path-guards.ps1')
 # Claim lane identity (#4114, producer side): every GitHub [CLAIMED]/[RELEASED]/
 # [RESULT] marker below must carry machine:workspace — the same derivation as
 # check_issue_claim.py (COMPUTERNAME + basename of the git toplevel). A machine-only
@@ -140,6 +143,36 @@ try {
     }
 } catch {
     Write-Log "Injection env vars MCP échouée: $_" "WARN"
+}
+
+# #4815: sk-agent env injection — SEARXNG_URL + HUB_BASE_URL must reach the stdio
+# server. The worker's `claude -p` child does not pass mcpServers.*.env entries to
+# its stdio MCP children, so sk-agent came up with searxng "unavailable" in workers
+# even though ~/.claude.json carried the var (fleet provisioning plan #4814 writes
+# HUB_BASE_URL the same way). Same remedy as #2252, scoped to an explicit allow-list:
+# only these two vars are taken from the sk-agent entry env.
+$SkAgentEnvAllowList = @('SEARXNG_URL', 'HUB_BASE_URL')
+try {
+    $SkAgentConfigPath = Join-Path $env:USERPROFILE ".claude.json"
+    if (Test-Path $SkAgentConfigPath) {
+        # -AsHashtable for the same reason as the #2252 block above (PS7+; on PS5.1
+        # this returns $null and the block silently skips — no regression vs today).
+        $SkAgentClaudeConfig = Get-Content $SkAgentConfigPath -Raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        $SkAgentEnv = $SkAgentClaudeConfig.mcpServers.'sk-agent'.env
+        if ($SkAgentEnv) {
+            foreach ($envVarName in $SkAgentEnvAllowList) {
+                if ($SkAgentEnv.ContainsKey($envVarName)) {
+                    $envPath = "env:$envVarName"
+                    if (-not (Test-Path $envPath) -or -not (Get-Item $envPath).Value) {
+                        Set-Item -Path $envPath -Value $SkAgentEnv[$envVarName] -ErrorAction SilentlyContinue
+                        Write-Log "Env injecté (sk-agent): $envVarName" "DEBUG"
+                    }
+                }
+            }
+        }
+    }
+} catch {
+    Write-Log "Injection env sk-agent échouée: $_" "WARN"
 }
 
 # #2280: Fallback — read .env from roo-state-manager submodule if env vars not already set
@@ -2180,7 +2213,7 @@ function Find-ExistingWorktree {
     Write-Log "Vérification de $($CandidateDirs.Count) worktree(s) existant(s) pour reprise..."
 
     foreach ($Dir in $CandidateDirs) {
-        $WorktreePath = $Dir.FullName
+        $WorktreePath = ConvertTo-SpawnCwd $Dir.FullName   # #3345 D1: uppercase drive
 
         # Vérifier que c'est bien un worktree git valide
         $GitDir = Join-Path $WorktreePath ".git"
@@ -2684,7 +2717,7 @@ function Create-Worktree {
     if (-not (Test-Path $WorktreeDir)) {
         New-Item -ItemType Directory -Path $WorktreeDir -Force | Out-Null
     }
-    $WorktreePath = Join-Path $WorktreeDir $BranchName.Replace("/", "-")
+    $WorktreePath = ConvertTo-SpawnCwd (Join-Path $WorktreeDir $BranchName.Replace("/", "-"))   # #3345 D1
 
     Write-Log "Création worktree: $WorktreePath (branch: $BranchName)"
 
@@ -3603,7 +3636,15 @@ function Test-WorktreeHasChanges {
                 & cmd /c "git add -u -- "":!mcps"" "":!roo-code"" 2>&1" | Out-Null
                 # Two -m flags: git joins them with a blank line, byte-identical to the
                 # previous single multiline -m (which cannot cross the cmd.exe layer).
-                & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
+                # Lane-signature (#4827 review ai-01 3b, r2): the auto-commit must
+                # carry the Lane: trailer, computed by THIS script — after
+                # ENFORCED_SINCE an unsigned auto-commit reddens the lane's own PR.
+                # Machine is LOWERCASED ($env:COMPUTERNAME is uppercase; the guard's
+                # LANE_RE is case-sensitive) and the workspace is the MAIN checkout's
+                # leaf ($RepoRoot) — NOT the worktree leaf, which is a wt-* name.
+                $workerMachine = "${env:COMPUTERNAME}".ToLower()
+                $workerLane = "${workerMachine}:$(Split-Path $RepoRoot -Leaf)"
+                & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" -m ""Lane: $workerLane"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
 
                 # #1666 Phase A2 Guard A2.1: Post-commit verification.
                 # Even with Guard #1613 firing, verify HEAD is now attached AND the commit is reachable
@@ -5733,6 +5774,9 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
     if (-not $WorktreePath) {
         $WorktreePath = $RepoRoot
     }
+    # #3345 D1: single normalization point — the spawned child's cwd must match
+    # git's toplevel casing (covers both branches above; idempotent).
+    $WorktreePath = ConvertTo-SpawnCwd $WorktreePath
 
     # 3a. Track active worktree for graceful shutdown (#1147)
     $script:ActiveWorktreePath = $WorktreePath

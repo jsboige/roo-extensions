@@ -665,18 +665,18 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         @($gate.Failed).Count  | Should -Be 0
     }
 
-    It 'trou a (APPROVE #4628) : pr-review-and-merge exige au moins un run build-and-test — un ensemble vide ne passe plus pour « CI passed »' {
+    It 'trou a (APPROVE #4628) : pr-review-and-merge exige au moins un run du profil CI — un ensemble vide ne passe plus pour « CI passed »' {
         $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
         $pram | Should -Match '\$ciChecks\.Count -eq 0'
-        $pram | Should -Match 'No build-and-test check-runs found'
+        $pram | Should -Match 'cannot certify CI \(empty set is not green\)'
         # Le bloc vide est AVANT le verdict « CI passed » (ancre ASCII : console 5.1).
         $pram | Should -Match '(?s)\$ciChecks\.Count -eq 0.*?CI passed'
     }
 
-    It 'trou a : review-bot signale un rollup sans build-and-test (WARN, non bloquant — le bot audite, ne merge pas)' {
+    It 'trou a : review-bot signale un rollup sans run du profil CI (WARN, non bloquant — le bot audite, ne merge pas)' {
         $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
-        $bot | Should -Match 'build-and-test check-run'
         $bot | Should -Match 'CI not certified'
+        $bot | Should -Match 'Get-CiCheckProfile'
     }
 
     It 'lot 6 (INFO ai-01) : la liste des statuts pending n existe plus qu en UN endroit dans Get-CiRollupGate' {
@@ -696,6 +696,141 @@ Describe 'Get-CiRollupGate — porte CI check-run (#4150 lot 4a)' {
         $bot | Should -Not -Match 'proceeding without CI gate'
         $bot | Should -Match 'no CI check-runs at all'
         $bot | Should -Match 'CI not certified \(empty rollup\)'
+    }
+}
+
+Describe 'Get-CiCheckProfile — profil CI par dépôt (#4150 garde sous-dépôt)' {
+    # Reproduction du refus dry-run ms#1806 : le profil parent (« build-and-test »)
+    # appliqué au sous-dépôt rendait un ensemble VIDE alors que 7 jobs étaient verts.
+    BeforeAll {
+        # Forme EXACTE du rollup ms#1806 (head 24d2ddac, mesuré REST 19/11).
+        $script:SubmoduleJobs = @(
+            'test (jupyter-mcp-server)', 'test (jinavigator-server)',
+            'roo-state-manager', 'lint (jupyter-mcp-server)',
+            'lint (jinavigator-server)', 'docs', 'test-sk-agent'
+        )
+        $script:NewCiCheck = {
+            param($Name, $Status = 'COMPLETED', $Conclusion = 'SUCCESS')
+            [pscustomobject]@{ Name = $Name; Status = $Status; Conclusion = $Conclusion }
+        }
+    }
+
+    It 'parent : jsboige/roo-extensions -> profil build-and-test SANS Required (comportement inchangé)' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/roo-extensions'
+        $p.Ok    | Should -BeTrue
+        $p.Label | Should -Be 'build-and-test'
+        'build-and-test (20)' | Should -Match $p.Pattern
+        'build-and-test'      | Should -Match $p.Pattern
+        # Pas de complétude exigée au parent : un seul run du profil reste sa règle.
+        $p.Required | Should -BeNullOrEmpty
+        $oneRun = @(& $script:NewCiCheck -Name 'build-and-test (20)')
+        @(Get-CiMissingRequiredChecks -Profile $p -Checks $oneRun).Count | Should -Be 0
+    }
+
+    It 'sous-dépôt : jsboige/jsboige-mcp-servers -> profil build/test/lint (les 7 jobs réels)' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $p.Ok | Should -BeTrue
+        $selected = @($script:SubmoduleJobs | Where-Object { $_ -match $p.Pattern })
+        $selected.Count | Should -Be 7
+        # Un job « build-and-test » n'existe PAS au sous-dépôt : l'ancien motif dur
+        # rendait 0 run -> refus. Le nouveau motif les sélectionne TOUS.
+        'build-and-test' | Should -Not -Match $p.Pattern
+        # Les 7 jobs inconditionnels exacts sont exigés au grand complet (#4838 review).
+        @($p.Required).Count | Should -Be 7
+        @(Compare-Object -ReferenceObject $script:SubmoduleJobs -DifferenceObject @($p.Required)).Count |
+            Should -Be 0
+    }
+
+    It '#4838 témoin COMPLET VERT : 0 manquant, porte classification ouverte' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $checks = @($script:SubmoduleJobs | ForEach-Object { & $script:NewCiCheck -Name $_ })
+        @(Get-CiMissingRequiredChecks -Profile $p -Checks $checks).Count | Should -Be 0
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 0
+        @($gate.Failed).Count  | Should -Be 0
+    }
+
+    It '#4838 témoin INCOMPLET « docs seul » : classification verte, complétude refuse (6 manquants)' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $checks = @(& $script:NewCiCheck -Name 'docs')
+        $gate = Get-CiRollupGate -Checks $checks
+        # Le défaut mesuré : la classification seule voit 1 run vert et 0 rouge.
+        @($gate.Pending).Count | Should -Be 0
+        @($gate.Failed).Count  | Should -Be 0
+        # La complétude est ce qui refuse le rollup partiel.
+        $missing = @(Get-CiMissingRequiredChecks -Profile $p -Checks $checks)
+        $missing.Count | Should -Be 6
+        $missing -contains 'test-sk-agent' | Should -BeTrue
+    }
+
+    It '#4838 témoin INCOMPLET « un job manquant » : exactement le nom absent, porte seule verte' {
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $names = @($script:SubmoduleJobs | Where-Object { $_ -ne 'test-sk-agent' })
+        $checks = @($names | ForEach-Object { & $script:NewCiCheck -Name $_ })
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Pending).Count | Should -Be 0
+        @($gate.Failed).Count  | Should -Be 0
+        $missing = @(Get-CiMissingRequiredChecks -Profile $p -Checks $checks)
+        $missing.Count | Should -Be 1
+        $missing[0]   | Should -Be 'test-sk-agent'
+    }
+
+    It -TestCases @(
+        @{ Conclusion = 'FAILURE' }
+        @{ Conclusion = 'CANCELLED' }
+    ) '#4838 témoin COMPLET ROUGE/ANNULÉ : 0 manquant, classification refuse (<Conclusion>)' {
+        param($Conclusion)
+        $p = Get-CiCheckProfile -Repo 'jsboige/jsboige-mcp-servers'
+        $checks = @(
+            $script:SubmoduleJobs | ForEach-Object {
+                $c = if ($_ -eq 'test-sk-agent') { $Conclusion } else { 'SUCCESS' }
+                & $script:NewCiCheck -Name $_ -Conclusion $c
+            }
+        )
+        @(Get-CiMissingRequiredChecks -Profile $p -Checks $checks).Count | Should -Be 0
+        $gate = Get-CiRollupGate -Checks $checks
+        @($gate.Failed).Count  | Should -Be 1
+        @($gate.Pending).Count | Should -Be 0
+        $gate.Failed[0].Name   | Should -Be 'test-sk-agent'
+    }
+
+    It 'dépôt INCONNU : refus fail-closed (Ok = $false), jamais de repli parent muet' {
+        $p = Get-CiCheckProfile -Repo 'someone/unknown-repo'
+        $p.Ok      | Should -BeFalse
+        $p.Pattern | Should -BeNullOrEmpty
+        $p.Required | Should -BeNullOrEmpty
+    }
+
+    It 'le motif est insensible à la casse du dépôt (ToLowerInvariant)' {
+        $p = Get-CiCheckProfile -Repo 'JSBOIGE/Roo-Extensions'
+        $p.Ok | Should -BeTrue
+    }
+
+    It 'sentinelle : pr-review-and-merge et review-bot passent par Get-CiCheckProfile (plus de motif build-and-test en dur)' {
+        $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
+        $bot  = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        foreach ($src in @($pram, $bot)) {
+            $src | Should -Match 'Get-CiCheckProfile'
+            # Le filtre dur `-match "build-and-test"` ne pilote plus la sélection.
+            $src | Should -Not -Match '\-match\s+"build-and-test"'
+        }
+    }
+
+    It '#4838 intégration : la porte de fusion consomme la complétude AVANT « CI passed » (sans échappatoire -Force)' {
+        $pram = Get-Content (Join-Path $script:RepoRoot 'scripts/github/pr-review-and-merge.ps1') -Raw
+        $pram | Should -Match 'Get-CiMissingRequiredChecks'
+        $pram | Should -Match 'partial rollup does not certify CI'
+        # Le bloc incomplet précède le verdict vert, comme le bloc vide du parent.
+        $pram | Should -Match '(?s)Get-CiMissingRequiredChecks.*?CI passed'
+        # Extraire le bloc incomplet réel : il exit 1 sans proposer -Force.
+        $block = [regex]::Match($pram, '(?s)\$ciMissing\s*=\s*Get-CiMissingRequiredChecks.*?exit 1').Value
+        $block | Should -Not -BeNullOrEmpty
+        $block | Should -Match 'exit 1'
+        $block | Should -Not -Match '-Force'
+        # Le bot auditeur nomme aussi le rollup incomplet (WARN, il ne merge pas).
+        $bot = Get-Content (Join-Path $script:RepoRoot 'scripts/github/review-bot.ps1') -Raw
+        $bot | Should -Match 'Get-CiMissingRequiredChecks'
+        $bot | Should -Match 'CI not certified \(incomplete .* rollup'
     }
 }
 

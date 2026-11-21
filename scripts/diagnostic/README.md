@@ -276,7 +276,7 @@ Les dashboards sont lus (`## Intercom`), les escalades `[DEGRADED]` repérées, 
 - **Sources** (review #4519) : `--dashboard-file` = rejeu forensic → sinon **store PG** (même transport que la sonnerie, 200 dernières entrées par dashboard, lu en `format: json` — le markdown dérivé ne porte pas les tags, review ai-01 04/11) **plus les archives de condensation de la fenêtre `--archive-window-hours`** (défaut 48 h, `0` désactive — #4643 : un `[REPAIRED]` ou une escalade consommés par une condensation restent visibles ; listing d'archives illisible = erreur d'instrument « fenêtre AVEUGLE ») → sinon repli **miroir G:**, qui **dégrade** la mesure (sortie `1` si PG était configuré) — et, depuis #4650, **dégrade aussi la lecture par défaut sans bearer** (ni `--dashboard-dir` ni `--dashboard-file` : le miroir implicite n'est plus écrit depuis #4131, donc l'organe dit qu'il ne sait pas au lieu de rendre un verdict sur une source morte) ; plafond de fraîcheur : plus récente entrée < 1 cycle, sinon `1` sans sonnerie.
 - **Exit codes** : `0` aucune escalade / `3` ouverte(s) dans les délais (le chemin est exercé, rien à sonner) / `2` échéance dépassée → **sonner le user** / `1` erreur d'instrument (dashboard illisible, miroir gelé, mesure dégradée — dont lecture par défaut sans bearer, #4650 —, ou `--ring` demandé et non parti).
 - **Bearer** (#4672) : `--ring-bearer` > env `MCP_PROXY_BEARER` > fichier `--env-file` (défaut `~/.roo-state-manager/stall-detector.env`, lu ligne à ligne, jamais sourcé ; valeur vide = aucun fichier). Un `--ring-bearer ""` **explicite** veut dire « aucun bearer » et masque les deux étages suivants — c'est ce qui rend la suite de tests étanche dans un shell qui exporte un vrai bearer.
-- **`--ring`** poste `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard **global** ; clé d'idempotence **quotidienne et sans l'hôte** (même lot = une sonnerie par jour, quel que soit le nombre de sièges qui sonnent — le serveur ignore un identifiant déjà présent et l'organe l'annonce ; re-sonne chaque jour tant que rien n'est réparé). Le texte ne porte **aucun token de déclaration** et l'entrée porte le tag `DEGRADED-ESCALATION` : la sonnerie ne ferme pas sa propre alarme. **Annulée sur mesure partielle** (dashboard illisible ⇒ pas de sonnerie, W3 review #4655). Transport **importé** de `detect-approval-stalls.py` (`call_dashboard_tool`, importlib) — le même pour lire le store et poster.
+- **`--ring`** poste `[ASK-USER][DEGRADED-ESCALATION]` sur le dashboard **global** ; clé d'idempotence **quotidienne et sans l'hôte** (même lot = une sonnerie par jour, quel que soit le nombre de sièges qui sonnent — le serveur ignore un identifiant déjà présent et l'organe l'annonce ; re-sonne chaque jour tant que rien n'est réparé). Le texte ne porte **aucun token de déclaration** et l'entrée porte le tag `DEGRADED-ESCALATION` : la sonnerie ne ferme pas sa propre alarme. **Annulée sur mesure partielle** (dashboard illisible ⇒ pas de sonnerie, W3 review #4655). Transport **importé** de `detect-approval-stalls.py` (`call_dashboard_tool`, importlib) — le même pour lire le store et poster ; une lecture muette dit sa **phase** MCP (`muted_by_phase` : initialize/initialized/tools-call/lecture — récidive #4729 du 18/11, type d'exception et chiffres seulement).
 - **Plafond dit** : l'organe ne voit que les escalades **postées** ; une lane qui n'escalade pas reste invisible — d'où la sonde de siège `check-mcp-seats.py` (#4518) qui mesure la présence réelle des MCP.
 
 ```bash
@@ -287,6 +287,24 @@ python scripts/diagnostic/check-degraded-escalations.py --selftest
 ```
 
 Règle normative : [`.claude/configs/rules/degraded-escalation.md`](../../.claude/configs/rules/degraded-escalation.md) (seule copie, déployée dans `~/.claude/rules/`) · Détail et mesures : [`docs/harness/reference/degraded-escalation.md`](../../docs/harness/reference/degraded-escalation.md).
+
+### `collect_open_user_questions.py`
+
+Organe **lecture seule** « questions ouvertes flotte » (#4821, directive owner 17/11 : « il faudrait que tout le monde puisse me présenter les questions de tout le monde »). La règle de consolidation (#4196) fait de l'entrée `ASK-USER` sur le global une **vue** du registre local de chaque lane ; l'organe reconstruit cette vue depuis les dashboards et **ne mute rien** :
+
+- **Vue global** : dernière entrée `ASK-USER` par lane (une entrée plus ancienne de la même lane est remplacée — la vue est repostée à chaque fin de session), questions parsées avec leur âge tel que la lane le porte (`Qxx (N j, …)`), compteur d'entrées remplacées.
+- **Hors global** : les entrées qui posent une question au user sur un dashboard machine/workspace **sans** entrée `ASK-USER` global au moins aussi récente de la même lane — le trou exact de la directive (cas fondateur Q-P2023-9, invisible tant qu'aucun relais manuel).
+- **Déclaration ≠ mention** (contrat partagé #4517) : tag `ask-user` ou token `[ASK-USER]`/`[ASK USER]` en premier token du corps utile — jamais une citation en prose. Un `[ASK]` inter-agents n'est pas une question au user.
+- **Pas de fabrication** : une entrée dont le texte ne suit aucun format parsable est rendue « format non parsé — voir l'entrée », sans inventer de question (mesuré au premier run vivant : 3 lanes sur 5 publient en prose libre).
+- **Exit codes** : `0` bloc rendu — le repli miroir (store PG injoignable, miroir lisible) rend aussi `0`, **dégradé, avec le label `[SOURCE DÉGRADÉE : …]` en tête du bloc stdout** (règle 4 degraded-escalation : une sortie dégradée ne se rapporte jamais comme un résultat normal) / `1` exception d'import ou de transport (instrument cassé) / `2` dashboard illisible ou source absente — un fichier muet n'est jamais un « zéro question » (fail-closed).
+
+```bash
+python scripts/diagnostic/collect_open_user_questions.py            # bloc markdown
+python scripts/diagnostic/collect_open_user_questions.py --json
+python scripts/diagnostic/collect_open_user_questions.py --dashboard-file f.md   # fixture/test
+```
+
+Tests : `scripts/testing/python/test_collect_open_user_questions.py` (découverts par `unittest discover` en CI). Règle associée (3 clauses de consolidation) : `~/.claude/CLAUDE.md` § User Arbitration, items 7-9.
 
 ### `probe-hermes-liveness.py`
 

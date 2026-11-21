@@ -41,6 +41,21 @@
       - Test-WritePendingEscalation : apres N polls write-pending consecutifs,
         le verdict "disque inutilisable" atteint le canal survivant GitHub.
 
+    Defaut #4843 (mesure ai-01, 20/11 07:24-12:15Z) -- le watchdog ne doit
+    jamais aggraver une panne :
+      - Resolve-DriveLaunchMethod : un appelant ELEVE delegue la relance au
+        shell non eleve de l'utilisateur (explorer.exe), jamais un
+        Start-Process direct du binaire qui heriterait du jeton admin.
+      - Test-NoSurvivingInstance : un kill rate ne se suit JAMAIS d'une
+        relance -- DriveFS est mono-instance, une relance a cote d'un
+        survivant ne sert rien.
+      - New-WatchdogInstanceMutex : trois watchdogs ont tourne dans la meme
+        seconde (PT5M tue wscript, laisse pwsh vivant, IgnoreNew ne protege
+        plus) -- un mutex nomme fait sortir le second exemplaire vivant.
+      - Test-IsInLogonGrace + Get-InteractiveLogonTime : un Drive absent dans
+        les premieres minutes apres le logon est le demarrage automatique de
+        Drive en cours, pas une panne (relance elevee mesuree 50 s apres boot).
+
     PS 5.1 compatible : pas de ternaire, pas de ?., ASCII uniquement.
 #>
 
@@ -288,4 +303,138 @@ function Test-RelaunchCycleFailed {
     $attemptAt = ConvertTo-WatchdogUtcOffset -Value $LastRelaunchAttempt
     if ($null -eq $attemptAt)    { return $false }
     return (($Now - $attemptAt).TotalSeconds -ge $GraceSeconds)
+}
+
+function Test-CallerElevation {
+    # #4843 critere 1 : la tache d'ai-01 tourne RunLevel HighestAvailable --
+    # un Start-Process direct du binaire lui remet le jeton ADMIN (boucle de
+    # mort WebView2, taskkill refuse depuis les lanes standards, mesure
+    # 20/11). Rend $true si le processus appelant est eleve. Toute
+    # determination impossible est traitee comme NON eleve (le chemin direct
+    # reste alors lancable) -- jamais de throw.
+    try {
+        $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+        return [bool]$principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        return $false
+    }
+}
+
+function Resolve-DriveLaunchMethod {
+    # #4843 critere 1 : un appelant ELEVE delegue la relance au shell non
+    # eleve de l'utilisateur (explorer.exe "<binaire>") -- l'enfant herite le
+    # jeton de la session, pas le notre. Un appelant non eleve lance le
+    # binaire directement. Rend @{ Method; FilePath; ArgumentList } pret
+    # pour Start-Process. $env:WINDIR absent (CI non-Windows) : le chemin
+    # explorer canonique garde le forme valide pour les tests de schema.
+    param(
+        [bool]$CallerElevated,
+        [string]$BinaryPath
+    )
+    if ($CallerElevated) {
+        $explorer = 'C:\Windows\explorer.exe'
+        if ($env:WINDIR) { $explorer = Join-Path $env:WINDIR 'explorer.exe' }
+        return @{
+            Method       = 'explorer-delegated'
+            FilePath     = $explorer
+            ArgumentList = '"' + $BinaryPath + '"'
+        }
+    }
+    return @{
+        Method       = 'direct'
+        FilePath     = $BinaryPath
+        ArgumentList = '--startup_mode'
+    }
+}
+
+function Test-NoSurvivingInstance {
+    # #4843 critere 2 : DriveFS est mono-instance -- si un exemplaire survit
+    # au kill (Stop-Process en echec, instance wedged), une relance a cote ne
+    # sert a rien (instance saine parquee a cote d'une coincee, mesure 20/11).
+    # Rend $true uniquement quand AUCUN processus survivant n'est fourni.
+    param($SurvivingProcesses)
+    if (-not $SurvivingProcesses) { return $true }
+    return (@($SurvivingProcesses).Count -eq 0)
+}
+
+function New-WatchdogInstanceMutex {
+    # #4843 critere 3 : PT5M (ExecutionTimeLimit) tue wscript mais laisse le
+    # fils pwsh vivant -- IgnoreNew ne protege plus et TROIS watchdogs ont
+    # tourne dans la meme seconde (mesure ai-01 20/11). Un mutex nomme fait
+    # sortir immediatement le second exemplaire VIVANT.
+    #   Acquired=$true  -> ce process tient le mutex (garder le handle pour
+    #                      toute la duree du script ; le nom meurt avec le
+    #                      dernier handle -- pas de fantome apres un kill) ;
+    #   Acquired=$false + Note='held-by-live-instance' -> un autre exemplaire
+    #                      vit : sortie immediate, une ligne de journal ;
+    #   AbandonedMutexException -> le detenteur est MORT sans liberer : la
+    #                      propriete nous est accordee, on continue.
+    # Echec d'ouverture/d'attente : fail-OPEN (le watchdog doit tourner ;
+    # deux exemplaires = le statu quo ante, zero watchdog = pire).
+    # Hors Windows (CI) : fail-open, le garde ne s'applique pas.
+    # Retour @{ Acquired; Note; Mutex } -- jamais de throw.
+    param([string]$MutexName)
+    if ($env:OS -ne 'Windows_NT') {
+        return @{ Acquired = $true; Note = 'non-windows-fail-open'; Mutex = $null }
+    }
+    $createdNew = $false
+    $mutex = $null
+    try {
+        $mutex = New-Object System.Threading.Mutex($false, $MutexName, [ref]$createdNew)
+    } catch {
+        return @{ Acquired = $true; Note = 'mutex-open-failed-fail-open'; Mutex = $null }
+    }
+    try {
+        $held = $mutex.WaitOne(0)
+    } catch [System.Threading.AbandonedMutexException] {
+        return @{ Acquired = $true; Note = 'acquired-abandoned'; Mutex = $mutex }
+    } catch {
+        $mutex.Dispose()
+        return @{ Acquired = $true; Note = 'mutex-wait-failed-fail-open'; Mutex = $null }
+    }
+    if ($held) {
+        $note = 'created-new'
+        if (-not $createdNew) { $note = 'acquired-existing' }
+        return @{ Acquired = $true; Note = $note; Mutex = $mutex }
+    }
+    $mutex.Dispose()
+    return @{ Acquired = $false; Note = 'held-by-live-instance'; Mutex = $null }
+}
+
+function Test-IsInLogonGrace {
+    # #4843 critere 4 : Drive absent dans les premieres minutes apres le
+    # logon = le demarrage automatique HKCU Run en cours, pas une panne
+    # (relance elevee mesuree 50 s apres boot, ai-01 20/11). GraceSeconds
+    # <= 0 = kill-switch : on juge toujours. LogonTime illisible/nul (hote
+    # headless) -> pas de grace.
+    param(
+        [datetime]$Now,
+        $LogonTime,
+        [int]$GraceSeconds
+    )
+    if ($GraceSeconds -le 0) { return $false }
+    if (-not $LogonTime)     { return $false }
+    try {
+        $ageSeconds = ($Now - [datetime]$LogonTime).TotalSeconds
+    } catch {
+        return $false
+    }
+    return ($ageSeconds -lt $GraceSeconds)
+}
+
+function Get-InteractiveLogonTime {
+    # #4843 critere 4 : l'heure de logon de la session interactive = le
+    # StartTime du PLUS VIEUX processus explorer.exe (le shell demarre avec
+    # la session ; un redemarrage d'explorer ne rajeunit pas le plus vieux).
+    # Rend $null si aucun explorer (hote headless / session 0) --
+    # l'appelant en tire "pas de grace" via Test-IsInLogonGrace. Jamais de
+    # throw.
+    try {
+        $explorers = @(Get-Process -Name 'explorer' -ErrorAction SilentlyContinue)
+        if ($explorers.Count -eq 0) { return $null }
+        return ($explorers | Measure-Object -Property StartTime -Minimum).Minimum
+    } catch {
+        return $null
+    }
 }

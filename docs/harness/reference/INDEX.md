@@ -16,6 +16,7 @@
 | **Environnement dégradé (#4517)** | Escalade **immédiate** (pas de workaround), échéance `posté + 2 cycles` dérivée par le mécanisme, `[REPAIRED]` seul ferme (un `[DONE]` non), sonnerie `ASK-USER` sur le global. Organe `check-degraded-escalations.py`, exit 0/3/2/1 ; plafond : ne voit que les escalades **postées** | `degraded-escalation.md` |
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |
+| **Grain Supervisor (#4833)** | Agent global `grain-supervisor` : invocation Claude Code en arrière-plan, mapping difficulté→modèles sk-agent réellement exposés, worktree/claims, vérificateur distinct, PR sans merge et bilan tokens/murs ; preuve E2E payante séparée | `grain-supervisor.md` |
 | **sk-agent usage (volet D #4085)** | Quel agent pour quoi, transports stdio vs conteneur `:8100` (agents disque = stdio seulement), routage modèles LAN/public (23/42 agents hub = morts hors LAN), limites mesurées (attachments, `ok:true`, budgets mini) | `sk-agent-usage-guide.md` |
 | **Harness Reduction** | Plan de reduction du harnais (audit tokens, strategie) | `harness-reduction-plan.md` |
 | **Pi Agent Comparative Study** | Pi / pi-subagents / devstack vs RooSync — adaptation opportunities (#2416) | `pi-agent-comparative-study.md` |

@@ -1,7 +1,7 @@
 # Boucle de rafraîchissement de l'index `ws-*` (#4736 P4)
 
-**Version :** 1.1.0 · **Issues :** #4736 (P3 writer, P4 loop) · **MAJ :** 2026-11-16
-**Source :** `ms#1782` (merge `6c43013d`), `src/services/code-index/ws-refresh-loop.ts`, `src/index.ts` (`initializeWsRefreshLoop`).
+**Version :** 2.1.0 · **Issues :** #4736 (P3 writer, P4 loop, P5 code) · #4819 (5b parité AST + canari incrémental) · **MAJ :** 2026-11-21
+**Source :** `ms#1782` (merge `6c43013d`), `ms#1800` (merge `06b0fbdf`, population code), `src/services/code-index/ws-refresh-loop.ts`, `src/index.ts` (`initializeWsRefreshLoop`).
 
 ---
 
@@ -10,7 +10,7 @@
 Le lecteur `codebase_search` sert une collection Qdrant `ws-<16 hex>` (nomimée `ws-` + `sha256(fsPath)[0:16]`, chemin VS Code brut). Le seul écrivain historique était l'extension Zoo/Roo, arrêtée sur la flotte depuis le 08/11 (#4737). Cette boucle prend la relève côté **roo-state-manager** : un daemon par siège écrivain qui **poll `git rev-parse HEAD`** et déclenche **une passe du writer P3** (`runWsIndexWriter`, `dryRun:false`) à chaque changement de HEAD.
 
 - **Déclencheur = commit uniquement.** Un arbre sale n'est pas un déclencheur (critère de l'issue : « après un commit ») ; les modifications non commitées passent à la prochaine passe.
-- **Périmètre = markdown** (`.md`/`.markdown`, chemins Zoo-éligibles, ≤ 1 Mo/fichier) — la population dont la parité ids/découpage a été prouvée en P2. Les autres types sont des skips avec raison jusqu'à la parité AST (P5).
+- **Périmètre = markdown + code** (chemins Zoo-éligibles, ≤ 1 Mo/fichier). Markdown : parité ids/découpage prouvée en P2, corpus en octets bruts. Code (depuis `ms#1800`, #4819) : parité AST avec le parser de Zoo — voir § « Population code (5b) ».
 - **Jamais de création de collection, jamais de reconfiguration** : la passe refuse si la collection manque ou si le modèle d'embedding a changé (garde P3).
 
 ## Armement (siège écrivain UNIQUEMENT)
@@ -25,6 +25,34 @@ WS_INDEX_REFRESH_POLL_SECONDS=120
 - Les valeurs vivent dans le `.env` du serveur (`mcps/internal/servers/roo-state-manager/.env`, chargé par le wrapper) — **une modification exige le restart de l'arbre wrapper**, pas seulement du processus serveur.
 - `WS_INDEX_REFRESH_HASH_PREFIX` **doit** reproduire le nom de la collection servie : vérifier par calcul, `sha256('d:\dev\roo-extensions')[:16] = d2ffdbaa832aed16` → collection `ws-d2ffdbaa832aed16`. Le corpus a été écrit sous ce chemin (pas sous le `C:\dev\...` d'un autre siège).
 - **Un seul siège écrivain.** La sentinelle mono-écrivain (P3) refuse une 2ᵉ lane ; le bail hôte (B2, ms#1782) borne une boucle **par machine**. N'armer qu'un siège.
+
+## Population code (5b, `ms#1800` / #4819)
+
+Depuis `ms#1800` (merge `06b0fbdf`), le writer indexe **aussi le code**, à parité AST avec le parser de l'extension Zoo : mêmes `segmentHash`, mêmes ids uuidv5, mêmes payloads — une réécriture régénère les points que Zoo aurait écrits, jamais des générations jumelles.
+
+- **Population = celle du scanner Zoo** : 33 extensions à grammaire tree-sitter (wasm chargés paresseusement depuis `tree-sitter-wasms`, les binaires mêmes que Zoo embarque) + 3 extensions en fallback par taille (`.vb`, `.scala`, `.swift`). `elm`/`htm` exclus d'office (Zoo y produit 0 bloc). Le markdown reste en octets bruts.
+- **CRLF** : le corpus code Zoo a été écrit depuis des worktrees **LF** (mesuré 17/11 : parse brut 41/189 hash stockés vs parse LF 134/134). Le parser normalise `\r\n`→`\n` avant parsing **et** hash — la parité tient sur tout siège, `autocrlf` ou non.
+- **Sécurité purge** : un parse qui **lève** (grammaire absente, wasm illisible) fait **sauter le fichier** — jamais planifié, donc jamais purgé : ses points stockés survivent. « 0 blocs » d'un fichier valide reste un signal de réécriture légitime pour la purge stale (elle nettoie au passage les fossiles d'anciennes générations de queries).
+- **Interrupteur** : `WS_WRITER_CODE_INDEXING=0` dans le `.env` du serveur → retour au comportement P3 (markdown seul). Défaut **ON**. Comme toute variable du `.env`, le changement exige le restart de l'arbre wrapper.
+
+### Canari 5b.2 (première passe code — siège web1)
+
+Après le merge du bump parent embarquant `ms#1800`, la première passe déclenchée par un commit est la première écriture code sur la collection servie. Vert = :
+
+1. Passe `success` dans `ws_refresh_status`, SLO tenu (`last_refresh_ms` ≤ `announced_delay_s`) ;
+2. **Pas de générations jumelles** : scroll lecture seule sur un fichier code inchangé — la réécriture (pas de cache pour l'ère Zoo) doit retomber sur les **mêmes ids** que les points stockés de Zoo (upsert idempotent, pas de double) ; les fossiles d'anciennes générations de queries du même fichier disparaissent (purge stale) ;
+3. Sur un fichier code **retouché** par la passe : les nouveaux points portent les ids/segmentHash Zoo (parité), sans points orphelins laissés par l'ancien contenu.
+
+Rouge sur 2 ou 3 → poser `WS_WRITER_CODE_INDEXING=0` et escalade `[DEGRADED]` (défaut de parité, pas une panne siège).
+
+### Canari incrémental code (critère 4 de #4819 — sur le build déployé corrigé)
+
+La première passe code ci-dessus prouve le mécanisme (3 passes web1 17/11 : convergence 972/981, code adopté 0→307, témoin `.ts` 52/52). Le critère 4 exige en outre la **séquence incrémentale**, après déploiement du build portant le correctif de failover (`ms#1811`, résidu `Body already read` → #4823) :
+
+1. **Pré-requis** (critères a-d publiés par web1 20/11) : bump parent déployé sur le siège écrivain, vintage servi sans `response.clone`, embedding vivant à la dimension de la collection.
+2. **Passe de réparation** au même HEAD : résidu 9 fichiers non adoptés → **9/9 dans le cache géré** (972/981 → 981/981, chaque chemin vérifié), `truncated:false`, `status:success`, **0** lot `Body already read` ; markdown 665/665 et témoin `.ts` 52/52 intacts.
+3. **Commit canari** : un commit modifie un fichier `.ts` de la **population parent** (ajout d'un symbole, retrait d'un segment) → la passe déclenchée par le commit rend le **nouveau symbole** servi, les **segments périmés disparus**, `last_refresh_ms` ≤ `announced_delay_s`, `indexed_head` avancé au commit déclencheur.
+4. **Témoin de population** : `search-semantic.tool.ts` vit dans le sous-module → **hors population `ws-*` par conception** (chaîne `sup-*`). Le canari se joue sur un `.ts` de la population parent ; la couverture d'un fichier du sous-module relève de la chaîne `sup-*`.
 
 ## Observabilité — `roosync_indexing(action:"ws_refresh_status")`
 

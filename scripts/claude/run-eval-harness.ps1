@@ -28,6 +28,9 @@ $ErrorActionPreference = 'Stop'
 # Storm-guard-aware verdict classification (pure functions, unit-tested). See its header
 # for why a storm-guarded scenario must never be counted as a pass.
 . "$PSScriptRoot\eval-harness-verdicts.ps1"
+# #3345 D1: spawn-cwd guard (ConvertTo-SpawnCwd) — Claude Code refuses its own
+# isolation worktree when the child cwd's drive letter case mismatches git's toplevel.
+. "$PSScriptRoot\..\common\path-guards.ps1"
 
 # Scenario map: eval test file -> @{ label; tool } where tool names the `[<tool>] verdict=`
 # log line whose latency/first-failing-check is appended as dashboard detail (empty = none).
@@ -92,7 +95,7 @@ try {
 
     $started = Get-Date
     $proc = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','eval:harness' `
-        -WorkingDirectory $pkgDir -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
+        -WorkingDirectory (ConvertTo-SpawnCwd $pkgDir) -RedirectStandardOutput $outFile -RedirectStandardError $errFile `
         -PassThru -NoNewWindow
     $timedOut = -not $proc.WaitForExit($VitestTimeoutSec * 1000)
     if ($timedOut) {
@@ -219,7 +222,7 @@ $body
         $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
-        $psi.WorkingDirectory = $RepoRoot
+        $psi.WorkingDirectory = ConvertTo-SpawnCwd $RepoRoot   # #3345 D1: uppercase drive
         $psi.EnvironmentVariables['MCP_TOOL_TIMEOUT'] = '900000'
         $p = [System.Diagnostics.Process]::Start($psi)
         $p.StandardInput.Write($prompt)
