@@ -61,6 +61,7 @@ on:
       - 'scripts/diagnostic/measure-gdrive-write-freeze.ps1'
       - 'scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1'
       - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
+      - 'tests/Pester/dashboard-listener.Async.Tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
       # #833: the audit-grader Pester fixture below runs the REAL
       # grade-test-assertions.cjs against hand-counted fixtures; the grader and
@@ -910,6 +911,15 @@ jobs:
       - name: Run dashboard-listener-definitive-skip suite (#4754)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/dashboard-listener-definitive-skip.Tests.ps1 -CI
+      # #2245 (#4830 reviews, 4/4 convergent): the nonblocking wake lifecycle
+      # suite AST-extracts the REAL Start-WakeWorker / Receive-WakeCompletion /
+      # Invoke-PendingWakeWorkspaces and drives them with Start-Job fake
+      # workers. It needs Pester 5 and a pwsh host whose own path can re-host a
+      # child (Get-Process $PID).Path — windows pwsh, same job as the listener's
+      # other suite. Without this step it would run nowhere in CI.
+      - name: Run dashboard-listener async wake suite (#2245)
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path tests/Pester/dashboard-listener.Async.Tests.ps1 -CI
       - name: Run gdrivefs-watchdog-schtask-fail-loud suite (#4754)
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit/gdrivefs-watchdog-schtask-fail-loud.Tests.ps1 -CI

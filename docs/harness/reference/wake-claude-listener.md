@@ -21,6 +21,32 @@ Installation : `scripts/dashboard-scheduler/install-dashboard-listener-schtask.p
 **Principal = utilisateur** (PAS SYSTEM) : le listener spawn un `claude -p` en contexte utilisateur,
 comme la tâche `Claude-Worker`.
 
+### Worker completion and detector responsiveness (#2245)
+
+The listener runs the spawn script in a background PowerShell job and drains its
+output on each loop tick. The global ceiling remains **one worker**, not one per
+workspace: this change does not increase model concurrency. Polling (20 seconds),
+debounce (10 seconds), routing and heartbeat cadence are unchanged.
+
+The dashboard's unacknowledged messages remain the durable queue. The in-memory
+`pending` map only coalesces workspace notifications; completion schedules a fresh
+read, including when no new dashboard message arrived. Cooldown delays admission
+without discarding that pending read.
+
+A job launch is not completion. Only a completed job carrying the spawn script's
+exit code can release the in-memory slot; exit 0 acknowledges the FIFO head,
+whereas skip, failure and timeout leave it unacknowledged. A failed/stopped job or
+missing exit marker retains exclusion and logs an unknown-completion error.
+Graceful shutdown waits before releasing the listener mutex. Forced termination
+and restart while a native child survives are **not validated by this patch**;
+the existing spawn lock is age-based, not a proof of child liveness. Deployment
+must not be described as proving restart-safe exclusion without that separate test.
+
+Tests: `tests/Pester/dashboard-listener.Async.Tests.ps1` extracts the production
+functions and uses a fake blocked worker, without starting an LLM. This change
+still launches a new `claude -p`; delivery into an existing session and adaptive
+round admission are separate work.
+
 ## Fonctions de routing (référence)
 
 Détection : `Test-ActionableContent` ([dashboard-listener.ps1:352](../../../scripts/dashboard-scheduler/dashboard-listener.ps1#L352)).
