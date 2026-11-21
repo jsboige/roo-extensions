@@ -1,6 +1,6 @@
 # Boucle de rafraîchissement de l'index `ws-*` (#4736 P4)
 
-**Version :** 2.0.0 · **Issues :** #4736 (P3 writer, P4 loop, P5 code) · #4819 (5b parité AST) · **MAJ :** 2026-11-17
+**Version :** 2.1.0 · **Issues :** #4736 (P3 writer, P4 loop, P5 code) · #4819 (5b parité AST + canari incrémental) · **MAJ :** 2026-11-21
 **Source :** `ms#1782` (merge `6c43013d`), `ms#1800` (merge `06b0fbdf`, population code), `src/services/code-index/ws-refresh-loop.ts`, `src/index.ts` (`initializeWsRefreshLoop`).
 
 ---
@@ -44,6 +44,15 @@ Après le merge du bump parent embarquant `ms#1800`, la première passe déclenc
 3. Sur un fichier code **retouché** par la passe : les nouveaux points portent les ids/segmentHash Zoo (parité), sans points orphelins laissés par l'ancien contenu.
 
 Rouge sur 2 ou 3 → poser `WS_WRITER_CODE_INDEXING=0` et escalade `[DEGRADED]` (défaut de parité, pas une panne siège).
+
+### Canari incrémental code (critère 4 de #4819 — sur le build déployé corrigé)
+
+La première passe code ci-dessus prouve le mécanisme (3 passes web1 17/11 : convergence 972/981, code adopté 0→307, témoin `.ts` 52/52). Le critère 4 exige en outre la **séquence incrémentale**, après déploiement du build portant le correctif de failover (`ms#1811`, résidu `Body already read` → #4823) :
+
+1. **Pré-requis** (critères a-d publiés par web1 20/11) : bump parent déployé sur le siège écrivain, vintage servi sans `response.clone`, embedding vivant à la dimension de la collection.
+2. **Passe de réparation** au même HEAD : résidu 9 fichiers non adoptés → **9/9 dans le cache géré** (972/981 → 981/981, chaque chemin vérifié), `truncated:false`, `status:success`, **0** lot `Body already read` ; markdown 665/665 et témoin `.ts` 52/52 intacts.
+3. **Commit canari** : un commit modifie un fichier `.ts` de la **population parent** (ajout d'un symbole, retrait d'un segment) → la passe déclenchée par le commit rend le **nouveau symbole** servi, les **segments périmés disparus**, `last_refresh_ms` ≤ `announced_delay_s`, `indexed_head` avancé au commit déclencheur.
+4. **Témoin de population** : `search-semantic.tool.ts` vit dans le sous-module → **hors population `ws-*` par conception** (chaîne `sup-*`). Le canari se joue sur un `.ts` de la population parent ; la couverture d'un fichier du sous-module relève de la chaîne `sup-*`.
 
 ## Observabilité — `roosync_indexing(action:"ws_refresh_status")`
 
