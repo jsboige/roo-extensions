@@ -145,6 +145,36 @@ try {
     Write-Log "Injection env vars MCP échouée: $_" "WARN"
 }
 
+# #4815: sk-agent env injection — SEARXNG_URL + HUB_BASE_URL must reach the stdio
+# server. The worker's `claude -p` child does not pass mcpServers.*.env entries to
+# its stdio MCP children, so sk-agent came up with searxng "unavailable" in workers
+# even though ~/.claude.json carried the var (fleet provisioning plan #4814 writes
+# HUB_BASE_URL the same way). Same remedy as #2252, scoped to an explicit allow-list:
+# only these two vars are taken from the sk-agent entry env.
+$SkAgentEnvAllowList = @('SEARXNG_URL', 'HUB_BASE_URL')
+try {
+    $SkAgentConfigPath = Join-Path $env:USERPROFILE ".claude.json"
+    if (Test-Path $SkAgentConfigPath) {
+        # -AsHashtable for the same reason as the #2252 block above (PS7+; on PS5.1
+        # this returns $null and the block silently skips — no regression vs today).
+        $SkAgentClaudeConfig = Get-Content $SkAgentConfigPath -Raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        $SkAgentEnv = $SkAgentClaudeConfig.mcpServers.'sk-agent'.env
+        if ($SkAgentEnv) {
+            foreach ($envVarName in $SkAgentEnvAllowList) {
+                if ($SkAgentEnv.ContainsKey($envVarName)) {
+                    $envPath = "env:$envVarName"
+                    if (-not (Test-Path $envPath) -or -not (Get-Item $envPath).Value) {
+                        Set-Item -Path $envPath -Value $SkAgentEnv[$envVarName] -ErrorAction SilentlyContinue
+                        Write-Log "Env injecté (sk-agent): $envVarName" "DEBUG"
+                    }
+                }
+            }
+        }
+    }
+} catch {
+    Write-Log "Injection env sk-agent échouée: $_" "WARN"
+}
+
 # #2280: Fallback — read .env from roo-state-manager submodule if env vars not already set
 try {
     $EnvFile = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\.env"
