@@ -186,7 +186,7 @@ branch: {branch}
 
 Mission : combler le deficit de densite pedagogique REEL des notebooks de
 targetPath (mesurable par `python scripts/notebook_tools/pedagogy_density.py
-<fichier>` : status ok attendu), en appliquant les regles de REDRESSEMENT
+<fichier>`), en appliquant les regles de REDRESSEMENT
 #17040 (reouverture du 2026-10-07) :
 - AU PLUS UNE cellule markdown de lecture par sortie de code (consolider,
   JAMAIS empiler) ; la lecture est placee IMMEDIATEMENT apres la cellule de
@@ -217,7 +217,7 @@ detruits) :
 INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
 N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
 
-CHECKPOINT-COMMIT obligatoire, puis rapport : densite avant/apres par fichier (seuil 1200, ok attendu), lectures ajoutees (nombre + cellule ancre), git status, liste des fichiers touches."""
+CHECKPOINT-COMMIT obligatoire, puis rapport : densite avant/apres par fichier (repere 1200, pas une cible), lectures ajoutees (nombre + cellule ancre), git status, liste des fichiers touches."""
 
 
 PAYLOAD_TELLC = """[WAKE-VIBE] {gid} (citations #17712, fournee dimensionnee sur re-scan frais)

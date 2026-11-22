@@ -250,6 +250,13 @@ class TestContracts(unittest.TestCase):
             self.assertIn(marker, p, "payload 13410 sans %r" % marker)
         self.assertLessEqual(len(p.encode("utf-8")), 3 * 1024)
 
+    def test_payload_density_never_asks_for_the_threshold(self):
+        """#4847 (RX164 a) : le seuil 1200 est classe « PAS une cible » ; le
+        payload ne doit plus exiger « ok attendu » (injonction contradictoire
+        qui pousse au remplissage)."""
+        p = rvq.CONTRACTS[13410]["payload"]
+        self.assertNotIn("ok attendu", p.lower())
+
     def test_payload_hint_carries_contract_essentials(self):
         p = rvq.CONTRACTS[16472]["payload"]
         for marker in ("#16472", "scan_md_hierarchy.py", "demote_md_asides.py",
