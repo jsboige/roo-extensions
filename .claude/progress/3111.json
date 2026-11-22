@@ -3,7 +3,7 @@
   "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
   "owner_machine": "myia-ai-01",
   "created_at": "2026-09-16T02:30:00Z",
-  "updated_at": "2026-10-22T07:22:00Z",
+  "updated_at": "2026-11-22T20:20:10Z",
   "completed_at": null,
   "config": {
     "resume": true,
@@ -83,14 +83,14 @@
       "notes": "TRANCHÉ 19/10 (arbitrage user RX107, ~11:30Z, « Go pour tes recos ») : #4081 approuvée — la schtask executor-cron reste refusée flotte, CoursIA compris ; le cron interactif (CronCreate dans la session) est le porteur canonique. Le candidat n'est donc pas transposé. Mise en œuvre : PR #4271 (installation executor-cron refusée par le script). HISTORIQUE : l'arbitrage user roo-ext du 18/08 (revert #3141) avait interdit la schtask executor-cron au profit du cron interactif ; la transposition à CoursIA était restée non tranchée jusqu'au 19/10. NUANCE MESURÉE 02/10 (dashboard workspace, ai-01 19:10Z) : la classe schtask n'est pas bannie en bloc — les porteurs légitimes `Claude-Worker`/`Claude-MetaAudit` restent « dans la liste autorisée par la règle user » (« je ne propose pas de les supprimer »), et le geste de la semaine vise un REPOINTAGE headless lançant un pilote d'une AUTRE lane (`bash --continue` sur CoursIA-2), pas le porteur schtask en lui-même. L'arbitrage de la classe reste chez le user. Cross-link registre : user-question-registry.md → Q-po2027-4."
     },
     "phase-2-candidat-7": {
-      "status": "pending",
-      "title": "Candidat #7 — workspace blueprint (différé)",
-      "path": null,
-      "started_at": null,
+      "status": "in_progress",
+      "title": "Candidat #7 — workspace blueprint",
+      "path": "https://github.com/jsboige/roo-extensions/issues/4873",
+      "started_at": "2026-11-22T20:07:30Z",
       "completed_at": null,
       "metric_before": null,
       "metric_after": null,
-      "notes": "Différé par l'arbitrage user 15/09 (dépend de #1-#6). L'audit initial le numérota candidat #8 et portait aussi un 'méta-doc harness-hygiene 3-tiers' (audit #7) non repris dans les GO de l'arbitrage."
+      "notes": "Débloqué par RX152 (user, 13/11) : « Faire le gabarit et voir au mieux comment RSM peut le déployer ». Étape 1 (#4873) livrée par po-2024 le 22/11 : gabarit .claude/configs/workspace-template/ (CLAUDE.md.template + gitignore.fragment + 2 règles + plans/README + memory-seed) + scripts/workspace/New-WorkspaceFromTemplate.ps1 (création seule, refuse d'écraser, -DryRun sans écriture, fusion .gitignore) + suite Pester new-workspace-from-template.Tests.ps1 (14/14 verts PS 5.1 et pwsh 7). PR ouverte — merge ai-01 en attente. completed_at sera posé au moment où l'étape 2 (déploiement RSM, côté jsboige-mcp-servers) clôt le candidat, conformément à la règle plans-progress (pas de completed sans merge réel)."
     },
     "phase-2-candidat-8": {
       "status": "completed",
@@ -116,8 +116,8 @@
   "statistics": {
     "total": 10,
     "completed": 7,
-    "in_progress": 1,
-    "pending": 1,
+    "in_progress": 2,
+    "pending": 0,
     "failed": 0,
     "skipped": 1
   },
@@ -198,6 +198,13 @@
       "action": "resumed",
       "actor": "myia-po-2025:roo-extensions",
       "note": "Livrable 2 partie 1 — bilan de tenue a date (read-only, main 3eeb5c99) : 6/6 candidats livres TENUS, aucune regression. Preuves fonctionnelles : picker 3 urnes + check_issue_claim utilises live ce cycle ; parite gitleaks v8.24.3 workflow=pre-commit verifiee ; pilote plans/progress vivant. Candidat #7 : dependance #1-#6 satisfaite -> arbitrage user demande (registre Q-po2025-epic3111-blueprint7-20261022, recommandation NO-GO). Bilan publie : issuecomment-6335158277. Aucun changement de statut d'item."
+    },
+    {
+      "timestamp": "2026-11-22T20:20:10Z",
+      "item_id": "phase-2-candidat-7",
+      "action": "started",
+      "actor": "myia-po-2024:claude-interactive",
+      "note": "Étape 1 démarrée et livrée (#4873, claim posé par le lanceur 20:07Z) : le report du candidat est levé par RX152 (13/11). Gabarit + New-WorkspaceFromTemplate.ps1 + suite Pester 14/14 sur les deux moteurs. Passage in_progress -> completed (avec completed_at) au merge de la PR étape 1 et à la livraison de l'étape 2 (déploiement RSM, jsboige-mcp-servers)."
     }
   ]
 }
