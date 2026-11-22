@@ -310,5 +310,67 @@ class TestBuildPairsSummaryLeg(unittest.TestCase):
         self.assertIn("Résumé", data["pairs"][0]["sections_in"])
 
 
+class CallPrimaryPayloadParityTest(unittest.TestCase):
+    """#4434 G7b — call_primary must mirror the production fallback payload
+    (dashboard.ts l.816-833): non-vLLM route sends BOTH the /no_think prefix
+    AND top-level enable_thinking:false. Measured 22/11 on the hub fallback
+    leg: without the field the thinking backend burns the whole 7200-token
+    budget on hidden reasoning (0-byte content x2/6, truncated x1/6)."""
+
+    def setUp(self):
+        self.mod = _load()
+        self.captured = {}
+
+    def _fake_urlopen(self, req, timeout=None):
+        self.captured = {
+            "url": req.full_url,
+            "body": json.loads(req.data.decode("utf-8")),
+        }
+
+        class _Resp:
+            def read(self):
+                return json.dumps({
+                    "choices": [{"message": {"content": "ok"},
+                                 "finish_reason": "stop"}],
+                    "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+                }).encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        return _Resp()
+
+    def _call(self, is_vllm):
+        args = SimpleNamespace(model="deepseek-v4-flash",
+                               base_url="https://hub.example/v1",
+                               api_key="k-test", budget=5)
+        real_urlopen = self.mod.urllib.request.urlopen
+        self.mod.urllib.request.urlopen = self._fake_urlopen
+        try:
+            return self.mod.call_primary("sys", "user-body", args, is_vllm)
+        finally:
+            self.mod.urllib.request.urlopen = real_urlopen
+
+    def test_non_vllm_route_sends_no_think_and_enable_thinking_false(self):
+        self._call(is_vllm=False)
+        body = self.captured["body"]
+        user = body["messages"][1]["content"]
+        self.assertTrue(user.startswith("/no_think\n"), "prefix missing")
+        self.assertIn("user-body", user)
+        self.assertIs(body["enable_thinking"], False,
+                      "top-level enable_thinking:false missing (#4434 G7b)")
+
+    def test_vllm_route_keeps_chat_template_kwargs_only(self):
+        self._call(is_vllm=True)
+        body = self.captured["body"]
+        self.assertNotIn("user", "")  # no-op guard, keeps symmetric shape
+        self.assertEqual(body["chat_template_kwargs"], {"enable_thinking": False})
+        self.assertNotIn("enable_thinking", body)
+        self.assertFalse(body["messages"][1]["content"].startswith("/no_think"))
+
+
 if __name__ == "__main__":
     unittest.main()

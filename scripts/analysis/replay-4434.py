@@ -20,7 +20,8 @@ Protocol (per c.6572874103):
   derived from STATUS_SECTION_WORD_BUDGETS in the same file (no paraphrase).
 - Production params: max_tokens = CONDENSE_LLM_MAX_TOKENS (7200), temperature
   0.3, chat_template_kwargs {enable_thinking: false} on vLLM endpoints
-  (localhost/private IP) else a `/no_think` prefix, strictly sequential, one
+  (localhost/private IP) else a `/no_think` prefix + top-level
+  `enable_thinking: false` (#4434 G7b production parity), strictly sequential, one
   call per pair, wait budget 600 s.
 - Conservation (structural, no content judgment): canonical sections present
   in BOTH input and output / canonical sections present in the input.
@@ -367,7 +368,13 @@ def call_primary(system: str, user: str, args, is_vllm: bool) -> dict:
     if is_vllm:
         payload_extra = {"chat_template_kwargs": {"enable_thinking": False}}
     else:
-        payload_extra = {}
+        # Production parity (#4434 G7b, dashboard.ts l.816-833): the non-vLLM
+        # route sends BOTH the /no_think prefix and top-level
+        # enable_thinking:false. Measured 22/11 on the hub fallback leg:
+        # without the field the thinking backend burns the whole 7200-token
+        # budget on hidden reasoning (0-byte content x2/6, truncated x1/6,
+        # 37-42 s); with it 6/6 finish=stop, 0 reasoning chars, 12-14 s.
+        payload_extra = {"enable_thinking": False}
         user = "/no_think\n" + user
     messages.append({"role": "user", "content": user})
     payload = {
