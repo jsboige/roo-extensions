@@ -310,6 +310,44 @@ class TestBuildPairsSummaryLeg(unittest.TestCase):
         self.assertIn("Résumé", data["pairs"][0]["sections_in"])
 
 
+class SummaryVariantTest(unittest.TestCase):
+    """#4434 l.143 — registered --summary-variant pairs must keep the fresh-vs-
+    fresh A/B comparable: same gate-checked FORMAT headings as production, the
+    two placeholders fill_summary_prompts replaces, and the <5 Ko budget
+    wording. Everything above the FORMAT block is the factor that varies."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load()
+
+    def test_variant_keeps_gate_sections_and_placeholders(self):
+        prod_sys, prod_usr = self.mod.extract_summary_templates(DASHBOARD_TS)
+        for name, (v_sys, v_usr) in self.mod.SUMMARY_PROMPT_VARIANTS.items():
+            with self.subTest(variant=name):
+                self.assertEqual(
+                    self.mod.summary_sections_present(v_sys),
+                    self.mod.SUMMARY_REQUIRED_SECTIONS,
+                )
+                self.assertIn("5 Ko", v_sys)  # size budget requirement kept
+                self.assertIn("${messages.length}", v_sys)  # FORMAT heading fill
+                self.assertIn("${messages.length}", v_usr)
+                self.assertIn("${messagesContent}", v_usr)
+                self.assertNotEqual(v_sys, prod_sys)  # it IS a wording variation
+                self.assertNotEqual(v_usr, prod_usr)
+
+    def test_variant_fills_like_production(self):
+        msgs = [
+            ("2026-11-22T10:00:00.000Z", "myia-po-2027|roo-extensions", "message un"),
+            ("2026-11-22T11:00:00.000Z", "myia-ai-01|roo-extensions", "message deux"),
+        ]
+        v_sys, v_usr = self.mod.SUMMARY_PROMPT_VARIANTS["reworded"]
+        system, user = self.mod.fill_summary_prompts(v_sys, v_usr, msgs)
+        self.assertNotIn("${", system)
+        self.assertNotIn("${", user)
+        self.assertIn("Résumé des 2 messages archivés", system)
+        self.assertIn("[2026-11-22T11:00:00.000Z] myia-ai-01|roo-extensions\nmessage deux", user)
+
+
 class CallPrimaryPayloadParityTest(unittest.TestCase):
     """#4434 G7b — call_primary must mirror the production fallback payload
     (dashboard.ts l.816-833): non-vLLM route sends BOTH the /no_think prefix
@@ -366,7 +404,6 @@ class CallPrimaryPayloadParityTest(unittest.TestCase):
     def test_vllm_route_keeps_chat_template_kwargs_only(self):
         self._call(is_vllm=True)
         body = self.captured["body"]
-        self.assertNotIn("user", "")  # no-op guard, keeps symmetric shape
         self.assertEqual(body["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("enable_thinking", body)
         self.assertFalse(body["messages"][1]["content"].startswith("/no_think"))

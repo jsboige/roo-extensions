@@ -95,6 +95,77 @@ SECTION_RES = [
 SUMMARY_REQUIRED_SECTIONS = ["themes principaux", "actions et resultats", "decisions et metriques"]
 CONDENSE_SUMMARY_TS_RE = re.compile(r"\*\*CONDENSATION-SUMMARY\*\* - ([0-9T:.Z-]+)")
 
+# Summary-leg prompt variants — issue #4434 line 143 factorial arm: vary the
+# summary PROMPT in fresh-vs-fresh A/B (same archives, several repetitions).
+# Contract of every registered variant, so format_ok stays comparable across
+# arms and only the wording varies:
+#   - same informational requirements as the production prompt (zero loss of
+#     actionable info, transverse states, exact metrics/dates, no invention,
+#     GitHub-state sourcing ban, <5 Ko budget);
+#   - the FORMAT block reproduced VERBATIM (same ${messages.length} heading,
+#     same four section headings — the three gate-checked ones included);
+#   - user template keeps the two placeholders fill_summary_prompts replaces
+#     (${messages.length}, ${messagesContent}) and the production convention of
+#     literal \n sequences around the feed (the regex extractor captures the TS
+#     source text, so the production arm carries them too).
+SUMMARY_PROMPT_VARIANTS = {
+    "reworded": (
+        """Rôle : synthétiseur de communications inter-agents pour dashboard de coordination.
+
+Les messages fournis viennent d'être retirés du dashboard et archivés. Le résumé
+produit devient leur SEULE trace visible sur le dashboard.
+
+RÈGLES DE FIDÉLITÉ :
+- Aucune information actionnable ne doit disparaître (décisions, résultats, blocages
+  résolus).
+- Aucun ÉTAT TRANSVERSE ne doit disparaître (#4434 G7a-1) : tout état DEBOUT qui
+  survit à la fenêtre archivée (fenêtre UAC attendue, question user ouverte, organe
+  dégradé, risque disque vivant) va dans la section dédiée ci-dessous, même si
+  l'événement qui l'a posé est déjà résumé ailleurs — sa perte change l'action du
+  lecteur au prochain cycle.
+- Ne rien inventer qui ne figure pas dans les messages.
+- Conserver les métriques chiffrées exactes (scores, taux, décomptes) et les dates
+  des événements importants.
+
+INTERDICTION — ÉTATS GITHUB NON-SOURCÉS (#3771) :
+L'API GitHub est inaccessible depuis cette passe. Affirmer un état terminal d'une
+PR ou issue (MERGÉ, FERMÉ/CLOSED, « Merge validé », « CLEAN »...) exige qu'un
+message source le dise EXPLICITEMENT (verbatim ou paraphrase traçable).
+- « [DONE] PR #1234 mergée » dans un message autorise « PR #1234 mergée ».
+- Aucun message sur l'état de la PR #1234 : écrire « PR #1234 (état non vérifié dans
+  ce résumé) » ou omettre l'état.
+- Un merge ne s'infère JAMAIS d'indices lexicaux (discussion d'un AUTRE merge,
+  mention « doublon », « pas de nouvelle PR »).
+- Cette règle prime sur la concision : mieux vaut un état non vérifié qu'un état faux.
+
+FORME :
+- Regrouper par THÈMES, pas par message individuel.
+- Factuel uniquement, sans emojis, sans prose.
+- Moins de 5 Ko au total : CONCIS mais COMPLET.
+
+FORMAT :
+## Résumé des ${messages.length} messages archivés
+
+### Thèmes principaux
+- [thème] : synthèse factuelle
+
+### Actions et résultats
+- [DONE/BLOCKED/EN COURS] description avec dates
+
+### Décisions et métriques
+- Décisions prises, valeurs chiffrées, résultats mesurés
+
+### États transverses
+- [état debout, avec propriétaire et date] — une ligne par état :
+  fenêtre UAC attendue / contrainte user planifiée · question user ouverte (registre) ·
+  organe dégradé ou incomplet (exit 1) · risque vivant (disque, budget, échéance) ·
+  pause datée ou claim actif · handoff en attente · capacité bloquée (DENY) ·
+  changement de config vivant (seuils, timeouts)
+- Si aucun état de ces classes n'est présent dans les messages : « - aucun »""",
+        r"${messages.length} messages archivés à résumer (retirés du dashboard) :\n\n${messagesContent}\n\nÉcris le résumé de ces messages : il devient leur seule trace visible sur le dashboard.",
+    ),
+}
+
 
 def normalize_fold(s: str) -> str:
     return "".join(
@@ -421,6 +492,11 @@ def main() -> int:
         help="condensation pass to replay: status (generateStatusUpdate) or "
              "summary (generateLLMSummary)",
     )
+    ap.add_argument(
+        "--summary-variant", default=None, choices=sorted(SUMMARY_PROMPT_VARIANTS),
+        help="summary leg only: swap the production prompt pair for a registered "
+             "variant (#4434 l.143 fresh-vs-fresh A/B); default = production verbatim",
+    )
     ap.add_argument("--since", default="2026-10-04")  # first archives embedding the status
     ap.add_argument("--min-bytes", type=int, default=None,
                     help="status leg: input status bytes (default 12000); summary leg: "
@@ -453,6 +529,8 @@ def main() -> int:
     ts_text, prov = load_dashboard_ts(args.dashboard_ts, args.ref)
     if args.leg == "summary":
         sys_tpl, usr_tpl = extract_summary_templates(ts_text)
+        if args.summary_variant:
+            sys_tpl, usr_tpl = SUMMARY_PROMPT_VARIANTS[args.summary_variant]
         budget_lines = None
     else:
         sys_tpl, usr_tpl = extract_templates(ts_text)
@@ -578,6 +656,7 @@ def main() -> int:
         "dashboard_ts": prov,
         "params": {
             "model": args.model,
+            "summary_variant": args.summary_variant if args.leg == "summary" else None,
             "base_url_host": base.split("//")[-1].split("/")[0] if base else None,
             "max_tokens": 7200,
             "temperature": 0.3,
