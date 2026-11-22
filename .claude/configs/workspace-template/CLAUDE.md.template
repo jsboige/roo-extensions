@@ -1,0 +1,38 @@
+# {{WORKSPACE}} — Guide Agent Claude Code
+
+**Repo:** {{REPO}}
+**Système:** RooSync (multi-machines — dashboard = canal principal)
+
+---
+
+## Vue d'ensemble
+
+Ce dépôt est un workspace de la flotte RooSync. Claude Code y travaille en autonomie
+(encadrée par les règles globales `~/.claude/CLAUDE.md` et `~/.claude/rules/`, jamais
+recopiées ici).
+
+## Démarrage
+
+1. `git pull`
+2. Vérifier le MCP critique `roo-state-manager` (absent → STOP & REPAIR)
+3. Lire l'inbox RooSync (`roosync_messages(action: "inbox", status: "unread")`)
+4. Lire le dashboard `workspace` en `section: "all"` (JAMAIS `status` seul)
+
+## Canaux
+
+| Canal | Portée | Outil |
+|---|---|---|
+| Dashboard `workspace` | Cross-machine (PRINCIPAL) | `roosync_dashboard` |
+| RooSync | Inter-machines point-à-point | `roosync_messages` |
+
+## Règles critiques (pointeurs, jamais de copie)
+
+- Claim : le verrou vit sur l'issue (ADR 017) — `.claude/rules/agent-claim.md`
+- PR obligatoire, zéro push direct sur main — `.claude/rules/pr-mandatory.md`
+- Jamais de suppression sans preuve de préservation
+- Jamais de secret dans git
+
+## Fin de cycle
+
+- Postcondition git : `python <roo-extensions>/scripts/check_clean_cycle_exit.py --path <ce dépôt>`
+- Rapport `[DONE]` sur le dashboard `workspace`, trailer `Lane: <machine>:{{WORKSPACE}}`
