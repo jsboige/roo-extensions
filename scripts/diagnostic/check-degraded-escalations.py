@@ -97,6 +97,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 
 DEFAULT_SHARED = Path("G:/Mon Drive/Synchronisation/RooSync/.shared-state")
@@ -575,9 +576,23 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
         repaired_at = None
         repaired_by = None
         repaired_scoped = False
+        # #4857 : reparations vues sous une forme de workspace NON
+        # rapprochable (slugifiee) pour la meme machine — declarees a la
+        # lane au lieu de rester invisibles.
+        unreconciled = []
+        entry_identity = lane_identity(entry["lane"])
         for later_index in range(index + 1, len(ordered)):
             later = ordered[later_index]
-            if later["lane"] != entry["lane"] or not is_repaired(later):
+            later_repaired = is_repaired(later)
+            if (later_repaired and lane_identity(later["lane"]) != entry_identity
+                    and lane_machine(later["lane"]) == lane_machine(entry["lane"])
+                    and workspace_form_slugged(later["lane"])):
+                unreconciled.append(later["lane"])
+            # #4857 : comparaison par IDENTITE normalisee, jamais brute —
+            # `machine|roo-extensions` et `machine|d:/dev/roo-extensions`
+            # sont la meme lane ; deux workspaces distincts (CoursIA /
+            # roo-extensions) restent etrangers l'un a l'autre.
+            if lane_identity(later["lane"]) != entry_identity or not later_repaired:
                 continue
             refs, times, scoped = repair_scope(later)
             if scoped and not repair_names(later, refs, times, entry):
@@ -613,6 +628,9 @@ def collect_escalations(entries, now, cycles=DEFAULT_CYCLES,
             # #4729 : idem, corps entier -- la panne du lecteur se cite
             # parfois apres le 160e caractere.
             "reader_defect": classify_reader_defect(prose),
+            # #4857 : formes slugifiees NON rapprochees vues pour cette
+            # machine — la lane sait POURQUOI sa fermeture ne prend pas.
+            "unreconciled_repairs": sorted(set(unreconciled)) or None,
         })
     return found
 
@@ -769,6 +787,57 @@ def select_recent_archives(names, now, window_hours):
     return kept
 
 
+def lane_workspace_leaf(workspace):
+    """Dernier segment d'un workspace, separateurs ``\\`` et ``/`` (#4857).
+
+    C'est LA reduction d'identite : `roo-extensions` et `d:/dev/roo-extensions`
+    designent le meme workspace. Extraite pour que `lane_workspace_keys()` et
+    `lane_identity()` partagent une seule reduction, pas deux qui derivent.
+    """
+    return workspace.replace("\\", "/").rstrip("/").split("/")[-1].strip()
+
+
+@lru_cache(maxsize=4096)
+def lane_identity(lane):
+    """Identite de lane pour TOUTES les comparaisons de fermeture (#4857).
+
+    Machine insensible a la casse (le store sert `machine-myia-po-2028` ET
+    `machine-MYIA-PO-2028`), workspace reduit a son dernier segment et
+    insensible a la casse. Rend `machine|feuille` — machine seule si le
+    workspace est vide. Le store mesure trois formes pour un meme workspace
+    (`roo-extensions`, `d:/dev/roo-extensions`, `d--dev-roo-extensions`) :
+    les deux premieres se rapprochent ici, la troisieme est declaree non
+    rapprochable par `workspace_form_slugged()`, jamais devinee.
+    """
+    if "|" not in lane:
+        return lane.strip().lower()
+    machine, workspace = lane.split("|", 1)
+    identity_machine = machine.strip().lower()
+    leaf = lane_workspace_leaf(workspace).lower()
+    if not leaf:
+        return identity_machine
+    return f"{identity_machine}|{leaf}"
+
+
+def lane_machine(lane):
+    """Partie machine d'une lane, insensible a la casse (#4857)."""
+    return lane.split("|", 1)[0].strip().lower()
+
+
+def workspace_form_slugged(lane):
+    """True si le workspace d'une lane porte la signature de slugification.
+
+    `d--dev-roo-extensions` (chemin slugifie par un serialiseur) n'est PAS
+    rapprochable de `roo-extensions` : le `-` y est aussi le separateur des
+    noms legitimes (`CoursIA-2`, `roo-extensions` lui-meme). Reduire sur `-`
+    fusionnerait des workspaces distincts — l'organe DECLARE la forme au
+    lieu de la deviner (#4857, critere 3 : jamais en silence).
+    """
+    if "|" not in lane:
+        return False
+    return "--" in lane_workspace_leaf(lane.split("|", 1)[1])
+
+
 def lane_workspace_keys(lane, keys):
     """Cles de dashboard candidates pour le workspace d'une lane (#4643).
 
@@ -786,7 +855,8 @@ def lane_workspace_keys(lane, keys):
     if not workspace:
         return []
     candidates = [f"workspace-{workspace}"]
-    leaf = workspace.replace("\\", "/").rstrip("/").split("/")[-1]
+    # #4857 : reduction partagee avec lane_identity() — une seule logique.
+    leaf = lane_workspace_leaf(workspace)
     if leaf and leaf != workspace:
         candidates.append(f"workspace-{leaf}")
     served = {key.lower(): key for key in keys}
@@ -834,7 +904,8 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             # Couverte par la fenetre vivante + archives recentes : rien a
             # ajouter, la premiere passe a fait le travail.
             continue
-        if any(later["lane"] == entry["lane"] and is_repaired(later)
+        if any(lane_identity(later["lane"]) == lane_identity(entry["lane"])
+               and is_repaired(later)
                and repair_closes(later, entry)
                for later in ordered[index + 1:]):
             continue
@@ -933,7 +1004,8 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             # seule presence d'un `[REPAIRED]` de sa lane.
             remaining = [
                 entry for entry in remaining
-                if not any(closure["lane"] == entry["lane"]
+                if not any(lane_identity(closure["lane"])
+                           == lane_identity(entry["lane"])
                            and closure["ts"] > entry["ts"]
                            and repair_closes(closure, entry)
                            for closure in known)]
@@ -1904,6 +1976,13 @@ def report(escalations, code, reason, as_json, stream=None,
         print(f"{mark:<8} {item['lane']:<38} postee {item['posted']} "
               f"echeance {item['deadline']}")
         print(f"         {item['excerpt'][:120]}{suffix}")
+        # #4857 : une fermeture vue sous une forme NON rapprochable se
+        # DECLARE — jamais de silence sur pourquoi l'escalade reste ouverte.
+        if item["status"] != "repaired" and item.get("unreconciled_repairs"):
+            forms = ", ".join(item["unreconciled_repairs"])
+            print(f"         [lane non rapprochee] [REPAIRED] vu(s) sous {forms} — "
+                  f"forme slugifiee, non rapprochable ; re-poster avec workspace "
+                  f"explicite")
     # #4746 : la lane voit ce qu'un [REPAIRED] SANS portee vient de fermer
     # (N >= 2 seulement — une fermeture unique est le cas nominal).
     for notice in repair_notices(escalations):

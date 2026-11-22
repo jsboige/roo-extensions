@@ -112,6 +112,99 @@ class EscalationContract(unittest.TestCase):
 """)
         self.assertEqual(self.run_main(path), 2)
 
+    # --- #4857 : identite de lane normalisee (forme nom vs forme chemin) ---
+
+    def test_repaired_under_cwd_lane_form_closes_the_named_form(self):
+        # Incident mesure 21/11 (po-2028) : escalade posee avec workspace
+        # explicite (`roo-extensions`), [REPAIRED] poste sans le parametre —
+        # lane cwd `d:/dev/roo-extensions`. L'egalite brute laissait
+        # l'escalade ouverte jusqu'a la fausse sonnerie d'echeance.
+        path = self.dashboard("dual_form.md", """### [2026-11-03T00:00:00.000Z] myia-po-2028|roo-extensions
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|d:/dev/roo-extensions
+
+[REPAIRED] mcp repond
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_repaired_under_named_form_closes_the_cwd_form(self):
+        # Symetrie du rapprochement : posee sous la forme chemin, fermee
+        # sous la forme nom. Le store produit les deux selon l'hote.
+        path = self.dashboard("dual_form_rev.md", """### [2026-11-03T00:00:00.000Z] myia-po-2028|d:\\dev\\roo-extensions
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|roo-extensions
+
+[REPAIRED] mcp repond
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_lane_identity_ignores_machine_and_workspace_case(self):
+        # Le store sert machine-myia-po-2028 ET machine-MYIA-PO-2028.
+        path = self.dashboard("case.md", """### [2026-11-03T00:00:00.000Z] MYIA-PO-2028|Roo-Extensions
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|d:/Dev/Roo-Extensions
+
+[REPAIRED] mcp repond
+""")
+        self.assertEqual(self.run_main(path), 0)
+
+    def test_two_workspaces_of_one_machine_never_close_each_other(self):
+        # Le rapprochement s'arrete au dernier segment : CoursIA et
+        # roo-extensions sur la meme machine restent etrangers l'un a
+        # l'autre — sinon une reparation d'un workspace fermerait
+        # l'escalade d'un autre.
+        path = self.dashboard("siblings.md", """### [2026-11-03T00:00:00.000Z] myia-po-2028|CoursIA
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|roo-extensions
+
+[REPAIRED] mcp repond
+""")
+        self.assertEqual(self.run_main(path), 2)
+
+    def test_slugged_lane_form_is_declared_not_silent(self):
+        # `d--dev-roo-extensions` : le `-` y est aussi le separateur des
+        # noms legitimes (CoursIA-2, roo-extensions lui-meme) — jamais
+        # rapprochee par devine. L'organe ne FERME pas sur elle, mais
+        # DECLARE la forme vue pour cette machine : la lane sait pourquoi
+        # sa fermeture ne prend pas (#4857 critere 3 : jamais en silence).
+        path = self.dashboard("slugged.md", """### [2026-11-03T00:00:00.000Z] myia-po-2028|roo-extensions
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|d--dev-roo-extensions
+
+[REPAIRED] mcp repond
+""")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.run_main(path)
+        self.assertEqual(code, 2)
+        rendered = out.getvalue()
+        self.assertIn("d--dev-roo-extensions", rendered)
+        self.assertIn("non rapprochee", rendered)
+
+    def test_mutant_raw_lane_equality_reopens_the_dual_form_case(self):
+        # Mutant #4857 : remettre l'egalite brute fait rougir le premier
+        # test — sans identite normalisee, la fermeture redevient invisible.
+        path = self.dashboard("mutant.md", """### [2026-11-03T00:00:00.000Z] myia-po-2028|roo-extensions
+
+[DEGRADED] mcp muet
+
+### [2026-11-03T01:00:00.000Z] myia-po-2028|d:/dev/roo-extensions
+
+[REPAIRED] mcp repond
+""")
+        with mock.patch.object(cde, "lane_identity", lambda lane: lane):
+            self.assertEqual(self.run_main(path), 2)
+
     def test_near_miss_tag_is_ignored(self):
         path = self.dashboard("near.md", """### [2026-11-03T00:00:00.000Z] a|ws
 
