@@ -4,7 +4,7 @@
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
 **Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07), myia-ai-01 (live reproduction + validator static read on 2.1.269, 2026-09-13), myia-po-2023 (partial-retry datapoint on 2.1.274, 2026-09-17), myia-po-2026 (live reproduction on 2.1.277 + F2 re-confirmed, 2026-09-18), myia-po-2023 (two-arm repair verification on 2.1.283 + in-session reproduction on 2.1.323, 2026-11-17), myia-ai-01 (D4 discrimination two-arm D:/G: + mechanism + parade on 2.1.283/2.1.328/2.1.330, 2026-11-22, #4875)
-**Status:** ⚠️ **UPSTREAM BUG — STILL LIVE ON 2.1.323 (2026-11-16/17; VS Code extension channel: in-session ai-01 23:57Z + po-203, plus the po-2025 adjoint-belt canary refused pre-launch 16/11) and on 2.1.283 (npm headless)** — root cause lives in the Claude Code Agent tool, not in this repository. **A second, distinct refusal signature exists (D4, § below, #4875): `Cannot create worktree ... .git/logs/HEAD ... not a plain file, or could not be checked` — DriveFS-hosted repos, provisioner ≥ 2.1.328, still live on 2.1.330; measured mechanism `st_nlink = 0` on DriveFS.** Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 / 2.1.283 / 2.1.323 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17; no auto-retry observed on 2.1.323). **Spawn-site repair verified on 2.1.283 headless 2026-11-17; not re-tested on 2.1.323** (uppercase-drive cwd → provisioning succeeds; two-arm canary, § below — arm B is the repair witness; 2.1.323 datapoint is reproduction only). No CHANGELOG entry as of 2.1.277 (last checked) matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
+**Status:** ⚠️ **UPSTREAM BUG — STILL LIVE ON 2.1.323 (2026-11-16/17; VS Code extension channel: in-session ai-01 23:57Z + po-203, plus the po-2025 adjoint-belt canary refused pre-launch 16/11) and on 2.1.283 (npm headless)** — root cause lives in the Claude Code Agent tool, not in this repository. **A second, distinct refusal signature exists (D4, § below, #4875): `Cannot create worktree ... .git/logs/HEAD ... not a plain file, or could not be checked` — DriveFS-hosted repos, provisioner ≥ 2.1.328, still live on 2.1.330; measured metadata difference `st_nlink = 0` on DriveFS; the exact checker predicate remains a hypothesis.** Bisection to date: not reproducible on 2.1.86 and 2.1.141; reproduces deterministically on 2.1.236 / 2.1.269 / 2.1.277 / 2.1.283 / 2.1.323 (on 2.1.274 a normalized-cwd retry masks the refusal but leaves the first worktree `locked` — reported, po-2023 2026-09-17; no auto-retry observed on 2.1.323). **Spawn-site repair verified on 2.1.283 headless 2026-11-17; not re-tested on 2.1.323** (uppercase-drive cwd → provisioning succeeds; two-arm canary, § below — arm B is the repair witness; 2.1.323 datapoint is reproduction only). No CHANGELOG entry as of 2.1.277 (last checked) matches D1. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
 
 ---
 
@@ -119,7 +119,7 @@ required** for this class.
 | D1 | Validator false-positive: strict path comparison, no win32 normalization | error text (refused ≡ resolved modulo case/separators) + owner probes falsifying redirects + measurement above | **VERIFIED** (primitive-level) |
 | D2 | Cross-repo admin/physical mismatch (po-2023 c.286 observation) explains the orphan topology | `gitdir` files read firsthand by po-2023 | **REPORTED** — mechanism unverified (the provisioner binary, newer than any local install, was not inspectable; local harness is 2.1.41, which predates the isolation feature) |
 | D3 | No cleanup on provisioning failure (locked orphans left behind) | `git worktree list` after both failures (issue + po-2023) | **VERIFIED** — mitigated defensively in this repo |
-| D4 | Pre-creation "plain file" check on `.git/logs/HEAD` fails closed on DriveFS (`st_nlink = 0`) — § dedicated section | two-arm D:/G: witness, 7 runs, 2026-11-22 (#4875) | **VERIFIED** (ai-01, 2.1.328 + 2.1.330; absent on 2.1.283) |
+| D4 | Pre-creation `.git/logs/HEAD` safety-check refusal on DriveFS, with measured `st_nlink = 0` metadata difference — § dedicated section | two-arm D:/G: witness, 7 runs, 2026-11-22 (#4875) | Refusal **VERIFIED** (ai-01, 2.1.328 + 2.1.330; absent on 2.1.283); exact predicate **HYPOTHESIZED** |
 
 ---
 
@@ -535,7 +535,7 @@ two-arm witness, same drive-letter case on both arms.
 | Refusal | Repo drive | Build (best evidence) | Classification |
 |---|---|---|---|
 | Maintenance 22/11 18:20Z (test launch) | G: DriveFS | reported « CLI 2.1.283 » — **cannot be the refusing build**: 2.1.283 provisions fine on G: (arm 2 below); the machine's VS Code extension is 2.1.328, the minimum version carrying the check | **D4** — every quoted fragment (`Cannot create worktree`, `.git/logs/HEAD`, `link`, `could not be checked`) matches the verbatim below. Effective-build attribution on po-2025 should be re-probed via the extension's native binary (`claude --version` understates it — same pitfall as the 2.1.269 section) |
-| CoursIA-2 adjoint, since 15:20Z | D: NTFS | 2.1.328.0 (PID carried by the lock) | **D1** — arm 6 reproduces the D1 refusal verbatim with the same build on the same drive class; CoursIA-2's Git readings on the refused child `agent-ac96a8b69e2db8da8` (show-toplevel = own path, git-common-dir = CoursIA-2 repo, absolute-git-dir = the child's own admin; refused ≡ resolved after case/separator folding) falsify any genuine redirect — D1's exact false positive. D4 cannot fire on NTFS (`nlink = 1`, see mechanism). The adjoint's verbatim text is still absent from the dashboards: classification rests on build × drive × git-readings, not on their quoted text |
+| CoursIA-2 adjoint, since 15:20Z | D: NTFS | 2.1.328.0 (PID carried by the lock) | **D1** — arm 6 reproduces the D1 refusal verbatim with the same build on the same drive class; CoursIA-2's Git readings on the refused child `agent-ac96a8b69e2db8da8` (show-toplevel = own path, git-common-dir = CoursIA-2 repo, absolute-git-dir = the child's own admin; refused ≡ resolved after case/separator folding) falsify any genuine redirect — D1's exact false positive. D4 was not reproduced in the NTFS control arm (which reports `nlink = 1`, see mechanism); no isolated `nlink` variation was performed. The adjoint's verbatim text is still absent from the dashboards: classification rests on build × drive × git-readings, not on their quoted text |
 
 Precision on a fleet reading: po-2025's note that « un tiers rapporte le 21/11 le même refus sur
 Claude Code 2.1.330 » (upstream #91618, zachrisdev) conflates signatures — that upstream comment
@@ -583,7 +583,7 @@ refusal fires **before anything is created**: no `agent-*` directory, no `.git/w
 registry entry, no branch (verified `git worktree list` + `git branch` after each refusal). No
 D3 debris on this path.
 
-### Mechanism — `st_nlink = 0` on DriveFS (measured)
+### Metadata correlation and mechanism hypothesis — `st_nlink = 0` on DriveFS
 
 ```js
 node -e "console.log(require('fs').lstatSync('<repo>/.git/logs/HEAD').nlink)"
@@ -592,15 +592,9 @@ G: (DriveFS)→ isFile=true  isSymbolicLink=false nlink=0
 // on DriveFS EVERY entry reports nlink=0 — the file .git/logs/HEAD and each ancestor directory
 ```
 
-The ≥ 2.1.32x pre-flight validates that `.git/logs/HEAD` (and the folders on the way to it) is a
-"plain file" — hard-link territory is `nlink === 1`. DriveFS reports `st_nlink = 0` for every
-entry, so the entry is neither plain nor an error: the checker's own text names exactly this
-outcome (« or another entry that is not a plain file, **or could not be checked** ») and fails
-closed. Git itself is innocent on two counts: `git worktree add` succeeds on the same DriveFS
-repo (the witness's two `hist-*` worktrees were created by plain git), and 2.1.283 provisions the
-same repo without complaint — the check and the refusal are the provisioner's, introduced
-somewhere in **2.1.284..2.1.328** (not narrowed further; only 2.1.283 and ≥ 2.1.328 builds were
-available on the machine).
+The error text identifies a ≥ 2.1.32x safety pre-flight on `.git/logs/HEAD` and its ancestors. A plausible trigger is a "plain file / not a hard link" predicate requiring `nlink === 1`: DriveFS reports `st_nlink = 0` for every sampled entry, so such a predicate would fail closed. **This exact implementation remains unverified** — no checker source was inspected and the experiment did not vary `nlink` while holding other filesystem behavior constant. Other DriveFS metadata or access-check differences could also explain the refusal.
+
+What is established experimentally: `git worktree add` succeeds on the same DriveFS repo (the witness's two `hist-*` worktrees were created by plain git), and 2.1.283 provisions the same repo without complaint. The newly observed refusal changed somewhere in **2.1.284..2.1.328** (not narrowed further; only 2.1.283 and ≥ 2.1.328 builds were available on the machine).
 
 ### Verified workarounds
 
@@ -623,9 +617,9 @@ available on the machine).
 Datapoint posted 2026-11-22 as
 [anthropics/claude-code#91618 (comment)](https://github.com/anthropics/claude-code/issues/91618#issuecomment-7087251685)
 — new-signature flag on the D1 thread (the pattern `unyieldingclaw-dev` used for the third
-signature), with the repro, the control matrix, the `st_nlink` mechanism and the offer to file a
-standalone issue. Ticket text (verbatim as posted; the witnesses' user paths are already
-non-sensitive):
+signature), with the repro, the control matrix, and the `st_nlink` mechanism hypothesis; a 2026-11-23
+follow-up on that comment explicitly distinguishes the measured metadata from the unverified checker
+implementation. Ticket excerpt (the witnesses' user paths are already non-sensitive):
 
 > **New, distinct refusal signature (possibly related, different error text) — Windows + Google
 > Drive for Desktop (DriveFS), Claude Code >= 2.1.328.**
@@ -641,7 +635,8 @@ non-sensitive):
 >
 > Mechanism (`fs.lstatSync` on `.git/logs/HEAD`): NTFS `nlink=1`; DriveFS `nlink=0` for **every**
 > entry, files and directories alike. A "plain file / not a hard link" pre-flight requiring
-> `nlink === 1` sees `0` and fails closed — the error's own "or could not be checked" branch.
+> `nlink === 1` would therefore fail closed on DriveFS. This is a hypothesis, not verified
+> checker implementation: the experiment did not isolate `nlink` from other DriveFS behavior.
 > `git worktree add` succeeds on the same repo and the refusal fires pre-creation (no directory,
 > no registry entry, no branch left).
 >
