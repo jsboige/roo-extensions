@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-11-22 (#4873 : nouveau sous-dossier `workspace/` — amorçage d'un nouveau dépôt depuis le gabarit `.claude/configs/workspace-template/` ; décompte recompté firsthand 47→51, l'ancienne méthode `awk` comptait les fichiers racine comme des répertoires)
+**Dernière mise à jour :** 2026-11-22 (#4873 : nouveau sous-dossier `workspace/` — amorçage d'un nouveau dépôt depuis le gabarit `.claude/configs/workspace-template/` ; décompte recompté firsthand 50→51 (`git ls-tree HEAD:scripts` : 50 entrées sur main avant le dossier))
 
 ---
 

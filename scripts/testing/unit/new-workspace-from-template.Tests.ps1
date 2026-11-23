@@ -16,7 +16,9 @@
 #   * les marqueurs {{WORKSPACE}} / {{REPO}} sont remplaces ;
 #   * la fusion .gitignore ajoute les seules lignes absentes ;
 #   * le README.md du gabarit ne part jamais dans la cible ;
-#   * garde : une cible contenant le gabarit est refusee.
+#   * garde : une cible contenant le gabarit est refusee ;
+#   * garde : rien n'est ecrit hors de -Target (HOME factice, zero fuite) ;
+#   * le script se parse sans erreur.
 #
 # Usage:
 #   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/new-workspace-from-template.Tests.ps1 -Output Detailed"
@@ -267,5 +269,48 @@ Describe 'New-WorkspaceFromTemplate - gardes de cible' {
         $raw = [System.IO.File]::ReadAllText($script:bootstrapScript)
         $raw | Should -Match 'GetPathRoot'
         $raw | Should -Match 'racine d''un lecteur'
+    }
+
+    It 'n ecrit rien hors de -Target (HOME et USERPROFILE factices)' {
+        # Absorbe de #4878 (arbitrage ai-01 23/11) : HOME et USERPROFILE sont
+        # pointes sur un home factice VIDE ; le script doit y creer zero
+        # fichier. Ce test echouerait sur une version qui ecrirait dans le
+        # home reel (memoire, caches, config).
+        $target = New-ThrowawayTarget
+        $fakeHome = New-ThrowawayTarget
+        New-Item -ItemType Directory -Path $fakeHome -Force | Out-Null
+        $oldHome = $env:HOME
+        $oldProfile = $env:USERPROFILE
+        $env:HOME = $fakeHome
+        $env:USERPROFILE = $fakeHome
+        try {
+            $r = Invoke-Bootstrap -TargetPath $target -WorkspaceName 'DemoWs'
+            $r.ExitCode | Should -Be 0
+            # Bruit moteur documente : pwsh 7 ecrit son cache de demarrage
+            # StartupProfileData-NonInteractive sous le HOME au lancement du
+            # process (mesure 23/11 : 60 Ko ecrits par un engine-only run,
+            # sans executer le moindre script). Ce n'est pas une ecriture du
+            # script teste - on filtre ce nom, tout le reste est une fuite.
+            $leaked = @(Get-ChildItem -LiteralPath $fakeHome -Recurse -File -Force |
+                Where-Object { $_.Name -notlike 'StartupProfileData-*' })
+            $leaked.Count | Should -Be 0
+        } finally {
+            if ($null -ne $oldHome) { $env:HOME = $oldHome } else { Remove-Item Env:HOME -ErrorAction SilentlyContinue }
+            if ($null -ne $oldProfile) { $env:USERPROFILE = $oldProfile } else { Remove-Item Env:USERPROFILE -ErrorAction SilentlyContinue }
+            Clear-ThrowawayTarget -Path $target
+            Clear-ThrowawayTarget -Path $fakeHome
+        }
+    }
+}
+
+Describe 'New-WorkspaceFromTemplate - validite du script' {
+
+    It 'se parse sans erreur sous le moteur courant' {
+        # Absorbe de #4878 (arbitrage ai-01 23/11) : un .ps1 casse au parse ne
+        # serait decouvert qu'au premier appel reel.
+        $tokens = $null
+        $errors = $null
+        $null = [System.Management.Automation.Language.Parser]::ParseFile($script:bootstrapScript, [ref]$tokens, [ref]$errors)
+        @($errors).Count | Should -Be 0
     }
 }

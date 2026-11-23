@@ -10,7 +10,8 @@ Creation seule (Epic #3111 candidat #7, etape 1 - #4873, decision user RX152) :
   - fusionne gitignore.fragment dans un .gitignore existant par ajout des seules
     lignes absentes (aucune ligne existante n'est jamais retiree) ;
   - n'ecrit jamais hors de -Target : refuse la racine d'un lecteur et toute
-    cible qui contiendrait le gabarit lui-meme.
+    cible qui contiendrait le gabarit lui-meme ; toute ecriture passe par
+    Write-TargetText, qui refuse un chemin resolu hors du prefixe de -Target.
 
 Les marqueurs {{WORKSPACE}} et {{REPO}} sont remplaces dans chaque fichier copie
 {{WORKSPACE}} par le parametre, {{REPO}} par le nom du repertoire cible (dernier
@@ -104,6 +105,20 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 $created = New-Object System.Collections.Generic.List[string]
 $skipped = New-Object System.Collections.Generic.List[string]
 
+# Garde de containment explicite (arbitrage ai-01 23/11, absorption #4878) :
+# TOUTE ecriture du script passe par ce point unique, qui refuse un chemin
+# resolu hors du prefixe de -Target. Le confinement n'est plus seulement
+# structurel (plan construit depuis la cible), il est verifie a l'ecriture.
+$targetWritePrefix = $targetFull + $sep
+function Write-TargetText {
+    param([string]$Path, [string]$Content)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    if (-not ($full -eq $targetFull -or $full.StartsWith($targetWritePrefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+        throw "Refus : ecriture hors de -Target ($full)."
+    }
+    [System.IO.File]::WriteAllText($full, $Content, $utf8NoBom)
+}
+
 if (-not $DryRun) {
     New-Item -ItemType Directory -Path $targetFull -Force | Out-Null
 }
@@ -124,7 +139,7 @@ foreach ($entry in $plan) {
     }
     $content = [System.IO.File]::ReadAllText($entry.Source)
     $content = $content.Replace('{{WORKSPACE}}', $Workspace).Replace('{{REPO}}', $repoName)
-    [System.IO.File]::WriteAllText($destNative, $content, $utf8NoBom)
+    Write-TargetText -Path $destNative -Content $content
     $created.Add($entry.DestRel)
 }
 
@@ -154,9 +169,9 @@ if ($missing.Count -gt 0 -and -not $DryRun) {
         if ($current.Length -gt 0 -and -not ($current.EndsWith("`n") -or $current.EndsWith("`r"))) {
             $prefix = $nl
         }
-        [System.IO.File]::WriteAllText($gitignoreDest, $current + $prefix + ($missing -join $nl) + $nl, $utf8NoBom)
+        Write-TargetText -Path $gitignoreDest -Content ($current + $prefix + ($missing -join $nl) + $nl)
     } else {
-        [System.IO.File]::WriteAllText($gitignoreDest, ($missing -join $nl) + $nl, $utf8NoBom)
+        Write-TargetText -Path $gitignoreDest -Content (($missing -join $nl) + $nl)
         $created.Add('.gitignore')
     }
 }
