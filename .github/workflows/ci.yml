@@ -407,8 +407,17 @@ jobs:
         # sans aucun commit fautif (incident @qdrant/js-client-rest, 2026-08-04 — #3037).
         run: npm ci
 
+      # #4886: @vibesync/core is an npm-workspace package with its own compiled dist/.
+      # The RSM build consumes it, so it must be built first — and its own test suite
+      # is not collected by the server's vitest config, so it is run explicitly here.
+      - name: Build @vibesync/core (workspace package)
+        run: npm run build --workspace @vibesync/core
+
       - name: Build TypeScript
         run: npm run build
+
+      - name: Test @vibesync/core (workspace package)
+        run: npm run test --workspace @vibesync/core
 
       - name: Run tests (CI config - excludes platform-dependent tests)
         run: npx vitest run --config vitest.config.ci.ts --reporter=default

@@ -463,6 +463,55 @@ if (Test-Path -LiteralPath $guardScript) {
     Write-Result 'WARN' "[guard] deploy-preop-guard.ps1 introuvable, pre-op desactive."
 }
 
+# --- Workspace install + shared package build (#4886) ---
+# The npm-workspaces migration moved node_modules to mcps/internal: a seat that has not
+# run `npm ci` since the bump has no local `tsc`, and `npm run build` in the server
+# directory compiles against @vibesync/core/dist, which it never rebuilds itself. Both
+# are ensured HERE, or the rebuild fails (exit 1 under -RequireFresh) or publishes a
+# server build linked to a stale core.
+$WorkspaceRoot    = Join-Path $RepoRoot 'mcps/internal'
+$WorkspaceLock    = Join-Path $WorkspaceRoot 'package-lock.json'
+$WorkspaceModules = Join-Path $WorkspaceRoot 'node_modules'
+$WorkspaceStamp   = Join-Path $WorkspaceModules '.package-lock.json'
+
+if (Test-Path $WorkspaceLock) {
+    $needInstall = -not (Test-Path $WorkspaceModules)
+    if (-not $needInstall -and (Test-Path $WorkspaceStamp)) {
+        $needInstall = (Get-Item $WorkspaceLock).LastWriteTimeUtc -gt (Get-Item $WorkspaceStamp).LastWriteTimeUtc
+    }
+    if ($needInstall) {
+        Write-Result 'OK' "Workspace install missing or stale - running 'npm ci' in $WorkspaceRoot..."
+        Push-Location $WorkspaceRoot
+        try {
+            $installOutput = & cmd /c "npm ci 2>&1"
+            $installExit = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($installExit -ne 0) {
+            $tail = ($installOutput | Select-Object -Last 5 | Out-String).Trim()
+            Write-Result 'WARN' "'npm ci' failed (exit $installExit) in $WorkspaceRoot - the build below may lack its toolchain. Tail:`n$tail"
+        }
+    }
+
+    # Always refresh the shared package before the RSM build consumes its dist/.
+    Push-Location $WorkspaceRoot
+    try {
+        $coreOutput = & cmd /c "npm run build --workspace @vibesync/core 2>&1"
+        $coreExit = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    if ($coreExit -eq 0) {
+        Write-Result 'OK' "Built @vibesync/core (workspace dependency of the RSM build)."
+    } else {
+        $tail = ($coreOutput | Select-Object -Last 5 | Out-String).Trim()
+        Write-Result 'WARN' "Core build FAILED (exit $coreExit) - the server build will use the previous dist. Tail:`n$tail"
+    }
+} else {
+    Write-Result 'WARN' "Workspace lockfile not found at $WorkspaceLock - skipping install and core build."
+}
+
 # --- Rebuild (mirror worker Sync-McpSubmoduleBuild: clean:build + tsc, non-fatal on failure) ---
 Push-Location $McpServerPath
 try {
