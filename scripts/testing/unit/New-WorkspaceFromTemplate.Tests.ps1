@@ -52,13 +52,10 @@ Describe 'New-WorkspaceFromTemplate.ps1' {
         Test-Path -LiteralPath (Join-Path $target '.claude/rules/agent-claim.md') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $target '.claude/rules/pr-mandatory.md') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $target '.claude/plans/README.md') | Should -BeTrue
-        # memory-seed/ est ensemence HORS du depot (memoire non versionnee) :
-        # $HOME/.claude/projects/<slug-du-chemin>/memory/
-        $slug = ($target -replace '[\\/:]', '-').TrimStart('-').ToLowerInvariant()
-        $memDir = Join-Path (Join-Path $HOME '.claude/projects') (Join-Path $slug 'memory')
-        Test-Path -LiteralPath (Join-Path $memDir 'MEMORY.md') | Should -BeTrue
-        Test-Path -LiteralPath (Join-Path $memDir 'user-question-registry.md') | Should -BeTrue
-        Test-Path -LiteralPath (Join-Path $target 'memory-seed') | Should -BeFalse
+        # Tout est cree SOUS -Target : le seed de memoire y reste; l'activation
+        # dans le profil per-machine est une decision distincte (etape 2 RSM).
+        Test-Path -LiteralPath (Join-Path $target 'memory-seed/MEMORY.md') | Should -BeTrue
+        Test-Path -LiteralPath (Join-Path $target 'memory-seed/user-question-registry.md') | Should -BeTrue
         Test-Path -LiteralPath (Join-Path $target '.gitignore') | Should -BeTrue
     }
 
@@ -99,5 +96,30 @@ Describe 'New-WorkspaceFromTemplate.ps1' {
         & $script:scriptPath -Target $target -Workspace 'DemoWS' | Out-Null
         $lines2 = [System.IO.File]::ReadAllLines($gitignore)
         ($lines2 | Where-Object { $_ -eq 'scratchpad_*' }).Count | Should -Be 1
+    }
+
+    It 'n ecrit RIEN hors de -Target (aucun fichier cree dans le HOME)' {
+        # Mutant tue : un script qui ecrit la memoire du workspace dans
+        # ~/.claude/projects/<slug>/memory/ au lieu de la cible.
+        $probeHome = Join-Path $TestDrive 'fake-home'
+        New-Item -ItemType Directory -Path (Join-Path $probeHome '.claude/projects') -Force | Out-Null
+        $target = Join-Path $TestDrive 'contained-target'
+        $origHome = $env:HOME
+        $origUserProfile = $env:USERPROFILE
+        try {
+            $env:HOME = $probeHome
+            $env:USERPROFILE = $probeHome
+            & $script:scriptPath -Target $target -Workspace 'DemoWS' | Out-Null
+            # Le HOME factice ne doit contenir AUCUN fichier cree (seuls les
+            # repertoires vides que le script a pu creer sont toleres).
+            $leaked = @(Get-ChildItem -LiteralPath $probeHome -Recurse -File -ErrorAction SilentlyContinue)
+            $leaked.Count | Should -Be 0
+            # Et la graine de memoire est bien dans la cible.
+            Test-Path -LiteralPath (Join-Path $target 'memory-seed/MEMORY.md') | Should -BeTrue
+        }
+        finally {
+            $env:HOME = $origHome
+            $env:USERPROFILE = $origUserProfile
+        }
     }
 }

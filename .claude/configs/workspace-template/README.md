@@ -11,7 +11,8 @@ Cette étape 1 livre le gabarit et l'amorçage local. L'étape 2 (déploiement p
 - `.claude/rules/` — **deux** règles : claim sur l'issue (ADR 017), PR obligatoire.
 - `.claude/plans/README.md` — pointeur vers la convention plans/progress (ADR 015), optionnelle.
 - `memory-seed/` — `MEMORY.md` (index vide, 1 ligne par fiche) et
-  `user-question-registry.md` (squelette, 5 champs du format user).
+  `user-question-registry.md` (squelette, 5 champs du format user). Copiés dans la
+  cible ; leur activation dans `~/.claude/projects/.../memory/` reste l'étape 2.
 
 ## Ce qui reste propre au dépôt
 

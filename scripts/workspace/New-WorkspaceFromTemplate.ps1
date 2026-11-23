@@ -33,6 +33,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+$targetFullPath = [System.IO.Path]::GetFullPath($Target)
+$targetPrefix = $targetFullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar,
+    [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+
+function Write-TargetText {
+    param([string]$Path, [string]$Content)
+    $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (-not $fullPath.StartsWith($targetPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to write outside -Target: $fullPath"
+    }
+    [System.IO.File]::WriteAllText($fullPath, $Content, $utf8NoBom)
+}
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
 $templateDir = Join-Path (Join-Path $projectRoot '.claude/configs') 'workspace-template'
@@ -68,34 +82,11 @@ $skipped = @()
 $merged = @()
 $dirs = @()
 
-# Optional per-machine memory seed, OUTSIDE the repo (memory is not versioned):
-# ~/.claude/projects/<slugified-target-path>/memory/
-if (-not $DryRun) {
-    $slug = ($Target -replace '[\\/:]', '-').TrimStart('-').ToLowerInvariant()
-    $memoryDir = Join-Path (Join-Path $HOME '.claude/projects') (Join-Path $slug 'memory')
-    $seedDir = Join-Path $templateDir 'memory-seed'
-    foreach ($seedFile in (Get-ChildItem -LiteralPath $seedDir -File)) {
-        $dest = Join-Path $memoryDir $seedFile.Name
-        if (Test-Path -LiteralPath $dest) { $skipped += $dest; continue }
-        if (-not (Test-Path -LiteralPath $memoryDir)) {
-            New-Item -ItemType Directory -Path $memoryDir -Force | Out-Null
-        }
-        [System.IO.File]::WriteAllText($dest, (Get-RenderedContent -SourcePath $seedFile.FullName),
-            (New-Object System.Text.UTF8Encoding($false)))
-        $created += $dest
-    }
-}
-else {
-    $memoryDir = Join-Path (Join-Path $HOME '.claude/projects') '<target-slug>/memory'
-    $created += (Join-Path $memoryDir 'MEMORY.md')
-    $created += (Join-Path $memoryDir 'user-question-registry.md')
-}
-
 foreach ($file in $templateFiles) {
     $relative = $file.FullName.Substring($templateDir.TrimEnd('\', '/').Length + 1)
 
-    # memory-seed/ is handled above (lives outside the repo).
-    if ($relative -like 'memory-seed*') { continue }
+    # memory-seed/ stays in the workspace: activating it in the per-machine
+    # memory profile is step 2, not an implicit write to $HOME.
     # The template's own README documents the template; it is NOT deployed
     # (a repo's README belongs to the repo).
     if ($relative -eq 'README.md') { continue }
@@ -116,8 +107,7 @@ foreach ($file in $templateFiles) {
                 $merged += $gitignorePath
                 if (-not $DryRun) {
                     $newContent = (($existing + $missing) -join "`n") + "`n"
-                    [System.IO.File]::WriteAllText($gitignorePath, $newContent,
-                        (New-Object System.Text.UTF8Encoding($false)))
+                    Write-TargetText -Path $gitignorePath -Content $newContent
                 }
             }
             else {
@@ -131,9 +121,7 @@ foreach ($file in $templateFiles) {
                 if (-not (Test-Path -LiteralPath $parent)) {
                     New-Item -ItemType Directory -Path $parent -Force | Out-Null
                 }
-                [System.IO.File]::WriteAllText($gitignorePath,
-                    (($fragmentLines -join "`n") + "`n"),
-                    (New-Object System.Text.UTF8Encoding($false)))
+                Write-TargetText -Path $gitignorePath -Content (($fragmentLines -join "`n") + "`n")
             }
         }
         continue
@@ -151,8 +139,7 @@ foreach ($file in $templateFiles) {
             New-Item -ItemType Directory -Path $parent -Force | Out-Null
             $dirs += $parent
         }
-        [System.IO.File]::WriteAllText($targetPath, (Get-RenderedContent -SourcePath $file.FullName),
-            (New-Object System.Text.UTF8Encoding($false)))
+        Write-TargetText -Path $targetPath -Content (Get-RenderedContent -SourcePath $file.FullName)
     }
     else {
         $dirs += (Split-Path -Parent $targetPath)
