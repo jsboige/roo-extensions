@@ -76,7 +76,9 @@ function Get-RenderedContent {
 }
 
 # Every file of the template (recursive), as target-relative paths.
-$templateFiles = Get-ChildItem -LiteralPath $templateDir -Recurse -File
+# -Force is required on Linux: otherwise the hidden .claude subtree is not
+# enumerated (the template's two rules and plans README would be silently lost).
+$templateFiles = Get-ChildItem -LiteralPath $templateDir -Recurse -File -Force
 $created = @()
 $skipped = @()
 $merged = @()
