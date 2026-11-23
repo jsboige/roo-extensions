@@ -52,10 +52,17 @@ function Find-OAuthExpirySignal {
     $recentSessions = Get-ChildItem -Path $projectsRoot -Recurse -Filter '*.jsonl' -File -ErrorAction SilentlyContinue |
         Where-Object { $_.LastWriteTime -gt $cutoff }
 
+    # Bounded tail scan (measured 2026-11-23, po-2028): streaming every recent
+    # trace end to end is unbounded -- 47 files / 5.87 GiB drove the whole
+    # pre-flight to ~35-40 min for a warning that never blocks the cycle. The
+    # marker is line-level and lives in recent activity, so the tail of each
+    # trace answers the same question. EXECUTOR_PREFLIGHT_OAUTH_FULL_SCAN=1
+    # restores the whole-file scan.
+    $tailBytes = if ($env:EXECUTOR_PREFLIGHT_OAUTH_FULL_SCAN -eq '1') { 0 } else { 8388608 }
+
     $hits = @()
     foreach ($session in $recentSessions) {
-        $match = Select-String -Path $session.FullName -Pattern $script:oauthExpiryPattern -List -ErrorAction SilentlyContinue
-        if ($match) {
+        if (Test-JsonlTailForPattern -Path $session.FullName -Pattern $script:oauthExpiryPattern -MaxBytes $tailBytes) {
             $hits += $session.BaseName
         }
     }
@@ -64,6 +71,8 @@ function Find-OAuthExpirySignal {
 
 # #3605: absorbing-form streak state (machine-local, outside the repo).
 . (Join-Path $PSScriptRoot '..\common\executor-blockage-state.ps1')
+# Bounded trace scan helper (Test-JsonlTailForPattern) -- see scripts/common.
+. (Join-Path $PSScriptRoot '..\common\jsonl-tail-scan.ps1')
 
 try {
     # #3605-incident: when the cwd persists in a submodule (CWD inheritance from
