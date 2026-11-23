@@ -112,6 +112,12 @@ if (-not (Test-Path $McpServerPath)) {
 
 $SrcPath   = Join-Path $McpServerPath 'src'
 $BuildPath = Join-Path $McpServerPath 'build'
+# #4886: `@vibesync/core` is a workspace package with its own compiled dist/. The RSM
+# build consumes it, so a core source edit that is newer than its dist/ makes the
+# published vintage stale even when no RSM src/ file changed.
+$CorePath     = Join-Path $RepoRoot 'mcps/internal/packages/vibesync-core'
+$CoreSrcPath  = Join-Path $CorePath 'src'
+$CoreDistIndex = Join-Path $CorePath 'dist/index.js'
 
 if (-not (Test-Path $SrcPath)) {
     Exit-NotFresh 'SKIP' "src/ not found at $SrcPath. Nothing to compare."
@@ -132,6 +138,26 @@ foreach ($f in $srcFiles) {
     if ($f.LastWriteTime.ToFileTimeUtc() -gt $srcNewest) {
         $srcNewest = $f.LastWriteTime.ToFileTimeUtc()
         $srcNewestFile = $f.FullName
+    }
+}
+
+# #4886: the shared package's compiled sources are part of "the source".
+if (Test-Path $CoreSrcPath) {
+    $coreSrcFiles = Get-ChildItem -Path $CoreSrcPath -Recurse -File -Filter '*.ts' -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.FullName -notmatch '[\\/]__tests__[\\/]' -and
+            $_.Name -notmatch '\.(test|spec)\.ts$'
+        }
+    foreach ($f in $coreSrcFiles) {
+        if ($f.LastWriteTime.ToFileTimeUtc() -gt $srcNewest) {
+            $srcNewest = $f.LastWriteTime.ToFileTimeUtc()
+            $srcNewestFile = $f.FullName
+        }
+    }
+    if (-not (Test-Path $CoreDistIndex)) {
+        # No dist/ means the workspace package was never built: force the rebuild path.
+        $srcNewest = [long]::MaxValue
+        $srcNewestFile = $CoreDistIndex
     }
 }
 
@@ -255,8 +281,9 @@ function Test-BuildMatchesSource {
     # A matching HEAD still leaves uncommitted edits. Ask git for CONTENT: `diff --quiet`
     # refreshes the index and compares blobs, so a file whose mtime ALONE was rewritten is silent
     # here -- precisely the case this guard exists to catch. The pathspec resolves against the -C
-    # directory, scoping it to this server's src/ inside the submodule.
-    & git -C $McpServerPath diff --quiet -- src 2>$null
+    # directory, scoping it to this server's src/ and the workspace package's src/ inside the
+    # submodule (#4886).
+    & git -C $McpServerPath diff --quiet -- src ../../packages/vibesync-core/src 2>$null
     if ($LASTEXITCODE -ne 0) { return $false }
 
     # `diff` compares the index against the worktree, so it only ever reports files git already
@@ -265,9 +292,20 @@ function Test-BuildMatchesSource {
     # cannot rescue this either: `dirty` is computed WHEN THE BUILD RAN, so a file created
     # afterwards postdates it by construction. Measured on ai-01 (2026-09-11): with an untracked
     # `src/__probe.ts` present, `diff --quiet -- src` still exits 0. Raised by web1 on #3589.
-    $untracked = (& git -C $McpServerPath ls-files --others --exclude-standard -- src 2>$null)
+    # #4886: the workspace package's src/ is part of the same build input.
+    $untracked = (& git -C $McpServerPath ls-files --others --exclude-standard -- src ../../packages/vibesync-core/src 2>$null)
     if ($LASTEXITCODE -ne 0) { return $false }
     if ($untracked) { return $false }
+
+    # The content key proves the source, not the compilation of the workspace package.
+    $coreSrcPath = Join-Path $RepoRoot 'mcps/internal/packages/vibesync-core/src'
+    $coreDistIndex = Join-Path $RepoRoot 'mcps/internal/packages/vibesync-core/dist/index.js'
+    if (Test-Path $coreSrcPath) {
+        if (-not (Test-Path $coreDistIndex)) { return $false }
+        $coreSrcNewest = (Get-ChildItem -Path $coreSrcPath -Recurse -File -Filter '*.ts' -ErrorAction SilentlyContinue |
+            Measure-Object -Property LastWriteTimeUtc -Maximum).Maximum
+        if ($coreSrcNewest -and (Get-Item $coreDistIndex).LastWriteTimeUtc -lt $coreSrcNewest) { return $false }
+    }
 
     return $true
 }
