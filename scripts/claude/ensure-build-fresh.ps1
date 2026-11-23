@@ -474,7 +474,15 @@ $WorkspaceLock    = Join-Path $WorkspaceRoot 'package-lock.json'
 $WorkspaceModules = Join-Path $WorkspaceRoot 'node_modules'
 $WorkspaceStamp   = Join-Path $WorkspaceModules '.package-lock.json'
 
-if (Test-Path $WorkspaceLock) {
+if (-not (Test-Path $CoreSrcPath)) {
+    # Pre-#4886 gitlink: no workspace package under mcps/internal yet. This block
+    # has to stay a silent no-op until the bump lands, or every seat logs a
+    # warning on every pre-flight -- and `npm run build --workspace` fails there
+    # with "No workspaces found" (measured on PR #4893's first CI run).
+    Write-Result 'SKIP' "No packages/vibesync-core under mcps/internal - pre-#4886 gitlink, shared-package install and build do not apply."
+} elseif (-not (Test-Path $WorkspaceLock)) {
+    Write-Result 'WARN' "Workspace lockfile not found at $WorkspaceLock - skipping install and core build."
+} else {
     $needInstall = -not (Test-Path $WorkspaceModules)
     if (-not $needInstall -and (Test-Path $WorkspaceStamp)) {
         $needInstall = (Get-Item $WorkspaceLock).LastWriteTimeUtc -gt (Get-Item $WorkspaceStamp).LastWriteTimeUtc
@@ -508,8 +516,6 @@ if (Test-Path $WorkspaceLock) {
         $tail = ($coreOutput | Select-Object -Last 5 | Out-String).Trim()
         Write-Result 'WARN' "Core build FAILED (exit $coreExit) - the server build will use the previous dist. Tail:`n$tail"
     }
-} else {
-    Write-Result 'WARN' "Workspace lockfile not found at $WorkspaceLock - skipping install and core build."
 }
 
 # --- Rebuild (mirror worker Sync-McpSubmoduleBuild: clean:build + tsc, non-fatal on failure) ---
