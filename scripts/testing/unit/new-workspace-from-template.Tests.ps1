@@ -286,14 +286,16 @@ Describe 'New-WorkspaceFromTemplate - gardes de cible' {
         try {
             $r = Invoke-Bootstrap -TargetPath $target -WorkspaceName 'DemoWs'
             $r.ExitCode | Should -Be 0
-            # Bruit moteur documente : pwsh 7 ecrit son cache de demarrage
-            # StartupProfileData-NonInteractive sous le HOME au lancement du
-            # process (mesure 23/11 : 60 Ko ecrits par un engine-only run,
-            # sans executer le moindre script). Ce n'est pas une ecriture du
-            # script teste - on filtre ce nom, tout le reste est une fuite.
+            # Bruit moteur documente : pwsh ecrit sous le HOME au seul
+            # lancement du process, sans executer le moindre script (mesure
+            # 23/11, engine-only) : StartupProfileData-NonInteractive (~60 Ko,
+            # Windows et Linux) et telemetry.uuid (16 o, Linux sans
+            # POWERSHELL_TELEMETRY_OPTOUT). Ce ne sont pas des ecritures du
+            # script teste - on filtre ces deux noms, tout le reste est une
+            # fuite.
             $leaked = @(Get-ChildItem -LiteralPath $fakeHome -Recurse -File -Force |
-                Where-Object { $_.Name -notlike 'StartupProfileData-*' })
-            $leaked.Count | Should -Be 0
+                Where-Object { $_.Name -notlike 'StartupProfileData-*' -and $_.Name -ne 'telemetry.uuid' })
+            $leaked.Count | Should -Be 0 -Because ("fichiers fuits sous le HOME factice : " + (($leaked | ForEach-Object { $_.FullName }) -join ', '))
         } finally {
             if ($null -ne $oldHome) { $env:HOME = $oldHome } else { Remove-Item Env:HOME -ErrorAction SilentlyContinue }
             if ($null -ne $oldProfile) { $env:USERPROFILE = $oldProfile } else { Remove-Item Env:USERPROFILE -ErrorAction SilentlyContinue }
