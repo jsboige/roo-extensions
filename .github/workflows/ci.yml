@@ -280,6 +280,12 @@ on:
       # check_gitlinks_pushed.py (#4098 guard): its suite lives in
       # scripts/testing/python/ (covered above); the guarded source re-triggers it.
       - 'scripts/git/check_gitlinks_pushed.py'
+      # #4873: new-workspace-from-template.Tests.ps1 executes the REAL bootstrap
+      # script against the template tree on throwaway fixtures; the guarded
+      # sources must re-trigger the unit-pester job on main pushes (same rule
+      # as every entry above).
+      - 'scripts/workspace/**'
+      - '.claude/configs/workspace-template/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks

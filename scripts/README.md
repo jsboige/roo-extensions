@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-11-16 (#4801 : `analysis/` gagne le sous-dossier `memorilla-pilot/` — graine éval 15 paires + exporteur parquet Memorilla ; complément #3465 historique : section `claude/` recomptée 16→19)
+**Dernière mise à jour :** 2026-11-22 (#4873 : nouveau sous-dossier `workspace/` — amorçage d'un nouveau dépôt depuis le gabarit `.claude/configs/workspace-template/` ; décompte recompté firsthand 50→51 (`git ls-tree HEAD:scripts` : 50 entrées sur main avant le dossier))
 
 ---
 
@@ -17,9 +17,9 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 ---
 
-## Sous-répertoires (47)
+## Sous-répertoires (51)
 
-> **Recompte vérifié firsthand le 2026-08-31** (`git ls-files scripts/ | awk -F/'{print $2}' | sort -u`). Item #3319 audit Haiku po-2026 — voir [issue #3319](https://github.com/jsboige/roo-extensions/issues/3319) pour les sources.
+> **Recompte vérifié firsthand le 2026-11-22** (`git ls-tree HEAD:scripts | grep -c '^040000'` — la méthode `awk` historique comptait aussi les fichiers à la racine de `scripts/`). Item #3319 audit Haiku po-2026 — voir [issue #3319](https://github.com/jsboige/roo-extensions/issues/3319) pour les sources.
 
 ### Coordination & Synchronisation
 
@@ -63,6 +63,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `claude/` | 19 | Scripts PowerShell Claude Code (spawn workers, switch-provider, validation) |
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
+| `workspace/` | 1 | Amorçage d'un nouveau workspace depuis le gabarit `.claude/configs/workspace-template/` — création seule, refuse d'écraser, `-DryRun` sans écriture (#4873, Epic #3111 candidat 7) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 28 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot, garde pré-suppression #4097) |
 

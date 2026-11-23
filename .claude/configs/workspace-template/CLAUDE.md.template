@@ -1,0 +1,52 @@
+# {{REPO}} — Guide Agent Claude Code
+
+**Workspace :** {{WORKSPACE}} · **Dépôt :** {{REPO}}
+
+---
+
+## Vue d'ensemble
+
+<!-- 3-5 lignes : rôle de ce dépôt dans la flotte, ce qu'il produit, qui le coordonne.
+     Tout ce qui est propre à ce dépôt vit ICI, pas dans le gabarit. -->
+
+---
+
+## Démarrage
+
+1. `git pull`
+2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "all")` — jamais `section:"status"` seul (snapshot potentiellement périmé, #2306).
+3. **Inbox RooSync** : `roosync_messages(action: "inbox")`.
+
+## Canaux
+
+| Canal | Portée | Outil |
+|-------|--------|-------|
+| Dashboard `workspace` | Cross-machine (PRINCIPAL : commandement + rapport) | `roosync_dashboard(type: "workspace")` |
+| RooSync | Inter-machines | `roosync_messages` |
+| Questions agent → user | Registre persistant (mémoire machine) | `memory-seed/user-question-registry.md` |
+
+RooSync = inter-machine, jamais un canal local. Le dashboard `workspace` se lit en
+`section:"all"` et s'écrit en `append` avec un tag (`INFO`, `TASK`, `DONE`, `ASK`, …).
+
+## Règles critiques — pointeurs, jamais recopiées
+
+Les règles globales (`~/.claude/CLAUDE.md`, `~/.claude/rules/*.md`) font foi et ne sont
+jamais recopiées ici. Ce dépôt n'en porte que deux localement :
+
+- `.claude/rules/claim-discipline.md` — le verrou d'exclusivité vit sur l'issue.
+- `.claude/rules/pr-mandatory.md` — aucun push direct sur `main`.
+
+Tout le reste (harnais serré, registre des questions user, SDDD, sécurité, UAC/dry-run…)
+se lit dans le global — y recopier du texte garantit la dérive.
+
+## Fin de cycle
+
+1. Commit + PR **avant** tout rapport `[DONE]` — ne jamais annoncer un travail non commité.
+2. `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: ...)` — aucune exception.
+3. Sortie propre vérifiée : `python <checkout roo-extensions>/scripts/check_clean_cycle_exit.py --path <ce dépôt>`.
+
+---
+
+**Gabarit :** ce fichier vient de `.claude/configs/workspace-template/` (roo-extensions,
+#4873). Ce qui converge entre dépôts vit dans le gabarit ; ce qui est propre à `{{REPO}}`
+reste ici.
