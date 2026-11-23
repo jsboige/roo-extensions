@@ -72,6 +72,14 @@ Describe 'Executor pre-flight OAuth tail scan (bounded read)' {
         Test-JsonlTailForPattern -Path $path -Pattern $pattern -MaxBytes $marker.Length | Should -BeTrue
     }
 
+    It 'returns false instead of throwing when a trace disappears between enumeration and read' {
+        # The probe is a non-blocking advisory inside the executor pre-flight:
+        # a session rotating away mid-scan must not turn into a stopped cycle.
+        $path = Join-Path $TestDrive 'gone.jsonl'
+        { Test-JsonlTailForPattern -Path $path -Pattern $pattern } | Should -Not -Throw
+        Test-JsonlTailForPattern -Path $path -Pattern $pattern | Should -BeFalse
+    }
+
     It 'parses the pre-flight and wires the bounded helper into the OAuth probe' {
         $preflightPath = Join-Path $PSScriptRoot '..\..\..\scripts\claude\executor-preflight.ps1'
         $preflight = Get-Content $preflightPath -Raw

@@ -30,7 +30,19 @@ function Test-JsonlTailForPattern {
         [int]$MaxBytes = 8388608
     )
 
-    $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+    # Non-blocking posture: the old Select-String call was -ErrorAction
+    # SilentlyContinue, so a trace removed between enumeration and read (session
+    # rotation) simply produced no hit. This probe sits in the executor
+    # pre-flight: throwing here would turn a non-blocking advisory into a
+    # stopped cycle, so IO-level failures return $false instead.
+    try {
+        $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+    } catch [System.Management.Automation.ItemNotFoundException],
+            [System.IO.IOException],
+            [System.UnauthorizedAccessException] {
+        Write-Verbose "jsonl-tail-scan: skipping unreadable trace '$Path' ($($_.Exception.GetType().Name))"
+        return $false
+    }
 
     if ($MaxBytes -le 0 -or $file.Length -le $MaxBytes) {
         return [bool](Select-String -LiteralPath $file.FullName -Pattern $Pattern -List -ErrorAction SilentlyContinue)
@@ -40,21 +52,26 @@ function Test-JsonlTailForPattern {
     # on a line boundary, in which case no line must be dropped.
     $readBytes = $MaxBytes + 1
 
-    $stream = [System.IO.File]::Open(
-        $file.FullName,
-        [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::Read,
-        [System.IO.FileShare]::ReadWrite)
     try {
-        [void]$stream.Seek(-$readBytes, [System.IO.SeekOrigin]::End)
-        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+        $stream = [System.IO.File]::Open(
+            $file.FullName,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite)
         try {
-            $tail = $reader.ReadToEnd()
+            [void]$stream.Seek(-$readBytes, [System.IO.SeekOrigin]::End)
+            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+            try {
+                $tail = $reader.ReadToEnd()
+            } finally {
+                $reader.Dispose()
+            }
         } finally {
-            $reader.Dispose()
+            $stream.Dispose()
         }
-    } finally {
-        $stream.Dispose()
+    } catch [System.IO.IOException], [System.UnauthorizedAccessException] {
+        Write-Verbose "jsonl-tail-scan: skipping unreadable trace '$Path' ($($_.Exception.GetType().Name))"
+        return $false
     }
 
     if ($tail.Length -gt 0 -and $tail[0] -eq "`n") {
