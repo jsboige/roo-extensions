@@ -290,16 +290,20 @@ Describe 'ensure-build-fresh workspace install + core build (#4886, PR #4893 rev
             # Deliberately give the LOCK an older mtime: no timestamp fallback may mask it.
             '{"packages":{"":{"name":"root"},"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"}}}' | Set-Content -LiteralPath $lock -Encoding utf8 -NoNewline
             '{"packages":{"node_modules/a":{"version":"1.0.0"}}}' | Set-Content -LiteralPath (Join-Path $modules '.package-lock.json') -Encoding utf8 -NoNewline
-            (Get-Item $lock).LastWriteTimeUtc = [DateTime]::UtcNow
-            (Get-Item (Join-Path $modules '.package-lock.json')).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(5)
+            # .NET, not Get-Item: on unix a name that starts with a dot is a hidden file, and
+            # Get-Item without -Force throws "Could not find item" on it (PR #4893 CI on
+            # cc346b65, both engines agree with a Set-Content on the same file).
+            [System.IO.File]::SetLastWriteTimeUtc($lock, [DateTime]::UtcNow)
+            [System.IO.File]::SetLastWriteTimeUtc((Join-Path $modules '.package-lock.json'), [DateTime]::UtcNow.AddMinutes(5))
             Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeFalse
         }
 
         It 'Returns true when the lockfile is newer by mtime only: a checkout that rewrites an identical lock must not re-run npm ci' {
             '{"packages":{"":{"name":"root"},"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"}}}' | Set-Content -LiteralPath $lock -Encoding utf8 -NoNewline
             '{"packages":{"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"}}}' | Set-Content -LiteralPath (Join-Path $modules '.package-lock.json') -Encoding utf8 -NoNewline
-            (Get-Item $lock).LastWriteTimeUtc = [DateTime]::UtcNow.AddMinutes(5)
-            (Get-Item (Join-Path $modules '.package-lock.json')).LastWriteTimeUtc = [DateTime]::UtcNow
+            # Same .NET call as above: Get-Item throws on a dot-prefixed file on unix without -Force.
+            [System.IO.File]::SetLastWriteTimeUtc($lock, [DateTime]::UtcNow.AddMinutes(5))
+            [System.IO.File]::SetLastWriteTimeUtc((Join-Path $modules '.package-lock.json'), [DateTime]::UtcNow)
             Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeTrue
         }
 
