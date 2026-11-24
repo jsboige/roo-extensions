@@ -65,8 +65,9 @@ _HERE = Path(__file__).resolve().parent
 def _load_store_reader():
     """Primitives de lecture store du lecteur d'escalades (#4517/#4519) :
     transport MCP `call_dashboard_tool`, parse JSON `entries_from_store_json`,
-    resolution bearer `resolve_proxy_config` + `load_organ_env_file`. Meme
-    transport, meme precedence — la lecture prend le chemin de l'ecriture."""
+    resolution bearer `resolve_env_file` + `resolve_proxy_config` +
+    `load_organ_env_file`. Meme transport, meme precedence — la lecture prend
+    le chemin de l'ecriture."""
     spec = importlib.util.spec_from_file_location(
         "check_degraded_escalations", _HERE / "check-degraded-escalations.py")
     module = importlib.util.module_from_spec(spec)
@@ -413,8 +414,12 @@ def main(argv=None):
                              "canal de rejeu DEGRADE (export derive, sans marqueur de "
                              "vétusté) ; la sortie est etiquetee")
     parser.add_argument("--env-file", default=None,
-                        help="fichier d'environnement de l'organe "
-                             "(defaut : ~/.roo-state-manager/stall-detector.env)")
+                        help="fichier CLE=valeur lu pour le bearer "
+                             "(defaut : la variable ORGAN_ENV_FILE, qui porte le "
+                             "CHEMIN du fichier du siege, puis "
+                             "~/.roo-state-manager/stall-detector.env ; "
+                             "valeur vide = aucun fichier, le pointeur compris "
+                             "— meme ordre que l'organe des escalades, #4901)")
     parser.add_argument("--now", default=None,
                         help="horloge (ISO-8601) — déterminisme des tests")
     parser.add_argument("--json", action="store_true", dest="as_json",
@@ -442,8 +447,13 @@ def main(argv=None):
     else:
         try:
             organ = _load_store_reader()
+            # #4907 : MEME resolution que l'organe des escalades (#4901), sans
+            # dupliquer l'ordre — --env-file > pointeur ORGAN_ENV_FILE > defaut.
+            # Un --env-file "" explicite signifie « aucun fichier » et coupe
+            # aussi le pointeur (un rejeu ne doit pas relire la config du siege).
+            env_file, env_file_source = organ.resolve_env_file(args.env_file)
             file_values, env_warning = organ.load_organ_env_file(
-                args.env_file if args.env_file else organ.ORGAN_ENV_FILE)
+                env_file, explicit=env_file_source == "pointer")
             if env_warning:
                 print(f"env-file : {env_warning}", file=sys.stderr)
             url, bearer = organ.resolve_proxy_config(None, None, file_values)

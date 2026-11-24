@@ -17,11 +17,13 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[2] / "diagnostic" / "collect_open_user_questions.py"
 
@@ -360,6 +362,97 @@ Deux questions en texte libre sans format Qxx.
             self.assertIn("ImportError", err.getvalue())
         finally:
             couq._load_store_reader = original
+
+    # --- #4907 : meme resolution du bearer que l'organe des escalades -------
+    # Valeurs FAUSSES seulement. Le pointeur ORGAN_ENV_FILE porte un CHEMIN,
+    # jamais un secret : aucune valeur lue ne doit passer dans une sortie.
+    # Store bouchonne, aucun reseau — l'environnement proxy du siege est retire.
+
+    def store_with_seat_pointer(self, env, extra=()):
+        """main() sans drapeau de source (sauf `extra`) : le bearer vient de la
+        chaîne par défaut. Rend (code, appels du store, stderr).
+
+        Le lecteur store est un module TENU et son fichier PAR DÉFAUT est un
+        faux : le vrai fichier du siège n'est jamais lu, un échec n'imprime que
+        des valeurs factices, et le défaut EXISTE (sur la base, `--env-file ""`
+        relit le défaut — absent, il rendait le même « aucun bearer » que le
+        correctif). Store bouchonné, aucun réseau ; la config proxy ambiante
+        du siège est retirée."""
+        calls = []
+
+        def fake_store(url, bearer, timeout=10.0, intercom_limit=500):
+            calls.append((url, bearer))
+            return [{"path": "global", "type": "global", "entries": []}], []
+
+        organ = couq._load_store_reader()
+        organ.ORGAN_ENV_FILE = self.dashboard(
+            "default-4907.env", "MCP_PROXY_BEARER=default-bearer-4907\n")
+        for name in ("load_dashboards_from_store", "_load_store_reader"):
+            self.addCleanup(setattr, couq, name, getattr(couq, name))
+        couq.load_dashboards_from_store = fake_store
+        couq._load_store_reader = lambda: organ
+        with mock.patch.dict(os.environ, dict(env)), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            for key in ("MCP_PROXY_BEARER", "MCP_PROXY_URL", "MCP_PROXY_BASE_URL"):
+                os.environ.pop(key, None)
+            code = couq.main(["--dashboards-dir", str(self.root), "--now", NOW,
+                              *extra])
+        return code, calls, err.getvalue()
+
+    def test_seat_pointer_is_honoured_without_any_flag(self):
+        # Le cas #4907 : sans --env-file, le collecteur lit le fichier designe
+        # par ORGAN_ENV_FILE — lui, pas le defaut. Rouge sur la base (b70b5417)
+        # : l'ancienne selection l.444-446 ignore le pointeur.
+        seat = self.dashboard("seat-4907.env",
+                              "MCP_PROXY_BEARER=pointer-bearer-4907\n"
+                              "MCP_PROXY_URL=http://127.0.0.1:4907\n")
+        code, calls, err = self.store_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(seat)})
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("http://127.0.0.1:4907", "pointer-bearer-4907")])
+        self.assertEqual(err, "")
+
+    def test_empty_cli_env_file_disables_the_pointer_too(self):
+        # `--env-file ""` = « aucun fichier » : il coupe AUSSI le pointeur,
+        # exactement comme dans l'organe (garantie review #4677) — un rejeu
+        # explicite ne doit jamais relire la config du siege. Rouge sur la base
+        # : `args.env_file if args.env_file else ...` relisait le fichier par
+        # defaut.
+        seat = self.dashboard("seat-4907.env",
+                              "MCP_PROXY_BEARER=pointer-bearer-4907\n")
+        code, calls, err = self.store_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(seat)}, ["--env-file", ""])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("https://mcp-tools.myia.io", None)])
+        self.assertEqual(err, "")
+
+    def test_cli_env_file_beats_the_seat_pointer(self):
+        # Temoin : --env-file explicite garde la priorite sur le pointeur.
+        seat = self.dashboard("seat-4907.env",
+                              "MCP_PROXY_BEARER=pointer-bearer-4907\n")
+        explicit = self.dashboard("explicit-4907.env",
+                                  "MCP_PROXY_BEARER=cli-bearer-4907\n")
+        code, calls, err = self.store_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(seat)}, ["--env-file", str(explicit)])
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("https://mcp-tools.myia.io", "cli-bearer-4907")])
+
+    def test_dangling_pointer_warns_with_path_only(self):
+        # Pointeur pendouillant : warning qui nomme la variable et le CHEMIN,
+        # jamais une valeur — ni celle d'un fichier voisin, ni celle du defaut.
+        self.dashboard("neighbour-4907.env",
+                       "MCP_PROXY_BEARER=neighbour-bearer-4907\n")
+        missing = self.root / "absent-4907.env"
+        code, calls, err = self.store_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(missing)})
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("https://mcp-tools.myia.io", None)])
+        self.assertIn("ORGAN_ENV_FILE", err)
+        self.assertIn(str(missing), err)
+        self.assertNotIn("neighbour-bearer-4907", err)
+        self.assertNotIn("default-bearer-4907", err)
+        self.assertNotIn("MCP_PROXY_BEARER=", err)
 
 
 if __name__ == "__main__":
