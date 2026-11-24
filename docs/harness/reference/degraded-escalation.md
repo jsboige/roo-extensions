@@ -89,7 +89,9 @@ Défauts : **2 cycles × 4 h** = 8 h, la cadence des crons flotte (`41 */4`).
 **#4672 — le bearer se lit tout seul, et la sortie survit au cp1252.** La
 commande canonique ne demande **aucun sourcing manuel** : l'organe lit
 `--env-file` (défaut `%USERPROFILE%\.roo-state-manager\stall-detector.env`, le
-fichier que dépose le lanceur compagnon) avec la précédence **CLI >
+fichier que dépose le lanceur compagnon ; entre les deux, la variable de siège
+`ORGAN_ENV_FILE`, qui porte le **chemin** d'un autre fichier du siège — #4901)
+avec la précédence **CLI >
 environnement du processus > fichier > défaut d'URL**. Le fichier n'est jamais
 *sourcé* : seules les lignes nommées `MCP_PROXY_BEARER` / `MCP_PROXY_BASE_URL` /
 `MCP_PROXY_URL` sont analysées, aucune autre valeur n'est matérialisée. Fichier
@@ -302,6 +304,16 @@ déjà le bearer convient, rien n'est copié ni imprimé) :
 ```bash
 python scripts/diagnostic/check-degraded-escalations.py --env-file <fichier-du-siège>
 ```
+
+**Forme durable (#4901) : le pointeur de siège.** Sur un siège sans lanceur
+compagnon, chaque lane interactive devait passer `--env-file` à chaque appel —
+et celle qui l'oubliait sortait en `1`. La variable d'environnement
+`ORGAN_ENV_FILE` (portée User) porte le **chemin** du fichier du siège, et l'organe
+la lit avant son fichier par défaut : `--env-file` > `ORGAN_ENV_FILE` >
+`stall-detector.env`. Aucune valeur n'est copiée ni imprimée — le warning de
+sortie `1` nomme la variable à poser. Un pointeur vers un fichier absent avertit
+(en nommant le chemin) et laisse la mesure fail-closed ; `--env-file ""` coupe
+aussi le pointeur.
 
 Mesuré sur ai-01 le 20/11 : exit 2 réel, 446 lectures. Si l'organe rend ensuite
 `0`, `2` ou `3`, la lane poste son `[REPAIRED]` avec sa ligne de portée
