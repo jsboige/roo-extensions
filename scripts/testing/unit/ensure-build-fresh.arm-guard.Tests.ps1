@@ -99,7 +99,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
             Where-Object { $_.Kind -ne 'Comment' -and $_.Text -like '*THE RESTART IS OWED*' } |
             Select-Object -First 1
         $owedToken | Should -Not -BeNullOrEmpty -Because 'the categorical ARM message must still exist for real rebuilds'
-        $guardIdx = $content.IndexOf('if ($noRebuildThisRun)')
+        $guardIdx = $content.IndexOf('elseif ($noRebuildThisRun)')
         $guardIdx | Should -BeGreaterThan -1
         $owedToken.Extent.StartOffset | Should -BeGreaterThan $guardIdx
     }
@@ -153,18 +153,25 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         # reported HasExited=True. One such ghost held this guard at exit 10 across three
         # consecutive pre-flights after a legitimate host-kill pass, with ZERO real hosts
         # predating the fresh build. The corroboration must:
-        #   1. exist as a function consulted by BOTH host lists,
-        #   2. exclude ONLY processes positively proven exited (fail-closed: an inability to
-        #      prove exit keeps the host counted).
+        # 1. exist as a function consulted by ALL THREE role lists (legacy child, vintage child,
+        #   wrapper), 2. exclude ONLY processes positively proven exited (fail-closed).
+        # $liveHosts itself stays legacy-only (#4893 review): adding the vintage children here
+        # would make the informational lines below count 24 hosts where there are 12 sessions,
+        # and call hot-swapping children "legacy hosts". The three-role set is used only by the
+        # workspace install refusal, which computes its own $wsAlive.
         $content | Should -Match 'function Test-ProcessExited'
-        # Both lists pass through the corroboration AFTER the CIM query and BEFORE $liveHosts.
+        # All three lists pass through the corroboration AFTER the CIM query and BEFORE $liveHosts.
         $cimIdx      = $content.IndexOf('$wrapperHosts = @(Get-CimInstance Win32_Process')
         $filterIdx   = $content.IndexOf('$indexHosts   = @($indexHosts   | Where-Object { -not (Test-ProcessExited')
         $liveIdx     = $content.IndexOf('$liveHosts = @($indexHosts + $wrapperHosts)')
         $cimIdx    | Should -BeGreaterThan 0
         $filterIdx | Should -BeGreaterThan $cimIdx
         $liveIdx   | Should -BeGreaterThan $filterIdx
+        $content | Should -Match '\$vintageHosts = @\(\$vintageHosts \| Where-Object \{ -not \(Test-ProcessExited'
         $content | Should -Match '\$wrapperHosts = @\(\$wrapperHosts \| Where-Object \{ -not \(Test-ProcessExited'
+        # The ARMÉ signature stays legacy-only: vintage children hot-swap and must not be counted stale.
+        $content | Should -Match 'foreach \(\$h in \$indexHosts\)'
+        $content | Should -Not -Match 'foreach \(\$h in \$vintageHosts\)'
         # Fail-closed shape: the catch branch returns $false (cannot prove exit -> keep counting).
         $fnStart = $content.IndexOf('function Test-ProcessExited')
         $fnEnd   = $content.IndexOf('}', $content.IndexOf('return $false', $fnStart))
