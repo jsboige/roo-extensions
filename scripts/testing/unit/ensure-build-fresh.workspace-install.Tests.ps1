@@ -22,6 +22,14 @@
          run owes no restart (the categorical ARM line printed first, then the refusal), and
          -DryRun / -WhatIf name the steps a real run would take.
 
+    The hot path (roo-extensions #4918, 2026-11-24): the first deployment of the workspace ADDS a
+    whole root tree, and `npm ci` -- refused under live hosts -- is not the only way to install
+    it. `npm install` reconciles: it adds, removes and replaces. Where a read of every installed
+    tree shows that it would only add to the root tree -- the one no live RSM host resolves into
+    -- the helper takes that path instead of the refusal. The guard that decides it is exercised
+    here on throwaway trees, together with the rule that keeps the refusal closed: a lockfile
+    that removes or changes an installed package, or adds anywhere but the root tree.
+
     This file guards these in CODE (token level: a comment quoting the wording must not make a raw
     -Match green), and exercises the REAL functions extracted from the script against throwaway
     files -- no Get-CimInstance, no Windows path, so it runs under the Linux pwsh of the
@@ -67,6 +75,8 @@ Describe 'ensure-build-fresh workspace install + core build (#4886, PR #4893 rev
         }
         . ([scriptblock]::Create((Get-ScriptFunctionText 'ConvertFrom-JsonToDictionary')))
         . ([scriptblock]::Create((Get-ScriptFunctionText 'Test-WorkspaceInstallCurrent')))
+        # Read-only like the two above, so dot-sourced the same way (#4918).
+        . ([scriptblock]::Create((Get-ScriptFunctionText 'Test-WorkspaceInstallReconcileSafe')))
         # The exit helper calls `exit`, which would end this very run: its body is handed to a
         # child engine by the context below, never dot-sourced here.
         $script:exitHelperText = Get-ScriptFunctionText 'Exit-WorkspaceStepFailed'
@@ -412,6 +422,365 @@ function Write-Result {
                 $LASTEXITCODE | Should -Be $case.Expected -Because "case '$($case.Name)'"
                 ($output -join "`n") | Should -Match '^\[ERROR\] probe The server build did not run: this run published no vintage and rewrote no build/\.$' -Because "case '$($case.Name)'"
             }
+        }
+    }
+
+    Context 'Structural guards: the hot path of #4918 (token level)' {
+
+        It 'Consults the reconcile guard in the plan section, before the refusal is decided, and only where there is something to reconcile under live hosts' {
+            $content | Should -Match 'function Test-WorkspaceInstallReconcileSafe \{'
+            $planIdx  = $content.IndexOf('# --- Workspace plan (#4886)')
+            $guardIdx = $content.IndexOf('$verdict = @(Test-WorkspaceInstallReconcileSafe -LockPath $WorkspaceLock')
+            $willIdx  = $content.IndexOf('$wsWillRefuse = $wsApplies -and $wsNeedsInstall -and $wsAlive -gt 0 -and -not $wsReconcileSafe')
+            $planIdx  | Should -BeGreaterThan 0
+            $guardIdx | Should -BeGreaterThan $planIdx
+            $willIdx  | Should -BeGreaterThan $guardIdx
+            $planSection = $content.Substring($planIdx, $willIdx - $planIdx)
+            $planSection | Should -Match 'if \(\$wsNeedsInstall -and \$wsAlive -gt 0\) \{'
+            $planSection.IndexOf('if ($wsNeedsInstall -and $wsAlive -gt 0) {') | Should -BeLessThan $planSection.IndexOf('$verdict = @(Test-WorkspaceInstallReconcileSafe')
+        }
+
+        It 'The guard itself is read-only: it installs, builds, writes and removes nothing' {
+            $guardText = Get-ScriptFunctionText 'Test-WorkspaceInstallReconcileSafe'
+            $guardText | Should -Not -Match 'cmd /c|Start-Process|& npm'
+            $guardText | Should -Not -Match 'Set-Content|Add-Content|Out-File|WriteAllText|AppendAllText|Remove-Item|New-Item|Copy-Item|Move-Item'
+            $guardText | Should -Not -Match '\[System\.IO\.(File|Directory)\]::(Write|Delete|Create|Move|Copy|Append)'
+            # Positive control: the execution block that DOES install trips the first pattern.
+            $execStart = $content.IndexOf('# --- Workspace install + shared package build (#4886)')
+            $execText  = $content.Substring($execStart, $content.IndexOf('# --- Pre-op guard (#3712)') - $execStart)
+            $execText | Should -Match 'cmd /c'
+        }
+
+        It 'The refusal and the hot install are two branches of one question, and the guard decides between them' {
+            $content | Should -Match 'if \(\$wsAlive -gt 0 -and -not \$wsReconcileSafe\) \{\r?\n\s*Exit-WorkspaceStepFailed -Refused '
+            ([regex]::Matches($content, [regex]::Escape('if ($wsAlive -gt 0 -and -not $wsReconcileSafe) {'))) | Should -HaveCount 1
+            ([regex]::Matches($content, [regex]::Escape('} elseif ($wsAlive -gt 0) {'))) | Should -HaveCount 1
+            $refuseIdx = $content.IndexOf('if ($wsAlive -gt 0 -and -not $wsReconcileSafe) {')
+            $hotIdx    = $content.IndexOf('} elseif ($wsAlive -gt 0) {')
+            $refuseIdx | Should -BeGreaterThan 0
+            $hotIdx    | Should -BeGreaterThan $refuseIdx
+        }
+
+        It 'Only exactly one boolean true opens the hot path' {
+            $content.Contains('$wsReconcileSafe = ($verdict.Count -eq 1 -and $verdict[0] -is [bool] -and $verdict[0])') | Should -BeTrue
+            # The closed initial value, and the verdict: no third assignment.
+            ([regex]::Matches($content, '\$wsReconcileSafe\s*=')) | Should -HaveCount 2
+        }
+
+        It 'The hot install runs only under live hosts, after the dry exits, and nothing is built before it is verified' {
+            ([regex]::Matches($content, [regex]::Escape('cmd /c "npm install 2>&1"'))) | Should -HaveCount 1
+            $dry1Idx = $content.IndexOf('Exit-NotFresh ''SKIP'' "-DryRun set:')
+            $dry2Idx = $content.IndexOf('Exit-NotFresh ''SKIP'' "ShouldProcess declined')
+            $hotIdx  = $content.IndexOf('cmd /c "npm install 2>&1"')
+            # Every anchor is asserted present: an absent one reads as -1 and would pass by default.
+            $dry1Idx | Should -BeGreaterThan 0
+            $dry2Idx | Should -BeGreaterThan 0
+            $hotIdx  | Should -BeGreaterThan $dry1Idx
+            $hotIdx  | Should -BeGreaterThan $dry2Idx
+            $branchStart = $content.IndexOf('} elseif ($wsAlive -gt 0) {')
+            $branchStart | Should -BeGreaterThan 0
+            $coreIdx = $content.IndexOf('cmd /c "npm run build --workspace @vibesync/core 2>&1"', $hotIdx)
+            $coreIdx | Should -BeGreaterThan $hotIdx
+            $branch = $content.Substring($branchStart, $coreIdx - $branchStart)
+            # Three ways out of the branch, all through the fail-closed helper: npm failed; npm
+            # rewrote the lockfile this run planned against; the install still does not read current.
+            $branch | Should -Match 'Exit-WorkspaceStepFailed "''npm install'' failed'
+            $branch | Should -Match 'Exit-WorkspaceStepFailed "''npm install'' exited 0 in \$WorkspaceRoot but rewrote package-lock\.json'
+            $branch | Should -Match 'Exit-WorkspaceStepFailed "''npm install'' exited 0 in \$WorkspaceRoot but the workspace install is still not current'
+            # The order inside the branch: install, lockfile unchanged, install current.
+            $installIdx = $branch.IndexOf('cmd /c "npm install 2>&1"')
+            $lockIdx    = $branch.IndexOf('.Hash -ne $lockHash')
+            $currentIdx = $branch.IndexOf('if (-not (Test-WorkspaceInstallCurrent')
+            $installIdx | Should -BeGreaterThan 0
+            $lockIdx    | Should -BeGreaterThan $installIdx
+            $currentIdx | Should -BeGreaterThan $lockIdx
+            # Nothing between the hot install and its verification starts the core build.
+            ([regex]::Matches($branch.Substring(0, $currentIdx), 'npm run build')) | Should -HaveCount 0
+        }
+
+        It 'The refusal says why the hot path stayed closed on this tree' {
+            $refusals = @($codeStrings | Where-Object { $_ -cmatch 'REFUSED while' })
+            $refusals | Should -HaveCount 1
+            $refusals[0] | Should -Match 'The hot path of #4918 does not open on this tree either: \$wsReconcileWhy Remedy: '
+        }
+    }
+
+    Context 'Behaviour: Test-WorkspaceInstallReconcileSafe (hot path of #4918: additive at the root, nothing removed or replaced)' {
+
+        BeforeAll {
+            # --- Fixture helpers of the reconcile guard (#4918) ---
+            # JSON is written as built and never parsed back: the plain ConvertFrom-Json of PS 5.1 rejects
+            # npm's empty root key. Paths go through .NET or -LiteralPath, so the fixtures behave the same
+            # under the Linux pwsh of the unit-pester job (a dot-prefixed name is hidden there).
+            function Write-FixtureJson([string]$Path, [string]$Json) {
+                $directory = [System.IO.Path]::GetDirectoryName($Path)
+                if (-not ([System.IO.Directory]::Exists($directory))) { [void][System.IO.Directory]::CreateDirectory($directory) }
+                [System.IO.File]::WriteAllText($Path, $Json)
+            }
+
+            function Add-FixturePackage([string]$Tree, [string]$Relative, [string]$Version) {
+                Write-FixtureJson (Join-Path $Tree "$Relative/package.json") ('{"name":"x","version":"' + $Version + '"}')
+            }
+
+            # The lockfile of the first deployment: the workspace's own entries, the server tree as it was
+            # installed, and the whole root tree the workspace adds (two packages and the two workspace
+            # links npm makes, recorded like the real ones: resolved relative to the workspace root).
+            function New-ReconcileLock([string[]]$Entries) {
+                return '{"name":"ws","lockfileVersion":3,"packages":{"":{"name":"ws","version":"0.0.0"},"packages/vibesync-core":{"name":"@vibesync/core","version":"0.1.0"},"server":{"name":"server","version":"0.0.0"},' + ($Entries -join ',') + '}}'
+            }
+
+            # The baseline entries without the one named by $Key, plus $With (nothing when it is empty).
+            function Get-LockEntries([string]$Key, [string]$With) {
+                $kept = @($script:entries.Values | Where-Object { $_ -notlike ('"' + $Key + '":*') })
+                if (-not [string]::IsNullOrEmpty($With)) { $kept += $With }
+                return $kept
+            }
+
+            # The first-deployment shape, measured on po-204 (2026-11-24): the server tree installed by
+            # `npm ci`, the root tree not installed at all. A fresh directory per call, so every test
+            # states only its own delta.
+            function Reset-ReconcileFixture {
+                $script:root   = Join-Path $script:fixtureBase ([guid]::NewGuid().ToString('N'))
+                $script:server = Join-Path $script:root 'server'
+                $script:lock   = Join-Path $script:root 'package-lock.json'
+                Write-FixtureJson $script:lock (New-ReconcileLock @($script:entries.Values))
+                Write-FixtureJson (Join-Path $script:server 'node_modules/.package-lock.json') (
+                    '{"name":"server","lockfileVersion":3,"packages":{"":{"name":"server","version":"0.0.0"},' +
+                    '"node_modules/kept":{"version":"1.0.0","resolved":"https://registry.example/kept","integrity":"sha256-kk"},' +
+                    '"node_modules/@scope/scoped":{"version":"2.0.0"},' +
+                    '"node_modules/@scope/inert":{"version":"9.9.9","optional":true,"ideallyInert":true}}}')
+                Add-FixturePackage $script:server 'node_modules/kept' '1.0.0'
+                Add-FixturePackage $script:server 'node_modules/@scope/scoped' '2.0.0'
+                # npm's own dot-directories are not packages, in either tree.
+                New-Item -ItemType Directory -Path (Join-Path $script:server 'node_modules/.bin'), (Join-Path $script:root 'node_modules/.vite') -Force | Out-Null
+            }
+
+            # A directory link as npm makes a workspace link: a junction on Windows (no privilege needed
+            # under 5.1), a symbolic link on Linux.
+            function New-FixtureLink([string]$Path, [string]$Target) {
+                # A junction tolerates a missing parent; a Linux symlink does not (symlink(2)
+                # returns ENOENT). npm creates the scope folder anyway, so the fixture does too.
+                $parent = [System.IO.Path]::GetDirectoryName($Path)
+                if (-not [System.IO.Directory]::Exists($parent)) { [void][System.IO.Directory]::CreateDirectory($parent) }
+                if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+                    New-Item -ItemType Junction -Path $Path -Target $Target | Out-Null
+                } else {
+                    New-Item -ItemType SymbolicLink -Path $Path -Target $Target | Out-Null
+                }
+                $script:allLinks += $Path
+            }
+
+            # The link itself is deleted, never its target.
+            function Remove-FixtureLink([string]$Path) {
+                [System.IO.Directory]::Delete($Path, $false)
+            }
+
+            # The reconciled shape (the tree after `npm install`): the root tree installed, its stamp
+            # recording every lockfile entry, and the two workspace links on disk.
+            function Add-ReconciledRoot {
+                Write-FixtureJson (Join-Path $script:root 'node_modules/.package-lock.json') ('{"name":"ws","lockfileVersion":3,"packages":{"":{"name":"ws"},' + ((@('"server":{"name":"server","version":"0.0.0"}') + @($script:entries.Values)) -join ',') + '}}')
+                Add-FixturePackage $script:root 'node_modules/added' '3.0.0'
+                Add-FixturePackage $script:root 'node_modules/@scope/added-too' '4.0.0'
+                Add-FixturePackage $script:root 'packages/vibesync-core' '0.1.0'
+                New-FixtureLink (Join-Path $script:root 'node_modules/@vibesync/core') (Join-Path $script:root 'packages/vibesync-core')
+                New-FixtureLink (Join-Path $script:root 'node_modules/ws-server') $script:server
+            }
+
+            # The verdict as the helper reads it: one array, whatever the function returned.
+            function Get-ReconcileVerdict([string]$ServerPath = $script:server) {
+                $script:reason = 'unset'
+                return ,@(Test-WorkspaceInstallReconcileSafe -LockPath $script:lock -WorkspaceRoot $script:root -WorkspaceModulesPath (Join-Path $script:root 'node_modules') -ServerPath $ServerPath -Reason ([ref]$script:reason))
+            }
+
+            # Lockfile entries as literal JSON, by short name.
+            $script:entries = @{
+                RootAdded  = '"node_modules/added":{"version":"3.0.0","resolved":"https://registry.example/added","integrity":"sha256-aa"}'
+                RootScoped = '"node_modules/@scope/added-too":{"version":"4.0.0"}'
+                LinkCore   = '"node_modules/@vibesync/core":{"resolved":"packages/vibesync-core","link":true}'
+                LinkServer = '"node_modules/ws-server":{"resolved":"server","link":true}'
+                Kept       = '"server/node_modules/kept":{"version":"1.0.0","resolved":"https://registry.example/kept","integrity":"sha256-kk"}'
+                Scoped     = '"server/node_modules/@scope/scoped":{"version":"2.0.0"}'
+                Inert      = '"server/node_modules/@scope/inert":{"version":"9.9.9","optional":true,"ideallyInert":true}'
+            }
+            $script:fixtureBase = Join-Path ([System.IO.Path]::GetTempPath()) ('ebf-reconcile-' + [guid]::NewGuid().ToString('N'))
+            # Every link ever made under the base, across the fixtures: each one is deleted itself.
+            $script:allLinks = @()
+            New-Item -ItemType Directory -Path $script:fixtureBase -Force | Out-Null
+        }
+
+        BeforeEach { Reset-ReconcileFixture }
+
+        AfterAll {
+            if ($script:fixtureBase -and ([System.IO.Directory]::Exists($script:fixtureBase))) {
+                # Each link is deleted itself, never followed into its target (a recursive removal
+                # of the base would otherwise walk a link into what it points at). A link a test
+                # replaced by a directory is left to the removal of the base.
+                foreach ($link in $script:allLinks) {
+                    try { $isLink = (([System.IO.File]::GetAttributes($link)) -band [System.IO.FileAttributes]::ReparsePoint) -ne 0 } catch { $isLink = $false }
+                    if ($isLink) { Remove-FixtureLink $link }
+                }
+                Remove-Item -LiteralPath $script:fixtureBase -Recurse -Force
+            }
+        }
+
+        It 'Answers exactly one true, with no reason, on the first-deployment shape: the server tree installed, the whole root tree still to add' {
+            $verdict = Get-ReconcileVerdict
+            $verdict.Count | Should -Be 1
+            $verdict[0] -is [bool] | Should -BeTrue
+            $verdict[0] | Should -BeTrue
+            $script:reason | Should -Be ''
+        }
+
+        It 'Tolerates, as npm does, exactly the packages the stamp marks ideallyInert and the install left out' {
+            # Baseline: `inert` is recorded, has no directory and carries the mark -- accepted above.
+            # The same absent package WITHOUT the mark is one npm would add back under the server tree.
+            $stampPath = Join-Path $script:server 'node_modules/.package-lock.json'
+            Write-FixtureJson $stampPath ([System.IO.File]::ReadAllText($stampPath).Replace('"optional":true,"ideallyInert":true', '"optional":true'))
+            $verdict = Get-ReconcileVerdict
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Be 'npm would ADD server/node_modules/@scope/inert back: it is recorded as installed here and its directory is gone.'
+        }
+
+        It 'Reads the disk under a root stamp too: a package no record knows is a removal' {
+            # npm accepts a hidden lockfile only after walking the tree itself (arborist
+            # assertNoNewer): a stamp present does not mean the disk is spared.
+            Add-ReconciledRoot
+            Add-FixturePackage $script:root 'node_modules/stray' '1.0.0'
+            $verdict = Get-ReconcileVerdict
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Be 'npm would REMOVE node_modules/stray: it is on disk and in no install record.'
+        }
+
+        It 'Accepts the reconciled shape and never follows a link' {
+            # After `npm install`: the root tree is installed, its stamp records the whole lockfile,
+            # and npm made two workspace links. `node_modules/ws-server` points at the server tree,
+            # whose packages are recorded under `server/…` only: followed, they would read as
+            # `node_modules/ws-server/node_modules/…`, in no record, and the guard would refuse a
+            # tree npm leaves alone.
+            Add-ReconciledRoot
+            $verdict = Get-ReconcileVerdict
+            $verdict.Count | Should -Be 1
+            $verdict[0] | Should -BeTrue
+            $script:reason | Should -Be ''
+        }
+
+        It 'Refuses, naming the package, when the lockfile would remove or replace a recorded package' {
+            $differ = 'npm would REPLACE server/node_modules/kept: the installed entry and the lockfile entry differ.'
+            $cases = @(
+                @{ Name = 'another version';      With = '"server/node_modules/kept":{"version":"1.0.1"}'; Reason = $differ }
+                @{ Name = 'another resolved URL'; With = '"server/node_modules/kept":{"version":"1.0.0","resolved":"https://registry.example/other","integrity":"sha256-kk"}'; Reason = $differ }
+                @{ Name = 'another integrity';    With = '"server/node_modules/kept":{"version":"1.0.0","resolved":"https://registry.example/kept","integrity":"sha256-zz"}'; Reason = $differ }
+                @{ Name = 'the package dropped';  With = ''; Reason = 'npm would REMOVE server/node_modules/kept: it is installed here and absent from the lockfile.' }
+            )
+            foreach ($case in $cases) {
+                Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key 'server/node_modules/kept' -With $case.With))
+                $verdict = Get-ReconcileVerdict
+                $verdict.Count | Should -Be 1 -Because $case.Name
+                $verdict[0] | Should -BeFalse -Because $case.Name
+                $script:reason | Should -Be $case.Reason -Because $case.Name
+            }
+        }
+
+        It 'Refuses a package the ROOT stamp records when the lockfile drops it' {
+            Add-ReconciledRoot
+            Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key 'node_modules/added' -With ''))
+            $verdict = Get-ReconcileVerdict
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Be 'npm would REMOVE node_modules/added: it is installed here and absent from the lockfile.'
+        }
+
+        It 'Refuses when the lockfile adds anything outside the root tree, wherever it lands' {
+            $outside = ' outside the root node_modules tree.'
+            $cases = @(
+                @{ Name = 'under the server tree';            With = '"server/node_modules/newcomer":{"version":"5.0.0"}'; Reason = 'npm would ADD server/node_modules/newcomer' + $outside }
+                @{ Name = 'under a scope of the server tree'; With = '"server/node_modules/@scope/newcomer":{"version":"5.0.0"}'; Reason = 'npm would ADD server/node_modules/@scope/newcomer' + $outside }
+                @{ Name = 'under a package of the server tree'; With = '"server/node_modules/kept/node_modules/newcomer":{"version":"5.0.0"}'; Reason = 'npm would ADD server/node_modules/kept/node_modules/newcomer' + $outside }
+            )
+            foreach ($case in $cases) {
+                Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key '' -With $case.With))
+                $verdict = Get-ReconcileVerdict
+                $verdict[0] | Should -BeFalse -Because $case.Name
+                $script:reason | Should -Be $case.Reason -Because $case.Name
+            }
+        }
+
+        It 'Refuses when the disk disagrees with the records, in every tree' {
+            $unrecorded = ': it is on disk and in no install record.'
+            $gone = ': it is recorded as installed here and its directory is gone.'
+            $cases = @(
+                @{ Name = 'a directory no record knows'; Act = { Add-FixturePackage $script:server 'node_modules/stray' '1.0.0' }; Reason = 'npm would REMOVE server/node_modules/stray' + $unrecorded }
+                @{ Name = 'the same under a scope'; Act = { Add-FixturePackage $script:server 'node_modules/@scope/stray' '1.0.0' }; Reason = 'npm would REMOVE server/node_modules/@scope/stray' + $unrecorded }
+                @{ Name = 'the same under a nested node_modules'; Act = { Add-FixturePackage $script:server 'node_modules/kept/node_modules/dep' '1.0.0' }; Reason = 'npm would REMOVE server/node_modules/kept/node_modules/dep' + $unrecorded }
+                @{ Name = 'a recorded directory gone'; Act = { [System.IO.Directory]::Delete((Join-Path $script:server 'node_modules/@scope/scoped'), $true) }; Reason = 'npm would ADD server/node_modules/@scope/scoped back' + $gone }
+                @{ Name = 'a package.json that says another version'; Act = { Add-FixturePackage $script:server 'node_modules/kept' '1.0.1' }; Reason = 'npm would REPLACE server/node_modules/kept: the package.json on disk does not say version 1.0.0.' }
+            )
+            foreach ($case in $cases) {
+                Reset-ReconcileFixture
+                & $case.Act
+                $verdict = Get-ReconcileVerdict
+                $verdict[0] | Should -BeFalse -Because $case.Name
+                $script:reason | Should -Be $case.Reason -Because $case.Name
+            }
+        }
+
+        It 'Refuses when a record is missing or unreadable, and says which' {
+            $cases = @(
+                @{ Name = 'no server stamp'; Act = { [System.IO.File]::Delete([System.IO.Path]::Combine($script:server, 'node_modules', '.package-lock.json')) }
+                    Reason = { 'npm left no install record at ' + [System.IO.Path]::Combine($script:server, 'node_modules', '.package-lock.json') + ', so the tree the live RSM hosts resolve into cannot be compared with the lockfile.' } }
+                @{ Name = 'no lockfile'; Act = { [System.IO.File]::Delete($script:lock) }
+                    Reason = 'the lockfile is absent, unreadable or holds no packages object.' }
+                @{ Name = 'a lockfile that is not JSON'; Act = { Write-FixtureJson $script:lock 'not json' }
+                    Reason = 'the lockfile is absent, unreadable or holds no packages object.' }
+                @{ Name = 'a server stamp that is not JSON'; Act = { Write-FixtureJson ([System.IO.Path]::Combine($script:server, 'node_modules', '.package-lock.json')) 'not json' }
+                    Reason = { 'the install record at ' + [System.IO.Path]::Combine($script:server, 'node_modules', '.package-lock.json') + ' is unreadable or holds no packages object.' } }
+                @{ Name = 'a root stamp without a packages object'; Act = { Add-ReconciledRoot; Write-FixtureJson ([System.IO.Path]::Combine($script:root, 'node_modules', '.package-lock.json')) '{"name":"ws","other":{}}' }
+                    Reason = { 'the install record at ' + [System.IO.Path]::Combine($script:root, 'node_modules', '.package-lock.json') + ' is unreadable or holds no packages object.' } }
+            )
+            foreach ($case in $cases) {
+                Reset-ReconcileFixture
+                & $case.Act
+                $verdict = Get-ReconcileVerdict
+                $verdict[0] | Should -BeFalse -Because $case.Name
+                $expected = if ($case.Reason -is [scriptblock]) { & $case.Reason } else { $case.Reason }
+                $script:reason | Should -Be $expected -Because $case.Name
+            }
+        }
+
+        It 'Refuses a server folder that is not below the workspace root' {
+            $elsewhere = Join-Path $script:fixtureBase ([guid]::NewGuid().ToString('N'))
+            $verdict = Get-ReconcileVerdict -ServerPath $elsewhere
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -BeLike ($elsewhere + ' is not a directory below *, so its packages cannot be located in the lockfile.')
+        }
+
+        It 'Refuses a link it cannot vouch for' {
+            $cases = @(
+                @{ Name = 'a link no record made'
+                    Act    = { New-FixtureLink (Join-Path $script:root 'node_modules/stray-link') $script:server }
+                    Reason = 'node_modules/stray-link is a link and no install record made it to the target the lockfile names, so what npm would do with it is not evaluated.' }
+                @{ Name = 'a link to another target than the lockfile names'
+                    Act    = { Add-ReconciledRoot; Remove-FixtureLink (Join-Path $script:root 'node_modules/ws-server'); New-FixtureLink (Join-Path $script:root 'node_modules/ws-server') (Join-Path $script:root 'packages/vibesync-core') }
+                    Reason = 'npm would REPLACE the link node_modules/ws-server: it points at * and the lockfile wants server.' }
+                @{ Name = 'a directory where the record holds a link'
+                    Act    = { Add-ReconciledRoot; Remove-FixtureLink (Join-Path $script:root 'node_modules/ws-server'); Add-FixturePackage $script:root 'node_modules/ws-server' '1.0.0' }
+                    Reason = 'npm would REPLACE node_modules/ws-server: the install record holds a link there and the disk holds a directory.' }
+            )
+            foreach ($case in $cases) {
+                Reset-ReconcileFixture
+                & $case.Act
+                $verdict = Get-ReconcileVerdict
+                $verdict[0] | Should -BeFalse -Because $case.Name
+                $script:reason | Should -BeLike $case.Reason -Because $case.Name
+            }
+        }
+
+        It 'Leaves no stale reason behind: the next verdict starts from an empty one' {
+            $verdict = Get-ReconcileVerdict -ServerPath (Join-Path $script:fixtureBase 'elsewhere')
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Not -Be ''
+            $verdict = Get-ReconcileVerdict
+            $verdict[0] | Should -BeTrue
+            $script:reason | Should -Be ''
         }
     }
 }

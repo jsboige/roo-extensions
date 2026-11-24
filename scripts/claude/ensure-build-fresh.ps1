@@ -434,6 +434,259 @@ function Test-WorkspaceInstallCurrent {
     }
     return $true
 }
+
+# Can the stale workspace install be reconciled UNDER live RSM hosts? (#4918)
+# `npm ci` deletes both node_modules trees, so it is refused while hosts are alive (below).
+# `npm install` does something else: it brings the tree in line with the lockfile -- it ADDS
+# what the lockfile has and the disk lacks, REMOVES what the disk has and the lockfile
+# lacks, and REPLACES what differs in version, resolved or integrity. It is therefore safe
+# under live hosts exactly when the two destructive directions are empty.
+#
+# npm keeps the record of the last install: the hidden stamp
+# node_modules/.package-lock.json. A root stamp does not spare the disk. npm accepts it
+# only after walking every package directory -- nothing may be newer than the stamp, and
+# nothing it lists may be missing unless the stamp marks the entry ideallyInert -- and
+# otherwise it reads the package.json files it finds (arborist assertNoNewer and
+# loadActual, npm 11.5.1). So this reads the disk every time, and takes from the stamps
+# only what they record: what was installed, and what the install left out.
+#
+# This asks less than "is every tree unchanged": the first deployment of the workspace
+# ADDS the whole root tree, and that is the case it exists for. It asks three things:
+#   1. nothing a stamp records as installed is missing from the lockfile or differs from
+#      it -- no REMOVE and no REPLACE, whatever the tree;
+#   2. everything the lockfile adds lands in the ROOT node_modules tree. An addition
+#      anywhere else is refused. Measured on the built server (2026-11-24, vintage
+#      build-6755d61ff811b4bb): 21 bare specifiers resolve into
+#      servers/roo-state-manager/node_modules and 6 into the vintage's own copy of
+#      @vibesync/core, the rest are Node builtins -- nothing resolves at the root;
+#   3. the package directories on disk are exactly what the stamps record, in every
+#      workspace tree: a directory no stamp knows would be REMOVED, a recorded one that
+#      is gone would be ADDED back, and one whose package.json says another version would
+#      be REPLACED. One gap is tolerated, the one npm tolerates itself: a package the
+#      stamp marks ideallyInert, left out by the last install on this platform (119 of
+#      the 1017 server entries on po-204, measured 2026-11-24, exactly the 119 without a
+#      directory). A link is accepted only where a stamp records it as a link to the same
+#      target -- npm makes exactly two, the workspace links of the root tree -- and is
+#      never followed.
+# A later lockfile that removes or changes an installed package keeps the refusal below:
+# this opens the first deployment, not every deployment.
+# The server tree must carry its stamp: without a record of the tree the live hosts
+# resolve into, nothing can be vouched for. Fail-closed -- a missing or unreadable lockfile
+# or stamp, a link, anything not evaluated answers $false, and $Reason names the rule.
+#
+# Measured on the first-deployment shape (po-204, 2026-11-24, node 24.6.0, npm 11.5.1):
+# the seat at gitlink 30348860 (server tree installed by `npm ci`, 898 packages, root
+# tree without packages) and the lockfile of 9e293b0a. `npm install` at the root exited 0
+# in 20 s, added 747 packages, and under the server tree removed 0, modified 0 and added
+# 0 files out of 18,453 (sha256 per file). This check answered $true on that seat and on
+# the reconciled copy (1.5-8.1 s under pwsh 7.6, 2.5-4.8 s under Windows PowerShell 5.1
+# across runs -- the spread tracks file-cache warmth, not the tree size: the larger
+# reconciled copy measured faster once warm), and $false on each of three lockfiles
+# derived from it: one that changes, one that drops and one that adds a package under the
+# server tree (0.6-0.8 s each -- the refusal comes before the disk walk).
+function Test-WorkspaceInstallReconcileSafe {
+    param(
+        [string]$LockPath,
+        [string]$WorkspaceRoot,
+        [string]$WorkspaceModulesPath,
+        [string]$ServerPath,
+        [ref]$Reason
+    )
+    # The reason first, the verdict last: the reader of one line learns why this closed.
+    function Deny-Reconcile {
+        param([string]$Why)
+        $Reason.Value = $Why
+        return $false
+    }
+    function Read-Packages {
+        param([string]$Path)
+        if (-not ([System.IO.File]::Exists($Path))) { return $null }
+        try {
+            $root = ConvertFrom-JsonToDictionary -Json ([System.IO.File]::ReadAllText($Path))
+            if (-not ($root -is [System.Collections.IDictionary])) { return $null }
+            $packages = $root['packages']
+            if (-not ($packages -is [System.Collections.IDictionary])) { return $null }
+            return ,$packages
+        } catch { return $null }
+    }
+    # version, resolved, integrity, link: the fields npm's own diff reads to tell CHANGE.
+    function Get-PackageIdentity {
+        param($Entry)
+        if (-not ($Entry -is [System.Collections.IDictionary])) { return $null }
+        return '{0}|{1}|{2}|{3}' -f [string]$Entry['version'], [string]$Entry['resolved'], [string]$Entry['integrity'], [string][int][bool]$Entry['link']
+    }
+    function Read-ManifestVersion {
+        param([string]$Path)
+        if (-not ([System.IO.File]::Exists($Path))) { return $null }
+        try {
+            $manifest = ConvertFrom-JsonToDictionary -Json ([System.IO.File]::ReadAllText($Path))
+            if ($manifest -is [System.Collections.IDictionary]) { return [string]$manifest['version'] }
+        } catch { }
+        return $null
+    }
+    # Where a link points, on both engines: Get-Item reports the stored target of a
+    # junction (absolute) and of a symbolic link (as written).
+    function Get-LinkTarget {
+        param([string]$Path)
+        try {
+            $targets = @((Get-Item -LiteralPath $Path -Force -ErrorAction Stop).Target)
+            if ($targets.Count -gt 0 -and -not [string]::IsNullOrEmpty([string]$targets[0])) { return [string]$targets[0] }
+        } catch { }
+        return $null
+    }
+    function Test-IsLink {
+        param([string]$Path)
+        return (([System.IO.File]::GetAttributes($Path)) -band [System.IO.FileAttributes]::ReparsePoint) -ne 0
+    }
+    $Reason.Value = ''
+    try {
+        $wsFull  = [System.IO.Path]::GetFullPath($WorkspaceRoot)
+        $srvFull = [System.IO.Path]::GetFullPath($ServerPath)
+        if (-not $srvFull.StartsWith($wsFull + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return (Deny-Reconcile "$ServerPath is not a directory below $WorkspaceRoot, so its packages cannot be located in the lockfile.")
+        }
+        # Lockfile keys are workspace-relative and use '/'. The server stamp was written
+        # for the server alone, so its keys are server-relative: anchor each one under
+        # the server's own folder in the workspace.
+        $serverRel   = $srvFull.Substring($wsFull.Length + 1).Replace('\', '/')
+        $serverStamp = [System.IO.Path]::Combine($ServerPath, 'node_modules', '.package-lock.json')
+        if (-not ([System.IO.File]::Exists($serverStamp))) {
+            return (Deny-Reconcile "npm left no install record at $serverStamp, so the tree the live RSM hosts resolve into cannot be compared with the lockfile.")
+        }
+        $lockPackages = Read-Packages $LockPath
+        if ($null -eq $lockPackages) { return (Deny-Reconcile 'the lockfile is absent, unreadable or holds no packages object.') }
+        $serverPackages = Read-Packages $serverStamp
+        if ($null -eq $serverPackages) { return (Deny-Reconcile "the install record at $serverStamp is unreadable or holds no packages object.") }
+        $rootStamp    = [System.IO.Path]::Combine($WorkspaceModulesPath, '.package-lock.json')
+        $rootPackages = $null
+        if ([System.IO.File]::Exists($rootStamp)) {
+            $rootPackages = Read-Packages $rootStamp
+            if ($null -eq $rootPackages) { return (Deny-Reconcile "the install record at $rootStamp is unreadable or holds no packages object.") }
+        }
+        # $recorded: lockfile key -> what was installed. $skipped: what the install left
+        # out on this platform. The root stamp is the record of the last WORKSPACE install,
+        # so where both stamps list a package it prevails over the server-local one, which
+        # a reconciled seat keeps as a leftover of the install that preceded it.
+        $recorded = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::Ordinal)
+        $skipped  = [System.Collections.Generic.Dictionary[string,bool]]::new([System.StringComparer]::Ordinal)
+        foreach ($name in $serverPackages.Keys) {
+            if ([string]$name -eq '') { continue }
+            $key      = $serverRel + '/' + [string]$name
+            $entry    = $serverPackages[$name]
+            $identity = Get-PackageIdentity $entry
+            if ($null -eq $identity) { return (Deny-Reconcile "the install record at $serverStamp holds an entry with no package object.") }
+            $recorded[$key] = $identity
+            $skipped[$key]  = [bool]$entry['ideallyInert']
+        }
+        if ($null -ne $rootPackages) {
+            foreach ($name in $rootPackages.Keys) {
+                if ([string]$name -eq '') { continue }
+                $key      = [string]$name
+                $entry    = $rootPackages[$name]
+                $identity = Get-PackageIdentity $entry
+                if ($null -eq $identity) { return (Deny-Reconcile "the install record at $rootStamp holds an entry with no package object.") }
+                $recorded[$key] = $identity
+                $skipped[$key]  = [bool]$entry['ideallyInert']
+            }
+        }
+        $lockKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        foreach ($name in $lockPackages.Keys) { $lockKeys.Add([string]$name) | Out-Null }
+        # 1. Nothing recorded as installed may be removed or replaced, whatever its tree.
+        foreach ($key in $recorded.Keys) {
+            if (-not $lockKeys.Contains($key)) { return (Deny-Reconcile "npm would REMOVE ${key}: it is installed here and absent from the lockfile.") }
+            $wanted = Get-PackageIdentity $lockPackages[$key]
+            if ($null -eq $wanted -or $wanted -cne $recorded[$key]) { return (Deny-Reconcile "npm would REPLACE ${key}: the installed entry and the lockfile entry differ.") }
+        }
+        # 2. The lockfile may only add to the ROOT tree. A key that names no node_modules
+        #    directory is a workspace source entry, not an installed package.
+        foreach ($key in $lockKeys) {
+            if ($recorded.ContainsKey($key)) { continue }
+            if ($key.StartsWith('node_modules/', [System.StringComparison]::Ordinal)) { continue }
+            if ($key.IndexOf('node_modules/', [System.StringComparison]::Ordinal) -lt 0) { continue }
+            return (Deny-Reconcile "npm would ADD $key outside the root node_modules tree.")
+        }
+        # 3. The disk, in every workspace tree: the workspace folder itself, the server,
+        #    and each workspace the lockfile names. Same enumeration as npm's -- every
+        #    child of a node_modules directory, a scope one level deeper, and the same
+        #    below every nested node_modules. Names starting with '.' are not packages.
+        $trees = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        [void]$trees.Add($wsFull)
+        [void]$trees.Add($srvFull)
+        foreach ($key in $lockKeys) {
+            # The root's own entry names the workspace folder, already in the list.
+            if ([string]::IsNullOrEmpty($key)) { continue }
+            if ($key.IndexOf('node_modules/', [System.StringComparison]::Ordinal) -ge 0) { continue }
+            $full = [System.IO.Path]::GetFullPath((Join-Path $wsFull $key))
+            if (-not $full.StartsWith($wsFull + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return (Deny-Reconcile "the lockfile names $key, which is not a folder below $WorkspaceRoot.")
+            }
+            [void]$trees.Add($full)
+        }
+        $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $pathComparison = [System.StringComparison]::Ordinal
+        if ([System.IO.Path]::DirectorySeparatorChar -eq '\') { $pathComparison = [System.StringComparison]::OrdinalIgnoreCase }
+        foreach ($tree in $trees) {
+            $modules = [System.IO.Path]::Combine($tree, 'node_modules')
+            if (-not ([System.IO.Directory]::Exists($modules))) { continue }
+            $treeRel = $tree.Substring($wsFull.Length).TrimStart([char[]]('\', '/')).Replace('\', '/')
+            if ($treeRel -ne '') { $treeRel = $treeRel + '/' }
+            $pending = [System.Collections.Generic.Stack[string]]::new()
+            $pending.Push($modules)
+            while ($pending.Count -gt 0) {
+                $dir = $pending.Pop()
+                $inScope = [System.IO.Path]::GetFileName($dir).StartsWith('@')
+                foreach ($child in [System.IO.Directory]::GetDirectories($dir)) {
+                    $leaf = [System.IO.Path]::GetFileName($child)
+                    if ($leaf.StartsWith('.')) { continue }
+                    if ((-not $inScope) -and $leaf.StartsWith('@')) {
+                        # A scope folder holds packages one level down.
+                        $pending.Push($child)
+                        continue
+                    }
+                    $key = $treeRel + 'node_modules/' + $child.Substring($modules.Length + 1).Replace('\', '/')
+                    if (Test-IsLink $child) {
+                        # A link stands for a package only where an install record made it,
+                        # to the target the lockfile names. It is never followed.
+                        $target = Get-LinkTarget $child
+                        $fields = $null
+                        if ($recorded.ContainsKey($key)) { $fields = $recorded[$key].Split('|') }
+                        if ([string]::IsNullOrEmpty($target) -or $null -eq $fields -or $fields[3] -ne '1' -or [string]::IsNullOrEmpty($fields[1])) {
+                            return (Deny-Reconcile "$key is a link and no install record made it to the target the lockfile names, so what npm would do with it is not evaluated.")
+                        }
+                        # npm stores a workspace link's target relative to the workspace.
+                        $wanted = [System.IO.Path]::GetFullPath((Join-Path $wsFull $fields[1]))
+                        $actual = $target
+                        if (-not [System.IO.Path]::IsPathRooted($actual)) {
+                            $actual = [System.IO.Path]::GetFullPath((Join-Path ([System.IO.Path]::GetDirectoryName($child)) $actual))
+                        }
+                        if (-not [string]::Equals($wanted, $actual, $pathComparison)) {
+                            return (Deny-Reconcile "npm would REPLACE the link ${key}: it points at $target and the lockfile wants $($fields[1]).")
+                        }
+                        [void]$seen.Add($key)
+                        continue
+                    }
+                    if (-not $recorded.ContainsKey($key)) { return (Deny-Reconcile "npm would REMOVE ${key}: it is on disk and in no install record.") }
+                    [void]$seen.Add($key)
+                    $fields = $recorded[$key].Split('|')
+                    if ($fields[3] -ne '0') { return (Deny-Reconcile "npm would REPLACE ${key}: the install record holds a link there and the disk holds a directory.") }
+                    $installed = Read-ManifestVersion ([System.IO.Path]::Combine($child, 'package.json'))
+                    if ($installed -cne $fields[0]) { return (Deny-Reconcile "npm would REPLACE ${key}: the package.json on disk does not say version $($fields[0]).") }
+                    $nested = [System.IO.Path]::Combine($child, 'node_modules')
+                    if ([System.IO.Directory]::Exists($nested)) { $pending.Push($nested) }
+                }
+            }
+        }
+        foreach ($key in $recorded.Keys) {
+            if ($seen.Contains($key) -or $skipped[$key]) { continue }
+            if ($key.IndexOf('node_modules/', [System.StringComparison]::Ordinal) -lt 0) { continue }
+            return (Deny-Reconcile "npm would ADD $key back: it is recorded as installed here and its directory is gone.")
+        }
+        $Reason.Value = ''
+        return $true
+    } catch {
+        return (Deny-Reconcile "the lockfile, an install record or the installed tree could not be read: $_")
+    }
+}
 # --- Vintage pipeline (#3713): marker-based freshness when present ---
 # When the content-addressed marker exists, freshness means "the current vintage
 # was built from exactly this source" — the mtime of the frozen legacy build/
@@ -515,9 +768,10 @@ if (-not $buildNewest) {
 
 # --- Workspace plan (#4886): decided BEFORE the ARM guard and the dry-run exits ---
 # Since ms#1882 `mcps/internal` is an npm workspace and the RSM build consumes the compiled
-# dist/ of its sibling package @vibesync/core. The published vintage does not carry it: 87 of
-# its .js files keep bare '@vibesync/core' imports (measured 2026-11-24), resolved at run time
-# through the workspace junction into packages/vibesync-core/dist.
+# dist/ of its sibling package @vibesync/core. The vintage of ms#1882 at 9e293b0a did not
+# carry it: 87 of its .js files kept bare '@vibesync/core' imports (measured 2026-11-24),
+# resolved at run time through the workspace link into packages/vibesync-core/dist. Since
+# ms#1910 (roo-extensions #4918) publish-build.mjs bundles the package into the vintage.
 # A rebuild therefore needs up to two workspace steps first, and whether they CAN run must be
 # known before anything is claimed or announced: a run refused here rebuilds nothing, so it
 # must not owe a restart, and a dry run must say what a real one would do. Read-only --
@@ -529,10 +783,12 @@ $WorkspaceModules = Join-Path $WorkspaceRoot 'node_modules'
 # to stay a no-op until the bump lands, or every seat logs a line on every rebuild -- and
 # `npm run build --workspace` fails there with "No workspaces found" (measured on PR #4893's
 # first CI run).
-$wsApplies      = Test-Path $CoreSrcPath
-$wsNeedsInstall = $false
-$wsAlive        = 0
-$wsPlan         = ''
+$wsApplies       = Test-Path $CoreSrcPath
+$wsNeedsInstall  = $false
+$wsAlive         = 0
+$wsPlan          = ''
+$wsReconcileSafe = $false
+$wsReconcileWhy  = ''
 if ($wsApplies) {
     if (-not (Test-Path $WorkspaceLock)) {
         # A workspace package without a workspace lockfile cannot be installed by this
@@ -546,14 +802,25 @@ if ($wsApplies) {
     # double-count wrapper + child pairs -- ensure-build-fresh.arm-guard). Not restricted
     # to hosts running from THIS tree: on a seat, all RSM sessions share the one checkout.
     $wsAlive = @($indexHosts + $vintageHosts + $wrapperHosts).Count
+    if ($wsNeedsInstall -and $wsAlive -gt 0) {
+        # The hot path (#4918): `npm install` stands in for the refused `npm ci` when all it
+        # would do is add to the root tree. Read-only here, like everything in this section.
+        $verdict = @(Test-WorkspaceInstallReconcileSafe -LockPath $WorkspaceLock -WorkspaceRoot $WorkspaceRoot -WorkspaceModulesPath $WorkspaceModules -ServerPath $McpServerPath -Reason ([ref]$wsReconcileWhy))
+        # Exactly one boolean, and it must be true: anything else is not a green light.
+        $wsReconcileSafe = ($verdict.Count -eq 1 -and $verdict[0] -is [bool] -and $verdict[0])
+    }
     $wsPlan = if ($wsNeedsInstall) {
-        " It would first need 'npm ci' in $WorkspaceRoot -- refused while any RSM host is alive ($wsAlive found by this run's probe) -- then 'npm run build --workspace @vibesync/core'."
+        if ($wsReconcileSafe) {
+            " It would first bring the workspace install in line with 'npm install' in $WorkspaceRoot under the $wsAlive RSM host process(es) this run's probe found -- nothing under an installed tree would be removed or replaced (#4918) -- then 'npm run build --workspace @vibesync/core'."
+        } else {
+            " It would first need 'npm ci' in $WorkspaceRoot -- refused while any RSM host is alive ($wsAlive found by this run's probe) -- then 'npm run build --workspace @vibesync/core'."
+        }
     } else {
         " It would first run 'npm run build --workspace @vibesync/core' in $WorkspaceRoot."
     }
 }
 # A REAL run would exit on the refusal instead of reaching the server build.
-$wsWillRefuse = $wsApplies -and $wsNeedsInstall -and $wsAlive -gt 0
+$wsWillRefuse = $wsApplies -and $wsNeedsInstall -and $wsAlive -gt 0 -and -not $wsReconcileSafe
 # --- ARM GUARD (#3489): refuse to rebuild under live RSM hosts (ESM mixed-millage) ---
 # Rebuilding `build/` while a live roo-state-manager host process is running replaces the
 # ESM modules that host already imported -> mixed module graph -> the next dynamic import
@@ -628,22 +895,52 @@ if (-not $wsApplies) {
     if (-not $wsNeedsInstall) {
         Write-Result 'OK' "Workspace install is current with the lockfile (content check, not mtime) - no 'npm ci' needed."
     } else {
-        if ($wsAlive -gt 0) {
-            Exit-WorkspaceStepFailed -Refused "Workspace install is missing or stale, so 'npm ci' is required in $WorkspaceRoot -- REFUSED while $wsAlive RSM host process(es) are alive (npm would remove and reinstall the dependency trees those processes use; on Windows a locked native .node aborts it after a partial removal). Remedy: stop the RSM hosts (full-quit VS Code on an interactive seat), then run scripts/claude/executor-preflight.ps1 again, or run 'npm ci' in mcps/internal yourself with VS Code closed. No install was attempted and no host was touched."
+        if ($wsAlive -gt 0 -and -not $wsReconcileSafe) {
+            Exit-WorkspaceStepFailed -Refused "Workspace install is missing or stale, so 'npm ci' is required in $WorkspaceRoot -- REFUSED while $wsAlive RSM host process(es) are alive (npm would remove and reinstall the dependency trees those processes use; on Windows a locked native .node aborts it after a partial removal). The hot path of #4918 does not open on this tree either: $wsReconcileWhy Remedy: stop the RSM hosts (full-quit VS Code on an interactive seat), then run scripts/claude/executor-preflight.ps1 again, or run 'npm ci' in mcps/internal yourself with VS Code closed. No install was attempted and no host was touched."
+        } elseif ($wsAlive -gt 0) {
+            # The hot path (#4918). `npm install` where `npm ci` is refused: the check above
+            # read every installed tree and found that npm would neither remove nor replace
+            # anything under one, only add to the root tree -- the tree no live RSM host
+            # resolves into (build-6755d61ff811b4bb, 2026-11-24). Measured once, end to end,
+            # on the first-deployment shape of po-204: 20 s, and 0 files removed, modified or
+            # added under the server tree out of 18,453.
+            Write-Result 'OK' "Workspace install missing or stale under live RSM hosts, and 'npm install' would only add to the root tree - reconciling in place in $WorkspaceRoot (no 'npm ci', nothing under an installed tree removed or replaced, #4918)..."
+            $lockHash = (Get-FileHash -LiteralPath $WorkspaceLock -Algorithm SHA256).Hash
+            Push-Location $WorkspaceRoot
+            try {
+                $installOutput = & cmd /c "npm install 2>&1"
+                $installExit = $LASTEXITCODE
+            } finally {
+                Pop-Location
+            }
+            if ($installExit -ne 0) {
+                $tail = ($installOutput | Select-Object -Last 5 | Out-String).Trim()
+                Exit-WorkspaceStepFailed "'npm install' failed (exit $installExit) in $WorkspaceRoot - NOT continuing to a build that would compile against a half-installed tree. Tail:`n$tail"
+            }
+            # npm's exit code is not enough: the lockfile must still be the one this run
+            # planned against (npm rewrote nothing), and the install must now read current.
+            if ((Get-FileHash -LiteralPath $WorkspaceLock -Algorithm SHA256).Hash -ne $lockHash) {
+                Exit-WorkspaceStepFailed "'npm install' exited 0 in $WorkspaceRoot but rewrote package-lock.json - the lockfile npm planned against is no longer the one on disk. NOT continuing to a build. Inspect it with: git -C mcps/internal diff package-lock.json"
+            }
+            if (-not (Test-WorkspaceInstallCurrent -LockPath $WorkspaceLock -ModulesPath $WorkspaceModules -ServerPath $McpServerPath)) {
+                Exit-WorkspaceStepFailed "'npm install' exited 0 in $WorkspaceRoot but the workspace install is still not current with the lockfile (content check) - NOT continuing to a build that would compile against an unverified tree."
+            }
+            Write-Result 'OK' "Workspace install reconciled under live RSM hosts and current with the lockfile."
+        } else {
+            Write-Result 'OK' "Workspace install missing or stale and no RSM host is alive - running 'npm ci' in $WorkspaceRoot..."
+            Push-Location $WorkspaceRoot
+            try {
+                $installOutput = & cmd /c "npm ci 2>&1"
+                $installExit = $LASTEXITCODE
+            } finally {
+                Pop-Location
+            }
+            if ($installExit -ne 0) {
+                $tail = ($installOutput | Select-Object -Last 5 | Out-String).Trim()
+                Exit-WorkspaceStepFailed "'npm ci' failed (exit $installExit) in $WorkspaceRoot - NOT continuing to a build that would compile against a half-installed tree. Tail:`n$tail"
+            }
+            Write-Result 'OK' "Workspace install completed."
         }
-        Write-Result 'OK' "Workspace install missing or stale and no RSM host is alive - running 'npm ci' in $WorkspaceRoot..."
-        Push-Location $WorkspaceRoot
-        try {
-            $installOutput = & cmd /c "npm ci 2>&1"
-            $installExit = $LASTEXITCODE
-        } finally {
-            Pop-Location
-        }
-        if ($installExit -ne 0) {
-            $tail = ($installOutput | Select-Object -Last 5 | Out-String).Trim()
-            Exit-WorkspaceStepFailed "'npm ci' failed (exit $installExit) in $WorkspaceRoot - NOT continuing to a build that would compile against a half-installed tree. Tail:`n$tail"
-        }
-        Write-Result 'OK' "Workspace install completed."
     }
 
     # Refresh the shared package before the RSM build consumes its dist/. (`npm run build`
