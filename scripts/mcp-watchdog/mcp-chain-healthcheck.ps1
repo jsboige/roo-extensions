@@ -64,7 +64,16 @@ param(
     [switch]$SkipE2E,
     [switch]$Scheduled,
     [string]$StateFile = '',
-    [int]$HeartbeatMinutes = 60
+    [int]$HeartbeatMinutes = 60,
+    # #4897 (c): the watchdog's sk-agent real-call window. Read-only — this script
+    # never writes it, never repairs anything. Default = skagent-window-state.json
+    # in the directory the WATCHDOG declares as its own default -LogDir (the two
+    # scheduled tasks are installed with -File only, each with its own defaults);
+    # with an explicit -StateFile, the window is looked up beside it. An absent
+    # file means "no data" and changes nothing (the report never invents a RED).
+    [string]$WatchdogStateFile = '',
+    # Test hook: fixed clock for the window age computation (ISO-8601 UTC).
+    [string]$WatchdogStateNowUtc = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -306,6 +315,8 @@ function Publish-HealthNote {
 if ([string]::IsNullOrEmpty($StateFile)) {
     $StateFile = Join-Path $RepoRoot 'outputs\mcp-watchdog\healthcheck-state.json'
 }
+# #4897: whether -StateFile was PASSED (before the default above replaced '').
+$stateFileGiven = -not [string]::IsNullOrEmpty($PSBoundParameters['StateFile'])
 
 function Read-HealthState {
     if (Test-Path $script:StateFile) {
@@ -353,6 +364,84 @@ foreach ($layer in $layerPlan) {
 }
 
 $applicableCount = $results | Where-Object { $_.Status -ne 'N/A' } | Measure-Object | Select-Object -ExpandProperty Count
+
+# ---------- #4897 (c): the watchdog's sk-agent real-call window joins the report ----------
+# A chain whose four layers answer can still be failing the only call that
+# matters: on 23-24/11 the sk-agent real tools/call timed out while initialize
+# answered 401 in ~5 ms, and this report stayed GREEN. The watchdog maintains a
+# 2 h sliding window of those failures (skagent-window-state.json); while it
+# holds a failure, this report is RED. Read-only: this script never writes that
+# file and never repairs anything (arbitrage #3495 unchanged).
+# Fallback horizon, used only for a window file that does not declare its own
+# windowMinutes (the watchdog writes it, so the report judges a failure with the
+# horizon the watchdog armed on instead of a copy that could drift).
+$SkAgentWindowFallbackMinutes = 120
+
+function ConvertTo-WindowUtc {
+    # The watchdog stores UTC strings ('yyyy-MM-ddTHH:mm:ssZ'). PS 5.1 reads them
+    # back as strings and PS 7 as DateTimes, and [datetime]'…Z' converts to LOCAL
+    # on both (measured 24/11) — which would shift every failure by the UTC
+    # offset. Both forms are normalised here to one absolute instant.
+    param([Parameter(Mandatory)][object]$Value)
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    return [datetime]::Parse("$Value", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+}
+
+function Get-SkAgentWindowLayer {
+    # Returns $null when there is no data (absent or unreadable file): no data
+    # is not a failure, and the report must never invent a RED. Otherwise one
+    # layer row, FAIL while the window holds a failure or an escalation is open.
+    param([Parameter(Mandatory)][string]$Path, [datetime]$Now = (Get-Date).ToUniversalTime())
+    if (-not (Test-Path $Path)) { return $null }
+    try { $wdState = Get-Content $Path -Raw -Encoding utf8 | ConvertFrom-Json } catch { return $null }
+    $wdOpen = [bool]($wdState.PSObject.Properties['escalationOpen'] -and $wdState.escalationOpen)
+    # The horizon comes from the watchdog's own file when it declares one, so
+    # the report judges a failure with the horizon the watchdog armed on.
+    $windowMinutes = $SkAgentWindowFallbackMinutes
+    if ($wdState.PSObject.Properties['windowMinutes'] -and [int]$wdState.windowMinutes -gt 0) { $windowMinutes = [int]$wdState.windowMinutes }
+    $cut = $Now.ToUniversalTime().AddMinutes(-$windowMinutes)
+    $wdRecent = @(@($wdState.windowFailures) | Where-Object { $_ -and ((ConvertTo-WindowUtc $_) -ge $cut) })
+    if (-not ($wdOpen -or $wdRecent.Count -gt 0)) { return $null }
+    $wdSince = ''
+    if ($wdOpen -and $wdState.escalationOpenedAt) {
+        $wdSince = '; escalation open since ' + (ConvertTo-WindowUtc $wdState.escalationOpenedAt).ToString('HH:mm') + 'Z'
+    }
+    $wdDetail = "sk-agent real call: $($wdRecent.Count) failure(s) inside the watchdog $windowMinutes min window; escalationOpen=$wdOpen$wdSince. No repair here, see #4897."
+    [pscustomobject]@{
+        Layer  = '5. sk-agent real-call window'
+        Status = 'FAIL'
+        Detail = $wdDetail
+        Fix    = 'Read the watchdog log and the open [DEGRADED] escalation; no automatic container restart (decision b rejected).'
+    }
+}
+
+if ([string]::IsNullOrEmpty($WatchdogStateFile)) {
+    if ($stateFileGiven) {
+        $WatchdogStateFile = Join-Path (Split-Path $StateFile -Parent) 'skagent-window-state.json'
+    } else {
+        # The watchdog runs with ITS default -LogDir (installed with -File only).
+        # That default is read from the watchdog itself, never copied here: two
+        # literals drift silently, and a drifted copy means a report that stays
+        # GREEN while the window is red. This script's own directory is only the
+        # fallback for an unreadable watchdog, and says so in the tick log.
+        $declaredLogDir = $null
+        $watchdogSource = Join-Path $PSScriptRoot 'mcp-chain-watchdog.ps1'
+        if (Test-Path $watchdogSource) {
+            $m = [regex]::Match((Get-Content $watchdogSource -Raw), "(?s)param\(.*?\[string\]\`$LogDir\s*=\s*'([^']+)'")
+            if ($m.Success) { $declaredLogDir = $m.Groups[1].Value }
+        }
+        if ([string]::IsNullOrEmpty($declaredLogDir)) {
+            Write-TickLog 'WARN' 'sk-agent window: watchdog default -LogDir unreadable, looking for the window beside this script''s state file'
+            $declaredLogDir = Split-Path $StateFile -Parent
+        }
+        $WatchdogStateFile = Join-Path $declaredLogDir 'skagent-window-state.json'
+    }
+}
+$skAgentWindowLayer = Get-SkAgentWindowLayer -Path $WatchdogStateFile -Now $(if ($WatchdogStateNowUtc) { [datetime]::Parse($WatchdogStateNowUtc, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime() } else { (Get-Date).ToUniversalTime() })
+if ($null -ne $skAgentWindowLayer) {
+    $results += $skAgentWindowLayer
+    $failures += $skAgentWindowLayer.Layer
+}
 
 # ---------- status computation ----------
 if ($applicableCount -eq 0) {
@@ -414,6 +503,9 @@ if ($Scheduled) {
         $noteText = "[mcp-chain-healthcheck] $env:COMPUTERNAME : toujours RED. Couches en échec : $($failures -join ', ')."
     } elseif (($nowEpoch - $prevNoteTs) -ge ($HeartbeatMinutes * 60)) {
         $publishReason = 'heartbeat'
+        # #4897 (c): only GREEN reaches a heartbeat -- every RED tick is already
+        # published by the 'ongoing red' branch above, so the hourly beat can
+        # never claim GREEN while the watchdog's window holds a failure.
         $noteText = "[mcp-chain-healthcheck] battement $env:COMPUTERNAME : GREEN ($($results | Where-Object Status -eq 'OK' | Measure-Object | Select-Object -ExpandProperty Count) couches OK, $($naLayers.Count) N/A). Probe vivante, chaîne locale saine."
     }
 

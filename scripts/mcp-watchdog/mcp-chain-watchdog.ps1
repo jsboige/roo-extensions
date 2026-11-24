@@ -276,8 +276,43 @@ $SlowRetryTimeoutSec = 60
 # telemetry that gets the repair sequence killed mid-flight.
 $FleetNoteTimeoutSec = 8
 
+function Get-FleetNoteAcknowledgement {
+    # A dashboard append is NOT acknowledged by HTTP 200. Measured read-only on
+    # the real transport (24/11): an unknown tool returns HTTP 200 with a
+    # JSON-RPC error, invalid arguments return HTTP 200 with result.isError=true,
+    # and a business refusal is result.content[0].text = {success:false,...}.
+    # The successful append is that same text with {success:true,action:append}
+    # (deduplicated:true is also success: the idempotent retry landed earlier).
+    # Anything unrecognised is NOT an acknowledgement: the caller keeps the note
+    # queued instead of dropping a [DEGRADED] on a green HTTP status.
+    param([Parameter(Mandatory)][object]$Response)
+    $fail = { param([string]$Reason) @{ Ok = $false; Reason = $Reason } }
+    $text = "$($Response.Content)"
+    if ([string]::IsNullOrWhiteSpace($text)) { return (& $fail 'empty response body') }
+    if ($text -match '(?m)^data:\s*') {
+        $data = @()
+        foreach ($line in ($text -split "\r?\n")) { if ($line -match '^data:\s*(.*)$') { $data += $Matches[1] } }
+        $text = ($data -join [char]10)
+    }
+    try { $envelope = $text | ConvertFrom-Json -ErrorAction Stop } catch { return (& $fail 'response is not JSON') }
+    if ($envelope.PSObject.Properties['error']) { return (& $fail "JSON-RPC error code=$($envelope.error.code)") }
+    if (-not $envelope.PSObject.Properties['result']) { return (& $fail 'JSON-RPC response has no result') }
+    if ($envelope.result.PSObject.Properties['isError'] -and $envelope.result.isError) { return (& $fail 'MCP result isError:true') }
+    $parts = @(@($envelope.result.content) | Where-Object { $_ -and $_.PSObject.Properties['text'] -and $_.text })
+    if ($parts.Count -eq 0) { return (& $fail 'MCP result has no text content') }
+    try { $tool = "$($parts[0].text)" | ConvertFrom-Json -ErrorAction Stop } catch { return (& $fail 'tool result text is not JSON') }
+    if ($tool.PSObject.Properties['success'] -and $tool.success -and $tool.action -eq 'append') {
+        return @{ Ok = $true; Deduplicated = [bool]$tool.deduplicated }
+    }
+    return (& $fail 'dashboard tool did not acknowledge an append')
+}
+
 function Publish-FleetNote {
-    param([string]$Level, [string]$Text)
+    param([string]$Level, [string]$Text, [string]$Type = 'machine', [string]$Workspace = 'roo-extensions')
+    # #4897: the escalation organ (degraded-escalation.md) reads the WORKSPACE
+    # dashboards of the seat, not its machine dashboard. Declarations
+    # ([DEGRADED]/[REPAIRED], first token of the body) are therefore published
+    # with -Type workspace; everything else stays on the machine dashboard.
     $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog","version":"2.1"}}}'
     # Idempotence (#3276) : la cle identifie LA note (hote + niveau + empreinte
     # du texte + bucket de 15 min), pas la TENTATIVE. Un append dont le
@@ -292,25 +327,33 @@ function Publish-FleetNote {
     # n'existe pas : le retry ecrit normalement.
     $epoch = [datetime]::UtcNow - [datetime]::new(1970, 1, 1, 0, 0, 0, [datetimekind]::Utc)
     $bucket = [int][math]::Floor($epoch.TotalSeconds / 900)
-    $md5 = [System.Security.Cryptography.MD5]::Create()
-    try {
-        $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$Level|$Text"))
-    } finally { $md5.Dispose() }
-    $digest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
-    $fleetNoteId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
+    # #4897: an escalation carries the SAME messageId in the body, so the repair
+    # can name it in its scope: line and the id never changes between retries.
+    $fleetNoteId = $null
+    if ($Text -match '\bid: (watchdog-[A-Za-z0-9-]+)') { $fleetNoteId = $matches[1] }
+    if (-not $fleetNoteId) {
+        $md5 = [System.Security.Cryptography.MD5]::Create()
+        try {
+            $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$Level|$Text"))
+        } finally { $md5.Dispose() }
+        $digest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
+        $fleetNoteId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
+    }
+    $arguments = @{
+        action     = 'append'
+        type       = $Type
+        tags       = @($Level, 'mcp-chain-watchdog')
+        content    = $Text
+        messageId  = $fleetNoteId
+    }
+    if ($Type -eq 'workspace') { $arguments.workspace = $Workspace }
     $payload = @{
         jsonrpc = '2.0'
         id      = 3
         method  = 'tools/call'
         params  = @{
             name      = 'roosync_dashboard'
-            arguments = @{
-                action     = 'append'
-                type       = 'machine'
-                tags       = @($Level, 'mcp-chain-watchdog')
-                content    = $Text
-                messageId  = $fleetNoteId
-            }
+            arguments = $arguments
         }
     } | ConvertTo-Json -Depth 6 -Compress
     $headers = @{
@@ -332,9 +375,14 @@ function Publish-FleetNote {
                                           -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' `
                                           -UseBasicParsing -TimeoutSec $FleetNoteTimeoutSec -ErrorAction SilentlyContinue
             }
-            $null = Invoke-WebRequest -Uri $url -Method Post -Headers $callHeaders -Body $payload `
+            $resp = Invoke-WebRequest -Uri $url -Method Post -Headers $callHeaders -Body $payload `
                                       -UseBasicParsing -TimeoutSec $FleetNoteTimeoutSec -ErrorAction Stop
-            Write-Log 'INFO' "fleet note posted to machine dashboard ($Level)"
+            $ack = Get-FleetNoteAcknowledgement -Response $resp
+            if (-not $ack.Ok) {
+                Write-Log 'WARN' "fleet note not acknowledged on this route ($Level): $($ack.Reason)"
+                continue
+            }
+            Write-Log 'INFO' "fleet note posted to $Type dashboard ($Level)"
             return $true
         } catch {
             continue
@@ -782,6 +830,287 @@ $SkAgentRealCallFailThreshold = 3
 # be told apart from a healthy one. One line per hour proves the check lives.
 $SkAgentOkLogPeriodMin = 60
 
+# ---------- #4897: one escalation per episode, not one alert per tick ----------
+# The 'backend-down' branch repairs nothing by design (restarting TBXark while
+# sk-agent is down would skip the backend again), so its per-tick alert only
+# repeated the same line every 2 min for as long as the outage lasted. Decision
+# ai-01 (24/11): (a) ONE [DEGRADED] escalation per episode, opened when >= 3
+# backend-down / real-call failures fall inside a 2 h SLIDING window, closed by
+# [REPAIRED] after two healthy real calls more than 5 min apart; (c) the hourly
+# health report reads the same state file, so no GREEN while the window holds a
+# failure. (b) is REJECTED: no automatic restart of the sk-agent container.
+#
+# Why a sliding window and not the #4197 consecutive counter: the observed
+# signature is FLAPPING (real call times out while initialize answers 401 in
+# ~5 ms). A consecutive-failure counter is reset by every healthy tick, so a
+# fail/OK/fail/OK/fail pattern never reaches 3 and the episode stays invisible.
+# The window lives in its OWN state file, skagent-window-state.json: the check
+# rewrites skagent-realcall-state.json wholesale on every failing tick and on
+# every repair, so sharing that file would erase the window before each read.
+$SkAgentWindowMinutes = 120
+$SkAgentWindowThreshold = 3
+$SkAgentRepairMinGapMinutes = 5
+# One declaration per tick, and only if it fits. Worst case for one note: two
+# routes x (initialize + optional initialized notification + tools/call) x 8 s
+# = 48 s; the summary's own note follows. The rest of the queue waits.
+$SkAgentPublishReserveSec = 60
+
+function Get-SkAgentUtcInstant {
+    # Every instant in the window state file is a UTC STRING ('yyyy-MM-ddTHH:mm:ssZ').
+    # On PS 5.1 ConvertTo-Json turns a [datetime] into the .NET \/Date(...)\/ form
+    # and ConvertFrom-Json turns it back into a DateTime, so a value stored as a
+    # DateTime comes back with a different type on the other engine — and
+    # [datetime]'…Z' converts to LOCAL on both (measured 24/11, 5.1 and 7.6):
+    # '09:10Z' becomes '10:10 local', so every stored hour would drift one hour.
+    # Parsing with RoundtripKind is the only form that keeps an absolute instant
+    # identical on both engines, so it is used for every read.
+    param([Parameter(Mandatory)][object]$Value)
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    return [datetime]::Parse("$Value", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+}
+
+function ConvertTo-SkAgentUtcText {
+    param([Parameter(Mandatory)][object]$Value)
+    (Get-SkAgentUtcInstant $Value).ToString('yyyy-MM-ddTHH:mm:ssZ')
+}
+
+function Update-SkAgentFailureWindow {
+    # Records one tick's real-call verdict and maintains the episode state.
+    # $Kind is the Invoke-SkAgentRouteCheck verdict. Verdicts are classified by
+    # the DECISION ("backend-down OR real-call failures"), not by 'an alert used
+    # to be emitted here': what arms the window is "the route is not usable",
+    # whether the repair that could follow it is allowed to run yet or not. So
+    # realcall-failing, still-failing and its route twin still-missing are the
+    # observed failures; cooldown, deferred and unverified are those failures
+    # with the repair or its verification postponed; backend-down is the case
+    # where the backend itself does not answer. 'dry-run' is NOT a failure: the
+    # repair was deliberately not attempted. 'not-404' (initialize answers, but
+    # not with 200/404) proves nothing about the real call, and 'recovered' is
+    # neutral (verified with initialize on the 404 branch, and the real-call
+    # branch re-probes on the next tick anyway): neither arms nor closes.
+    # 'skipped'/'disabled' are ticks where no real call ran at all.
+    # An OK tick inside an open episode neither resets the failure window nor
+    # closes it before two healthy calls more than 5 min apart.
+    #
+    # Own state file ($skAgentWindowStateFile), NOT the #4197 counter's: the
+    # check rewrites skagent-realcall-state.json wholesale on EVERY failing tick
+    # ({consecutiveFailures, lastOkLogAt} only) and on every repair, so a window
+    # kept there would be erased before each read. An integration test drives the
+    # REAL check with this function to pin that. There are no #4197 fields here
+    # at all: this file is the window's, that one is the counter's.
+    #
+    # Publishing is best-effort, ONE attempt per tick (one note can cost up to
+    # ~48 s of routes inside a 290 s run budget): a failed publish leaves the
+    # declaration at the head of pendingPosts, retried next tick with the same
+    # messageId. The state file is what the hourly health report reads, so a red
+    # window is reported even while its declaration could not be posted.
+    param(
+        [Parameter(Mandatory)][ValidateSet('disabled','skipped','ok','not-404','backend-down','realcall-failing','cooldown','deferred','dry-run','recovered','still-missing','still-failing','unverified')]
+        [string]$Kind,
+        [datetime]$At = (Get-Date).ToUniversalTime()
+    )
+    # All instants are UTC on disk: the episode id is built from the opening UTC
+    # instant, and the repair's scope names that id (an id naming a naive local
+    # hour would close another episode, or none). On PS 5.1 a parsed ISO string
+    # stays a string and [datetime]$x makes it local; the explicit UTC conversion
+    # keeps the two engines identical.
+    $At = $At.ToUniversalTime()
+    $state = [ordered]@{
+        schema               = 2
+        windowFailures       = @()
+        escalationOpen       = $false
+        escalationId         = $null
+        escalationOpenedAt   = $null
+        pendingPosts         = @()
+        firstHealthyAt       = $null
+        windowMinutes        = $SkAgentWindowMinutes
+        lastWindowKind       = $Kind
+        lastWindowAt         = ConvertTo-SkAgentUtcText $At
+    }
+    if (Test-Path $skAgentWindowStateFile) {
+        try {
+            $prev = Get-Content $skAgentWindowStateFile -Raw | ConvertFrom-Json
+            foreach ($k in @($state.Keys)) {
+                if ($prev.PSObject.Properties[$k] -and $null -ne $prev.$k) { $state[$k] = $prev.$k }
+            }
+        } catch { }
+    }
+    # Normalise what the file may have held: @() keeps a queue ordered on both
+    # engines (measured 24/11 on 5.1 and 7.6: a 1-element JSON array stays an
+    # Object[] on both; only a JSON null yields a 1-element @($null), which the
+    # Where-Object guard drops).
+    $state.pendingPosts = @(@($state.pendingPosts) | Where-Object { $_ -and $_.Text })
+    $state.windowFailures = @(@($state.windowFailures) | Where-Object { $_ })
+
+    # ---- 1. fold this tick into the episode (nothing written, nothing posted yet) ----
+    $isFailure = $Kind -in @('backend-down', 'realcall-failing', 'cooldown', 'deferred', 'still-failing', 'still-missing', 'unverified')
+    $isHealthy = $Kind -eq 'ok'
+    $verdict = 'watching'
+    $closedEpisodeId = $null
+
+    if ($isHealthy) {
+        $prevHealthy = $null
+        # Anchor the repair sequence on the FIRST healthy tick, never on the
+        # previous one: lastHealthyAt would move to $At on every healthy tick,
+        # so two consecutive ticks ~2 min apart would NEVER be > 5 min apart and
+        # the escalation would stay open forever. A failure resets the anchor,
+        # so the two healthy calls that close must both come after the last
+        # failure — an OK tick does NOT reset the failure window, but a failure
+        # does restart the repair sequence.
+        if ($state.firstHealthyAt) { $prevHealthy = Get-SkAgentUtcInstant $state.firstHealthyAt }
+        else { $state.firstHealthyAt = ConvertTo-SkAgentUtcText $At }
+        $verdict = 'ok'
+        if ($state.escalationOpen) {
+            if ($prevHealthy -and (($At - $prevHealthy).TotalMinutes -gt $SkAgentRepairMinGapMinutes)) {
+                $gapMin = [math]::Round(($At - $prevHealthy).TotalMinutes, 0)
+                # Scope by the OPEN's POSTING HOUR ('HH:MMZ'), and keep the
+                # messageId in the same marker line as the human-readable name.
+                # The organ matches a scoped close on three forms only: the
+                # escalation's messageId, an issue ref present in its body, or
+                # its posting hour (repair_names, #4746). Reported by ai-01 on
+                # 24/11: a messageId-scoped close STOPS closing after the
+                # dashboard is condensed, because the archive no longer serves
+                # the original [msg: id] (ids are formed at read time) — the
+                # escalation rings again as overdue. The posting hour survives
+                # condensation (it is the entry's own header), so it is what
+                # this close names. #4897 is deliberately NOT in the marker:
+                # every escalation on this seat citing that issue would match.
+                $closedEpisodeId = "$($state.escalationId)"
+                $scopeHour = $null
+                $openedSince = $null
+                if ($state.escalationOpenedAt) {
+                    $openedSince = Get-SkAgentUtcInstant $state.escalationOpenedAt
+                    $scopeHour = $openedSince.ToString('HH:mm') + 'Z'
+                }
+                # Fallback for a legacy state file that opened an episode before
+                # escalationOpenedAt existed: the id embeds the opening UTC
+                # instant, so the hour is recovered from it instead of degrading
+                # to a lane-wide close.
+                if (-not $scopeHour -and $closedEpisodeId -match '(\d{8}T\d{6})Z$') {
+                    # AssumeUniversal yields a LOCAL DateTime (measured: this
+                    # path printed 09:04Z for an 08:04Z open on a UTC+1 seat).
+                    # Convert back to UTC before formatting, or the close names
+                    # an hour that matches no escalation's posting time.
+                    $recovered = [datetime]::ParseExact($Matches[1], 'yyyyMMddTHHmmss', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AssumeUniversal)
+                    $scopeHour = $recovered.ToUniversalTime().ToString('HH:mm') + 'Z'
+                }
+                $durationText = ''
+                if ($openedSince) { $durationText = " Episode lasted $([int][math]::Round(($At - $openedSince).TotalMinutes)) min." }
+                # Distinct stable id, or the server would dedup the REPAIRED
+                # against the OPEN (same messageId = same note, #3276).
+                $state.pendingPosts = @(@($state.pendingPosts) + @{
+                    Level     = 'REPAIRED'
+                    EpisodeId = $closedEpisodeId
+                    Text      = "[REPAIRED] sk-agent real call healthy twice, $gapMin min apart (> $SkAgentRepairMinGapMinutes).$durationText Episode closed by the watchdog; no sk-agent container restart was performed." + [char]10 + "scope: $scopeHour $closedEpisodeId" + [char]10 + "id: $closedEpisodeId-repaired"
+                })
+                $state.escalationOpen = $false
+                $state.escalationId = $null
+                $state.escalationOpenedAt = $null
+                $state.windowFailures = @()
+                $state.firstHealthyAt = $null
+                $verdict = 'repaired'
+            } else {
+                $verdict = 'ok-one-healthy-call'
+            }
+        }
+    } elseif ($isFailure) {
+        $state.firstHealthyAt = $null
+        $state.windowFailures = @(@($state.windowFailures) + @((ConvertTo-SkAgentUtcText $At)))
+    }
+    # The remaining kinds neither arm the window nor count as health:
+    # firstHealthyAt is left untouched, so a dry-run or a skipped tick does not
+    # fake the two healthy calls a close requires — but it does not restart the
+    # sequence either, since no real call contradicts the previous healthy one.
+
+    $cut = $At.AddMinutes(-$SkAgentWindowMinutes)
+    $state.windowFailures = @(@($state.windowFailures) | Where-Object { (Get-SkAgentUtcInstant $_) -ge $cut })
+
+    if (-not $state.escalationOpen -and @($state.windowFailures).Count -ge $SkAgentWindowThreshold) {
+        $state.escalationOpen = $true
+        $state.escalationId = 'watchdog-skagent-4897-' + $env:COMPUTERNAME.ToLower() + '-' + $At.ToString('yyyyMMddTHHmmssZ')
+        $state.escalationOpenedAt = ConvertTo-SkAgentUtcText $At
+        $n = @($state.windowFailures).Count
+        $state.pendingPosts = @(@($state.pendingPosts) + @{
+            Level     = 'DEGRADED'
+            EpisodeId = $state.escalationId
+            # No issue ref in this body on purpose: the organ matches a scoped
+            # close on an issue ref present in the OPEN body, so '#4897' here
+            # would let an unrelated scoped close on this seat close this
+            # escalation. The id already carries the number inside its own name
+            # (watchdog-skagent-4897-*), which the organ never reads as a ref.
+            Text      = "[DEGRADED] sk-agent real call failing: $n backend-down / real-call failure(s) inside ${SkAgentWindowMinutes} min (flapping tolerated: an OK tick does not reset this window). No automatic restart of the sk-agent container by this watchdog (decision b rejected); this escalation replaces the per-tick alert. It is closed after two healthy real calls more than $SkAgentRepairMinGapMinutes min apart." + [char]10 + "id: $($state.escalationId)"
+        })
+        $verdict = 'degraded-open'
+    } elseif ($state.escalationOpen -and $isFailure) {
+        $verdict = 'degraded-open-already'
+    }
+    # The queue is ordered and a NEW declaration is APPENDED, never overwriting
+    # an unposted one: if the close of episode 1 could not be posted and episode
+    # 2 opens before the dashboard is back, both are owed, in order. A single
+    # pendingPost slot would have dropped the open of episode 2, and its later
+    # close would be a [REPAIRED] naming an escalation nobody could read.
+    # A close drops the unposted OPEN OF THE SAME EPISODE (matched on the
+    # episodeId each declaration carries, never on the text): an episode that was
+    # never declared needs no close to erase it, and posting its open now would
+    # report a stale outage as a new one. Its close is dropped too in that case —
+    # a [REPAIRED] whose open never reached the dashboard would close an
+    # escalation nobody ever read. A close whose open WAS posted is still owed.
+    # Every other declaration survives, including the open of an episode that
+    # started while the dashboard was down.
+    if ($verdict -eq 'repaired' -and $closedEpisodeId) {
+        $openOwed = @(@($state.pendingPosts) | Where-Object {
+            $_.Level -eq 'DEGRADED' -and $_.EpisodeId -eq $closedEpisodeId
+        }).Count -gt 0
+        $state.pendingPosts = @(@($state.pendingPosts) | Where-Object {
+            if ($_.Level -eq 'DEGRADED' -and $_.EpisodeId -eq $closedEpisodeId) { return $false }
+            if ($openOwed -and $_.Level -eq 'REPAIRED' -and $_.EpisodeId -eq $closedEpisodeId) { return $false }
+            return $true
+        })
+    }
+    $state.lastWindowKind = $Kind
+    $state.lastWindowAt = ConvertTo-SkAgentUtcText $At
+
+    # ---- 2. persist FIRST ----
+    # Written before any post on purpose. A run cut after this line leaves every
+    # declaration owed: the next tick posts them with the same messageId. A run
+    # cut after a post leaves it owed too, and the server dedups the second
+    # attempt (messageId is an idempotency key, #3276). Both orders converge.
+    $json = $state | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($skAgentWindowStateFile, $json, (New-Object System.Text.UTF8Encoding($false)))
+
+    # ---- 3. publish the head of the queue, best-effort, then acknowledge ----
+    # ONE attempt per tick, not a drain: a fleet note costs up to two 8 s routes
+    # plus its initialize calls, and this runs inside the 290 s budget AFTER the
+    # probe and any repair. Draining a backlog here is what would get the next
+    # run killed mid-tick. The rest of the queue waits for the following ticks
+    # (the task fires every 2 min), in order, so a close never outruns its open.
+    $pending = @($state.pendingPosts)
+    if ($pending.Count -gt 0) {
+        $head = $pending[0]
+        if ((Get-RunSecondsLeft) -lt $SkAgentPublishReserveSec) {
+            Write-Log 'WARN' "sk-agent $($head.Level) still queued: $([int](Get-RunSecondsLeft))s left before the task's time limit, less than the ${SkAgentPublishReserveSec}s a fleet note may need. The next tick retries it with the same messageId."
+            if ($verdict -eq 'watching') { $verdict = 'pending-post-retry' }
+            elseif ($verdict -eq 'degraded-open') { $verdict = 'degraded-open-unposted' }
+            elseif ($verdict -eq 'repaired') { $verdict = 'repaired-unposted' }
+        } elseif (Publish-FleetNote -Level $head.Level -Type 'workspace' -Text $head.Text) {
+            if ($head.Level -eq 'DEGRADED') {
+                Write-Log 'ALERT' "sk-agent episode OPEN: [DEGRADED] posted (id $($head.EpisodeId))."
+            } else {
+                Write-Log 'OK' "sk-agent episode CLOSED: two healthy real calls more than $SkAgentRepairMinGapMinutes min apart, [REPAIRED] posted."
+            }
+            $state.pendingPosts = @($pending | Select-Object -Skip 1)
+            $json = $state | ConvertTo-Json -Depth 5
+            [System.IO.File]::WriteAllText($skAgentWindowStateFile, $json, (New-Object System.Text.UTF8Encoding($false)))
+        } else {
+            Write-Log 'WARN' "sk-agent $($head.Level) NOT posted (dashboard unreachable) — it stays at the head of pendingPosts and the next tick retries it with the same messageId."
+            if ($verdict -eq 'watching') { $verdict = 'pending-post-retry' }
+            elseif ($verdict -eq 'degraded-open') { $verdict = 'degraded-open-unposted' }
+            elseif ($verdict -eq 'repaired') { $verdict = 'repaired-unposted' }
+        }
+    }
+    return $verdict
+}
+
 function Invoke-SkAgentRouteCheck {
     # Returns one verdict: 'disabled', 'skipped', 'ok', 'not-404',
     # 'backend-down', 'realcall-failing', 'cooldown', 'deferred', 'dry-run',
@@ -827,8 +1156,7 @@ function Invoke-SkAgentRouteCheck {
             Set-Content -Path $skAgentRealCallStateFile -Encoding utf8
         $backendStatus = Get-McpInitializeStatus -Url $SkAgentBackendUrl -TimeoutSec $SkAgentProbeTimeoutSec
         if ($backendStatus -notin @(200, 401)) {
-            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call fails ($($real.Detail)) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again."
-            $script:alerts += 'skagent-realcall-failing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+            Write-Log 'WARN' "sk-agent route answered initialize 200 but the real call fails ($($real.Detail)) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again. The #4897 window below carries the escalation."
             return 'backend-down'
         }
         if ($failures -lt $SkAgentRealCallFailThreshold) {
@@ -887,8 +1215,7 @@ function Invoke-SkAgentRouteCheck {
     }
     $backendStatus = Get-McpInitializeStatus -Url $SkAgentBackendUrl -TimeoutSec $SkAgentProbeTimeoutSec
     if ($backendStatus -notin @(200, 401)) {
-        Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again."
-        $script:alerts += 'skagent-route-missing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+        Write-Log 'WARN' "TBXark has no sk-agent route (HTTP 404) and sk-agent does not answer on its own port either (HTTP $backendStatus) — NOT restarting TBXark, it would skip the backend again. The #4897 window below carries the escalation."
         return 'backend-down'
     }
     $minutesSinceRouteRepair = ((Get-Date) - $lastRouteRepairAt).TotalMinutes
@@ -974,6 +1301,13 @@ if (Test-Path $routeRepairStateFile) {
 # shared cooldown, and a counter they clobber on every repair would not survive
 # the cooldown window it is meant to cover.
 $skAgentRealCallStateFile = Join-Path $LogDir 'skagent-realcall-state.json'
+# #4897: OWN file for the 2 h window and the open episode, deliberately NOT
+# skagent-realcall-state.json. Invoke-SkAgentRouteCheck rewrites that file
+# wholesale on every failing tick and on every repair ({consecutiveFailures,
+# lastOkLogAt} only), and the window is folded in AFTER it — so a window living
+# there would be erased before each read and could never reach the threshold of
+# 3, and a healthy tick would reset it (exactly what the decision forbids).
+$skAgentWindowStateFile = Join-Path $LogDir 'skagent-window-state.json'
 $skAgentRealCallFailures = 0
 $skAgentRealCallLastOkLogAt = [datetime]::MinValue
 if (Test-Path $skAgentRealCallStateFile) {
@@ -1210,7 +1544,20 @@ if ($result.Ok) {
 
 # 3d: outside the RSM branches on purpose -- the 11/10 outage had a healthy
 # RSM chain.
-$null = Invoke-SkAgentRouteCheck
+$skAgentCheckVerdict = Invoke-SkAgentRouteCheck
+# #4897: the 2 h window is updated HERE, at top level and AFTER the check, never
+# inside it: the check's repair paths rewrite skagent-realcall-state.json
+# wholesale, so a window update done inside them would race the counter. The
+# window itself lives in skagent-window-state.json, which the check never writes.
+# Telemetry only — a failure here is logged and never changes the run's outcome.
+try {
+    $skAgentWindowVerdict = Update-SkAgentFailureWindow -Kind $skAgentCheckVerdict
+    $skAgentInWindow = 0
+    try { $skAgentInWindow = @((Get-Content $skAgentWindowStateFile -Raw | ConvertFrom-Json).windowFailures).Count } catch { }
+    Write-Log 'INFO' "sk-agent window: $skAgentCheckVerdict -> $skAgentWindowVerdict ($skAgentInWindow failure(s) inside ${SkAgentWindowMinutes} min)"
+} catch {
+    Write-Log 'WARN' "sk-agent window update failed: $($_.Exception.Message)"
+}
 
 # ---------- summary + event log ----------
 if ($script:repairs.Count -gt 0) {
