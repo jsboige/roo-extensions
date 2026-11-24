@@ -16,6 +16,20 @@
 # source currently checked out. Legacy callers remain non-fatal on
 # skips/build failures; `-RequireFresh` makes those conditions block an executor pre-flight.
 #
+# WORKSPACE STEPS (#4886, PR #4893): since ms#1882 `mcps/internal` is an npm workspace and the
+# RSM build consumes the compiled dist/ of its sibling package `@vibesync/core`. Before any
+# rebuild this script ENSURES two steps instead of advising them:
+#   1. the workspace install is current with `mcps/internal/package-lock.json` -- a CONTENT
+#      question (npm's own on-disk stamp vs the lockfile), never an mtime one. When it is not,
+#      `npm ci` is required, and `npm ci` deletes node_modules first: it is REFUSED (exit 1,
+#      whatever -RequireFresh) while any RSM host process is alive, with the remedy in the line.
+#   2. `@vibesync/core` is rebuilt. (`npm run build` in the server also rebuilds it through its
+#      `prebuild`; this step runs first and names the failure on its own line.)
+# A failed `npm ci` or core build takes the same exit path as a failed server build, and the
+# server build never runs after either. The workspace decision is taken BEFORE the ARM guard
+# and the dry-run exits: a refused run rebuilds nothing and owes no restart, and -DryRun /
+# -WhatIf name the steps a real run would take.
+#
 # WHICH PATH RUNS, AND WHY IT DECIDES EVERYTHING BELOW (#3713)
 # ------------------------------------------------------------------------------------------
 # Read this before the ARM GUARD section: on any checkout that has a `build-current` marker --
@@ -89,6 +103,7 @@ function Write-Result {
         'REBUILT' { 'Cyan' }
         'WARN'    { 'Yellow' }
         'SKIP'    { 'DarkGray' }
+        'ERROR'   { 'Red' }
         'ARMED-DEFER' { 'Magenta' }
         'ARM'      { 'Red' }
         default   { 'White' }
@@ -207,8 +222,15 @@ $indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -Error
 $wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
     Select-Object -Property ProcessId, CreationDate, CommandLine)
+# Versioned children (#3713): build-<hash>/index.js, the shape every post-#3713 seat runs.
+# Consulted by the `npm ci` refusal ONLY (#4886): they are neither part of the ARM guard's
+# session count nor of the ARMÉ signature, which stay legacy-only below.
+$vintageHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]build-[0-9a-f]{16}[\\/]index\.js( |"|$)' } |
+    Select-Object -Property ProcessId, CreationDate, CommandLine)
 # Drop CIM-listed processes that the .NET view positively reports exited (see Test-ProcessExited).
 $indexHosts   = @($indexHosts   | Where-Object { -not (Test-ProcessExited $_.ProcessId) })
+$vintageHosts = @($vintageHosts | Where-Object { -not (Test-ProcessExited $_.ProcessId) })
 $wrapperHosts = @($wrapperHosts | Where-Object { -not (Test-ProcessExited $_.ProcessId) })
 $liveHosts = @($indexHosts + $wrapperHosts)
 $buildIndex = Join-Path $BuildPath 'index.js'
@@ -310,6 +332,108 @@ function Test-BuildMatchesSource {
     return $true
 }
 
+# Fail-closed exit for the workspace steps this script ENSURES (#4886): a failed workspace
+# install or a failed core build must take the same exit path as a failed server build.
+# The default remains the legacy 0 for the non-strict callers
+# (start-claude-worker.ps1 / start-meta-audit.ps1 log the verdict and carry on),
+# exactly like the existing server-build failure path; -RequireFresh fails.
+# `-Refused` fails in BOTH modes: a refused `npm ci` leaves nothing to carry on with, and a
+# 0 there would read as "install not needed" to anyone scripting this helper (#4893 review).
+# Every call exits BEFORE the server build, and the line says so. The workspace plan is
+# computed above the ARM guard, so a refusal gets its own non-categorical ARM line -- but a
+# reader who only sees this one still cannot inherit a claim of an earlier line.
+function Exit-WorkspaceStepFailed {
+    param([string]$Message, [switch]$Refused)
+    Write-Result 'ERROR' "$Message The server build did not run: this run published no vintage and rewrote no build/."
+    if ($Refused -or $RequireFresh) { exit 1 }
+    exit 0
+}
+
+# Engine-portable JSON -> IDictionary, both Windows PowerShell 5.1 and PowerShell 7+ (#2368):
+# the two available mechanisms are MUTUALLY EXCLUSIVE (-AsHashtable does not exist on 5.1;
+# JavaScriptSerializer lives in System.Web.Extensions, .NET Framework only). Same name and
+# body as the helper of spawn-claude.ps1 / dashboard-listener.ps1, which is also what the
+# CI guard pwsh-engine-portability requires of any .ps1 that pipes into -AsHashtable.
+# Caller contract: the two engines return different .NET types -- test membership with
+# -is [System.Collections.IDictionary], never the concrete [hashtable].
+# Behaviour measured on BOTH engines through this body (2026-11-24, 5.1.26100.9818 and
+# 7.6.10): IDictionary true; the empty root key "" is carried; two keys differing only
+# by case stay two keys; a missing key reads as null; malformed JSON throws.
+function ConvertFrom-JsonToDictionary {
+    param([Parameter(Mandatory = $true)][string]$Json)
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
+# Is the installed tree current with the workspace lockfile? Content question, not an
+# mtime one (#4886 review: a checkout that rewrites an identical package-lock.json
+# must not re-run `npm ci`).
+#
+# Measured npm behaviour (npm 11.5.1, isolated `npm ci`, 2026-11-24): the root
+# hidden stamp held 1647 entries versus 1648 in the source lockfile. The ONLY
+# source-only key was the root entry ""; there were zero stamp-only keys and zero
+# version mismatches. The exact content invariant is therefore:
+#     ignoring the source's root entry, lockfile and stamp have the same package
+#     keys, every shared package has the same version, and tsc is actually on disk.
+# Mtime never enters this decision: the same measurement rewrote 18,223 files in
+# the server-local dependency tree with unchanged hashes.
+#
+# Measured on a real installed workspace (2026-11-24, 823-KB lockfile): $true under
+# powershell.exe 5.1.26100.9818 AND under pwsh 7.6.10, about 300 ms and about 200 ms. That matters as much as the
+# false cases -- a correct seat read as stale would be refused below on every pre-flight.
+function Test-WorkspaceInstallCurrent {
+    param([string]$LockPath, [string]$ModulesPath, [string]$ServerPath)
+    if (-not (Test-Path -LiteralPath $ModulesPath)) { return $false }
+    $stampPath = Join-Path $ModulesPath '.package-lock.json'
+    if (-not (Test-Path -LiteralPath $stampPath)) { return $false }
+    # npm's lockfile names its root entry "" -- a key no PSCustomObject can carry:
+    # Windows PowerShell 5.1 ConvertFrom-Json REJECTS the whole file (invalid argument
+    # name), so a plain conversion would read every seat as stale. The portable reader
+    # returns an IDictionary on both engines, and that type can hold the key.
+    function Read-PackageVersions {
+        param([string]$Path)
+        $root = ConvertFrom-JsonToDictionary -Json ([System.IO.File]::ReadAllText($Path))
+        if (-not ($root -is [System.Collections.IDictionary])) { return $null }
+        $packages = $root['packages']
+        if (-not ($packages -is [System.Collections.IDictionary])) { return $null }
+        # Ordinal, like both readers and like npm's own tree: two paths that differ only by
+        # case are two packages. A case-insensitive table would merge them, and a missing
+        # one would then read as "current" (measured 2026-11-24: each engine's reader keeps
+        # `node_modules/a` and `node_modules/A` as two keys).
+        $versions = [System.Collections.Generic.Dictionary[string,string]]::new([System.StringComparer]::Ordinal)
+        foreach ($name in $packages.Keys) {
+            if ($name -eq '') { continue }
+            $entry = $packages[$name]
+            if (-not ($entry -is [System.Collections.IDictionary])) { return $null }
+            $versions[$name] = [string]$entry['version']
+        }
+        return $versions
+    }
+    $want = $null
+    $have = $null
+    try { $want = Read-PackageVersions $LockPath } catch { return $false }
+    try { $have = Read-PackageVersions $stampPath } catch { return $false }
+    if ($null -eq $want -or $null -eq $have) { return $false }
+    # 1. every installed entry must still be the version the lockfile wants.
+    foreach ($n in $have.Keys) {
+        if (-not $want.ContainsKey($n)) { return $false }
+        if ($want[$n] -ne $have[$n]) { return $false }
+    }
+    # 2. the reverse direction: same package count plus the key/version loop above
+    #    proves exact set equality, so an added or removed package cannot hide.
+    if ($want.Count -ne $have.Count) { return $false }
+    # 3. the toolchain the rebuild consumes must exist, whatever the stamps say.
+    if (-not (Test-Path -LiteralPath (Join-Path $ServerPath 'node_modules/typescript/bin/tsc')) -and
+        -not (Test-Path -LiteralPath (Join-Path $ModulesPath 'typescript/bin/tsc'))) {
+        return $false
+    }
+    return $true
+}
 # --- Vintage pipeline (#3713): marker-based freshness when present ---
 # When the content-addressed marker exists, freshness means "the current vintage
 # was built from exactly this source" — the mtime of the frozen legacy build/
@@ -389,6 +513,47 @@ if (-not $buildNewest) {
     Write-Result 'WARN' "build/ STALE — newest src .ts ($srcFileRel) is ${lagSec}s newer than newest build .js."
 }
 
+# --- Workspace plan (#4886): decided BEFORE the ARM guard and the dry-run exits ---
+# Since ms#1882 `mcps/internal` is an npm workspace and the RSM build consumes the compiled
+# dist/ of its sibling package @vibesync/core. The published vintage does not carry it: 87 of
+# its .js files keep bare '@vibesync/core' imports (measured 2026-11-24), resolved at run time
+# through the workspace junction into packages/vibesync-core/dist.
+# A rebuild therefore needs up to two workspace steps first, and whether they CAN run must be
+# known before anything is claimed or announced: a run refused here rebuilds nothing, so it
+# must not owe a restart, and a dry run must say what a real one would do. Read-only --
+# nothing is installed or built in this section.
+$WorkspaceRoot    = Join-Path $RepoRoot 'mcps/internal'
+$WorkspaceLock    = Join-Path $WorkspaceRoot 'package-lock.json'
+$WorkspaceModules = Join-Path $WorkspaceRoot 'node_modules'
+# Pre-#4886 gitlink: no workspace package under mcps/internal yet, nothing applies. It has
+# to stay a no-op until the bump lands, or every seat logs a line on every rebuild -- and
+# `npm run build --workspace` fails there with "No workspaces found" (measured on PR #4893's
+# first CI run).
+$wsApplies      = Test-Path $CoreSrcPath
+$wsNeedsInstall = $false
+$wsAlive        = 0
+$wsPlan         = ''
+if ($wsApplies) {
+    if (-not (Test-Path $WorkspaceLock)) {
+        # A workspace package without a workspace lockfile cannot be installed by this
+        # gate: failing loudly beats compiling against a silently stale dist/.
+        Exit-WorkspaceStepFailed "Workspace lockfile not found at $WorkspaceLock while packages/vibesync-core exists - cannot guarantee the install or the core build."
+    }
+    $wsNeedsInstall = -not (Test-WorkspaceInstallCurrent -LockPath $WorkspaceLock -ModulesPath $WorkspaceModules -ServerPath $McpServerPath)
+    # `npm ci` deletes and reinstalls the node_modules trees live RSM hosts run from, so it
+    # is refused while ANY RSM host process is alive: legacy children, versioned children
+    # and wrappers, each through its corroborated role list above (a combined probe would
+    # double-count wrapper + child pairs -- ensure-build-fresh.arm-guard). Not restricted
+    # to hosts running from THIS tree: on a seat, all RSM sessions share the one checkout.
+    $wsAlive = @($indexHosts + $vintageHosts + $wrapperHosts).Count
+    $wsPlan = if ($wsNeedsInstall) {
+        " It would first need 'npm ci' in $WorkspaceRoot -- refused while any RSM host is alive ($wsAlive found by this run's probe) -- then 'npm run build --workspace @vibesync/core'."
+    } else {
+        " It would first run 'npm run build --workspace @vibesync/core' in $WorkspaceRoot."
+    }
+}
+# A REAL run would exit on the refusal instead of reaching the server build.
+$wsWillRefuse = $wsApplies -and $wsNeedsInstall -and $wsAlive -gt 0
 # --- ARM GUARD (#3489): refuse to rebuild under live RSM hosts (ESM mixed-millage) ---
 # Rebuilding `build/` while a live roo-state-manager host process is running replaces the
 # ESM modules that host already imported -> mixed module graph -> the next dynamic import
@@ -421,7 +586,14 @@ if ($liveHosts.Count -gt 0 -and -not $vintageMode) {
     # build/index.js mtime unchanged. `$WhatIfPreference` is $true in scope under -WhatIf, so
     # both dry paths share one condition and neither can drift away from it alone.
     $noRebuildThisRun = $DryRun -or $WhatIfPreference
-    if ($noRebuildThisRun) {
+    if ($wsWillRefuse) {
+        # Same rule, another door (#4893): a run that will be refused on the workspace
+        # install never reaches the server build, so it arms nothing and owes nothing --
+        # under -DryRun too, since a REAL run would hit the same refusal. Measured
+        # 2026-11-24 on an isolated legacy-shape tree: the categorical line printed
+        # first, then the refusal.
+        Write-Result 'ARM' "$hostsDetail. NOTHING was rebuilt and NOTHING is armed: the workspace install is stale and 'npm ci' is refused while RSM hosts are alive, so this run does not reach the server build (#4886). No restart is owed."
+    } elseif ($noRebuildThisRun) {
         $dryLabel = if ($DryRun) { '-DryRun' } else { '-WhatIf' }
         Write-Result 'ARM' "$hostsDetail. ${dryLabel}: NOTHING was rebuilt and NOTHING is armed. A REAL run would ARM the ESM mixed-millage crash (#3489) on those sessions -- the new build is served only after a VS Code restart, and inbox stays broken until then -- and would OWE that restart ([INTERACTIVE-ONLY])."
     } else {
@@ -438,13 +610,59 @@ if ($vintageMode -and $liveHosts.Count -gt 0) {
 }
 
 if ($DryRun) {
-    Exit-NotFresh 'SKIP' "-DryRun set: would run 'npm run build' in $McpServerPath."
+    # $wsPlan names the workspace steps a real run would take first (#4886): without it a
+    # dry run reported the server build and stayed silent on an 'npm ci' it would refuse.
+    Exit-NotFresh 'SKIP' "-DryRun set: would run 'npm run build' in ${McpServerPath}.$wsPlan"
 }
 
 if (-not $PSCmdlet.ShouldProcess($McpServerPath, "Run 'npm run build' (clean + tsc)")) {
-    Exit-NotFresh 'SKIP' "ShouldProcess declined — not rebuilding."
+    Exit-NotFresh 'SKIP' "ShouldProcess declined — not rebuilding.$wsPlan"
 }
 
+# --- Workspace install + shared package build (#4886): the plan above, executed ---
+# Deliberately AFTER the ARM guard: a headless caller on the legacy path keeps its
+# ARMED-DEFER precedence. A refusal exits here, before the pre-op backup and any build.
+if (-not $wsApplies) {
+    Write-Result 'SKIP' "No packages/vibesync-core under mcps/internal - pre-#4886 gitlink, shared-package install and build do not apply."
+} else {
+    if (-not $wsNeedsInstall) {
+        Write-Result 'OK' "Workspace install is current with the lockfile (content check, not mtime) - no 'npm ci' needed."
+    } else {
+        if ($wsAlive -gt 0) {
+            Exit-WorkspaceStepFailed -Refused "Workspace install is missing or stale, so 'npm ci' is required in $WorkspaceRoot -- REFUSED while $wsAlive RSM host process(es) are alive (npm would remove and reinstall the dependency trees those processes use; on Windows a locked native .node aborts it after a partial removal). Remedy: stop the RSM hosts (full-quit VS Code on an interactive seat), then run scripts/claude/executor-preflight.ps1 again, or run 'npm ci' in mcps/internal yourself with VS Code closed. No install was attempted and no host was touched."
+        }
+        Write-Result 'OK' "Workspace install missing or stale and no RSM host is alive - running 'npm ci' in $WorkspaceRoot..."
+        Push-Location $WorkspaceRoot
+        try {
+            $installOutput = & cmd /c "npm ci 2>&1"
+            $installExit = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+        if ($installExit -ne 0) {
+            $tail = ($installOutput | Select-Object -Last 5 | Out-String).Trim()
+            Exit-WorkspaceStepFailed "'npm ci' failed (exit $installExit) in $WorkspaceRoot - NOT continuing to a build that would compile against a half-installed tree. Tail:`n$tail"
+        }
+        Write-Result 'OK' "Workspace install completed."
+    }
+
+    # Refresh the shared package before the RSM build consumes its dist/. (`npm run build`
+    # in the server rebuilds it too, through `prebuild`; this step runs first and names the
+    # failure on its own line.)
+    Push-Location $WorkspaceRoot
+    try {
+        $coreOutput = & cmd /c "npm run build --workspace @vibesync/core 2>&1"
+        $coreExit = $LASTEXITCODE
+    } finally {
+        Pop-Location
+    }
+    if ($coreExit -eq 0) {
+        Write-Result 'OK' "Built @vibesync/core (workspace dependency of the RSM build)."
+    } else {
+        $tail = ($coreOutput | Select-Object -Last 5 | Out-String).Trim()
+        Exit-WorkspaceStepFailed "Core build FAILED (exit $coreExit) - refusing to publish a server build against the previous @vibesync/core/dist (the seat would read STALE again on the next run and republish forever). Same exit path as a failed server build. Tail:`n$tail"
+    }
+}
 # --- Pre-op guard (#3712) : backup pre-destruction de build/ avant npm run build.
 # npm run build (clean + tsc) detruit build/ avant de le reconstruire. Le guard prend
 # un snapshot du build courant (s'il existe) dans %USERPROFILE%\.roo-state-manager\

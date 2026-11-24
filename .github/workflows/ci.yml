@@ -407,8 +407,32 @@ jobs:
         # sans aucun commit fautif (incident @qdrant/js-client-rest, 2026-08-04 — #3037).
         run: npm ci
 
+      # #4886: @vibesync/core is an npm-workspace package with its own compiled dist/.
+      # The RSM build consumes it, so it must be built first — and its own test suite
+      # is not collected by the server's vitest config, so it is run explicitly here.
+      # BOTH steps are conditional: this job runs against the PINNED gitlink, which
+      # only carries the package once the submodule bump lands. Unconditional, the
+      # job fails "No workspaces found" on every pre-bump commit (measured on the
+      # first CI run of PR #4893) — the condition keeps this PR order-independent
+      # with respect to that bump. Working directory is servers/roo-state-manager.
+      - name: Build @vibesync/core (workspace package)
+        run: |
+          if [ -d ../../packages/vibesync-core ]; then
+            npm run build --workspace @vibesync/core
+          else
+            echo "[skip] pinned mcps/internal carries no packages/vibesync-core (pre-#4886 gitlink)"
+          fi
+
       - name: Build TypeScript
         run: npm run build
+
+      - name: Test @vibesync/core (workspace package)
+        run: |
+          if [ -d ../../packages/vibesync-core ]; then
+            npm run test --workspace @vibesync/core
+          else
+            echo "[skip] pinned mcps/internal carries no packages/vibesync-core (pre-#4886 gitlink)"
+          fi
 
       - name: Run tests (CI config - excludes platform-dependent tests)
         run: npx vitest run --config vitest.config.ci.ts --reporter=default
