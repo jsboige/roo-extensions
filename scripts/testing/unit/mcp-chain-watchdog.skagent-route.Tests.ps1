@@ -252,12 +252,15 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
             $second.RealCallState.consecutiveFailures | Should -BeExactly 2
         }
 
-        It 'real call fails but sk-agent does not answer on :8100 -> alert, no restart' {
+        It 'real call fails but sk-agent does not answer on :8100 -> NO restart, verdict handed to the #4897 window (no per-tick alert)' {
             $r = Invoke-Check -RouteAnswers @(200) -BackendAnswer 0 -RealCallFailures 2 -RealCall @(@{ Ok = $false; InitStatus = 200; CallStatus = 0; Detail = 'tools/call failed: http-0' })
 
             $r.Verdict      | Should -Be 'backend-down'
             $r.Docker.Count | Should -BeExactly 0 -Because 'a restarted TBXark would skip the closed backend again'
-            $r.Alerts       | Should -Contain 'skagent-realcall-failing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+            # #4897: the per-tick alert is replaced by ONE escalation per episode,
+            # opened by Update-SkAgentFailureWindow on this verdict (see the
+            # skagent-window suite). The check itself alerts nothing here.
+            $r.Alerts.Count | Should -BeExactly 0
             $r.RealCallState.consecutiveFailures | Should -BeExactly 3 -Because 'the failure is counted even when no repair can follow'
         }
 
@@ -309,13 +312,14 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
 
     Context 'no restart' {
 
-        It 'route 404 but sk-agent does not answer on :8100 -> alert, no restart' {
+        It 'route 404 but sk-agent does not answer on :8100 -> NO restart, verdict handed to the #4897 window (no per-tick alert)' {
             $r = Invoke-Check -RouteAnswers @(404) -BackendAnswer 0
 
             $r.Verdict      | Should -Be 'backend-down'
             $r.Docker.Count | Should -BeExactly 0 -Because 'a restarted TBXark would skip the closed backend again'
             $r.StateWritten | Should -BeFalse
-            $r.Alerts       | Should -Contain 'skagent-route-missing-backend-down: sk-agent itself does not answer, TBXark not restarted'
+            # #4897: one [DEGRADED] escalation per episode replaces this alert.
+            $r.Alerts.Count | Should -BeExactly 0
             ($r.Logs -join "`n") | Should -Match '^WARN '
         }
 
@@ -497,11 +501,20 @@ Describe 'mcp-chain-watchdog sk-agent route repair (3d, boot race 11/10)' {
         }
 
         It 'runs after the RSM repair paths and before the summary that reports its repairs' {
-            $iCall    = $script:content.IndexOf('$null = Invoke-SkAgentRouteCheck')
+            # #4897: the call site captures the verdict for the window update.
+            $iCall    = $script:content.IndexOf('$skAgentCheckVerdict = Invoke-SkAgentRouteCheck')
             $iFull    = $script:content.IndexOf('running full repair sequence')
             $iSummary = $script:content.IndexOf('# ---------- summary + event log ----------')
             $iCall | Should -BeGreaterThan $iFull
             $iCall | Should -BeLessThan $iSummary
+        }
+
+        It 'the #4897 window is updated at top level, after the check, and never inside it' {
+            $iCall   = $script:content.IndexOf('$skAgentCheckVerdict = Invoke-SkAgentRouteCheck')
+            $iWindow = $script:content.IndexOf('Update-SkAgentFailureWindow -Kind $skAgentCheckVerdict')
+            $iCall   | Should -BeGreaterThan 0
+            $iWindow | Should -BeGreaterThan $iCall -Because 'the repair paths rewrite the state file wholesale: the window must be written after them'
+            $script:checkSource | Should -Not -Match 'Update-SkAgentFailureWindow'
         }
 
         It 'shares 3b''s cooldown and state file, and writes the state before the wait' {

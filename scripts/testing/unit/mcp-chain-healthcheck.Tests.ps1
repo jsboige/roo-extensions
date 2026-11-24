@@ -43,8 +43,16 @@ Describe "Healthcheck - read-only STRUCTUREL (exigence 3, arbitrage #3495)" {
         $script:hc | Should -Not -Match '(?m)^\s*(Start-ScheduledTask|Stop-ScheduledTask|Unregister-ScheduledTask|Restart-Computer|Stop-Process|Remove-Item|Restart-Service|npm\s+run|npm\s+ci|git\s+(submodule|checkout|reset|clean)|docker\s|&\s+docker)\b'
     }
 
-    It "Ne doit jamais referencer le script d'auto-repair (meme en suggestion)" {
-        $script:hc | Should -Not -Match 'mcp-chain-watchdog\.ps1'
+    It "Ne doit jamais INVOQUER le script d'auto-repair (meme en suggestion)" {
+        # Exigence 3 = pas de chemin de reparation. #4897 (c) ajoute une LECTURE
+        # seule : la derivee du -LogDir declare du watchdog (scripts mcp-watchdog
+        # installes cote a cote, -File seul). Aucune invocation, aucun appel de
+        # fonction de reparation ; seule la lecture du texte source est permise.
+        $script:hc | Should -Not -Match '&\s*\S*mcp-chain-watchdog|Invoke-Command.*mcp-chain-watchdog|Start-Process.*mcp-chain-watchdog'
+        $script:hc | Should -Not -Match '(?m)^\s*\.\s+\S*mcp-chain-watchdog'
+        $script:hc | Should -Not -Match '(?m)^\s*(Start-ScheduledTask|Stop-ScheduledTask|Unregister-ScheduledTask|Restart-Service|Stop-Process)\b'
+        # La seule reference autorisee est le Join-Path vers le texte source a lire.
+        $script:hc | Should -Match "Join-Path \`$PSScriptRoot 'mcp-chain-watchdog\.ps1'"
     }
 
     It "Doit declarer le read-only structurel (commentaire de contrat)" {
