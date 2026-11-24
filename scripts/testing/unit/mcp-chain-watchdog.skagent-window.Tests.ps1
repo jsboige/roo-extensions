@@ -791,7 +791,9 @@ Describe 'mcp-chain-watchdog sk-agent failure window (#4897 a+c)' {
             $json = "{`n  `"success`": true,`n  `"action`": `"append`",`n  `"messageId`": `"watchdog-x`"`n}"
             $footer = "`n`n[$stopwatch roosync_dashboard 57ms]"
             $notif = "`n[NOTIF] 2 message(s) non lu(s) en inbox (1 HIGH)`n[NOTIF] 3 nouveau(x) sur global depuis ta derniere lecture`n        (1 ASK, 2 BLOCKED).`n        Lire : roosync_dashboard action:`"read`" type:`"global`""
-            foreach ($text in @(($json + $footer), ($json + $notif + $footer))) {
+            # A future footer carrying braces must not hide the object either.
+            $bracedFooter = "`n[NOTIF] x } {y} {`"k`":1}" + $footer
+            foreach ($text in @(($json + $footer), ($json + $notif + $footer), ($json + $bracedFooter))) {
                 $body = '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":' + (ConvertTo-Json $text) + '}]}}'
                 $ack = Get-FleetNoteAcknowledgement -Response (New-Resp $body)
                 $ack.Ok | Should -BeTrue -Because "a landed append followed by server footers is acknowledged (reason seen: $($ack.Reason))"

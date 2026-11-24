@@ -302,16 +302,22 @@ function Get-FleetNoteAcknowledgement {
     if ($parts.Count -eq 0) { return (& $fail 'MCP result has no text content') }
     # #4921: the server appends footers to this text -- "\n\n[<stopwatch> tool NNms]"
     # (injectDuration) and "[NOTIF] ..." lines -- so a successful append is not
-    # pure JSON. Those footers carry no brace: when the text opens on JSON, the
-    # object is the slice from its first '{' to its last '}'. A text that does
-    # not open on JSON is still refused, never parsed out of its prose.
+    # pure JSON. When the text opens on JSON, the object is the longest prefix
+    # that ends on a '}' and parses: candidates are tried from the last '}'
+    # backwards, so a brace inside a later footer cannot hide the object. A
+    # text that does not open on JSON is still refused, never parsed out of
+    # its prose.
     $toolText = "$($parts[0].text)"
     $tool = $null
     try { $tool = $toolText | ConvertFrom-Json -ErrorAction Stop } catch { }
-    if ($null -eq $tool) {
-        $open = $toolText.IndexOf('{'); $close = $toolText.LastIndexOf('}')
-        if ($toolText.TrimStart().StartsWith('{') -and $close -gt $open) {
+    if ($null -eq $tool -and $toolText.TrimStart().StartsWith('{')) {
+        $open = $toolText.IndexOf('{')
+        $close = $toolText.LastIndexOf('}')
+        $tries = 0
+        while ($null -eq $tool -and $close -gt $open -and $tries -lt 32) {
             try { $tool = $toolText.Substring($open, $close - $open + 1) | ConvertFrom-Json -ErrorAction Stop } catch { }
+            $close = $toolText.LastIndexOf('}', $close - 1)
+            $tries++
         }
     }
     if ($null -eq $tool) { return (& $fail 'tool result text is not JSON') }
