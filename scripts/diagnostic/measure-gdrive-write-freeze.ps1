@@ -13,6 +13,11 @@ families frozen for 24 h. Twins (`inventories (2)`, `messages (2)`,
 to a twin keeps writing to G: just the same -- an instrument that watched only the
 canonical name would report FROZEN while a twin was still hot.
 
+`desktop.ini` is not a data write: Explorer drops it (Hidden) when a folder view is
+customised, so it is excluded from the three generic families -- by file NAME, never by
+directory. Measured c.7126720160: four of them, identical fresh mtime, turned frozen
+instances ACTIVE.
+
 #4131 G-MES -- family `dashboards`: EXPORT-AWARE criterion, not total freeze. Under
 PG-first the dashboards dir stays ALIVE by design: the in-host reconcile daemon
 (index.ts initializeDashboardReconcile; first pass 90 s after host start, then every
@@ -146,7 +151,11 @@ foreach ($family in $families) {
         if ($isDir) {
             $kind = 'DIR'
             $recErr = $null
-            $files = @(Get-ChildItem -LiteralPath $entry.FullName -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable recErr)
+            # `desktop.ini` (Explorer view settings, Hidden) is excluded by file NAME,
+            # case-insensitive -- never by directory: a real hot file beside one still
+            # decides (Pester case l). Measured false positive, c.7126720160.
+            $files = @(Get-ChildItem -LiteralPath $entry.FullName -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable recErr |
+                Where-Object { $_.Name -ine 'desktop.ini' })
             if (@($recErr).Count -gt 0) {
                 Write-Output ("[INSTRUMENT] enumeration inside {0} errored: {1}" -f $entry.FullName, $recErr[0].Exception.Message)
                 exit 2

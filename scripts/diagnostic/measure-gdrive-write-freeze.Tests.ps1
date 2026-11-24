@@ -28,6 +28,11 @@
 #   (i) instance dashboards sans aucun .md                     -> exit 2, pas de verdict fabriqué
 #   (j) item 5a : residu + export justifie dans la meme instance -> exit 1, la ligne ACTIVE
 #       affiche le compte justifie par export (avant le fix, seule la branche FROZEN le faisait)
+#   faux positif mesure c.7126720160 (famille generique, listing recursif) :
+#   (k) un desktop.ini FRAIS (caché, posé par l'explorateur) dans une famille gelée
+#       -> exit 0 : ce n'est pas un écrivain de données (avant le fix : faux NOT-MET)
+#   (l) un fichier CHAUD à côté d'un desktop.ini -> exit 1 : l'exclusion porte sur le NOM
+#       du fichier, jamais sur le répertoire (témoin de frontière, vert avant ET après)
 #
 # Execution : powershell -NoProfile -ExecutionPolicy Bypass -File scripts/testing/run-pester-tests.ps1 -Path scripts/diagnostic/measure-gdrive-write-freeze.Tests.ps1
 
@@ -93,6 +98,19 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
         function Set-FileAge {
             param([string]$Path, [double]$AgeHours)
             (Get-Item -LiteralPath $Path).LastWriteTimeUtc = [DateTime]::UtcNow.AddHours(-$AgeHours)
+        }
+
+        # Reproduction du faux positif mesure sur le store reel (c.7126720160) : un
+        # `desktop.ini` pose par l'explorateur -- attribut Hidden, mtime recent -- dans
+        # une instance sinon gelee. Ce fichier configure la VUE du dossier ; aucun
+        # ecrivain de donnees ne le produit.
+        function Add-DesktopIni {
+            param([string]$Path, [double]$AgeHours = 0.5)
+            Set-Content -LiteralPath $Path -Value '[ViewState]' -Encoding ASCII
+            # L'age se regle AVANT l'attribut : `Get-Item -LiteralPath` sans -Force ne voit
+            # pas un fichier cache (mesure : ItemNotFound dans Set-FileAge).
+            Set-FileAge -Path $Path -AgeHours $AgeHours
+            (Get-Item -LiteralPath $Path -Force).Attributes = [IO.FileAttributes]::Hidden
         }
     }
 
@@ -220,5 +238,29 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
         Assert-That ($r.Output -match [regex]::Escape('workspace-b.md')) "le fichier residuel n'est pas nomme: $($r.Output)"
         Assert-That ($r.Output -match '1 export-justified') "la branche ACTIVE n'affiche pas le compte justifie par export: $($r.Output)"
         Assert-That ($r.Output -notmatch [regex]::Escape('workspace-a.md')) "le fichier justifie ne doit pas etre liste comme residu: $($r.Output)"
+    }
+
+    It '(k) un desktop.ini frais (cache, pose par l''explorateur) dans une famille gelee rend MET, pas un faux NOT-MET' {
+        $fx = New-FrozenStore
+        Add-DesktopIni -Path (Join-Path $fx 'messages\desktop.ini')
+        Add-DesktopIni -Path (Join-Path $fx 'inventories (2)\desktop.ini')
+        $r = Invoke-Measure -Store $fx
+        Assert-That ($r.ExitCode -eq 0) "exit 0 attendu (desktop.ini n'est pas un ecrivain de donnees), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
+        Assert-That ($r.Output -match 'PHASE-D\] MET') "ligne MET absente de la sortie"
+        Assert-That ($r.Output -match [regex]::Escape('inventories, messages, .machine-registry')) "la ligne MET ne liste pas les familles vues: $($r.Output)"
+        Assert-That ($r.Output -notmatch [regex]::Escape('desktop.ini')) "desktop.ini est encore nomme comme derniere ecriture: $($r.Output)"
+    }
+
+    It '(l) un fichier chaud a cote d''un desktop.ini reste NOT-MET : l''exclusion est par NOM de fichier, pas par repertoire' {
+        $fx = New-FrozenStore
+        # Témoin de frontière, vert AVANT et APRES le fix : une exclusion trop large
+        # (sauter toute instance qui contient un desktop.ini) masquerait un vrai
+        # ecrivain. Le jumeau chaud doit rester nomme.
+        Add-DesktopIni -Path (Join-Path $fx 'inventories (2)\desktop.ini')
+        Set-FileAge -Path (Join-Path $fx 'inventories (2)\po-2025.json') -AgeHours 1
+        $r = Invoke-Measure -Store $fx
+        Assert-That ($r.ExitCode -eq 1) "exit 1 attendu (le jumeau chaud reste un ecrivain), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
+        Assert-That ($r.Output -match 'PHASE-D\] NOT-MET') "ligne NOT-MET absente: $($r.Output)"
+        Assert-That ($r.Output -match [regex]::Escape('inventories (2)')) "le jumeau chaud n'est pas nomme dans la sortie: $($r.Output)"
     }
 }
