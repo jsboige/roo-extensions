@@ -300,7 +300,27 @@ function Get-FleetNoteAcknowledgement {
     if ($envelope.result.PSObject.Properties['isError'] -and $envelope.result.isError) { return (& $fail 'MCP result isError:true') }
     $parts = @(@($envelope.result.content) | Where-Object { $_ -and $_.PSObject.Properties['text'] -and $_.text })
     if ($parts.Count -eq 0) { return (& $fail 'MCP result has no text content') }
-    try { $tool = "$($parts[0].text)" | ConvertFrom-Json -ErrorAction Stop } catch { return (& $fail 'tool result text is not JSON') }
+    # #4921: the server appends footers to this text -- "\n\n[<stopwatch> tool NNms]"
+    # (injectDuration) and "[NOTIF] ..." lines -- so a successful append is not
+    # pure JSON. When the text opens on JSON, the object is the longest prefix
+    # that ends on a '}' and parses: candidates are tried from the last '}'
+    # backwards, so a brace inside a later footer cannot hide the object. A
+    # text that does not open on JSON is still refused, never parsed out of
+    # its prose.
+    $toolText = "$($parts[0].text)"
+    $tool = $null
+    try { $tool = $toolText | ConvertFrom-Json -ErrorAction Stop } catch { }
+    if ($null -eq $tool -and $toolText.TrimStart().StartsWith('{')) {
+        $open = $toolText.IndexOf('{')
+        $close = $toolText.LastIndexOf('}')
+        $tries = 0
+        while ($null -eq $tool -and $close -gt $open -and $tries -lt 32) {
+            try { $tool = $toolText.Substring($open, $close - $open + 1) | ConvertFrom-Json -ErrorAction Stop } catch { }
+            $close = $toolText.LastIndexOf('}', $close - 1)
+            $tries++
+        }
+    }
+    if ($null -eq $tool) { return (& $fail 'tool result text is not JSON') }
     if ($tool.PSObject.Properties['success'] -and $tool.success -and $tool.action -eq 'append') {
         return @{ Ok = $true; Deduplicated = [bool]$tool.deduplicated }
     }
