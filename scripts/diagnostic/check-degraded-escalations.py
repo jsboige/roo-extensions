@@ -69,7 +69,9 @@ declarations se dedoublonnent sur (lane, poste).
 Usage :
     python check-degraded-escalations.py                       # commande canonique : lit le store PG
                                                                # (bearer : --ring-bearer, MCP_PROXY_BEARER,
-                                                               #  puis ~/.roo-state-manager/stall-detector.env)
+                                                               #  puis le fichier designe par --env-file /
+                                                               #  ORGAN_ENV_FILE / ~/.roo-state-manager/
+                                                               #  stall-detector.env — #4901)
     python check-degraded-escalations.py --cycles 2 --cycle-hours 4
     python check-degraded-escalations.py --json
     python check-degraded-escalations.py --ring                # poste ASK-USER sur le dashboard global
@@ -419,8 +421,9 @@ def classify_reader_defect(text):
 
     A appliquer au corps ENTIER, comme classify_known_host_defect. Rend un
     bool (pas une ref d'issue) : contrairement au defaut connu de l'hote,
-    la panne du lecteur SE REPARE -- remede du siege (`--env-file` vers le
-    fichier qui porte deja le bearer), puis `[REPAIRED]` de la lane. Rangi
+    la panne du lecteur SE REPARE -- remede du siege (variable ORGAN_ENV_FILE
+    #4901, ou `--env-file`, vers le fichier qui porte deja le bearer), puis
+    `[REPAIRED]` de la lane. Rangi
     a part veut donc dire « pas une dette de service », jamais « hors de
     portee de toute lane ».
     """
@@ -1704,7 +1707,7 @@ def build_ring_content(overdue):
         if reader:
             headline += (f" ; {len(reader)} rangee(s) a part : panne du "
                          f"lecteur de l'organe (exit 1), remede siege : "
-                         f"--env-file.")
+                         f"variable ORGAN_ENV_FILE (chemin) ou --env-file.")
         if not host and not reader:
             headline += "."
         lines = [headline]
@@ -1728,9 +1731,11 @@ def build_ring_content(overdue):
     if reader:
         # #4729 : visibles, dues, mais pas de la dette de service -- et le
         # remede est nomme : la lane concernee peut repararer son lecteur
-        # elle-meme via --env-file (GO c.7032224803).
+        # elle-meme (GO c.7032224803). #4901 : la forme durable est le
+        # pointeur de siege, --env-file reste la forme d'un appel seul.
         lines.append("Rangees a part -- panne du lecteur de l'organe exit 1 "
                      "(lecteur PG/bearer manquant sur le siege ; remede : "
+                     "variable ORGAN_ENV_FILE = chemin du fichier du siege, ou "
                      "organe lance avec --env-file, sinon le dire sur #4729) :")
         for item in reader:
             lines.append(strip_declaration_tokens(
@@ -1794,23 +1799,57 @@ def _load_transport():
 # exiger aucun sourcing manuel du bearer.
 ORGAN_ENV_FILE = Path.home() / ".roo-state-manager" / "stall-detector.env"
 
+# #4901 : pointeur de siege. La variable ORGAN_ENV_FILE porte UNIQUEMENT le
+# chemin du fichier CLE=valeur deja present sur le siege (aucun secret n'est
+# copie : le bearer reste dans son fichier unique). Sans elle, un siege dont
+# le lanceur ne depose pas stall-detector.env et dont l'environnement de
+# session ne porte pas le bearer sort en 1 a CHAQUE appel sans drapeau.
+ORGAN_ENV_POINTER = "ORGAN_ENV_FILE"
+
 # Seules ces cles sont lues : un fichier d'environnement peut porter bien
 # d'autres secrets, l'organe ne materialise jamais les valeurs inutilisees.
 _ORGAN_ENV_KEYS = ("MCP_PROXY_BEARER", "MCP_PROXY_BASE_URL", "MCP_PROXY_URL")
 
 
-def load_organ_env_file(path):
+def resolve_env_file(cli_value, environ=None):
+    """Choisit le fichier d'environnement a lire — rend (chemin|None, source).
+
+    Precedence (#4901) : `--env-file` > variable ORGAN_ENV_FILE > defaut
+    `~/.roo-state-manager/stall-detector.env`. La variable ne porte qu'un
+    CHEMIN : aucun secret ne change de place. `--env-file ""` signifie
+    toujours « aucun fichier » — il desactive AUSSI le pointeur, sinon un
+    appelant qui veut explicitement se passer de fichier relirait la config
+    du siege (meme garantie que `--ring-bearer ""`, review #4677).
+
+    `source` vaut "cli", "pointer" ou "default" : un chemin pointe qui n'existe
+    pas doit avertir (le siege a declare une config qu'on ne trouve pas),
+    tandis que le defaut absent reste muet (#4672).
+    """
+    env = os.environ if environ is None else environ
+    if cli_value is not None:
+        return str(cli_value).strip() or None, "cli"
+    pointer = (env.get(ORGAN_ENV_POINTER) or "").strip()
+    if pointer:
+        return pointer, "pointer"
+    return str(ORGAN_ENV_FILE), "default"
+
+
+def load_organ_env_file(path, explicit=False):
     """Lit le fichier d'environnement de l'organe — rend (values, warning).
 
     Analyse uniquement des lignes nommees `CLE=valeur` (guillemets optionnels),
     jamais de sourcing shell. Fichier absent : pas un echec (#4672 — ai-01 n'a
     pas ce fichier, son bearer vient de l'environnement de son lanceur) : dict
-    vide, pas de warning. Fichier present mais illisible, mal decode ou porteur
-    de lignes inexploitables : warning, pour que l'appelant ne rende pas un
-    « sain » confiant sur une configuration qu'il n'a pas pu lire ; le
-    fail-closed existant (sans bearer, pas de lecture store) reste la garantie.
+    vide, pas de warning. SAUF si le chemin etait EXPLICITEMENT designe
+    (`explicit=True`, pointeur ORGAN_ENV_FILE #4901) : un pointeur pendouillant
+    signifie que le siege a declare une config introuvable, ce qui merite un
+    warning — sans jamais imprimer de valeur secrete, le chemin seul est cite.
+    Fichier present mais illisible, mal decode ou porteur de lignes
+    inexploitables : warning, pour que l'appelant ne rende pas un « sain »
+    confiant sur une configuration qu'il n'a pas pu lire ; le fail-closed
+    existant (sans bearer, pas de lecture store) reste la garantie.
     Aucune valeur — lue ou non — n'apparait dans le warning ni dans une
-    exception.
+    exception (seul le CHEMIN du fichier est cite, jamais son contenu).
     """
     if path is None or not str(path).strip():
         return {}, None
@@ -1818,6 +1857,10 @@ def load_organ_env_file(path):
     try:
         text = p.read_text(encoding="utf-8-sig")
     except FileNotFoundError:
+        if explicit:
+            return {}, (f"fichier d'environnement designe par "
+                        f"{ORGAN_ENV_POINTER} introuvable ({p}) — aucun secret "
+                        f"lu ; corriger le chemin du pointeur ou le retirer")
         return {}, None
     except (OSError, UnicodeDecodeError) as exc:
         return {}, (f"fichier d'environnement illisible ({p}) : "
@@ -2665,7 +2708,7 @@ def main(argv=None):
     parser.add_argument("--ring", action="store_true",
                         help="poste la sonnerie ASK-USER sur le dashboard GLOBAL "
                              "(bearer : --ring-bearer, MCP_PROXY_BEARER, puis "
-                             "fichier --env-file)")
+                             "fichier --env-file / ORGAN_ENV_FILE)")
     parser.add_argument("--ring-url", default=None,
                         help="base URL du mcp-proxy (defaut : MCP_PROXY_URL, "
                              "MCP_PROXY_BASE_URL, fichier --env-file, puis "
@@ -2674,10 +2717,13 @@ def main(argv=None):
                         help="bearer du mcp-proxy (defaut : MCP_PROXY_BEARER, "
                              "puis fichier --env-file ; une valeur vide "
                              "explicite = aucun bearer, sans repli)")
-    parser.add_argument("--env-file", default=str(ORGAN_ENV_FILE), metavar="PATH",
+    parser.add_argument("--env-file", default=None, metavar="PATH",
                         help="fichier CLE=valeur lu pour MCP_PROXY_BEARER / "
-                             "MCP_PROXY_BASE_URL (defaut : "
-                             f"{ORGAN_ENV_FILE} ; valeur vide = aucun fichier)")
+                             "MCP_PROXY_BASE_URL (defaut : la variable "
+                             f"{ORGAN_ENV_POINTER}, qui porte le CHEMIN du "
+                             "fichier du siege, puis "
+                             f"{ORGAN_ENV_FILE} ; valeur vide = aucun fichier, "
+                             "le pointeur compris)")
     parser.add_argument("--ring-timeout", type=float, default=10.0, metavar="SECONDS")
     parser.add_argument("--selftest", action="store_true", help="fixtures locales + sortie")
     args = parser.parse_args(argv)
@@ -2690,7 +2736,10 @@ def main(argv=None):
 
     # #4672 : le fichier d'environnement deploye par le lanceur compagnon est
     # lu ici — la commande canonique ne demande aucun sourcing manuel.
-    file_values, file_warning = load_organ_env_file(args.env_file)
+    # #4901 : le siege peut designer son fichier par ORGAN_ENV_FILE (chemin).
+    env_file, env_file_source = resolve_env_file(args.env_file)
+    explicit = env_file_source == "pointer"
+    file_values, file_warning = load_organ_env_file(env_file, explicit=explicit)
     if file_warning:
         print(f"WARNING: {file_warning} — poursuite ; sans bearer lisible, la "
               f"mesure reste fail-closed (pas de lecture store)",
@@ -2743,9 +2792,12 @@ def main(argv=None):
                 # rapport reste affiche, mais le code de sortie dit « je ne
                 # sais pas » — et une lane qui suit le mandat n'alerte pas le
                 # user sur un 2 qu'elle n'a pas les moyens de mesurer.
-                print("WARNING: MCP_PROXY_BEARER absent — le miroir G: n'est plus "
+                print(f"WARNING: MCP_PROXY_BEARER absent — le miroir G: n'est plus "
                       "ecrit depuis #4131 ; mesure DEGRADEE (sortie 1 quoi qu'il "
-                      "lise). Rejeu explicite : --dashboard-dir ou --dashboard-file.",
+                      "lise). Bearer du siege : variable "
+                      f"{ORGAN_ENV_POINTER} (chemin du fichier CLE=valeur du "
+                      "siege, à la portée User) ou --env-file. Rejeu "
+                      "explicite : --dashboard-dir ou --dashboard-file.",
                       file=sys.stderr)
                 degraded_source = True
                 degraded_reason = ("instrument incomplet : store PG non lu "
@@ -2811,7 +2863,8 @@ def main(argv=None):
         overdue = [e for e in escalations if e["status"] == "overdue"]
         if not args.ring_bearer:
             print("ERROR: --ring demande sans bearer (--ring-bearer, MCP_PROXY_BEARER "
-                  "ou fichier --env-file) — la sonnerie N'EST PAS partie",
+                  f"ou fichier --env-file / {ORGAN_ENV_POINTER}) — la sonnerie "
+                  "N'EST PAS partie",
                   file=sys.stderr)
             return 1
         outcome = publish_ring(overdue, args.ring_url, args.ring_bearer,

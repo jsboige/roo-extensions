@@ -942,6 +942,88 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(rings, [])
         self.assertIn("sans bearer", err.getvalue())
 
+    # --- #4901 : pointeur de siege ORGAN_ENV_FILE ---------------------------
+    # Valeurs FAUSSES seulement. Le pointeur porte un CHEMIN, jamais un secret :
+    # aucune valeur lue ne doit passer dans une sortie.
+
+    def ring_with_seat_pointer(self, env, extra_argv=()):
+        """main() --ring sur une escalade echue, SANS --env-file : le bearer
+        vient donc de la chaine par defaut (pointeur du siege). Sonnerie
+        captee, aucun reseau ; la config proxy ambiante du siege est retiree
+        pour que le test ne lise jamais la vraie."""
+        path = self.dashboard("ring-pointer.md", """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+""")
+        rings = []
+        original = cde.publish_ring
+        cde.publish_ring = lambda *a, **k: rings.append(a) or "posted"
+        self.addCleanup(setattr, cde, "publish_ring", original)
+        with mock.patch.dict(os.environ, dict(env)), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            for key in ("MCP_PROXY_BEARER", "MCP_PROXY_URL", "MCP_PROXY_BASE_URL"):
+                os.environ.pop(key, None)
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--ring", *extra_argv])
+        return code, rings, err.getvalue()
+
+    def test_resolve_env_file_precedence(self):
+        # --env-file > ORGAN_ENV_FILE > defaut du lanceur compagnon.
+        default = str(cde.ORGAN_ENV_FILE)
+        self.assertEqual(cde.resolve_env_file("/cli.env", {"ORGAN_ENV_FILE": "/seat.env"}),
+                         ("/cli.env", "cli"))
+        self.assertEqual(cde.resolve_env_file("", {"ORGAN_ENV_FILE": "/seat.env"}),
+                         (None, "cli"))
+        self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": " /seat.env "}),
+                         ("/seat.env", "pointer"))
+        self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": "   "}),
+                         (default, "default"))
+        self.assertEqual(cde.resolve_env_file(None, {}), (default, "default"))
+
+    def test_seat_pointer_is_honoured_without_any_flag(self):
+        # Le cas #4901 : la commande canonique, sans drapeau, trouve le bearer
+        # du siege designe par ORGAN_ENV_FILE — et ne l'imprime pas.
+        seat = self.dashboard("seat-4901.env", "MCP_PROXY_BEARER=pointer-bearer-4901\n")
+        code, rings, err = self.ring_with_seat_pointer({"ORGAN_ENV_FILE": str(seat)})
+        self.assertEqual(code, 2)
+        self.assertEqual(len(rings), 1)
+        self.assertEqual(rings[0][2], "pointer-bearer-4901")
+        self.assertNotIn("pointer-bearer-4901", err)
+
+    def test_cli_env_file_beats_the_seat_pointer(self):
+        seat = self.dashboard("seat-4901.env", "MCP_PROXY_BEARER=pointer-bearer-4901\n")
+        explicit = self.dashboard("explicit-4901.env", "MCP_PROXY_BEARER=cli-bearer-4901\n")
+        code, rings, err = self.ring_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(seat)}, ["--env-file", str(explicit)])
+        self.assertEqual(code, 2)
+        self.assertEqual(rings[0][2], "cli-bearer-4901")
+
+    def test_empty_cli_env_file_disables_the_pointer_too(self):
+        # `--env-file ""` = « aucun fichier » : il coupe AUSSI le pointeur,
+        # sinon un rejeu explicite relirait la config du siege.
+        seat = self.dashboard("seat-4901.env", "MCP_PROXY_BEARER=pointer-bearer-4901\n")
+        code, rings, err = self.ring_with_seat_pointer(
+            {"ORGAN_ENV_FILE": str(seat)}, ["--env-file", ""])
+        self.assertEqual(code, 1)
+        self.assertEqual(rings, [])
+        self.assertIn("sans bearer", err)
+        self.assertIn("ORGAN_ENV_FILE", err)
+
+    def test_dangling_pointer_exits_one_and_prints_no_value(self):
+        # Un pointeur vers un fichier absent : sortie 1, et le warning nomme la
+        # variable a corriger — jamais une valeur (un fichier voisin porte un
+        # faux bearer, qui ne doit pas passer dans la sortie).
+        self.dashboard("neighbour-4901.env", "MCP_PROXY_BEARER=neighbour-bearer-4901\n")
+        missing = self.root / "absent-4901.env"
+        code, rings, err = self.ring_with_seat_pointer({"ORGAN_ENV_FILE": str(missing)})
+        self.assertEqual(code, 1)
+        self.assertEqual(rings, [])
+        self.assertIn("ORGAN_ENV_FILE", err)
+        self.assertIn(str(missing), err)
+        self.assertIn("introuvable", err)
+        self.assertNotIn("neighbour-bearer-4901", err)
+        self.assertNotIn("MCP_PROXY_BEARER=", err)
+
     # --- #4643 : la condensation ne doit plus aveugler l'organe -------------
 
     def test_archived_repaired_closes_the_live_escalation(self):

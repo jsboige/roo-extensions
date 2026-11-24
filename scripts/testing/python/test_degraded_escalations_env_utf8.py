@@ -54,8 +54,10 @@ OVERDUE_WITH_ARROW = (
 )
 
 # L'ancre du temoin negatif n°1 : l'appel qui branche le fichier d'environnement.
+# #4901 : le chemin vient de resolve_env_file (--env-file > ORGAN_ENV_FILE > defaut) ;
+# `explicit` ne vaut que pour le pointeur (un chemin pointe introuvable avertit).
 _CALL_SITE = re.compile(
-    r"\n    file_values, file_warning = load_organ_env_file\(args\.env_file\)\n")
+    r"\n    file_values, file_warning = load_organ_env_file\(env_file, explicit=explicit\)\n")
 
 # L'ancre du temoin negatif n°2 : la boucle de reconfigure des flux, identique
 # a celle de probe-semantic-known-answer.py / g6-pass-bound.py.

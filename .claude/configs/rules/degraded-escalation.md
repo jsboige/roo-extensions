@@ -1,6 +1,6 @@
 # Environnement dégradé — escalade immédiate, échéance à 2 cycles
 
-**Version :** 1.2.0 · **Issue :** #4517 · #4746 · #4729 · **MAJ :** 2026-11-20
+**Version :** 1.2.1 · **Issue :** #4517 · #4746 · #4729 · #4901 · **MAJ :** 2026-11-24
 **Règle globale** — déployée dans `~/.claude/rules/` par
 `.claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules`. Corps canonique ici.
 
@@ -71,8 +71,10 @@ python scripts/diagnostic/check-degraded-escalations.py --env-file <fichier>  # 
 | `1` | instrument incomplet, ou sonnerie non partie | réparer l'instrument, ne pas conclure |
 
 Sortie `1` : la panne du **lecteur** de l'organe (bearer absent, `store-absent`)
-se range à part du compteur de service (#4729) — remède siège `--env-file`
-vers le fichier qui porte le bearer ; si l'exit `1` persiste, la panne est
+se range à part du compteur de service (#4729) — remède siège : la variable
+`ORGAN_ENV_FILE` (portée User) porte le **chemin** du fichier qui porte déjà le
+bearer ; l'organe la lit avant son fichier par défaut, rien n'est copié (#4901).
+Pour un appel seul, `--env-file <fichier>`. Si l'exit `1` persiste, la panne est
 celle du proxy/hôte (jamais un contournement de siège) : [détail](../../../docs/harness/reference/degraded-escalation.md).
 
 Défauts : `2 cycles × 4 h` (cadence des crons flotte `41 */4`), surchargeables par
