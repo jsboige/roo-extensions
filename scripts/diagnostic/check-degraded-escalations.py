@@ -1748,34 +1748,102 @@ def build_ring_content(overdue):
     return "\n".join(lines)
 
 
-def build_ring_id(overdue, now=None):
-    """Cle d'idempotence (#3276) : empreinte du lot + tranche de 24 h.
+def build_ring_id(overdue, now=None, seen_ring_entries=None):
+    """Cle d'idempotence (#3276) + decision de sonnerie (#4896, option b).
 
-    Meme lot -> UNE sonnerie par jour, pas une par tick ; un lot qui change
-    produit un id neuf ; le lendemain re-sonne tant que rien n'est repare.
+    Rend l'id a poster, ou `None` : ne RIEN sonner.
 
-    La cle ne porte PAS l'hote, et le lot est trie avant l'empreinte : deux
-    sieges qui mesurent le meme lot le meme jour calculent le meme id, et
-    l'append du dashboard ignore un id deja present. La regle demande a CHAQUE
-    lane de sonner sur un exit 2 ; avec l'hote dans la cle, chaque siege
-    postait sa propre entree (review #4677).
+    Tranche : meme lot, meme jour -> meme id (une sonnerie par jour, pas par
+    tick) ; le lendemain la tranche change -> re-sonne. La cle ne porte PAS
+    l'hote et le lot est trie avant l'empreinte : deux sieges qui mesurent le
+    meme etat calculent la meme decision (#4677), et l'append du dashboard
+    ignore un id deja present.
 
-    #4730 : l'empreinte porte le lot REPARABLE des qu'il y en a un (sinon tout
-    le lot). Un defaut connu de l'hote qui s'ajoute ne doit pas re-sonner le
-    meme jour alors que le lot reparable n'a pas bouge -- sinon chaque nouvelle
-    escalade d'un defaut qu'aucune lane ne peut reparer re-sonne le user sur
-    des pannes deja rangees a part.
+    #4730/#4729 : l'empreinte porte le lot REPARABLE des qu'il y en a un —
+    un defaut d'hote ou une panne de lecteur qui s'ajoute ne re-sonne pas le
+    jour ou la dette de service n'a pas bouge.
+
+    #4896 (decision (b), nouveaute jugee PAR LANE) : quand
+    `seen_ring_entries` est fourni (les entrees deja lues, dont le dashboard
+    `global`), le lot sonne est filtre aux lanes ABSENTES de toutes les
+    sonneries de la tranche courante. Une lane qui re-escalade dans la
+    tranche ne sonne pas (elle a deja ete sonnee) ; une lane NEUVE sonne ;
+    un lot qui RETRECIT ne sonne pas (sa seule lane reste dans les sonneries
+    vues -> lot vide -> `None`). Le lendemain, la tranche change et tout ce
+    qui reste echu re-sonne (les sonneries de la veille sont hors tranche).
+    `seen_ring_entries=None` (auto-appels internes, selftest) garde le
+    comportement d'origine : empreinte du lot entier, toujours une sonnerie
+    sur un exit 2.
     """
     now = now or time.time()
-    # #4729 : la panne du lecteur est exclue du lot comme le defaut d'hote --
-    # une nouvelle escalade d'instrument ne re-sonne pas le user le jour ou
-    # la dette de service n'a pas bouge.
+    # #4729 : la panne du lecteur est exclue du lot comme le defaut d'hote.
     repairable = [i for i in overdue
                   if not i.get("known_defect") and not i.get("reader_defect")]
     lot = repairable or overdue
+    if seen_ring_entries is not None:
+        already = ring_lanes_already_posted(seen_ring_entries, now=now)
+        lot = [i for i in lot if i["lane"] not in already]
+        if not lot:
+            return None  # decision (b) : lot retreci / lane deja sonnee
     payload = "|".join(sorted(f"{i['lane']}:{i['posted']}" for i in lot))
     digest = hashlib.md5(payload.encode("utf-8")).hexdigest()[:12]
     return f"degraded-escalation-{digest}-{int(now // 86400)}"
+
+
+def ring_lanes_already_posted(entries, now=None):
+    """Lanes deja sonnees dans la tranche de 24 h courante (#4896).
+
+    Parcourt les entrees DEJA LUES (le dashboard `global` fait partie du
+    store et du miroir — aucune lecture supplementaire) et rend l'ensemble
+    des lanes ciblees par une sonnerie de la tranche courante de `now`.
+    Une entree est une sonnerie si son id porte la forme
+    `degraded-escalation-` OU si elle porte le tag RING_TAG : l'id est le
+    marqueur principal, le tag rattrape une sonnerie dont l'id serait
+    illisible — sinon elle re-sonnerait ses lanes.
+
+    Les lanes ciblees sont lues dans le CORPS : une sonnerie est postee par
+    UNE lane mais EN LISTE toutes les lanes du lot ; seul le corps les porte.
+    Repli sur la lane AUTEUR si le corps n'en liste aucune (forme inconnue) :
+    ne jamais sous-compter une sonnerie vue.
+
+    La fonction est PURE et deux sieges qui ont lu le meme etat en rendent
+    le meme ensemble : la decision qui la consomme reste inter-sieges
+    (#4677), aucun hote n'y entre.
+    """
+    now = now or time.time()
+    slice_start = int(now // 86400) * 86400
+    posted = set()
+    for entry in entries:
+        identifier = entry.get("id") or ""
+        is_ring = identifier.startswith("degraded-escalation-") \
+            or RING_TAG in (entry.get("tags") or set())
+        if not is_ring:
+            continue
+        if int(entry["ts"].timestamp()) < slice_start:
+            continue  # sonnerie d'une tranche anterieure : hors decision
+        lanes = ring_lanes_from_body(entry.get("body") or "")
+        if lanes:
+            posted.update(lanes)
+        elif entry.get("lane"):
+            posted.add(entry["lane"])
+    return posted
+
+
+_RING_LANE_LINE_RE = re.compile(r"(?m)^- ([^\s]+) — ")
+
+
+def ring_lanes_from_body(body):
+    """Lanes listees dans le corps d'une sonnerie, dans l'ordre, dedoublonnees.
+
+    `build_ring_content` ecrie chaque lane du lot (reparable, defaut d'hote,
+    panne du lecteur) sur une ligne `- <lane> — ...` ; la liste du corps est
+    la source de la decision par lane, pas le champ auteur de l'entree.
+    """
+    lanes = []
+    for lane in _RING_LANE_LINE_RE.findall(body):
+        if lane not in lanes:
+            lanes.append(lane)
+    return lanes
 
 
 def _load_transport():
@@ -1921,19 +1989,27 @@ def resolve_proxy_config(cli_url, cli_bearer, file_values):
     return url, bearer
 
 
-def publish_ring(overdue, url, bearer, timeout=10.0, now=None):
-    """Poste la sonnerie. Rend `"posted"`, `"deduplicated"` ou None.
+def publish_ring(overdue, url, bearer, timeout=10.0, now=None,
+                 seen_ring_entries=None):
+    """Poste la sonnerie. Rend `"posted"`, `"deduplicated"`, `"muted"` ou None.
 
-    `"deduplicated"` : le serveur a reconnu l'id (un autre passage, ou un autre
-    siege, a deja sonne ce lot aujourd'hui) et n'a rien ecrit — la sonnerie
-    EXISTE, c'est un succes. None : la sonnerie n'est pas partie.
+    `"muted"` (#4896, decision (b)) : `build_ring_id` a rendu None — toutes
+    les lanes du lot ont deja ete sonnees dans la tranche (ou le lot a
+    retreci) : RIEN n'est poste, ce n'est ni un echec ni une livraison.
+    `"deduplicated"` : le serveur a reconnu l'id (un autre passage, ou un
+    autre siege, a deja sonne ce lot aujourd'hui) et n'a rien ecrit — la
+    sonnerie EXISTE, c'est un succes. None : la sonnerie n'est pas partie.
     """
+    ring_id = build_ring_id(overdue, now=now,
+                            seen_ring_entries=seen_ring_entries)
+    if ring_id is None:
+        return "muted"
     arguments = {
         "action": "append",
         "type": "global",
         "tags": ["ASK-USER", "DEGRADED-ESCALATION"],
         "content": build_ring_content(overdue),
-        "messageId": build_ring_id(overdue, now=now),
+        "messageId": ring_id,
     }
     result = _load_transport()(arguments, url, bearer, timeout=timeout,
                                client="degraded-escalations")
@@ -2867,8 +2943,20 @@ def main(argv=None):
                   "N'EST PAS partie",
                   file=sys.stderr)
             return 1
+        # #4896 (decision (b)) : les sonneries deja vues viennent des entrees
+        # DEJA LUES (le dashboard global en fait partie) — aucune lecture
+        # supplementaire ; la decision reste inter-sieges (aucun hote).
         outcome = publish_ring(overdue, args.ring_url, args.ring_bearer,
-                               timeout=args.ring_timeout, now=now.timestamp())
+                               timeout=args.ring_timeout, now=now.timestamp(),
+                               seen_ring_entries=entries)
+        if outcome == "muted":
+            # Decision (b) : toutes les lanes du lot ont deja ete sonnees
+            # dans la tranche (ou le lot a retreci) — pas de nouvelle
+            # sonnerie, l'echeance reste due et le lendemain re-sonne.
+            print(f"ring: echeance(s) due(s) mais lane(s) deja sonnee(s) dans "
+                  f"la tranche de 24 h (#4896) — aucune nouvelle sonnerie "
+                  f"({len(overdue)} escalade(s))", file=sys.stderr)
+            return 2
         if not outcome:
             print("ERROR: la sonnerie N'EST PAS partie (transport) — l'echeance "
                   "reste depassee, relancer au cycle suivant", file=sys.stderr)

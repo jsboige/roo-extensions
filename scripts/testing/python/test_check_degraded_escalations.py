@@ -855,6 +855,161 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertNotEqual(cde.build_ring_id([a, b], now=1750000000),
                             cde.build_ring_id([a], now=1750000000))
 
+    # --- #4896, decision coordinateur option (b) : nouveaute par lane --------
+    #
+    # Sur cb812aff, `build_ring_id` empreinte le LOT : toute escalade neuve
+    # change l'id -> une lane qui re-escalade a chaque cycle re-sonne le user
+    # toutes les 30 min pour une cause deja sonnee (mesure #4896 : 5 sonneries
+    # en ~5 h le 23/11). La decision (b) : la nouveaute se juge PAR LANE au
+    # sein de la tranche de 24 h courante, sur les sonneries DEJA VUES dans
+    # les entrees lues (le dashboard global fait partie du store — aucune
+    # lecture supplementaire). Un lot qui RETRECIT ne sonne jamais ; le
+    # lendemain, tout ce qui reste echu re-sonne (comportement actuel garde).
+
+    # Tranche de reference des fixtures : le debut de la tranche de 24 h qui
+    # contient l'instant `now` des tests ci-dessous.
+    SLICE0 = 1750000000 // 86400 * 86400
+
+    def ring_entries_for(self, lanes, at_epoch, body="- a|ws — degrade depuis "
+                                                        "2026-11-03T00:00:00Z"):
+        """Entrees-sonneries a la forme du store : tag RING_TAG + id de
+        sonnerie + corps listant les lanes (forme ecrite par
+        `build_ring_content`), a l'instant epoch `at_epoch`."""
+        entries = []
+        for lane in lanes:
+            ring_id = cde.build_ring_id(
+                [{"lane": lane, "posted": "fixed"}], now=at_epoch)
+            entries.append({
+                "ts": datetime.fromtimestamp(at_epoch, tz=timezone.utc),
+                "lane": lane,
+                "tags": {cde.RING_TAG},
+                "body": body,
+                "id": ring_id,
+            })
+        return entries
+
+    def test_same_lane_reescalation_same_slice_does_not_ring(self):
+        # La lane A a deja ete sonnee dans la tranche courante ; elle
+        # re-escalade 30 min plus tard. Tueur : sur cb812aff, le lot a change
+        # donc l'id aussi -> deuxieme sonnerie. Decision (b) : aucune.
+        overdue_a = [{"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen = self.ring_entries_for(["a|ws"], self.SLICE0 + 1800)
+        now_same_slice = self.SLICE0 + 3600
+        self.assertEqual(
+            cde.build_ring_id(overdue_a, now=now_same_slice,
+                              seen_ring_entries=seen),
+            None)
+
+    def test_new_lane_in_the_same_slice_rings(self):
+        # Une lane ABSENTE des sonneries de la tranche devient echue : elle
+        # sonne (decision (b), regle 1 : la nouveaute se juge par lane).
+        overdue_new = [{"lane": "b|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen = self.ring_entries_for(["a|ws"], self.SLICE0 + 1800)
+        now_same_slice = self.SLICE0 + 3600
+        ring_id = cde.build_ring_id(overdue_new, now=now_same_slice,
+                                    seen_ring_entries=seen)
+        self.assertIsNotNone(ring_id)
+
+    def test_shrinking_batch_does_not_ring(self):
+        # Le lot A+B a ete sonne ; A est repare, B reste echu. Le lot RETRECIT :
+        # aucune sonnerie (decision (b), regle 2).
+        overdue_b = [{"lane": "b|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen = self.ring_entries_for(
+            ["a|ws", "b|ws"], self.SLICE0 + 1800,
+            body="- a|ws — degrade depuis 2026-11-03T00:00:00Z\n"
+                 "- b|ws — degrade depuis 2026-11-03T00:00:00Z")
+        now_same_slice = self.SLICE0 + 3600
+        self.assertEqual(
+            cde.build_ring_id(overdue_b, now=now_same_slice,
+                              seen_ring_entries=seen),
+            None)
+
+    def test_next_slice_rings_what_remains_overdue(self):
+        # Le lendemain (nouvelle tranche), tout ce qui reste echu re-sonne —
+        # le comportement actuel est CONSERVE (decision (b), regle 3).
+        overdue_b = [{"lane": "b|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen = self.ring_entries_for(
+            ["a|ws", "b|ws"], self.SLICE0 + 1800,
+            body="- a|ws — degrade depuis 2026-11-03T00:00:00Z\n"
+                 "- b|ws — degrade depuis 2026-11-03T00:00:00Z")
+        now_next_day = self.SLICE0 + 86400 + 3600
+        ring_id = cde.build_ring_id(overdue_b, now=now_next_day,
+                                    seen_ring_entries=seen)
+        self.assertIsNotNone(ring_id)
+        # Et l'id porte la tranche du jour, pas celle de la veille.
+        self.assertIn(str(now_next_day // 86400), ring_id)
+
+    def test_ring_decision_is_seat_independent(self):
+        # #4677 garde : deux sieges qui lisent le MEME etat (meme lot echu,
+        # memes sonneries deja vues) calculent la MEME decision — avec ou sans
+        # sonnerie, et le meme id quand il sonne. Aucun hote dans la cle.
+        overdue = [{"lane": "b|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen = self.ring_entries_for(["a|ws"], self.SLICE0 + 1800)
+        now_same_slice = self.SLICE0 + 3600
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-AI-01",
+                                          "HOSTNAME": "MYIA-AI-01"}):
+            ai01_id = cde.build_ring_id(overdue, now=now_same_slice,
+                                        seen_ring_entries=seen)
+        with mock.patch.dict(os.environ, {"COMPUTERNAME": "MYIA-PO-2028",
+                                          "HOSTNAME": "MYIA-PO-2028"}):
+            po2028_id = cde.build_ring_id(overdue, now=now_same_slice,
+                                          seen_ring_entries=seen)
+        self.assertIsNotNone(ai01_id)
+        self.assertEqual(ai01_id, po2028_id)
+        self.assertNotIn("MYIA", ai01_id)
+
+    def test_seen_ring_entries_by_id_not_lane_only(self):
+        # Les sonneries deja vues se reconnaissent a leur ID (`degraded-…-`)
+        # OU a leur tag RING_TAG — une sonnerie dont l'id est illisible reste
+        # comptee par son tag, sinon elle re-sonnerait sa lane (repli auteur :
+        # le champ lane de l'entree).
+        overdue_x = [{"lane": "x|ws", "posted": "2026-11-03T00:00:00Z"}]
+        seen_tag_only = [{
+            "ts": datetime.fromtimestamp(self.SLICE0 + 1800, tz=timezone.utc),
+            "lane": "x|ws",
+            "tags": {cde.RING_TAG},
+            "body": "",  # aucune lane listee dans le corps : repli auteur
+            "id": None,
+        }]
+        self.assertEqual(
+            cde.build_ring_id(overdue_x, now=self.SLICE0 + 3600,
+                              seen_ring_entries=seen_tag_only),
+            None)
+
+    def test_host_defect_added_to_unchanged_repairable_does_not_ring(self):
+        # #4730 conserve sous la decision (b) : le lot reparable n'a pas
+        # bouge (lane A deja sonnee), un defaut d'hote s'ajoute — pas de
+        # sonnerie pour le defaut d'hote (hors de portee de toute lane).
+        overdue = [{"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"},
+                   {"lane": "h|ws", "posted": "2026-11-03T02:00:00Z",
+                    "known_defect": "#3345"}]
+        seen = self.ring_entries_for(["a|ws"], self.SLICE0 + 1800)
+        self.assertEqual(
+            cde.build_ring_id(overdue, now=self.SLICE0 + 3600,
+                              seen_ring_entries=seen),
+            None)
+
+    def test_reader_defect_added_to_unchanged_repairable_does_not_ring(self):
+        # #4729 conserve pareillement : une escalade de lecteur qui s'ajoute
+        # ne re-sonne pas le jour ou la dette de service n'a pas bouge.
+        overdue = [{"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"},
+                   {"lane": "r|ws", "posted": "2026-11-03T02:00:00Z",
+                    "reader_defect": True}]
+        seen = self.ring_entries_for(["a|ws"], self.SLICE0 + 1800)
+        self.assertEqual(
+            cde.build_ring_id(overdue, now=self.SLICE0 + 3600,
+                              seen_ring_entries=seen),
+            None)
+
+    def test_without_seen_entries_the_behaviour_is_unchanged(self):
+        # Compat : sans `seen_ring_entries` (appel existant, ex. selftest),
+        # l'id garde la forme empreinte-du-lot + tranche — le test
+        # `test_ring_id_is_stable_within_a_day` et ses voisins restent la loi.
+        item = {"lane": "a|ws", "posted": "2026-11-03T00:00:00Z"}
+        self.assertEqual(cde.build_ring_id([item], now=1750000000),
+                         cde.build_ring_id([item], now=1750000000,
+                                           seen_ring_entries=[]))
+
     def ring_through_fake_append(self, envelope):
         """main() --ring sur une escalade echue, append bouchonne qui rend
         `envelope` sous la forme du serveur (JSON indente de 2, comme
@@ -880,6 +1035,75 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                              "--ring", "--ring-bearer", "test-bearer",
                              "--env-file", ""])
         return code, calls, err.getvalue()
+
+    def ring_main_with_seen(self, seen_file_text):
+        """`main() --ring` avec, en PLUS du fichier d'escalade, le contenu
+        `seen_file_text` (sonneries deja vues) dans un deuxieme fichier ;
+        rend (code, appels transport, stderr)."""
+        escalade = self.dashboard("ring-escalade.md",
+                                  """### [2026-11-03T00:00:00.000Z] a|ws
+
+[DEGRADED] mcp muet
+""")
+        seen_file = self.dashboard("ring-seen.md", seen_file_text)
+        calls = []
+
+        def call(arguments, url, bearer, timeout=10.0, client=None, **_kw):
+            calls.append(arguments)
+            return {"content": [{"type": "text", "text":
+                                 json.dumps({"success": True,
+                                             "action": "append"}, indent=2)
+                                 + "\n[roosync_dashboard 12ms]"}]}
+
+        original = cde._load_transport
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", original)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--dashboard-file", str(escalade),
+                             "--dashboard-file", str(seen_file),
+                             "--now", NOW, "--ring",
+                             "--ring-bearer", "test-bearer",
+                             "--env-file", ""])
+        return code, calls, err.getvalue()
+
+    def test_main_ring_is_muted_when_lane_already_ringed_in_slice(self):
+        # E2E (#4896) : la lane a|ws a deja ete sonnee a 08:00 (meme tranche
+        # que NOW 09:00) — une escalade echue de la meme lane ne doit rien
+        # poster : exit 2, zero appel transport, message explicite.
+        seen = """### [2026-11-03T08:00:00.000Z] a|ws
+[msg: degraded-escalation-abc123def456-1]
+[tags: ASK-USER, DEGRADED-ESCALATION]
+
+[ASK-USER][DEGRADED-ESCALATION] 1 escalade(s) d'environnement degrade non reparee(s) dans les delais
+- a|ws — degrade depuis 2026-11-03T00:00:00Z, echeance 2026-11-03T08:00:00Z depassee : mcp muet
+"""
+        code, calls, err = self.ring_main_with_seen(seen)
+        self.assertEqual(code, 2)
+        self.assertEqual(calls, [])
+        self.assertIn("deja sonnee", err)
+        self.assertNotIn("postee sur le dashboard global", err)
+
+    def test_main_ring_fires_for_a_new_lane(self):
+        # E2E contre-temoin : la sonnerie vue couvre b|ws (pas a|ws) — a|ws
+        # est NEUVE dans la tranche, elle sonne.
+        seen = """### [2026-11-03T08:00:00.000Z] b|ws
+[msg: degraded-escalation-abc123def456-1]
+[tags: ASK-USER, DEGRADED-ESCALATION]
+
+[ASK-USER][DEGRADED-ESCALATION] 1 escalade(s) d'environnement degrade non reparee(s) dans les delais
+- b|ws — degrade depuis 2026-11-03T00:00:00Z, echeance 2026-11-03T08:00:00Z depassee : autre panne
+"""
+        code, calls, err = self.ring_main_with_seen(seen)
+        self.assertEqual(code, 2)
+        self.assertEqual([c["action"] for c in calls], ["append"])
+        self.assertIn("postee sur le dashboard global", err)
+
+    def test_main_ring_still_fires_without_seen(self):
+        # Contre-temoin de regression : sans aucune sonnerie vue (fichier vu
+        # vide), le comportement d'origine sonne.
+        code, calls, err = self.ring_main_with_seen("")
+        self.assertEqual(code, 2)
+        self.assertEqual([c["action"] for c in calls], ["append"])
 
     def test_deduplicated_ring_counts_as_delivered(self):
         # Un second siege sonne le meme lot le meme jour : le serveur rend
