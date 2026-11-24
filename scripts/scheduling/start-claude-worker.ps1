@@ -115,6 +115,22 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogMessage
 }
 
+# Same engine-portable parser as start-copilot-dispatcher.ps1 / spawn-claude.ps1 (#2368):
+# ConvertFrom-Json -AsHashtable is PS 7-only, JavaScriptSerializer is 5.1-only.
+# The worker runs under powershell.exe 5.1 on seats where pwsh is absent (#4900).
+function ConvertFrom-JsonToDictionary {
+    param([Parameter(Mandatory = $true)][string]$Json)
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
 # #2252: Injecter env vars MCP depuis ~/.claude.json dans le processus worker
 # Les env vars de mcpServers.roo-state-manager vont au serveur MCP uniquement,
 # PAS au subprocess claude -p. On les injecte manuellement ici.
@@ -125,9 +141,8 @@ try {
         # case-insensitive on property names and THROWS on case-colliding project keys
         # (e.g. "d:/vllm" vs "D:/vllm" in the projects map), which silently disabled this
         # injection and emitted "Injection env vars MCP échouée" on every run. -AsHashtable
-        # tolerates such keys. (PS7+; on PS5.1 it is unsupported and we fall through to the
-        # .env injection below, #2280, which carries the same vars.)
-        $ClaudeConfig = Get-Content $ClaudeConfigPath -Raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        # tolerates such keys. The portable helper keeps that behaviour on BOTH engines.
+        $ClaudeConfig = ConvertFrom-JsonToDictionary -Json (Get-Content $ClaudeConfigPath -Raw)
         $McpEnv = $ClaudeConfig.mcpServers.'roo-state-manager'.env
         if ($McpEnv) {
             foreach ($entry in $McpEnv.GetEnumerator()) {
@@ -155,9 +170,9 @@ $SkAgentEnvAllowList = @('SEARXNG_URL', 'HUB_BASE_URL')
 try {
     $SkAgentConfigPath = Join-Path $env:USERPROFILE ".claude.json"
     if (Test-Path $SkAgentConfigPath) {
-        # -AsHashtable for the same reason as the #2252 block above (PS7+; on PS5.1
-        # this returns $null and the block silently skips — no regression vs today).
-        $SkAgentClaudeConfig = Get-Content $SkAgentConfigPath -Raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        # Same parser as the #2252 block above: under 5.1, -AsHashtable raised a binding
+        # error and this block had no fallback, so SEARXNG_URL/HUB_BASE_URL were lost.
+        $SkAgentClaudeConfig = ConvertFrom-JsonToDictionary -Json (Get-Content $SkAgentConfigPath -Raw)
         $SkAgentEnv = $SkAgentClaudeConfig.mcpServers.'sk-agent'.env
         if ($SkAgentEnv) {
             foreach ($envVarName in $SkAgentEnvAllowList) {

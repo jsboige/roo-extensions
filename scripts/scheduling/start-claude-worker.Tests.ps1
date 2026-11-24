@@ -546,3 +546,127 @@ if ($null -ne [Environment]::GetEnvironmentVariable('GH_TOKEN','Process')) { 'GH
         $r.Log | Should -Not -Match 'INSUFFICIENT_SCOPES'
     }
 }
+
+# --- #4900: the shipped env-injection section must run under powershell.exe 5.1 ---
+# -AsHashtable is PS 7-only. SilentlyContinue does not make it return $null under 5.1:
+# it raises a parameter-binding error, the catch logs a WARN, and #4815 has no .env
+# fallback. Extract the SHIPPED section (not a reimplementation) and execute it against
+# a synthetic USERPROFILE. Values are compared, never printed: no real config or .env
+# is read, and neither the log nor stdout may carry a fixture value.
+Describe 'start-claude-worker.ps1 — #4900 env injection (behavioral, PS 5.1 child)' {
+    BeforeAll {
+        $script:ps51 = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $script:canRun4900 = $env:WINDIR -and (Test-Path -LiteralPath $script:ps51)
+        $m = [regex]::Match($script:src, '(?s)(# #2252:.*?)(?=# #2280:)')
+        if (-not $m.Success) { throw 'The #2252/#4815 injection section was not found' }
+        $script:injection4900 = $m.Groups[1].Value
+
+        # Extracted from the WORKER, not from the dispatcher it was copied from: a broken
+        # or missing worker helper must fail here, not be masked by a healthy sibling.
+        $m = [regex]::Match($script:src, '(?s)(function ConvertFrom-JsonToDictionary \{.*?\r?\n\})')
+        if (-not $m.Success) { throw 'ConvertFrom-JsonToDictionary not found in start-claude-worker.ps1' }
+        $script:helper4900 = $m.Groups[1].Value
+
+        $script:fixtureValues4900 = @(
+            'fixture-only-rsm-value-4900',
+            'fixture-only-searxng-value-4900',
+            'fixture-only-hub-value-4900'
+        )
+
+        $script:writeLog4900 = [regex]::Match($script:src, '(?s)(function Write-Log \{.*?\r?\n\})').Groups[1].Value
+        if (-not $script:writeLog4900) { throw 'Write-Log not found' }
+
+        function script:Invoke-EnvInjection4900([string]$Engine) {
+            $root = Join-Path $TestDrive ([guid]::NewGuid().ToString('N'))
+            $homeDir = Join-Path $root 'home'
+            New-Item -ItemType Directory -Path $homeDir -Force | Out-Null
+            $log = Join-Path $root 'worker.log'
+            $config = @'
+{
+  "projects": { "d:/case-collision": {}, "D:/case-collision": {} },
+  "mcpServers": {
+    "roo-state-manager": { "env": {
+      "WORKER_4900_RSM_FIXTURE": "fixture-only-rsm-value-4900",
+      "WORKER_4900_PRESET_FIXTURE": "must-not-be-overwritten"
+    } },
+    "sk-agent": { "env": {
+      "SEARXNG_URL": "fixture-only-searxng-value-4900",
+      "HUB_BASE_URL": "fixture-only-hub-value-4900",
+      "WORKER_4900_NOT_ALLOWED": "must-not-be-injected"
+    } }
+  }
+}
+'@
+            [System.IO.File]::WriteAllText((Join-Path $homeDir '.claude.json'), $config, (New-Object System.Text.UTF8Encoding $false))
+            $harness = @'
+$ErrorActionPreference = 'Continue'
+$env:USERPROFILE = '{HOME}'
+$env:WORKER_4900_PRESET_FIXTURE = 'original-process-value'
+foreach ($name in @('WORKER_4900_RSM_FIXTURE', 'SEARXNG_URL', 'HUB_BASE_URL', 'WORKER_4900_NOT_ALLOWED')) {
+    [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+}
+$LogFile = '{LOG}'
+{WRITELOG}
+{HELPER}
+{INJECTION}
+foreach ($name in @('WORKER_4900_RSM_FIXTURE', 'SEARXNG_URL', 'HUB_BASE_URL', 'WORKER_4900_NOT_ALLOWED', 'WORKER_4900_PRESET_FIXTURE')) {
+    $expected = switch ($name) {
+        'WORKER_4900_RSM_FIXTURE' { 'fixture-only-rsm-value-4900' }
+        'SEARXNG_URL' { 'fixture-only-searxng-value-4900' }
+        'HUB_BASE_URL' { 'fixture-only-hub-value-4900' }
+        'WORKER_4900_NOT_ALLOWED' { $null }
+        'WORKER_4900_PRESET_FIXTURE' { 'original-process-value' }
+    }
+    $actual = [Environment]::GetEnvironmentVariable($name, 'Process')
+    if ($null -eq $expected) { $ok = [string]::IsNullOrEmpty($actual) }
+    else { $ok = $actual -ceq $expected }
+    if ($ok) { "ASSERT|$name|OK" } else { "ASSERT|$name|WRONG" }
+}
+'@
+            $harness = $harness.Replace('{HOME}', $homeDir).Replace('{LOG}', $log).
+                Replace('{WRITELOG}', $script:writeLog4900).
+                Replace('{HELPER}', $script:helper4900).Replace('{INJECTION}', $script:injection4900)
+            $hp = Join-Path $root 'harness.ps1'
+            # BOM is required: powershell.exe 5.1 otherwise decodes the shipped
+            # non-ASCII comments as ANSI.
+            [System.IO.File]::WriteAllText($hp, $harness, (New-Object System.Text.UTF8Encoding $true))
+            $out = & $Engine -NoProfile -ExecutionPolicy Bypass -File $hp 2>&1
+            [pscustomobject]@{
+                Out = ($out -join "`n")
+                # Under 5.1 the shipped Add-Content writes ANSI, under 7 UTF-8: the accent
+                # is engine-dependent and not under test, so assertions match ASCII parts.
+                Log = if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log -Raw } else { '' }
+            }
+        }
+    }
+
+    It 'PS 5.1 injects both allow-listed sk-agent vars and the RSM env, preserving existing values and the allow-list' {
+        if (-not $script:canRun4900) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-EnvInjection4900 $script:ps51
+        $r.Out | Should -Not -Match 'WRONG'
+        foreach ($name in @('WORKER_4900_RSM_FIXTURE', 'SEARXNG_URL', 'HUB_BASE_URL', 'WORKER_4900_NOT_ALLOWED', 'WORKER_4900_PRESET_FIXTURE')) {
+            $r.Out | Should -Match "ASSERT\|$name\|OK"
+        }
+        $r.Log | Should -Match 'Env inject. \(sk-agent\): SEARXNG_URL'
+        $r.Log | Should -Match 'Env inject. \(sk-agent\): HUB_BASE_URL'
+        $r.Log | Should -Match 'Env inject.: WORKER_4900_RSM_FIXTURE'
+        $r.Log | Should -Not -Match 'AsHashtable|Injection env.*échouée'
+    }
+
+    It 'no fixture value reaches the log or stdout' {
+        if (-not $script:canRun4900) { Set-ItResult -Skipped -Because 'powershell.exe 5.1 absent'; return }
+        $r = Invoke-EnvInjection4900 $script:ps51
+        foreach ($value in $script:fixtureValues4900) {
+            $r.Log | Should -Not -Match ([regex]::Escape($value))
+            $r.Out | Should -Not -Match ([regex]::Escape($value))
+        }
+    }
+
+    It 'the same shipped section remains green under the current PowerShell 7+ engine' {
+        if ($PSVersionTable.PSVersion.Major -lt 7) { Set-ItResult -Skipped -Because 'PowerShell 7+ absent'; return }
+        $r = Invoke-EnvInjection4900 (Get-Process -Id $PID).Path
+        $r.Out | Should -Not -Match 'WRONG'
+        $r.Out | Should -Match 'ASSERT\|SEARXNG_URL\|OK'
+        $r.Log | Should -Not -Match 'AsHashtable|Injection env.*échouée'
+    }
+}
