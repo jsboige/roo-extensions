@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "updated": "2026-10-31",
+  "updated": "2026-11-24",
   "source_issue": "https://github.com/jsboige/roo-extensions/issues/2416",
   "scope": "Claude Code seat only (~/.claude.json). Roo/Zoo-side MCP config lives in %APPDATA% mcp_settings.json and is out of scope.",
   "semantics": {
     "required": "must be installed user-scope AND not disabled for the verified workspace (location 3 primes, #3137)",
-    "allowed": "optional; presence legitimate. Includes router/hub-injected remote MCPs (4_5v_mcp, web_reader), activate-on-need servers (jupyter-papermill, harnais-tightening rule 2), and win-cli (the local fork serving the Roo/Zoo scheduler — legitimate on seats that host it, absent elsewhere; #4336)",
+    "allowed": "optional; presence legitimate. Includes router/hub-injected remote MCPs (4_5v_mcp, web_reader), activate-on-need servers (jupyter-papermill, harnais-tightening rule 2), and win-cli (the local fork serving the Roo/Zoo scheduler — legitimate on seats that host it, absent elsewhere; #4336). UNEXPECTED_SERVER is judged on user-scope installs plus the workspace and project installs of the verified workspace only — a server wired by a neighbour project is not this workspace's finding (#4917)",
     "retired": "must not exist anywhere (#3423); names remain in the RSM RETIRED_MCP_NAMES guard",
     "machine_override": "a list present at machine level REPLACES the fleet_common list (explicit over merged)"
   },
