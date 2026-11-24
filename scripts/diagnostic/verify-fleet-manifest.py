@@ -7,12 +7,15 @@ Prototype of the "fleet extension manifest" adaptation lead (pi-agent comparativ
 study §7 lead #2, issue #2416; pattern source: devstack pi-packages.json).
 READ-ONLY: this tool never writes, to the config or anywhere else.
 
-Checks the three MCP state locations of ~/.claude.json (#3137):
+Checks the three MCP state locations of ~/.claude.json (#3137), plus the
+project-scoped <project>/.mcp.json file (#4904):
   1. user-scope `mcpServers`                    -> the installed set
   2. `projects[<path>].mcpServers`              -> workspace-scoped installs
   3. `projects[<path>].disabledMcpServers`      -> per-workspace disables (PRIMES
      over locations 1/2; indexed by ABSOLUTE workspace path — a relocated
      workspace turns its disable into a ghost, #4195)
+  4. `<project>/.mcp.json`.mcpServers           -> project-file installs, NAMES
+     only (the mapping's values can contain credentials; never read or report them)
 
 Findings:
   MANIFEST_UNKNOWN       (error)  machine not described in the manifest
@@ -30,7 +33,8 @@ Findings:
 
 `required` is checked against location 1 only; `retired`/`allowed` (hence
 UNEXPECTED_SERVER) and the residue disable check scan the union of locations
-1 and 2 — a server installed workspace-scope is "present" for those classes.
+1, 2 and 4 — a server installed workspace- or project-scope is "present" for
+those classes.
 
 Only server NAMES and booleans are ever printed — no config values.
 
@@ -114,13 +118,40 @@ def connector_names(cfg):
     return {n for n in raw if isinstance(n, str)}
 
 
+def project_server_names(path):
+    """Server names a workspace declares in its own `<workspace>/.mcp.json` (#4904).
+
+    Claude Code's project scope is a FILE next to the project, not an entry in
+    `~/.claude.json` — and it is exactly how the notebook fallback must be wired
+    (harnais-tightening.md §2, #4340). Ignoring it made the disable of such a
+    server read as residue on every session start (po-2023 FRICTION 23/11).
+
+    Only NAMES are read: `mcpServers` values can carry `env` secrets, so the
+    parsed mapping is never returned, logged or interpolated. An absent,
+    unreadable, malformed or wrongly-shaped file declares nothing — silently,
+    because this probe runs at every session start.
+    """
+    if not isinstance(path, str) or not path:
+        return set()
+    try:
+        with open(os.path.join(path, ".mcp.json"), encoding="utf-8-sig") as f:
+            data = json.load(f)
+        servers = data.get("mcpServers", {}) if isinstance(data, dict) else {}
+        if not isinstance(servers, dict):
+            return set()
+        return {name for name in servers if isinstance(name, str)}
+    except (OSError, ValueError):
+        return set()
+
+
 def scan_config(cfg, workspace_norm):
     """Extract effective MCP state from a parsed ~/.claude.json.
 
     Returns (installs, workspace_disables, ghost_disable_paths,
     disables_of_uninstalled, user_installs). `installs` is the union of
-    locations 1 and 2; `user_installs` is location 1 alone — the set
-    semantics.required is checked against (PR #4338 reserve (A)).
+    locations 1 and 2 plus the project-scoped `<path>/.mcp.json` of every
+    project the config knows about (#4904); `user_installs` is location 1
+    alone — the set semantics.required is checked against (PR #4338 reserve (A)).
     """
     user_installs = set(cfg.get("mcpServers", {}).keys())
     installs = set(user_installs)
@@ -131,6 +162,7 @@ def scan_config(cfg, workspace_norm):
     for path, entry in (cfg.get("projects", {}) or {}).items():
         ws_servers = set((entry.get("mcpServers") or {}).keys())
         installs |= ws_servers
+        installs |= project_server_names(path)
         dis = parse_disables(entry)
         if not dis:
             continue
@@ -211,7 +243,7 @@ def selftest():
     manifest = {
         "fleet_common": {
             "required": ["roo-state-manager"],
-            "allowed": ["searxng"],
+            "allowed": ["searxng", "jupyter-papermill"],
             "retired": ["quickfiles"],
         },
         "machines": {
@@ -285,10 +317,85 @@ def selftest():
              {"mcpServers": {"roo-state-manager": {}},
               "projects": {live_ws: {"disabledMcpServers": ["Some Connector"]}}},
              "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
+            # Control for the project .mcp.json cases below: the SAME disable under
+            # the SAME workspace, with no .mcp.json there — still a residue. It
+            # keeps the class alive once the next case stops flagging it (#4904).
+            ("disable-of-uninstalled-without-project-mcp-json",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["X"]}}},
+             "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
+            # A server installed ONLY by the project's .mcp.json is installed. That
+            # is the canonical wiring of the notebook fallback (harnais-tightening
+            # §2, #4340), and it was reported as residue on every session start
+            # (po-2023 FRICTION 23/11; #4904). Fixture uses the real server name —
+            # it is manifest-allowed by this synthetic manifest — and the control below
+            # uses a name that is NOT allowed, so the residue class stays discriminating.
+            ("project-mcp-json-server-is-installed",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["jupyter-papermill"]}}},
+             "myia-test", live_ws, False, []),
+            # Control, same file: a server the manifest does not allow is still
+            # UNEXPECTED_SERVER. The fix must not mute that class.
+            ("project-mcp-json-unknown-server-still-flagged",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["mystery-mcp"]}}},
+             "myia-test", live_ws, False, ["UNEXPECTED_SERVER"]),
+            # `required` keeps meaning location 1 (PR #4338 reserve (A)): a server
+            # wired only through .mcp.json does not satisfy it.
+            ("required-still-user-scope-only",
+             {"mcpServers": {}, "projects": {live_ws: {}}},
+             "myia-test", live_ws, False, ["MISSING_REQUIRED"]),
+            # The union feeds RETIRED_PRESENT too: a retired server wired through
+            # .mcp.json is present, and used to be invisible to this probe.
+            ("retired-server-via-project-mcp-json",
+             {"mcpServers": {"roo-state-manager": {}}, "projects": {live_ws: {}}},
+             "myia-test", live_ws, False, ["RETIRED_PRESENT"]),
+            # Tolerant read: an unreadable file (here a DIRECTORY where the file
+            # should be — the only unreadable shape portable across OSes and
+            # root), invalid JSON, or a `mcpServers` of the wrong shape must not
+            # crash the probe, and leave the disable a residue.
+            ("unreadable-project-mcp-json-is-ignored",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["X"]}}},
+             "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
+            ("invalid-json-project-mcp-json-is-ignored",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["X"]}}},
+             "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
+            ("wrong-shape-project-mcp-json-is-ignored",
+             {"mcpServers": {"roo-state-manager": {}},
+              "projects": {live_ws: {"disabledMcpServers": ["X"]}}},
+             "myia-test", live_ws, False, ["DISABLE_OF_UNINSTALLED"]),
         ]
+
+        # Project .mcp.json state per case (#4904): what live_ws/.mcp.json holds
+        # when the case runs. A label absent from this table means NO file.
+        # "DIR" = a directory where the file should be (unreadable on every OS).
+        live_mcp_json = os.path.join(live_ws, ".mcp.json")
+        mcp_json_by_label = {
+            "project-mcp-json-server-is-installed": b'{"mcpServers": {"jupyter-papermill": {"command": "x"}}}',
+            "project-mcp-json-unknown-server-still-flagged": b'{"mcpServers": {"mystery-mcp": {"command": "x"}}}',
+            "required-still-user-scope-only": b'{"mcpServers": {"roo-state-manager": {}}}',
+            "retired-server-via-project-mcp-json": b'{"mcpServers": {"quickfiles": {}}}',
+            "unreadable-project-mcp-json-is-ignored": "DIR",
+            "invalid-json-project-mcp-json-is-ignored": b'{"mcpServers": {',
+            "wrong-shape-project-mcp-json-is-ignored": b'{"mcpServers": ["X"]}',
+        }
+
+        def stage_mcp_json(state):
+            if os.path.isdir(live_mcp_json):
+                os.rmdir(live_mcp_json)
+            elif os.path.exists(live_mcp_json):
+                os.remove(live_mcp_json)
+            if state == "DIR":
+                os.mkdir(live_mcp_json)
+            elif state is not None:
+                with open(live_mcp_json, "wb") as f:
+                    f.write(state)
 
         passed = 0
         for label, cfg, machine, workspace, strict, expected in cases:
+            stage_mcp_json(mcp_json_by_label.get(label))
             got = [f["code"] for f in verify(cfg, manifest, machine, norm_path(workspace), strict)]
             ok = sorted(got) == sorted(expected)
             if label == "strict-promotes-warn":
