@@ -300,7 +300,21 @@ function Get-FleetNoteAcknowledgement {
     if ($envelope.result.PSObject.Properties['isError'] -and $envelope.result.isError) { return (& $fail 'MCP result isError:true') }
     $parts = @(@($envelope.result.content) | Where-Object { $_ -and $_.PSObject.Properties['text'] -and $_.text })
     if ($parts.Count -eq 0) { return (& $fail 'MCP result has no text content') }
-    try { $tool = "$($parts[0].text)" | ConvertFrom-Json -ErrorAction Stop } catch { return (& $fail 'tool result text is not JSON') }
+    # #4921: the server appends footers to this text -- "\n\n[<stopwatch> tool NNms]"
+    # (injectDuration) and "[NOTIF] ..." lines -- so a successful append is not
+    # pure JSON. Those footers carry no brace: when the text opens on JSON, the
+    # object is the slice from its first '{' to its last '}'. A text that does
+    # not open on JSON is still refused, never parsed out of its prose.
+    $toolText = "$($parts[0].text)"
+    $tool = $null
+    try { $tool = $toolText | ConvertFrom-Json -ErrorAction Stop } catch { }
+    if ($null -eq $tool) {
+        $open = $toolText.IndexOf('{'); $close = $toolText.LastIndexOf('}')
+        if ($toolText.TrimStart().StartsWith('{') -and $close -gt $open) {
+            try { $tool = $toolText.Substring($open, $close - $open + 1) | ConvertFrom-Json -ErrorAction Stop } catch { }
+        }
+    }
+    if ($null -eq $tool) { return (& $fail 'tool result text is not JSON') }
     if ($tool.PSObject.Properties['success'] -and $tool.success -and $tool.action -eq 'append') {
         return @{ Ok = $true; Deduplicated = [bool]$tool.deduplicated }
     }
