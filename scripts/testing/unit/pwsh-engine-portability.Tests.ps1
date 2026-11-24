@@ -144,11 +144,8 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         # the parameter (measured on this tree 2026-09-08: 10 piped call sites, 14 prose
         # mentions, zero overlap).
         #
-        # Two files are exempt, for opposite reasons:
-        #   - this test file quotes the pattern inside its own assertions;
-        #   - start-claude-worker.ps1 DOCUMENTS a deliberate 5.1 fall-through to the #2280
-        #     .env injection, which carries the same variables. Occurrence, not defect.
-        $exempt      = @('pwsh-engine-portability.Tests.ps1', 'start-claude-worker.ps1')
+        # One file is exempt: this test file quotes the pattern inside its own assertions.
+        $exempt      = @('pwsh-engine-portability.Tests.ps1')
         $callPattern = '\|\s*ConvertFrom-Json\s+-AsHashtable'
         $scriptsRoot = Join-Path $PSScriptRoot '../..'
 
