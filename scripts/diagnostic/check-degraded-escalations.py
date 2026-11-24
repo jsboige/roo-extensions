@@ -70,7 +70,8 @@ Usage :
     python check-degraded-escalations.py                       # commande canonique : lit le store PG
                                                                # (bearer : --ring-bearer, MCP_PROXY_BEARER,
                                                                #  puis le fichier designe par --env-file /
-                                                               #  ORGAN_ENV_FILE / ~/.roo-state-manager/
+                                                               #  ORGAN_ENV_FILE (process, puis registre
+                                                               #  HKCU\\Environment) / ~/.roo-state-manager/
                                                                #  stall-detector.env — #4901)
     python check-degraded-escalations.py --cycles 2 --cycle-hours 4
     python check-degraded-escalations.py --json
@@ -101,6 +102,13 @@ import time
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
+
+# #4901 : present uniquement sous Windows — le repli lecture-seule du pointeur
+# de siege dans HKCU\Environment en a besoin (read_hkcu_env_pointer).
+try:
+    import winreg
+except ImportError:
+    winreg = None
 
 DEFAULT_SHARED = Path("G:/Mon Drive/Synchronisation/RooSync/.shared-state")
 DEFAULT_CYCLES = 2
@@ -1872,6 +1880,9 @@ ORGAN_ENV_FILE = Path.home() / ".roo-state-manager" / "stall-detector.env"
 # copie : le bearer reste dans son fichier unique). Sans elle, un siege dont
 # le lanceur ne depose pas stall-detector.env et dont l'environnement de
 # session ne porte pas le bearer sort en 1 a CHAQUE appel sans drapeau.
+# Une session OUVERTE avant la pose du pointeur (instance VS Code demarree
+# avant le setx) n'a pas la variable dans son environnement de processus :
+# le repli lecture-seule de HKCU\Environment la retrouve sans redemarrage.
 ORGAN_ENV_POINTER = "ORGAN_ENV_FILE"
 
 # Seules ces cles sont lues : un fichier d'environnement peut porter bien
@@ -1879,24 +1890,57 @@ ORGAN_ENV_POINTER = "ORGAN_ENV_FILE"
 _ORGAN_ENV_KEYS = ("MCP_PROXY_BEARER", "MCP_PROXY_BASE_URL", "MCP_PROXY_URL")
 
 
+def read_hkcu_env_pointer():
+    """Relecture LECTURE SEULE du pointeur de siege dans `HKCU\\Environment`.
+
+    #4901 : une session ouverte avant la pose du pointeur (ex. instance VS
+    Code demarree avant le setx) n'a pas ORGAN_ENV_FILE dans son
+    environnement de processus, alors que le registre porte deja le CHEMIN.
+    Ne lit QUE cette variable — aucune autre valeur n'est materialisee, et
+    rien n'est jamais ecrit (acces `KEY_READ` uniquement). Non-Windows, cle
+    absente, valeur absente/vide, lecture en echec : `None` — repli silencieux
+    sur l'etache suivante de la precedence.
+    """
+    if winreg is None:
+        return None
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Environment", 0,
+                             winreg.KEY_READ) as key:
+            value, _regtype = winreg.QueryValueEx(key, ORGAN_ENV_POINTER)
+    except (OSError, KeyError, ValueError):
+        return None
+    value = str(value).strip()
+    return value or None
+
+
 def resolve_env_file(cli_value, environ=None):
     """Choisit le fichier d'environnement a lire — rend (chemin|None, source).
 
-    Precedence (#4901) : `--env-file` > variable ORGAN_ENV_FILE > defaut
+    Precedence (#4901) : `--env-file` > variable ORGAN_ENV_FILE du processus
+    > ORGAN_ENV_FILE de `HKCU\\Environment` (Windows, lecture seule — les
+    sessions ouvertes avant la pose du pointeur) > defaut
     `~/.roo-state-manager/stall-detector.env`. La variable ne porte qu'un
     CHEMIN : aucun secret ne change de place. `--env-file ""` signifie
-    toujours « aucun fichier » — il desactive AUSSI le pointeur, sinon un
-    appelant qui veut explicitement se passer de fichier relirait la config
-    du siege (meme garantie que `--ring-bearer ""`, review #4677).
+    toujours « aucun fichier » — il desactive AUSSI le pointeur, process
+    comme registre, sinon un appelant qui veut explicitement se passer de
+    fichier relirait la config du siege (meme garantie que `--ring-bearer ""`,
+    review #4677).
 
-    `source` vaut "cli", "pointer" ou "default" : un chemin pointe qui n'existe
-    pas doit avertir (le siege a declare une config qu'on ne trouve pas),
-    tandis que le defaut absent reste muet (#4672).
+    `source` vaut "cli", "pointer" ou "default" : "pointer" couvre la variable
+    de process ET son repli registre (un meme contrat de source pour tous les
+    consommateurs de la fonction — un label distinct ferait silencieusement
+    dechirer les tests `source == "pointer"` des autres outils de la flotte) ;
+    un chemin pointe qui n'existe pas doit avertir (le siege a declare une
+    config qu'on ne trouve pas), tandis que le defaut absent reste muet
+    (#4672).
     """
     env = os.environ if environ is None else environ
     if cli_value is not None:
         return str(cli_value).strip() or None, "cli"
     pointer = (env.get(ORGAN_ENV_POINTER) or "").strip()
+    if pointer:
+        return pointer, "pointer"
+    pointer = read_hkcu_env_pointer()
     if pointer:
         return pointer, "pointer"
     return str(ORGAN_ENV_FILE), "default"
@@ -2797,9 +2841,11 @@ def main(argv=None):
                         help="fichier CLE=valeur lu pour MCP_PROXY_BEARER / "
                              "MCP_PROXY_BASE_URL (defaut : la variable "
                              f"{ORGAN_ENV_POINTER}, qui porte le CHEMIN du "
-                             "fichier du siege, puis "
-                             f"{ORGAN_ENV_FILE} ; valeur vide = aucun fichier, "
-                             "le pointeur compris)")
+                             "fichier du siege — process, puis registre "
+                             "HKCU\\Environment sous Windows (lecture seule, "
+                             "sessions ouvertes avant la pose du pointeur) — "
+                             f"puis {ORGAN_ENV_FILE} ; valeur vide = aucun "
+                             "fichier, les pointeurs compris)")
     parser.add_argument("--ring-timeout", type=float, default=10.0, metavar="SECONDS")
     parser.add_argument("--selftest", action="store_true", help="fixtures locales + sortie")
     args = parser.parse_args(argv)
@@ -2812,7 +2858,9 @@ def main(argv=None):
 
     # #4672 : le fichier d'environnement deploye par le lanceur compagnon est
     # lu ici — la commande canonique ne demande aucun sourcing manuel.
-    # #4901 : le siege peut designer son fichier par ORGAN_ENV_FILE (chemin).
+    # #4901 : le siege peut designer son fichier par ORGAN_ENV_FILE (chemin),
+    # process d'abord, registre HKCU\Environment ensuite (sessions ouvertes
+    # avant la pose du pointeur).
     env_file, env_file_source = resolve_env_file(args.env_file)
     explicit = env_file_source == "pointer"
     file_values, file_warning = load_organ_env_file(env_file, explicit=explicit)

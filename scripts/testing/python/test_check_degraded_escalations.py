@@ -1193,16 +1193,19 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def test_resolve_env_file_precedence(self):
         # --env-file > ORGAN_ENV_FILE > defaut du lanceur compagnon.
+        # Le repli registre est masque : ce test unitaire ne doit jamais
+        # toucher le HKCU\Environment reel du siege.
         default = str(cde.ORGAN_ENV_FILE)
-        self.assertEqual(cde.resolve_env_file("/cli.env", {"ORGAN_ENV_FILE": "/seat.env"}),
-                         ("/cli.env", "cli"))
-        self.assertEqual(cde.resolve_env_file("", {"ORGAN_ENV_FILE": "/seat.env"}),
-                         (None, "cli"))
-        self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": " /seat.env "}),
-                         ("/seat.env", "pointer"))
-        self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": "   "}),
-                         (default, "default"))
-        self.assertEqual(cde.resolve_env_file(None, {}), (default, "default"))
+        with mock.patch.object(cde, "read_hkcu_env_pointer", return_value=None):
+            self.assertEqual(cde.resolve_env_file("/cli.env", {"ORGAN_ENV_FILE": "/seat.env"}),
+                             ("/cli.env", "cli"))
+            self.assertEqual(cde.resolve_env_file("", {"ORGAN_ENV_FILE": "/seat.env"}),
+                             (None, "cli"))
+            self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": " /seat.env "}),
+                             ("/seat.env", "pointer"))
+            self.assertEqual(cde.resolve_env_file(None, {"ORGAN_ENV_FILE": "   "}),
+                             (default, "default"))
+            self.assertEqual(cde.resolve_env_file(None, {}), (default, "default"))
 
     def test_seat_pointer_is_honoured_without_any_flag(self):
         # Le cas #4901 : la commande canonique, sans drapeau, trouve le bearer
@@ -1247,6 +1250,172 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertIn("introuvable", err)
         self.assertNotIn("neighbour-bearer-4901", err)
         self.assertNotIn("MCP_PROXY_BEARER=", err)
+
+    # --- #4901 suite : repli registre HKCU\Environment (lecture seule) ------
+    # Une session OUVERTE avant la pose du pointeur (instance VS Code demarree
+    # avant le setx) n'a pas ORGAN_ENV_FILE dans son environnement de
+    # processus, alors que le registre porte deja le CHEMIN. Relecture
+    # lecture-seule, chemin seulement, valeurs FAUSSES.
+
+    def test_resolve_env_file_hkcu_fallback_when_process_env_missing(self):
+        # Le repli registre rend la source "pointer" (CONTRAT partage avec les
+        # autres outils de la flotte qui testent `source == "pointer"` — un
+        # label distinct les dechirerait silencieusement).
+        with mock.patch.object(cde, "read_hkcu_env_pointer",
+                                return_value=r"C:\fake\seat-4901b.env") as reader:
+            self.assertEqual(cde.resolve_env_file(None, {}),
+                             (r"C:\fake\seat-4901b.env", "pointer"))
+            reader.assert_called_once()
+
+    def test_resolve_env_file_process_pointer_wins_over_hkcu(self):
+        with mock.patch.object(cde, "read_hkcu_env_pointer",
+                                return_value=r"C:\fake\other-4901b.env") as reader:
+            self.assertEqual(
+                cde.resolve_env_file(None, {"ORGAN_ENV_FILE": "/seat.env"}),
+                ("/seat.env", "pointer"))
+            reader.assert_not_called()
+
+    def test_resolve_env_file_cli_forms_bypass_hkcu(self):
+        with mock.patch.object(cde, "read_hkcu_env_pointer",
+                                return_value=r"C:\fake\other-4901b.env") as reader:
+            self.assertEqual(cde.resolve_env_file("/cli.env", {}), ("/cli.env", "cli"))
+            self.assertEqual(cde.resolve_env_file("", {}), (None, "cli"))
+            reader.assert_not_called()
+
+    def test_resolve_env_file_hkcu_absent_falls_to_default(self):
+        default = str(cde.ORGAN_ENV_FILE)
+        with mock.patch.object(cde, "read_hkcu_env_pointer", return_value=None):
+            self.assertEqual(cde.resolve_env_file(None, {}), (default, "default"))
+
+    def test_read_hkcu_env_pointer_without_winreg_is_none(self):
+        with mock.patch.object(cde, "winreg", None):
+            self.assertIsNone(cde.read_hkcu_env_pointer())
+
+    def test_read_hkcu_env_pointer_reads_path_read_only(self):
+        opened = {}
+
+        class FakeKey:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        class FakeWinreg:
+            HKEY_CURRENT_USER = 0x80000001
+            KEY_READ = 0x20000
+
+            @staticmethod
+            def OpenKey(root, subkey, reserved, access):
+                opened["subkey"] = subkey
+                opened["access"] = access
+                return FakeKey()
+
+            @staticmethod
+            def QueryValueEx(key, name):
+                opened["name"] = name
+                return (r"C:\fake\seat-4901b.env", 1)
+
+        with mock.patch.object(cde, "winreg", FakeWinreg):
+            self.assertEqual(cde.read_hkcu_env_pointer(), r"C:\fake\seat-4901b.env")
+        self.assertEqual(opened["subkey"], "Environment")
+        self.assertEqual(opened["name"], "ORGAN_ENV_FILE")
+        self.assertEqual(opened["access"], FakeWinreg.KEY_READ)
+
+    def test_read_hkcu_env_pointer_missing_value_is_none(self):
+        class FakeKey:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        class FakeWinreg:
+            HKEY_CURRENT_USER = 0x80000001
+            KEY_READ = 0x20000
+
+            @staticmethod
+            def OpenKey(root, subkey, reserved, access):
+                return FakeKey()
+
+            @staticmethod
+            def QueryValueEx(key, name):
+                raise FileNotFoundError("value absente")
+
+        with mock.patch.object(cde, "winreg", FakeWinreg):
+            self.assertIsNone(cde.read_hkcu_env_pointer())
+
+    def test_read_hkcu_env_pointer_blank_value_is_none(self):
+        class FakeKey:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        class FakeWinreg:
+            HKEY_CURRENT_USER = 0x80000001
+            KEY_READ = 0x20000
+
+            @staticmethod
+            def OpenKey(root, subkey, reserved, access):
+                return FakeKey()
+
+            @staticmethod
+            def QueryValueEx(key, name):
+                return ("   ", 1)
+
+        with mock.patch.object(cde, "winreg", FakeWinreg):
+            self.assertIsNone(cde.read_hkcu_env_pointer())
+
+    def test_hkcu_pointer_honoured_without_any_flag(self):
+        # e2e : sans --env-file, sans variable dans l'environnement de
+        # processus (efface) — le pointeur du registre porte le bearer du
+        # siege. Rien ne fuit dans la sortie.
+        seat = self.dashboard("seat-hkcu-4901b.env",
+                              "MCP_PROXY_BEARER=hkcu-bearer-4901b\n")
+        path = self.dashboard("ring-hkcu-4901b.md",
+                              "### [2026-11-03T00:00:00.000Z] a|ws\n\n"
+                              "[DEGRADED] mcp muet\n")
+        rings = []
+        original = cde.publish_ring
+        cde.publish_ring = lambda *a, **k: rings.append(a) or "posted"
+        self.addCleanup(setattr, cde, "publish_ring", original)
+        with mock.patch.object(cde, "read_hkcu_env_pointer",
+                                return_value=str(seat)), \
+                mock.patch.dict(os.environ, {}, clear=True), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--ring"])
+        self.assertEqual(code, 2)
+        self.assertEqual(len(rings), 1)
+        self.assertEqual(rings[0][2], "hkcu-bearer-4901b")
+        self.assertNotIn("hkcu-bearer-4901b", err)
+
+    def test_hkcu_pointer_dangling_warns_and_exits_one(self):
+        # Un pointeur de registre vers un fichier absent : warning explicite
+        # (le siege a declare une config qu'on ne trouve pas), sortie 1,
+        # aucune valeur dans la sortie.
+        missing = self.root / "absent-hkcu-4901b.env"
+        path = self.dashboard("ring-hkcu-dangle.md",
+                              "### [2026-11-03T00:00:00.000Z] a|ws\n\n"
+                              "[DEGRADED] mcp muet\n")
+        rings = []
+        original = cde.publish_ring
+        cde.publish_ring = lambda *a, **k: rings.append(a) or "posted"
+        self.addCleanup(setattr, cde, "publish_ring", original)
+        with mock.patch.object(cde, "read_hkcu_env_pointer",
+                                return_value=str(missing)), \
+                mock.patch.dict(os.environ, {}, clear=True), \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            code = cde.main(["--dashboard-file", str(path), "--now", NOW,
+                             "--ring"])
+        self.assertEqual(code, 1)
+        self.assertEqual(rings, [])
+        self.assertIn("WARNING", err.getvalue())
+        self.assertIn("introuvable", err.getvalue())
+        self.assertIn(str(missing), err.getvalue())
 
     # --- #4643 : la condensation ne doit plus aveugler l'organe -------------
 
