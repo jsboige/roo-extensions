@@ -327,18 +327,22 @@ function Publish-FleetNote {
     # n'existe pas : le retry ecrit normalement.
     $epoch = [datetime]::UtcNow - [datetime]::new(1970, 1, 1, 0, 0, 0, [datetimekind]::Utc)
     $bucket = [int][math]::Floor($epoch.TotalSeconds / 900)
-    # #4897: an escalation carries the SAME messageId in the body, so the repair
-    # can name it in its scope: line and the id never changes between retries.
-    $fleetNoteId = $null
-    if ($Text -match '\bid: (watchdog-[A-Za-z0-9-]+)') { $fleetNoteId = $matches[1] }
-    if (-not $fleetNoteId) {
+    # #4897: a queued escalation declaration carries its own id in an `id:` body
+    # line. That id is the note's key whatever the bucket, so a retry after a
+    # refused publish keeps ONE messageId for the whole episode. It is read
+    # here, before the key is set ONCE below: the routes below must share it.
+    $declaredId = $null
+    if ($Text -match '\bid: (watchdog-[A-Za-z0-9-]+)') { $declaredId = $matches[1] }
+    $digestId = $null
+    if (-not $declaredId) {
         $md5 = [System.Security.Cryptography.MD5]::Create()
         try {
             $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$Level|$Text"))
         } finally { $md5.Dispose() }
         $digest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
-        $fleetNoteId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
+        $digestId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
     }
+    $fleetNoteId = if ($declaredId) { $declaredId } else { $digestId }
     $arguments = @{
         action     = 'append'
         type       = $Type

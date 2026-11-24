@@ -45,6 +45,21 @@ Describe 'mcp-chain-watchdog sk-agent failure window (#4897 a+c)' {
         $script:content = Get-Content $script:watchdogPath -Raw
         $script:hcContent = Get-Content $script:healthcheckPath -Raw
 
+        # The window names the seat in its episode id ($env:COMPUTERNAME.ToLower())
+        # and the note key interpolates it. A Linux CI host has no COMPUTERNAME at
+        # all: on ubuntu-latest 19 tests threw "You cannot call a method on a
+        # null-valued expression" there (measured 24/11) while this very file was
+        # green on 5.1 and 7 on Windows. The watchdog is a Windows scheduled task
+        # and that production line is not touched for a host it never runs on:
+        # as in worker-own-claim-prompt.Tests.ps1, the harness supplies the host
+        # name a seat always has. Restored in AfterAll, so no later suite in the
+        # same process inherits a fake host.
+        $script:savedComputerName = $env:COMPUTERNAME
+        if (-not $env:COMPUTERNAME) { $env:COMPUTERNAME = 'pester-seat' }
+        # Necessity of this line was measured by mutation on 24/11: re-unsetting
+        # the variable here turns 20 tests RED (19 x .ToLower() on a null host
+        # name, 1 x the note-key shape), where with it the suite is 44/44.
+
         function Get-FunctionSource {
             param([string]$Name, [string]$From = $script:content)
             $m = [regex]::Match($From, "(?s)function $Name \{.*?\n\}")
@@ -176,6 +191,11 @@ Describe 'mcp-chain-watchdog sk-agent failure window (#4897 a+c)' {
     BeforeEach {
         Remove-Item (Join-Path $TestDrive 'skagent-window-state.json') -ErrorAction SilentlyContinue
         Remove-Item (Join-Path $TestDrive 'skagent-realcall-state.json') -ErrorAction SilentlyContinue
+    }
+
+    AfterAll {
+        # Assigning $null removes the variable: a host that had none gets none back.
+        $env:COMPUTERNAME = $script:savedComputerName
     }
 
     Context '(a) one escalation per episode, flapping tolerated' {
@@ -670,8 +690,71 @@ Describe 'mcp-chain-watchdog sk-agent failure window (#4897 a+c)' {
             $script:windowSource | Should -Match "Publish-FleetNote -Level \`$head\.Level -Type 'workspace' -Text \`$head\.Text"
         }
 
-        It 'the id: line of a declaration becomes its messageId (idempotent retry)' {
-            $script:publishSource | Should -Match "if \(\`$Text -match '\\bid: \(watchdog-\[A-Za-z0-9-\]\+\)'\) \{ \`$fleetNoteId = \`$matches\[1\] \}"
+        It 'the id: line of a declaration becomes the messageId actually SENT (behaviour, not source shape)' {
+            # The REAL Publish-FleetNote with the REAL acknowledgement parser; only
+            # the HTTP transport is replaced, by a capture that never opens a
+            # socket. A test that only matched the source text passed while the
+            # same function broke the #4030 single-definition guard in CI.
+            . ([scriptblock]::Create($script:publishSource))
+            function Write-Log { param($Level, $Message) $script:capturedLog += "$Level $Message" }
+            $script:capturedLog = @()
+            $script:sentPayloads = @()
+            $ackText = '{"success":true,"action":"append","messageId":"x"}'
+            $ackBody = '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":' + (ConvertTo-Json $ackText) + '}]}}'
+            function Invoke-WebRequest {
+                param($Uri, $Method, $Headers, $Body, [switch]$UseBasicParsing, $TimeoutSec, [Parameter(ValueFromPipeline)]$Pipe)
+                if ("$Body" -match '"method":"initialize"') { return [pscustomobject]@{ Content = '{}'; Headers = @{} } }
+                $script:sentPayloads += ,("$Body" | ConvertFrom-Json)
+                return [pscustomobject]@{ Content = $ackBody; Headers = @{} }
+            }
+            $script:e2eUrl = 'http://capture.invalid/mcp'
+            $script:lanUrl = 'http://capture2.invalid/mcp'
+            $script:bearer = 'test-bearer-not-a-secret'
+            $script:FleetNoteTimeoutSec = 5
+
+            $posted = Publish-FleetNote -Level 'DEGRADED' -Type 'workspace' -Text ("[DEGRADED] body" + [char]10 + "id: watchdog-skagent-4897-HOST-20261124T080422Z")
+            $posted | Should -BeTrue -Because 'the capture acknowledges the append'
+            @($script:sentPayloads).Count | Should -Be 1 -Because 'an acknowledged first route must not fall through to the second'
+            $script:sentPayloads[0].params.arguments.messageId | Should -BeExactly 'watchdog-skagent-4897-HOST-20261124T080422Z'
+            $script:sentPayloads[0].params.arguments.workspace | Should -Be 'roo-extensions'
+            $script:sentPayloads[0].params.arguments.type | Should -Be 'workspace'
+        }
+
+        It 'a note WITHOUT an id: line gets the computed key (host + level + digest + 15 min bucket)' {
+            . ([scriptblock]::Create($script:publishSource))
+            function Write-Log { param($Level, $Message) }
+            $script:sentPayloads = @()
+            $ackText = '{"success":true,"action":"append"}'
+            $ackBody = '{"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":' + (ConvertTo-Json $ackText) + '}]}}'
+            function Invoke-WebRequest {
+                param($Uri, $Method, $Headers, $Body, [switch]$UseBasicParsing, $TimeoutSec, [Parameter(ValueFromPipeline)]$Pipe)
+                if ("$Body" -match '"method":"initialize"') { return [pscustomobject]@{ Content = '{}'; Headers = @{} } }
+                $script:sentPayloads += ,("$Body" | ConvertFrom-Json)
+                return [pscustomobject]@{ Content = $ackBody; Headers = @{} }
+            }
+            $script:e2eUrl = 'http://capture.invalid/mcp'
+            $script:lanUrl = 'http://capture2.invalid/mcp'
+            $script:bearer = 'test-bearer-not-a-secret'
+            $script:FleetNoteTimeoutSec = 5
+
+            $null = Publish-FleetNote -Level 'WARN' -Text 'plain note, no declaration id'
+            $null = Publish-FleetNote -Level 'WARN' -Text 'plain note, no declaration id'
+            @($script:sentPayloads).Count | Should -Be 2
+            $ids = @($script:sentPayloads | ForEach-Object { $_.params.arguments.messageId })
+            # Same note inside one 15 min bucket -> SAME key: the server
+            # deduplicates the second attempt (#3276).
+            $ids[0] | Should -BeExactly $ids[1]
+            # Shape as BUILT, not as guessed: the BitConverter digest is
+            # UPPERCASE hex and a host name may carry dashes (MYIA-PO-2023).
+            $ids[0] | Should -Match '^watchdog-[A-Za-z0-9-]+-WARN-[0-9A-F]{12}-\d+$'
+        }
+
+        It 'the idempotence key is assigned ONCE in Publish-FleetNote (the #4030 single-definition guard, pinned where the change lives)' {
+            # scripts/testing/harness/test-watchdog-slow-vs-dead.ps1 counts
+            # `$fleetNoteId =` over the whole script and demands exactly 1. This
+            # branch tripped it in CI (3 assignments) while every Pester suite
+            # was green: the Pester suites never looked at that invariant.
+            ([regex]::Matches($script:publishSource, '\$fleetNoteId[ \t]*=')).Count | Should -BeExactly 1
         }
 
         It 'HTTP 200 is NOT an acknowledgement: JSON-RPC error, isError, success:false and unknown shapes are refused' {
@@ -852,8 +935,8 @@ function Publish-HealthNote {
         }
 
         It 'the default window path is derived from the WATCHDOG declared -LogDir, not a hardcoded copy' {
-            $wdLogDir = $script:paramDefaults['LogDir']
-            $wdLogDir | Should -Not -BeNullOrEmpty
+            $logDirDefault = ($script:ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'LogDir' }).DefaultValue
+            $logDirDefault | Should -Not -BeNullOrEmpty -Because 'installed with -File only, the watchdog runs on ITS default -LogDir: there must be one for the report to read'
             $m = [regex]::Match($script:hcContent, '(?ms)^if \(\[string\]::IsNullOrEmpty\(\$WatchdogStateFile\)\) \{.*?^\}')
             $m.Success | Should -BeTrue -Because 'the default-resolution block must be found'
             $block = $m.Value
@@ -864,26 +947,44 @@ function Publish-HealthNote {
             # report is installed on the host (-File, next to the watchdog).
             $sandbox = Join-Path $TestDrive 'hc-sandbox'
             New-Item -ItemType Directory -Path $sandbox -Force | Out-Null
+            # The watchdog's real default is a Windows drive path, and Join-Path
+            # resolves the DRIVE of what it is given: on a host without that drive
+            # (ubuntu-latest, measured 24/11) the block under test throws
+            # DriveNotFoundException before there is anything to compare. What is
+            # pinned here is the DERIVATION -- the report reads the default from
+            # the watchdog instead of copying a literal -- so the sandbox copy
+            # declares a default that exists on every host. ONLY the literal is
+            # replaced, at the AST extent of the real one: the param block keeps
+            # its production shape, which the report's own regex must still match.
+            $sandboxLogDir = Join-Path $sandbox 'watchdog-logs'
+            $extent = $logDirDefault.Extent
+            $copy = $script:content.Substring(0, $extent.StartOffset) + "'" + $sandboxLogDir + "'" + $script:content.Substring($extent.EndOffset)
+            # Same BOM as the source: the copy differs from it by the literal only.
+            $sourceBytes = [System.IO.File]::ReadAllBytes($script:watchdogPath)
+            $hasBom = $sourceBytes.Length -ge 3 -and $sourceBytes[0] -eq 0xEF -and $sourceBytes[1] -eq 0xBB -and $sourceBytes[2] -eq 0xBF
+            $wdCopy = Join-Path $sandbox 'mcp-chain-watchdog.ps1'
+            [System.IO.File]::WriteAllText($wdCopy, $copy, (New-Object System.Text.UTF8Encoding($hasBom)))
             $driver = Join-Path $sandbox 'drive-default-path.ps1'
             $harness = @(
                 "param([bool]`$StateFileGiven, [string]`$StateFile)",
                 "`$WatchdogStateFile = ''",
                 "function Write-TickLog { param(`$Level, `$Text) }",
-                "`$declaredLogDir = `$null",
+                "`$declaredLogDir = $null",
                 "",
                 "# The block under test, verbatim, on its own lines -- the block",
                 "# contains COMMENTS, so it must not be inlined on a param line.",
                 ""
             ) -join [Environment]::NewLine
             [System.IO.File]::WriteAllText($driver, $harness + $block + [Environment]::NewLine + '$WatchdogStateFile', (New-Object System.Text.UTF8Encoding($false)))
-            $wdCopy = Join-Path $sandbox 'mcp-chain-watchdog.ps1'
-            Copy-Item $script:watchdogPath $wdCopy -Force
             $out = & $driver -StateFileGiven $false -StateFile (Join-Path $TestDrive 'healthcheck-state.json')
-            $out | Should -Be (Join-Path $wdLogDir 'skagent-window-state.json')
+            $out | Should -Be (Join-Path $sandboxLogDir 'skagent-window-state.json')
 
             # With an explicit -StateFile the window is looked up beside it.
-            $out2 = & $driver -StateFileGiven $true -StateFile (Join-Path $TestDrive 'sub\healthcheck-state.json')
-            $out2 | Should -Be (Join-Path (Join-Path $TestDrive 'sub') 'skagent-window-state.json')
+            # One segment per Join-Path: a 'sub\file' child is not 'sub/file' on
+            # every host.
+            $subStateDir = Join-Path $TestDrive 'sub'
+            $out2 = & $driver -StateFileGiven $true -StateFile (Join-Path $subStateDir 'healthcheck-state.json')
+            $out2 | Should -Be (Join-Path $subStateDir 'skagent-window-state.json')
         }
     }
 
