@@ -35,6 +35,10 @@ def _load():
 
 
 cde = _load()
+# #4901 (review de la PR #4920) : reference d'origine du lecteur de registre,
+# capturee AVANT la neutralisation de classe (setUp) — les tests unitaires du
+# lecteur l'exercent telle quelle.
+REAL_READ_HKCU = cde.read_hkcu_env_pointer
 NOW = "2026-11-03T09:00:00Z"  # 8 h after a 01:00Z post == exactly 2 cycles
 
 
@@ -43,6 +47,23 @@ class EscalationContract(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        # #4901 (review de la PR #4920) : un test de cette classe ne lit JAMAIS
+        # la config reelle du siege — variable ORGAN_ENV_FILE du processus, son
+        # repli `HKCU\Environment`, ni le fichier par defaut (remplace par un
+        # chemin du repertoire temporaire, qui n'existe pas). Neutralises pour
+        # TOUTE la classe : ce n'est plus le `--env-file ""` de chaque appel
+        # qui porte la garantie. Un test qui a besoin du pointeur le pose
+        # lui-meme (patch imbrique : le plus interne gagne) ; les tests du
+        # lecteur de registre appellent REAL_READ_HKCU.
+        for patcher in (
+                mock.patch.dict(os.environ),
+                mock.patch.object(cde, "read_hkcu_env_pointer",
+                                  return_value=None),
+                mock.patch.object(cde, "ORGAN_ENV_FILE",
+                                  self.root / "no-seat-default.env")):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        os.environ.pop(cde.ORGAN_ENV_POINTER, None)
 
     def dashboard(self, name, text):
         path = self.root / name
@@ -1207,6 +1228,20 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                              (default, "default"))
             self.assertEqual(cde.resolve_env_file(None, {}), (default, "default"))
 
+    def test_class_setup_masks_every_seat_source(self):
+        # La garantie ne depend plus du `--env-file ""` de chaque appel :
+        # variable de processus retiree, lecteur de registre neutralise,
+        # fichier par defaut remplace par un chemin temporaire. Mesure sur ce
+        # siege : sans le setUp, le contrat est rouge (le defaut est le chemin
+        # reel) ; sur un siege au pointeur pose, la variable et le lecteur le
+        # sont aussi.
+        self.assertNotIn(cde.ORGAN_ENV_POINTER, os.environ)
+        self.assertIsNone(cde.read_hkcu_env_pointer())
+        default = cde.ORGAN_ENV_FILE
+        self.assertEqual(Path(default).parent, self.root)
+        self.assertFalse(Path(default).exists())
+        self.assertEqual(cde.resolve_env_file(None, {}), (str(default), "default"))
+
     def test_seat_pointer_is_honoured_without_any_flag(self):
         # Le cas #4901 : la commande canonique, sans drapeau, trouve le bearer
         # du siege designe par ORGAN_ENV_FILE — et ne l'imprime pas.
@@ -1289,7 +1324,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def test_read_hkcu_env_pointer_without_winreg_is_none(self):
         with mock.patch.object(cde, "winreg", None):
-            self.assertIsNone(cde.read_hkcu_env_pointer())
+            self.assertIsNone(REAL_READ_HKCU())
 
     def test_read_hkcu_env_pointer_reads_path_read_only(self):
         opened = {}
@@ -1317,7 +1352,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 return (r"C:\fake\seat-4901b.env", 1)
 
         with mock.patch.object(cde, "winreg", FakeWinreg):
-            self.assertEqual(cde.read_hkcu_env_pointer(), r"C:\fake\seat-4901b.env")
+            self.assertEqual(REAL_READ_HKCU(), r"C:\fake\seat-4901b.env")
         self.assertEqual(opened["subkey"], "Environment")
         self.assertEqual(opened["name"], "ORGAN_ENV_FILE")
         self.assertEqual(opened["access"], FakeWinreg.KEY_READ)
@@ -1343,7 +1378,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 raise FileNotFoundError("value absente")
 
         with mock.patch.object(cde, "winreg", FakeWinreg):
-            self.assertIsNone(cde.read_hkcu_env_pointer())
+            self.assertIsNone(REAL_READ_HKCU())
 
     def test_read_hkcu_env_pointer_blank_value_is_none(self):
         class FakeKey:
@@ -1366,7 +1401,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                 return ("   ", 1)
 
         with mock.patch.object(cde, "winreg", FakeWinreg):
-            self.assertIsNone(cde.read_hkcu_env_pointer())
+            self.assertIsNone(REAL_READ_HKCU())
 
     def test_hkcu_pointer_honoured_without_any_flag(self):
         # e2e : sans --env-file, sans variable dans l'environnement de
