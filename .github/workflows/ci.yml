@@ -277,6 +277,12 @@ on:
       # Bandwidth leak 26/10: metered-link-watch.Tests.ps1 (unit-pester) guards
       # this script -- same rule, the guarded source re-triggers its suite.
       - 'scripts/monitoring/metered-link-watch.ps1'
+      # 2026-11-25: metered-link-watch-install.Tests.ps1 (unit-pester) guards the
+      # watch's installer and its logic lib -- the task used to be installed by a
+      # bare `schtasks /create`, which leaves the battery defaults in place. Same
+      # rule as the entry above: the guarded sources re-trigger their suite.
+      - 'scripts/monitoring/install-metered-link-watch-schtask.ps1'
+      - 'scripts/monitoring/metered-link-watch-task.lib.ps1'
       # check_gitlinks_pushed.py (#4098 guard): its suite lives in
       # scripts/testing/python/ (covered above); the guarded source re-triggers it.
       - 'scripts/git/check_gitlinks_pushed.py'
