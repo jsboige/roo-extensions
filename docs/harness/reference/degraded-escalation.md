@@ -310,7 +310,13 @@ compagnon, chaque lane interactive devait passer `--env-file` à chaque appel �
 et celle qui l'oubliait sortait en `1`. La variable d'environnement
 `ORGAN_ENV_FILE` (portée User) porte le **chemin** du fichier du siège, et l'organe
 la lit avant son fichier par défaut : `--env-file` > `ORGAN_ENV_FILE` >
-`stall-detector.env`. Aucune valeur n'est copiée ni imprimée — le warning de
+`stall-detector.env`. **Une session ouverte avant le `setx` ne voit pas la
+variable dans son processus : l'organe relit alors le pointeur, en lecture
+seule, dans `HKCU\Environment`** (Windows, `KEY_READ` sur cette seule valeur,
+rien d'écrit — PR #4920) ; l'ordre complet est donc `--env-file` > variable du
+processus > registre > défaut. Rejoué sur ai-01 le 24/11 dans une session
+antérieure au `setx` : store lu, 94 dashboards sur 95 (review de la PR #4920).
+Aucune valeur n'est copiée ni imprimée — le warning de
 sortie `1` nomme la variable à poser. Un pointeur vers un fichier absent avertit
 (en nommant le chemin) et laisse la mesure fail-closed ; `--env-file ""` coupe
 aussi le pointeur.

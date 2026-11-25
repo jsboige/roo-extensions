@@ -1,6 +1,6 @@
 # Environnement dégradé — escalade immédiate, échéance à 2 cycles
 
-**Version :** 1.2.1 · **Issue :** #4517 · #4746 · #4729 · #4901 · **MAJ :** 2026-11-24
+**Version :** 1.2.2 · **Issue :** #4517 · #4746 · #4729 · #4901 · **MAJ :** 2026-11-25
 **Règle globale** — déployée dans `~/.claude/rules/` par
 `.claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules`. Corps canonique ici.
 
@@ -74,6 +74,9 @@ Sortie `1` : la panne du **lecteur** de l'organe (bearer absent, `store-absent`)
 se range à part du compteur de service (#4729) — remède siège : la variable
 `ORGAN_ENV_FILE` (portée User) porte le **chemin** du fichier qui porte déjà le
 bearer ; l'organe la lit avant son fichier par défaut, rien n'est copié (#4901).
+Une session ouverte avant la pose de la variable ne l'a pas dans son processus :
+l'organe relit alors le chemin dans `HKCU\Environment`, en lecture seule
+(Windows, PR #4920).
 Pour un appel seul, `--env-file <fichier>`. Si l'exit `1` persiste, la panne est
 celle du proxy/hôte (jamais un contournement de siège) : [détail](../../../docs/harness/reference/degraded-escalation.md).
 
