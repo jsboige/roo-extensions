@@ -214,35 +214,42 @@ def split_status_and_messages(text: str):
     return status, msgs
 
 
+def _rel(path: str) -> str:
+    try:
+        return os.path.relpath(path)
+    except ValueError:  # different drives (Windows) — keep the absolute form
+        return os.path.abspath(path)
+
+
 def load_dashboard_ts(path: str, ref: str | None) -> tuple:
     """Return (template source text, provenance dict). With --ref, the file is
-    read from that git revision of its own repository (submodule)."""
+    read from that git revision of its own repository (submodule).
+
+    The git subprocesses decode UTF-8 explicitly: `text=True` alone decodes with
+    the preferred locale encoding, which is cp1252 on a French Windows seat and
+    crashes on dashboard.ts (byte 0x8f) — po-2027 c.7102517109."""
     if ref:
         d = os.path.dirname(os.path.abspath(path))
         prefix = subprocess.run(
             ["git", "-C", d, "rev-parse", "--show-prefix"],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, encoding="utf-8", check=True,
         ).stdout.strip()
         blob = subprocess.run(
             ["git", "-C", d, "show", f"{ref}:{prefix}{os.path.basename(path)}"],
-            capture_output=True, text=True, check=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=True,
         ).stdout
-        return blob, {"path": os.path.relpath(path), "git_ref": ref}
+        return blob, {"path": _rel(path), "git_ref": ref}
     sha = ""
     try:
         d = os.path.dirname(os.path.abspath(path))
         sha = subprocess.run(
             ["git", "-C", d, "log", "-1", "--format=%H", "--", os.path.basename(path)],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8",
         ).stdout.strip()
     except subprocess.CalledProcessError:
         pass
     with open(path, encoding="utf-8", errors="replace") as f:
-        try:
-            rel = os.path.relpath(path)
-        except ValueError:  # different drives (Windows) — keep the absolute form
-            rel = os.path.abspath(path)
-        return f.read(), {"path": rel, "git_sha": sha}
+        return f.read(), {"path": _rel(path), "git_sha": sha}
 
 
 def extract_templates(ts_text: str) -> tuple:

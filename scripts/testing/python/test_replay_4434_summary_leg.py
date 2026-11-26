@@ -16,6 +16,7 @@ runs in CI on ubuntu.
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -407,6 +408,67 @@ class CallPrimaryPayloadParityTest(unittest.TestCase):
         self.assertEqual(body["chat_template_kwargs"], {"enable_thinking": False})
         self.assertNotIn("enable_thinking", body)
         self.assertFalse(body["messages"][1]["content"].startswith("/no_think"))
+
+
+class LoadDashboardTsEncodingTest(unittest.TestCase):
+    """#4434 instrument defect (po-2027 c.7102517109): the git subprocesses of
+    load_dashboard_ts decoded `git show` with the preferred locale encoding.
+    On a French Windows seat (cp1252) the real dashboard.ts carries byte 0x8f
+    and the whole replay died on UnicodeDecodeError; PYTHONUTF8=1 was the only
+    workaround. The fix decodes UTF-8 explicitly, so the locale no longer
+    matters — this test forces the cp1252 reading and must stay green."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _load()
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.repo = Path(cls.tmp.name) / "sub"
+        cls.repo.mkdir()
+        # U+270F encodes to E2 9C 8F: byte 0x8f is undefined in cp1252
+        cls.text = "export const s = 'a✏b';\n"
+        (cls.repo / "dashboard.ts").write_text(cls.text, encoding="utf-8")
+        for cmd in (
+            ["git", "init", "-q"],
+            ["git", "config", "user.email", "t@example.invalid"],
+            ["git", "config", "user.name", "t"],
+            ["git", "add", "dashboard.ts"],
+            ["git", "-c", "commit.gpgsign=false", "commit", "-qm", "init"],
+        ):
+            subprocess.run(cmd, cwd=cls.repo, check=True, capture_output=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_git_calls_decode_utf8_explicitly(self):
+        # The defect was `text=True` WITHOUT encoding: the decode then follows the
+        # locale (cp1252 on a French Windows seat) and dashboard.ts carries byte
+        # 0x8f -> UnicodeDecodeError. UTF-8 mode hides it, so this asserts the
+        # contract (explicit encoding) rather than a locale we cannot force
+        # portably on a UTF-8 CI runner.
+        calls = []
+        real_run = self.mod.subprocess.run
+
+        def spy(cmd, **kw):
+            calls.append((list(cmd), kw))
+            out = "" if "--show-prefix" in cmd else self.text
+            return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+
+        self.mod.subprocess.run = spy
+        try:
+            blob, prov = self.mod.load_dashboard_ts(str(self.repo / "dashboard.ts"), "HEAD")
+        finally:
+            self.mod.subprocess.run = real_run
+        self.assertEqual(blob, self.text)
+        self.assertEqual(prov["git_ref"], "HEAD")
+        self.assertEqual(len(calls), 2)
+        for cmd, kw in calls:
+            self.assertEqual(kw.get("encoding"), "utf-8", f"{cmd} would decode with the locale")
+
+    def test_git_show_round_trips_utf8_bytes(self):
+        blob, prov = self.mod.load_dashboard_ts(str(self.repo / "dashboard.ts"), "HEAD")
+        self.assertIn("✏", blob)
+        self.assertEqual(blob, self.text)
 
 
 if __name__ == "__main__":
