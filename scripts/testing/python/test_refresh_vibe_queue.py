@@ -667,6 +667,81 @@ class TestMergedBranchesRest(unittest.TestCase):
                              set())
 
 
+class TestQueueBootstrap(unittest.TestCase):
+    """The refresh organ must be able to rebuild the file it reads (#4929 sibling).
+
+    Measured po-2025 23/11 -> 26/11: the queue was left at 0 byte, so every
+    feeder tick raised JSONDecodeError and exited 1 — the organ whose job is to
+    regenerate the queue refused to run because the queue was broken. A
+    derivation must never be a precondition of its own repair.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, "feeder-queue.json")
+
+    def tearDown(self):
+        for name in os.listdir(self.dir):
+            os.unlink(os.path.join(self.dir, name))
+        os.rmdir(self.dir)
+
+    def _write(self, text):
+        with io.open(self.path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+
+    def test_absent_queue_bootstraps_empty(self):
+        self.assertEqual(rvq.load_queue(self.path), {})
+
+    def test_empty_queue_bootstraps_instead_of_raising(self):
+        """The exact shape that stopped production for three days."""
+        self._write("")
+        self.assertEqual(rvq.load_queue(self.path), {})
+
+    def test_whitespace_only_queue_bootstraps(self):
+        self._write("  \r\n\n")
+        self.assertEqual(rvq.load_queue(self.path), {})
+
+    def test_truncated_queue_bootstraps(self):
+        self._write('{"_comment": "x", "grains": [{"id": "g1"')
+        self.assertEqual(rvq.load_queue(self.path), {})
+
+    def test_valid_queue_is_returned_unchanged(self):
+        payload = {"_comment": "x", "grains": [{"id": "g1"}]}
+        self._write(json.dumps(payload))
+        self.assertEqual(rvq.load_queue(self.path), payload)
+
+    def test_non_object_json_bootstraps(self):
+        self._write("[1, 2, 3]")
+        self.assertEqual(rvq.load_queue(self.path), {})
+
+    def test_blank_previous_never_erases_a_good_backup(self):
+        """A 0-byte queue must not rotate nothing over the last known-good .bak."""
+        with io.open(self.path + ".bak", "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("KEEP-ME")
+        self.assertFalse(rvq.preserve_previous(self.path, ""))
+        with io.open(self.path + ".bak", encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "KEEP-ME")
+
+    def test_non_blank_previous_rotates_into_bak(self):
+        self._write("OLD")
+        self.assertTrue(rvq.preserve_previous(self.path, '{"grains":[]}'))
+        with io.open(self.path + ".bak", encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), '{"grains":[]}')
+
+    def test_publish_text_leaves_no_temporary_behind(self):
+        rvq.publish_text(self.path, "NEW")
+        with io.open(self.path, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "NEW")
+        self.assertEqual(sorted(os.listdir(self.dir)), ["feeder-queue.json"])
+
+    def test_publish_text_replaces_atomically_not_truncating(self):
+        self._write("OLD")
+        rvq.publish_text(self.path, "NEW")
+        self.assertEqual(sorted(os.listdir(self.dir)), ["feeder-queue.json"])
+        with io.open(self.path, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "NEW")
+
+
 if __name__ == "__main__":
     unittest.main()
 

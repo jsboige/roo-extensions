@@ -56,6 +56,69 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+
+
+def load_queue(queue_path):
+    """Read the queue, tolerating an absent, empty or truncated file.
+
+    The queue is a derivation of the corpus: losing it costs a re-scan, not
+    data. Refusing to start because the previous file is unreadable is what
+    turned one interrupted write into a self-sustaining outage -- the refresh
+    organ exited 1 on every tick and could never rebuild the very file it was
+    meant to replace (measured po-2025, 23/11 -> 26/11, every tick NOOP).
+    """
+    if not os.path.isfile(queue_path):
+        return {}
+    try:
+        with io.open(queue_path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError as exc:
+        print("WARN: file illisible, reconstruction a vide: %s" % exc, file=sys.stderr)
+        return {}
+    if not text.strip():
+        print("WARN: file vide, reconstruction a vide", file=sys.stderr)
+        return {}
+    try:
+        loaded = json.loads(text)
+    except ValueError as exc:
+        print("WARN: file invalide, reconstruction a vide: %s" % exc, file=sys.stderr)
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def publish_text(path, text):
+    """Replace a file only once the complete new content is on disk."""
+    fd, temp_path = tempfile.mkstemp(prefix=os.path.basename(path) + ".",
+                                     suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with io.open(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(temp_path, path)
+    finally:
+        active_error = sys.exc_info()[0] is not None
+        if os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except OSError as exc:
+                if not active_error:
+                    raise
+                print("WARN: nettoyage du temporaire echoue: %s" % exc, file=sys.stderr)
+
+
+def preserve_previous(queue_path, previous):
+    """Rotate the previous content into .bak, never erasing a good backup.
+
+    A blank previous file carries no information: copying it over .bak would
+    destroy the last known-good queue at the exact moment it is worth the
+    most (incident po-2025 26/11 -- 0-byte queue beside a 307 247-byte .bak
+    that a naive rotation would have overwritten with nothing).
+    """
+    if not previous.strip():
+        return False
+    publish_text(queue_path + ".bak", previous)
+    return True
+
 
 FLOOR = 10          # fournee floor: confirmed findings per grain (contract #15719)
 MAX_FILES = 15      # anti-composite cap: files per PR
@@ -911,10 +974,7 @@ def main():
           % (len(held), ", ".join("#%d" % i for i in issues), len(claims)))
 
     queue_path = os.path.join(os.getcwd(), args.queue)
-    old = {}
-    if os.path.isfile(queue_path):
-        with io.open(queue_path, encoding="utf-8") as fh:
-            old = json.load(fh)
+    old = load_queue(queue_path)
     queue_branches = {g.get("branch") for g in (old.get("grains") or []) if g.get("branch")}
     delivered = open_branches | merged_branches(args.slug, queue_branches)
     print("branches livrees (ouvertes + merged au lookup exact par branche): %d" % len(delivered))
@@ -1025,10 +1085,10 @@ def main():
     if os.path.isfile(queue_path):
         with io.open(queue_path, encoding="utf-8") as fh:
             previous = fh.read()
-        with io.open(queue_path + ".bak", "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(previous)
-    with io.open(queue_path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(json.dumps(out, ensure_ascii=False, indent=2) + "\n")
+        preserve_previous(queue_path, previous)
+    # Publish a complete file by replacement: an interrupted write must not
+    # truncate the previous queue (the 0-byte file of 23/11 is exactly that).
+    publish_text(queue_path, json.dumps(out, ensure_ascii=False, indent=2) + "\n")
     print("\nfile ecrite: %s (%d grains, %d findings, precedent conserve en .bak)"
           % (queue_path, len(grains), total))
 
