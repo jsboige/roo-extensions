@@ -159,6 +159,19 @@ SLOW_READ_S = 5.0
 # coque ne peut plus masquer une fermeture de la fenetre.
 ARCHIVE_HUSK_SIGNATURE = "frontmatter manquant"
 
+# c.458 (26/11, po-2024) : une TROISIEME issue, distincte de la coque. Le nom
+# vient du listing, le fichier n'existe pas sur le miroir de CE siege : le
+# serveur rend `success:false` + `message: "Archive '<nom>' introuvable"`
+# (dashboard.ts, branche ENOENT). Mesure po-2024 : sur 9 lots de condensation
+# de `workspace-roo-extensions` en 30 h, 2 fichiers seulement sur le miroir G:
+# local, les 7 autres presents en PG — la condensation ecrit le .md sur le
+# siege qui la fait, `read_archive` ne lit que le miroir local. Cette classe ne
+# dit RIEN de la sante du transport : l'imputer a « lecture sans contenu » (ou
+# perdre le motif faute de lire `message`) envoie les sieges reparer un
+# transport sain. Elle reste une LECTURE PARTIELLE (exit 1, sonnerie annulee) :
+# l'escalade archivee dans ce lot est invisible d'ici.
+ARCHIVE_ABSENT_SIGNATURE = "introuvable"
+
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
 # peut pas matcher.
@@ -1243,7 +1256,10 @@ def entries_from_archive_json(text):
     if not isinstance(payload, dict):
         raise ValueError("enveloppe archive sans objet racine")
     if payload.get("success") is False:
-        detail = payload.get("error") or "sans motif"
+        # c.458 : le serveur porte son motif dans `message` (ENOENT :
+        # « Archive '<nom>' introuvable ») ; ne lire que `error` rendait tout
+        # echec « sans motif » et effacait la seule preuve disponible.
+        detail = payload.get("error") or payload.get("message") or "sans motif"
         raise ValueError(f"enveloppe archive en echec ({detail})")
     archive_data = payload.get("archiveData")
     if not isinstance(archive_data, dict):
@@ -1296,6 +1312,30 @@ def archive_window_husk_error(key, name, detail):
             f"manquant) ({detail[:120]}) — coque vide OU archive fraiche "
             f"mal hydratee (placeholder DriveFS, #4796) : un [REPAIRED] ou "
             f"une escalade archivee serait invisible ; mesure partielle")
+
+
+def archive_window_absent_error(key, name, detail):
+    """c.458 (po-2024, 26/11) : nom servi par le listing, fichier ABSENT du
+    miroir de CE siege — troisieme issue, distincte de la coque (#4796) et de
+    « lecture sans contenu ».
+
+    Le transport n'est pas en cause : il a repondu, et il a dit exactement ce
+    qui manque (« introuvable », branche ENOENT de `read_archive`). Mesure
+    po-2024 : 9 lots de condensation en 30 h pour `workspace-roo-extensions`,
+    2 fichiers `.md` sur le miroir local, les 7 autres en PG seulement — la
+    condensation ecrit son archive sur le siege qui la FAIT, et le nom ne
+    voyage pas avec elle partout (DriveFS, par siege). Le nom est donc listé
+    sans fichier lisible derriere : un [REPAIRED] ou une escalade archivee
+    dans ce lot est invisible d'ici. Verdict inchange — lecture partielle,
+    exit 1, sonnerie annulee ; seul le DIAGNOSTIC devient exact, pour arreter
+    d'envoyer les sieges reparer un transport sain.
+    """
+    return (f"{key}/{name}: archive declaree par le listing mais ABSENTE du "
+            f"miroir de ce siege ({detail[:120]}) — nom liste sans fichier : "
+            f"la condensation ecrit le .md sur le siege qui la fait, "
+            f"read_archive ne lit que le miroir local ; un [REPAIRED] ou une "
+            f"escalade archivee serait invisible ; mesure partielle, "
+            f"transport non en cause")
 
 
 def store_keys_from_listing(result):
@@ -1639,7 +1679,14 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                 try:
                     structured = entries_from_archive_json(archive_text)
                 except ValueError as exc:
-                    if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
+                    lowered = str(exc).lower()
+                    if ARCHIVE_ABSENT_SIGNATURE in lowered:
+                        # c.458 : nom listé, fichier absent du miroir de ce
+                        # siege — le transport a repondu et a nomme le motif.
+                        # Lecture partielle (exit 1), diagnostics distincts.
+                        errors.append(archive_window_absent_error(key, name,
+                                                                  str(exc)))
+                    elif ARCHIVE_HUSK_SIGNATURE in lowered:
                         # #4643 -> #4796, couche JSON : une enveloppe en
                         # echec portant la signature husk garde le meme
                         # traitement que la couche transport — dans la
@@ -2695,6 +2742,56 @@ le harnais au motif que Git resoudrait hors isolation
         # PAS (mesure ai-01 : 7 ms, la relance relirait le meme rejet).
         assert husk_reads == [(1.0, True)], husk_reads
 
+        # c.458 (po-2024, 26/11) — nom servi par le listing, fichier ABSENT du
+        # miroir du siege. Le serveur rend success:false + `message` « Archive
+        # '<nom>' introuvable » (branche ENOENT, PAS un isError). Avant :
+        # `error` seul etait lu -> « sans motif », classe imputee a
+        # l'enveloppe inexploitable. Attendu : UNE erreur d'instrument nommant
+        # le fichier, disant « transport non en cause », les entrees vivantes
+        # intactes, et AUCUNE relance (deterministe : le fichier n'existe pas).
+        absent_reads = []
+
+        def absent_fake_call(arguments, url, bearer, timeout=10.0, client="x",
+                             return_rejected_text=False, telemetry=None):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
+            absent_reads.append(arguments["archiveFile"])
+            # Forme EXACTE de dashboard.ts (handleReadArchive, ENOENT).
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False, "action": "read_archive", "key": "workspace-x",
+                "type": "workspace",
+                "message": f"Archive '{arguments['archiveFile']}' introuvable"})}]}
+
+        try:
+            globals()["_load_transport"] = lambda: absent_fake_call
+            absent_entries, absent_errors, absent_keys = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert absent_keys == ["workspace-x"], absent_keys
+        assert len(absent_errors) == 1, absent_errors
+        assert ("ABSENTE du miroir" in absent_errors[0]
+                and "transport non en cause" in absent_errors[0]
+                and "workspace-x-2026-11-03T04-00-00.md" in absent_errors[0]
+                and "mesure partielle" in absent_errors[0]), absent_errors
+        # Le motif du serveur SURVIT (regression : « sans motif »).
+        assert "sans motif" not in absent_errors[0], absent_errors
+        assert "frontmatter" not in absent_errors[0], absent_errors
+        assert (len(absent_entries) == 1
+                and absent_entries[0]["body"] == "[DONE] cycle normal"), \
+            absent_entries
+        assert absent_reads == ["workspace-x-2026-11-03T04-00-00.md"], \
+            absent_reads
+
         # #4643 — tout AUTRE rejet isError reste une erreur d'instrument :
         # pas la signature coque -> « rejet serveur » dans les erreurs.
         def other_reject_fake_call(arguments, url, bearer, timeout=10.0,
@@ -2781,7 +2878,10 @@ le harnais au motif que Git resoudrait hors isolation
           "idempotence sur le lot reparable, statut et sortie inchanges) ; "
           "#4729 : panne du lecteur de l'organe (exit 1) rangee a part -- "
           "compteur principal = dette de service, remede siege --env-file "
-          "nomme dans la sonnerie, mutant sans classification rouge.")
+          "nomme dans la sonnerie, mutant sans classification rouge ; "
+          "c.458 : nom liste / fichier absent du miroir classe A-PART "
+          "(motif du serveur conserve, 'transport non en cause', aucune "
+          "relance, lecture partielle inchangee).")
 
 
 def main(argv=None):

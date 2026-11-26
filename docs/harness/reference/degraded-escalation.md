@@ -219,6 +219,27 @@ fenêtre garde un verdict 0/2/3. En source store, le dénominateur du rapport d'
 illisible(s) sur M ») est le nombre de **dashboards lus** (clés du listing) —
 il disait « sur 0 ».
 
+**c.458 — nom listé, fichier absent du miroir (po-2024, 26/11).** Troisième
+issue, distincte de la coque : le nom vient du listing, le fichier n'existe pas
+sur le miroir de ce siège, et `read_archive` répond `success:false` +
+`message: "Archive '<nom>' introuvable"` (branche ENOENT — ce **n'est pas** un
+`isError`). Mesure po-2024, deux instruments : PG porte 9 lots de condensation
+de `workspace-roo-extensions` sur 30 h, le miroir G: local en a **2** ; les 7
+autres (dont `14-56-40`, `16-13-51`, `19-06-16`, `20-25-29`, `00-07-21`, tous
+cités par d'autres sièges) n'existent qu'en PG. La condensation écrit son `.md`
+sur le siège qui la fait, et le nom peut être listé sans fichier lisible
+ailleurs. Deux défauts corrigés : `entries_from_archive_json` ne lisait que
+`error` et rendait « sans motif » — le motif du serveur survit désormais
+(`error` **ou** `message`) ; et la classe est **nommée** (« ABSENTE du miroir »,
+« transport non en cause ») au lieu d'être imputée à l'enveloppe. Le verdict ne
+change pas — lecture partielle, sortie 1, sonnerie annulée, l'escalade archivée
+dans ce lot restant invisible d'ici ; ce qui change est le **diagnostic** : les
+sièges ne réparent plus un transport sain. Tant que `read_archive` ne lit que
+le miroir fichier, **la fenêtre d'archives d'un siège n'est pas celle de la
+flotte** ; le correctif de fond est un repli PG côté serveur (listing fusionné +
+lecture ENOENT servie depuis `roosync_dashboard_messages`), proposé au
+coordinateur sous #4131 — non implémenté ici.
+
 **Sans bearer, l'organe dit qu'il ne sait pas (#4650).** Une lecture **par
 défaut** (ni `--dashboard-dir` ni `--dashboard-file`) sans **aucun** bearer
 (ni `--ring-bearer`, ni `MCP_PROXY_BEARER`, ni fichier `--env-file`) sort **1**
