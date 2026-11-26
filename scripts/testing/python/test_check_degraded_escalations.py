@@ -1914,6 +1914,164 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         self.assertEqual(archive_timeouts,
                          [10.0, cde.STORE_READ_RETRY_TIMEOUT_S])
 
+    # --- 2e relance ESPACEE (escalade web2-degraded-organ-20261125) --------
+    # Temoins : web2 25/11, deux archives muettes A TRAVERS essai (10 s) et
+    # relance (45 s), le meme fichier servi en 213-240 ms deux minutes plus
+    # tard ; ai-01 18/11, idem, servies en 154 ms juste apres. La relance
+    # unique rendait exit 1 (mesure partielle, sonnerie annulee) sur une
+    # panne qui n'etait pas la lecture.
+
+    def twice_muted_store(self, budget_s=None, clock_step=0.0,
+                          two_archives=False):
+        """Chaque archive du dashboard y porte le [REPAIRED] ; elle est MUETTE
+        a ses deux premiers essais, servie au troisieme. `two_archives` : une
+        seconde archive, mutee pareil — deux lectures muettes dans la passe.
+
+        Le temps est PILOTE : `time.sleep` n'attend pas, il avance une
+        horloge et la pause posee est recueillie ; `time.monotonic` rend
+        l'horloge reelle decalee de ces pauses, plus `clock_step` secondes
+        par lecture — un transport fake dure 0 s reelle, sur une horloge
+        vraie le budget ne pourrait jamais s'epuiser.
+
+        Rend l'etat : `archive_timeouts` (timeout de CHAQUE essai, par nom
+        d'archive), `sleeps`."""
+        first = "workspace-y-2026-11-03T04-00-00.md"
+        second = "workspace-y-2026-11-03T04-30-00.md"
+        repaired = [self.message("2026-11-03T03:00:00.000Z",
+                                 content="[REPAIRED] tout est revenu")]
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DEGRADED"])]},
+            archives={"y": [first, second] if two_archives else [first]},
+            archive_files={first: repaired, second: repaired})
+        inner = cde._load_transport()
+        state = {"archive_timeouts": {}, "sleeps": []}
+        real_monotonic = cde.time.monotonic
+        clock = {"extra": 0.0, "reads": 0}
+
+        def monotonic():
+            clock["reads"] += 1
+            return real_monotonic() + clock["extra"] + clock["reads"] * clock_step
+
+        def sleep(seconds):
+            state["sleeps"].append(seconds)
+            clock["extra"] += seconds
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False, telemetry=None):
+            name = arguments.get("archiveFile")
+            if name:
+                tries = state["archive_timeouts"].setdefault(name, [])
+                tries.append(timeout)
+                if len(tries) <= 2:
+                    return None  # essai PUIS relance : transport muet
+            return inner(arguments, url, bearer, timeout=timeout,
+                         client=client, return_rejected_text=return_rejected_text,
+                         telemetry=telemetry)
+
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", inner)
+        clock_patch = mock.patch.object(cde, "time", mock.Mock(
+            wraps=cde.time, monotonic=monotonic, sleep=sleep))
+        clock_patch.start()
+        self.addCleanup(clock_patch.stop)
+        if budget_s is not None:
+            budget_patch = mock.patch.object(
+                cde, "STORE_SECOND_RETRY_BUDGET_S", budget_s)
+            budget_patch.start()
+            self.addCleanup(budget_patch.stop)
+        return state
+
+    def test_second_spaced_retry_recovers_a_twice_muted_read(self):
+        # Essai muet -> relance muette -> PAUSE -> 2e relance servie : la
+        # mesure est COMPLETE (exit 0), l'escalation est fermee par
+        # l'[REPAIRED] de l'archive. Sans 2e relance : exit 1.
+        state = self.twice_muted_store()
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = self.run_store_main()
+        self.assertEqual(code, 0)
+        self.assertEqual(state["archive_timeouts"],
+                         {"workspace-y-2026-11-03T04-00-00.md": [
+                             10.0, cde.STORE_READ_RETRY_TIMEOUT_S,
+                             cde.STORE_SECOND_RETRY_TIMEOUT_S]})
+        # La pause est VRAIMENT posee, de la valeur de la constante —
+        # l'espacement est le correctif, pas un detail.
+        self.assertEqual(state["sleeps"], [cde.STORE_SECOND_RETRY_PAUSE_S])
+        self.assertIn("2e relance 1 (1 recuperee(s), 0 sans budget", err.getvalue())
+
+    def test_second_retry_is_disabled_by_a_zero_budget(self):
+        # Budget 0 = comportement d'avant : deux essais, lecture muette,
+        # mesure partielle (exit 1) — et le refus est COMPTE, sans quoi
+        # l'exit 1 ne dirait pas pourquoi la lecture est restee muette.
+        state = self.twice_muted_store(budget_s=0.0)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = self.run_store_main()
+        self.assertEqual(code, 1)
+        self.assertEqual(state["archive_timeouts"],
+                         {"workspace-y-2026-11-03T04-00-00.md": [
+                             10.0, cde.STORE_READ_RETRY_TIMEOUT_S]})
+        self.assertEqual(state["sleeps"], [])
+        self.assertIn("2e relance 0 (0 recuperee(s), 1 sans budget",
+                      err.getvalue())
+
+    def test_second_retry_budget_is_charged_at_its_real_cost(self):
+        # Le budget se paie d'AVANCE et se consomme au REEL (pause + essai).
+        # Ici : deux archives muettes, un budget qui tient une pause + 2 s,
+        # et 1 s par lecture d'horloge — un essai en consomme plusieurs,
+        # donc la 2e archive en est refusee. Le sens ne depend pas de
+        # l'ORDRE de lecture : ce qu'on compte, c'est UNE pause posee, UNE
+        # archive servie au 3e essai, UNE archive restee a deux essais.
+        state = self.twice_muted_store(
+            two_archives=True, clock_step=1.0,
+            budget_s=cde.STORE_SECOND_RETRY_PAUSE_S + 2.0)
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = self.run_store_main()
+        self.assertEqual(code, 1)  # une archive est restee muette
+        tries = sorted(len(v) for v in state["archive_timeouts"].values())
+        self.assertEqual(tries, [2, 3])
+        self.assertEqual(state["sleeps"], [cde.STORE_SECOND_RETRY_PAUSE_S])
+        self.assertIn("2e relance 1 (1 recuperee(s), 1 sans budget",
+                      err.getvalue())
+
+    def test_a_budget_refusal_never_sleeps(self):
+        # Un refus de budget ne paie PAS la pause : une passe sans budget de
+        # 2e relance garde exactement le rythme d'avant.
+        state = self.twice_muted_store(budget_s=0.0)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.run_store_main()
+        self.assertEqual(state["sleeps"], [])
+
+    def test_read_telemetry_carries_the_second_retry_counters(self):
+        # Les compteurs de la 2e relance sont dans le JSON, pas seulement en
+        # stderr : un exit 1 sous charge se diagnostique sans rejouer la passe.
+        self.twice_muted_store()
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", "", "--json"])
+        self.assertEqual(code, 0)
+        tel = json.loads(out.getvalue())["read_telemetry"]
+        self.assertEqual(tel["retried"], 1)          # la relance unique
+        self.assertEqual(tel["recovered"], 0)        # ...est restee muette
+        self.assertEqual(tel["second_retried"], 1)
+        self.assertEqual(tel["second_recovered"], 1)
+        self.assertEqual(tel["second_skipped"], 0)
+        self.assertEqual(tel["failed"], 2)           # les deux essais muets restent comptes
+
+    def test_a_healthy_run_renders_the_same_line_as_before(self):
+        # Sans mute, la ligne stderr est byte-a-byte celle d'avant : la 2e
+        # relance ne laisse aucune trace sur une passe saine.
+        self.fake_store(
+            {}, keys=["workspace-y"],
+            structured={"y": [self.message("2026-11-03T00:30:00.000Z",
+                                           tags=["DONE"])]},
+            archives={"y": []})
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            code = self.run_store_main()
+        self.assertEqual(code, 0)
+        self.assertNotIn("2e relance", err.getvalue())
+
     # --- #4729 : relance generalisee + telemetrie des lectures store ------
 
     def test_muted_list_read_retries_once(self):

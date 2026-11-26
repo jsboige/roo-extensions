@@ -422,6 +422,28 @@ compte. Trois protections :
    (l'ouverture d'issue reste gated). Le silence n'est pas une option :
    l'alarme muette pendant l'incendie est précisément le défaut que #4729
    répare.
+5. **Seconde relance espacée (escalade `web2-degraded-organ-20261125`,
+   25/11).** Quand la relance unique reste **muette**, un troisième essai
+   est posé **après une pause** (`STORE_SECOND_RETRY_PAUSE_S`, 30 s ; essai
+   à `STORE_SECOND_RETRY_TIMEOUT_S`, 10 s). Chaque appel ouvre une session
+   MCP neuve (`initialize` par appel) : une lecture muette à travers essai
+   **et** relance désigne donc la **source**, pas une session client figée —
+   et une panne de source d'une minute se rattrape en espaçant, pas en
+   insistant. Témoins : web2 25/11, deux archives muettes à travers 10 s
+   puis 45 s, le même fichier relu 3/3 en 213-240 ms deux minutes plus tard
+   (run rendu exit 1, sonnerie annulée, pour une lecture qui n'était pas en
+   panne) ; ai-01 18/11, idem, servies en 154 ms juste après ; po-2027, 2
+   relances sur 7 récupérées. Le coût est **borné** : pause et essai sont
+   comptés dans un budget **global au tir** (`STORE_SECOND_RETRY_BUDGET_S`,
+   150 s — trois secondes relances au plus ; `0` = désactivée), sous le
+   budget d'archives de #4661 qui reste le plafond dur. Au-delà, la lecture
+   reste muette et le refus est **compté**. Compteurs `second_retried`,
+   `second_recovered`, `second_skipped`, `second_spent_s` dans
+   `read_telemetry` ; la ligne stderr porte « 2e relance N (M récupérée(s),
+   K sans budget, S s) » **seulement quand il y a eu une seconde relance ou
+   un refus** — la ligne d'un tir sain reste byte-à-byte celle d'avant. La
+   seconde relance soigne le **verdict** (`failed` compte toujours les
+   essais muets) : une mesure complète n'efface pas les chiffres.
 
 ---
 
