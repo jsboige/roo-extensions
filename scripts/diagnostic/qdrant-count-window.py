@@ -34,8 +34,10 @@ Ce que la mesure du 26/11 (po-2028) a etabli, et qui justifie la forme :
     vintage ne change PAS ce qui est servi — seul le nom de vintage compte.
 
 Contrat de sortie :
-    0 = fenetre rendue (quelle que soit la valeur des axes)
-    2 = erreur d'instrument (build ou journal illisible)
+    0 = fenetre rendue (quelle que soit la valeur des axes). Un journal ABSENT
+        rend les series qui en dependent NOT_OBSERVABLE, dossier nomme : jamais
+        `aucun`, qui se lit comme « zero defaut » ;
+    2 = erreur d'instrument (build introuvable ou journal illisible)
 
 Lecture seule. Stdlib uniquement. Aucun appel reseau, aucun `count`, aucune
 charge sur Qdrant. Aucune ligne de commande de processus n'est imprimee : seuls
@@ -334,6 +336,7 @@ def build_report(args):
             "fileSignatures": logs["signatures"],
             "serverStartsPerDay": logs["server_started"],
             "logFiles": logs["files"],
+            "logDirPresent": logs["available"],
         },
         "readLatency": {
             "observable": False,
@@ -341,6 +344,7 @@ def build_report(args):
                    "stderr (src/index.ts console.log -> console.error) and the "
                    "MCP stderr captures are not kept on this seat",
             "writePathContext": logs["upsert_failed"],
+            "writePathObservable": logs["available"],
         },
     }
     return report
@@ -382,21 +386,32 @@ def render(report):
         capture["files"], capture["nonEmpty"],
         " ".join("%s=%d" % (k, capture["signatures"].get(k, 0))
                  for k, _ in SIGNATURES)))
-    out.append("                   | en fichiers (%d): %s" % (
-        counts["logFiles"],
-        " ".join("%s=%d" % (k, counts["fileSignatures"].get(k, 0))
-                 for k, _ in SIGNATURES)))
+    if counts["logDirPresent"]:
+        out.append("                   | en fichiers (%d): %s" % (
+            counts["logFiles"],
+            " ".join("%s=%d" % (k, counts["fileSignatures"].get(k, 0))
+                     for k, _ in SIGNATURES)))
+    else:
+        out.append("                   | en fichiers: NOT_OBSERVABLE (journal absent)")
     if capture["nonEmpty"] == 0 and counts["logFiles"] == 0:
         out.append("                   | NOT_OBSERVABLE (ni capture stderr ni journal)")
     elif capture["nonEmpty"] == 0:
         out.append("                   | NOT_OBSERVABLE (capture stderr non persistee)")
     starts = counts["serverStartsPerDay"]
-    out.append("AXE2 proxy         | demarrages serveur/jour: %s" % (
-        " ".join("%s:%d" % (d[5:], n) for d, n in sorted(starts.items())) or "aucun"))
+    if counts["logDirPresent"]:
+        out.append("AXE2 proxy         | demarrages serveur/jour: %s" % (
+            " ".join("%s:%d" % (d[5:], n) for d, n in sorted(starts.items())) or "aucun"))
+    else:
+        out.append("AXE2 proxy         | NOT_OBSERVABLE (journal absent : %s)" % (
+            window["logDir"]))
     out.append("AXE4 latence lue   | NOT_OBSERVABLE (%s)" % latency["why"])
     writes = latency["writePathContext"]
-    out.append("AXE4 ecriture      | qdrant_upsert_failed/jour: %s" % (
-        " ".join("%s:%d" % (d[5:], n) for d, n in sorted(writes.items())) or "aucun"))
+    if latency["writePathObservable"]:
+        out.append("AXE4 ecriture      | qdrant_upsert_failed/jour: %s" % (
+            " ".join("%s:%d" % (d[5:], n) for d, n in sorted(writes.items())) or "aucun"))
+    else:
+        out.append("AXE4 ecriture      | NOT_OBSERVABLE (journal absent : %s)" % (
+            window["logDir"]))
     return "\n".join(out)
 
 
@@ -441,6 +456,7 @@ def selftest():
     check(sum(1 for s in before if not s["value"]) == 1, "before -> 1 estimation")
     check(all(s["function"] for s in before), "before -> every site attributed")
     check(len(before) == 4, "comment site not counted (4 real sites)")
+    check([s["line"] for s in before] == [3, 9, 13, 16], "before -> line numbers pinned")
 
     after = census_exact_sites(SELFTEST_AFTER)
     fix, guards, detail = verdicts(after)
@@ -464,6 +480,36 @@ def selftest():
     untargeted = SELFTEST_AFTER.replace("countPointsByHostOs", "countSomething")
     fix, guards, detail = verdicts(census_exact_sites(untargeted))
     check(fix == "TARGET_UNKNOWN", "renamed target -> TARGET_UNKNOWN")
+
+    # Une fonction a PLUSIEURS sites : un site restant exact n'est pas un succes.
+    # `all()` doit rester `all()`, pour la cible comme pour une garde.
+    fix, _, _ = verdicts(census_exact_sites(
+        "export async function countPointsByHostOs(h) {\n"
+        "  a(C, { exact: true });\n"
+        "  b(C, { exact: false });\n"
+        "}\n"))
+    check(fix == "FIX_ABSENT", "two-site target, one left exact -> FIX_ABSENT")
+    _, _, detail = verdicts(census_exact_sites(
+        "export async function resetCollection(o) {\n"
+        "  a(C, { exact: true });\n"
+        "  b(C, { exact: false });\n"
+        "}\n"))
+    check(detail["resetCollection"] == "NOT_EXACT",
+          "two-site guard, one estimated -> NOT_EXACT")
+
+    # Limites connues du retrait de commentaires, figees dans leur sens alerte
+    # (jamais un faux succes). Le fichier reel n'en contient pas : 4 sites sur 4.
+    _, _, detail = verdicts(census_exact_sites(
+        "export async function resetCollection(o) {\n"
+        "  a(C, { exact: true });\n"
+        '  log("exact: false, cite dans un message");\n'
+        "}\n"))
+    check(detail["resetCollection"] == "NOT_EXACT",
+          "quoted exact: false inside a guard -> NOT_EXACT")
+    check(census_exact_sites(
+        "export async function resetCollection(o) {\n"
+        "  const u = /https?:\\/\\//; a(C, { exact: true });\n"
+        "}\n") == [], "regex literal ending in \\/ -> site lost (alerting)")
 
     check(strip_js_comments('a//x\nexact: true').count("exact") == 1,
           "line comment removed, code kept")

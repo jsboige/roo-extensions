@@ -11,6 +11,7 @@ live build and RSM journals, so CI would be red for an environment reason, not
 a code reason. The exit-2 check uses a throwaway directory instead.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -49,6 +50,43 @@ class QdrantCountWindowSelftest(unittest.TestCase):
                 capture_output=True, text=True, timeout=60)
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("INSTRUMENT ERROR", proc.stderr)
+
+    def test_absent_log_dir_is_not_a_zero(self):
+        # An ABSENT journal is not a journal with zero lines. The series that
+        # depend on it must say so instead of rendering `aucun`, which reads as
+        # "network clean" -- the confusion this organ exists to prevent.
+        with tempfile.TemporaryDirectory() as root:
+            vintage = "build-0123456789abcdef"
+            build = os.path.join(root, vintage, "services", "task-indexer")
+            os.makedirs(build)
+            with open(os.path.join(root, "build-current"), "w") as handle:
+                handle.write(vintage)
+            with open(os.path.join(build, "VectorIndexer.js"), "w") as handle:
+                handle.write("export async function countPointsByHostOs(h) {\n"
+                             "  return qdrant.count(C, { exact: false });\n}\n")
+            absent_dir = os.path.join(root, "no-such-dir")
+            empty_dir = os.path.join(root, "empty")
+            os.mkdir(empty_dir)
+
+            def run(log_dir, *extra):
+                proc = subprocess.run(
+                    [sys.executable, _SCRIPT, "--rsm-root", root,
+                     "--log-dir", log_dir, "--no-hosts", *extra],
+                    capture_output=True, text=True, timeout=60)
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                return proc.stdout
+
+            absent = run(absent_dir)
+            absent_axes = json.loads(run(absent_dir, "--json"))["axes"]
+            empty = run(empty_dir)
+
+        self.assertIn("NOT_OBSERVABLE (journal absent", absent)
+        self.assertNotIn("aucun", absent)
+        self.assertFalse(absent_axes["counts"]["logDirPresent"])
+        self.assertFalse(absent_axes["readLatency"]["writePathObservable"])
+        self.assertIn("demarrages serveur/jour: aucun", empty)
+        self.assertIn("qdrant_upsert_failed/jour: aucun", empty)
+        self.assertNotIn("journal absent", empty)
 
 
 if __name__ == "__main__":
