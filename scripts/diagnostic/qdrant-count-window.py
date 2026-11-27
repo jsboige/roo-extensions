@@ -34,10 +34,10 @@ Ce que la mesure du 26/11 (po-2028) a etabli, et qui justifie la forme :
     vintage ne change PAS ce qui est servi — seul le nom de vintage compte.
 
 Contrat de sortie :
-    0 = fenetre rendue (quelle que soit la valeur des axes). Un journal ABSENT
-        rend les series qui en dependent NOT_OBSERVABLE, dossier nomme : jamais
-        `aucun`, qui se lit comme « zero defaut » ;
-    2 = erreur d'instrument (build introuvable ou journal illisible)
+    0 = fenetre rendue (quelle que soit la valeur des axes, journal lu)
+    2 = erreur d'instrument : build introuvable, journal illisible, dossier de
+        journaux absent, ou aucune ligne datee dans la fenetre. Un dossier
+        absent n'est pas un dossier a zero : `aucun` se lit « aucun defaut ».
 
 Lecture seule. Stdlib uniquement. Aucun appel reseau, aucun `count`, aucune
 charge sur Qdrant. Aucune ligne de commande de processus n'est imprimee : seuls
@@ -327,6 +327,13 @@ def build_report(args):
                 cohorts[vintage] = {"fix": "UNKNOWN", "reason": str(exc)}
         hosts["cohorts"] = cohorts
     logs = log_window(args.log_dir, args.since, args.until)
+    if not logs["available"]:
+        raise InstrumentError("dossier de journaux absent : " + args.log_dir)
+    if logs["dated_lines"] == 0:
+        raise InstrumentError(
+            "aucune ligne datee dans %s..%s sous %s (%d fichier(s) lu(s)) ; "
+            "un zero se lirait comme « aucun defaut »"
+            % (args.since, args.until, args.log_dir, logs["files"]))
     report["axes"] = {
         "build": build,
         "hosts": hosts,
@@ -336,7 +343,6 @@ def build_report(args):
             "fileSignatures": logs["signatures"],
             "serverStartsPerDay": logs["server_started"],
             "logFiles": logs["files"],
-            "logDirPresent": logs["available"],
         },
         "readLatency": {
             "observable": False,
@@ -344,7 +350,6 @@ def build_report(args):
                    "stderr (src/index.ts console.log -> console.error) and the "
                    "MCP stderr captures are not kept on this seat",
             "writePathContext": logs["upsert_failed"],
-            "writePathObservable": logs["available"],
         },
     }
     return report
@@ -386,32 +391,21 @@ def render(report):
         capture["files"], capture["nonEmpty"],
         " ".join("%s=%d" % (k, capture["signatures"].get(k, 0))
                  for k, _ in SIGNATURES)))
-    if counts["logDirPresent"]:
-        out.append("                   | en fichiers (%d): %s" % (
-            counts["logFiles"],
-            " ".join("%s=%d" % (k, counts["fileSignatures"].get(k, 0))
-                     for k, _ in SIGNATURES)))
-    else:
-        out.append("                   | en fichiers: NOT_OBSERVABLE (journal absent)")
+    out.append("                   | en fichiers (%d): %s" % (
+        counts["logFiles"],
+        " ".join("%s=%d" % (k, counts["fileSignatures"].get(k, 0))
+                 for k, _ in SIGNATURES)))
     if capture["nonEmpty"] == 0 and counts["logFiles"] == 0:
         out.append("                   | NOT_OBSERVABLE (ni capture stderr ni journal)")
     elif capture["nonEmpty"] == 0:
         out.append("                   | NOT_OBSERVABLE (capture stderr non persistee)")
     starts = counts["serverStartsPerDay"]
-    if counts["logDirPresent"]:
-        out.append("AXE2 proxy         | demarrages serveur/jour: %s" % (
-            " ".join("%s:%d" % (d[5:], n) for d, n in sorted(starts.items())) or "aucun"))
-    else:
-        out.append("AXE2 proxy         | NOT_OBSERVABLE (journal absent : %s)" % (
-            window["logDir"]))
+    out.append("AXE2 proxy         | demarrages serveur/jour: %s" % (
+        " ".join("%s:%d" % (d[5:], n) for d, n in sorted(starts.items())) or "aucun"))
     out.append("AXE4 latence lue   | NOT_OBSERVABLE (%s)" % latency["why"])
     writes = latency["writePathContext"]
-    if latency["writePathObservable"]:
-        out.append("AXE4 ecriture      | qdrant_upsert_failed/jour: %s" % (
-            " ".join("%s:%d" % (d[5:], n) for d, n in sorted(writes.items())) or "aucun"))
-    else:
-        out.append("AXE4 ecriture      | NOT_OBSERVABLE (journal absent : %s)" % (
-            window["logDir"]))
+    out.append("AXE4 ecriture      | qdrant_upsert_failed/jour: %s" % (
+        " ".join("%s:%d" % (d[5:], n) for d, n in sorted(writes.items())) or "aucun"))
     return "\n".join(out)
 
 

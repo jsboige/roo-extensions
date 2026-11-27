@@ -209,6 +209,13 @@ on:
       # imports its transport from the detector above. A main push touching ONLY
       # the organ re-ran nothing -- and this organ decides whether the user is rung.
       - 'scripts/diagnostic/check-degraded-escalations.py'
+      # Twelfth instance, closed in the PR that creates the guard (review of
+      # #4932, ai-01): qdrant-count-window.py is the before/after window of
+      # #4928 and its wrapper is scripts/testing/python/test_qdrant_count_window.py
+      # -- which is only re-run by a change to scripts/testing/python/**. A push
+      # touching ONLY the organ re-ran nothing, and that organ is what decides
+      # whether the exact-count fix is declared effective.
+      - 'scripts/diagnostic/qdrant-count-window.py'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
