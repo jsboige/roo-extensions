@@ -1176,7 +1176,14 @@ def entries_from_store_json(text):
     if not isinstance(payload, dict):
         raise ValueError("enveloppe JSON sans objet racine")
     if payload.get("success") is False:
-        detail = payload.get("error") or "sans motif"
+        # #4954 : `handleRead` porte le motif de TOUTES ses enveloppes d'echec
+        # dans `message` (magasin inaccessible l. ~8991, dashboard introuvable
+        # + magasin inaccessible l. ~9022, dashboard introuvable l. ~9034) et
+        # ne remplit jamais `error`. Ne lire que `error` affichait donc tout
+        # echec de lecture d'un dashboard actif « sans motif » et jetait la
+        # seule preuve disponible -- le jumeau archive lit deja les deux
+        # champs (#4929, l. 1262).
+        detail = payload.get("error") or payload.get("message") or "sans motif"
         raise ValueError(f"enveloppe en echec ({detail})")
     data = payload.get("data")
     intercom = data.get("intercom") if isinstance(data, dict) else None
@@ -2791,6 +2798,53 @@ le harnais au motif que Git resoudrait hors isolation
             absent_entries
         assert absent_reads == ["workspace-x-2026-11-03T04-00-00.md"], \
             absent_reads
+
+        # #4954 (ai-01, 27/11) — le jumeau ACTIF du cas precedent. `handleRead`
+        # porte le motif de ses enveloppes d'echec dans `message` et ne remplit
+        # jamais `error` : la branche vivante ne lisait que `error`, donc tout
+        # echec de lecture d'un dashboard actif s'affichait « sans motif » et
+        # la seule preuve disponible etait jetee. Le motif doit survivre, la
+        # classe d'erreur et le statut de mesure ne doivent pas bouger, et une
+        # enveloppe deterministe ne se relance pas.
+        active_reads = []
+        ACTIVE_FAIL_REASON = (
+            "Dashboard 'workspace-x' introuvable : PostgreSQL n'a pas servi "
+            "cette cle et le magasin partage est injoignable.")
+
+        def active_fail_fake_call(arguments, url, bearer, timeout=10.0,
+                                  client="x", return_rejected_text=False,
+                                  telemetry=None):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            active_reads.append(return_rejected_text)
+            # Forme EXACTE de dashboard.ts (handleRead, magasin injoignable).
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False, "action": "read", "key": "workspace-x",
+                "type": "workspace",
+                "message": ACTIVE_FAIL_REASON})}]}
+
+        try:
+            globals()["_load_transport"] = lambda: active_fail_fake_call
+            active_entries, active_errors, active_keys = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert active_keys == ["workspace-x"], active_keys
+        assert active_entries == [], active_entries
+        assert len(active_errors) == 1, active_errors
+        # La classe d'erreur ne change pas : enveloppe store inexploitable,
+        # mesure partielle -- aucune conclusion (§ critere 4 de l'issue).
+        assert "enveloppe store inexploitable" in active_errors[0], active_errors
+        # Le motif du serveur SURVIT (regression : « sans motif »).
+        assert "magasin partage est injoignable" in active_errors[0], \
+            active_errors
+        assert "sans motif" not in active_errors[0], active_errors
+        # Enveloppe deterministe : relancer relirait le meme echec (hors
+        # perimetre #4954 -- la relance muette ne couvre que `None`).
+        assert active_reads == [False], active_reads
 
         # #4643 — tout AUTRE rejet isError reste une erreur d'instrument :
         # pas la signature coque -> « rejet serveur » dans les erreurs.
