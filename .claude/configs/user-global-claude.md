@@ -117,6 +117,7 @@ Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** 
 1. **Debut** : `roosync_dashboard(action:"read", type:"workspace", section:"all")` + skill `memory-inject`. Dans un checkout roo-extensions, controle MCP du siege : `python scripts/diagnostic/verify-fleet-manifest.py` (lecture seule, ~0,15 s, #4336) — exit 2 = MCP requis absent/desactive ou retire present : STOP & REPAIR.
 2. **Pendant** : travailler. Blocage -> `append` tag `ASK`.
 3. **Fin** : `append` tag `DONE` — **aucune exception**. Les rapports vont sur le dashboard, PAS dans des fichiers du depot.
+4. **Apres un redemarrage** (machine, VS Code, crash, perte d'auth) : `/continue`. La commande est globale (`~/.claude/commands/continue.md`, source `.claude/configs/commands/continue.md`, deployee par `Deploy-GlobalConfig.ps1 -Target commands`). Elle **termine** le cycle interrompu — un redemarrage tue TOUS les crons de session, recurrents comme one-shots, donc le re-armement est sa premiere etape —, balaie les canaux pertinents (dont l'inbox, dont un echec fail-closed ne vaut jamais « boite vide »), et rend le **delta** de l'etat du systeme depuis le dernier post de la lane. C'est la forme canonique de « Reprends et verifie ton cron stp » (verbatim user, 27/11/2026) : ne pas rejouer le cycle entier quand seul un reste manquait.
 
 **Ordre OBLIGATOIRE** : commit + PR AVANT le rapport `[DONE]`. Ne jamais annoncer un travail non commite.
 
