@@ -183,19 +183,42 @@ archive » ; une archive sans horodatage parsable reste lue. Les déclarations
 crossPostées (même auteur, même horodatage) se dédoublonnent sur
 `(lane, poste)`.
 
-**#4661 — la passe d'archives est bornée par un budget global.** Mesure
-motivante (ai-01, 12/11, G: gelé en profondeur) : **929 s** dont **68 timeouts
-`read_archive` de 10 s séquentiels** — la passe n'était pas bornée et l'organe
-devenait muet pendant 15 minutes. `--archive-time-budget` (défaut **900 s** —
-couvre la passe saine mesurée à **669 s**, #4643 ; l'ancien 120 s épuisait le
-budget au bout de 3 min d'une passe **saine** et l'organe ne rendait jamais
-0/2/3 ; `0` = illimité) borne l'ensemble listing + lectures d'archives, toutes
-clés confondues ; les lectures **vivantes** ne consomment pas le budget et
-continuent après épuisement. Au-delà : archives restantes **sautées**,
-erreur d'instrument « fenêtre d'archives PARTIELLEMENT AVEUGLE », sortie **1**
-par le fail-closed existant (la sonnerie reste annulée sur mesure partielle,
-W3 #4655) — une mesure partielle rendue en temps borné plutôt qu'un organe
-muet.
+**#4661 — la passe d'archives est bornée.** Mesure motivante (ai-01, 12/11,
+G: gelé en profondeur) : **929 s** dont **68 timeouts `read_archive` de 10 s
+séquentiels** — la passe n'était pas bornée et l'organe devenait muet pendant
+15 minutes. Les lectures **vivantes** ne consomment jamais le budget et
+continuent après épuisement ; au-delà, les archives restantes sont **sautées**,
+l'erreur d'instrument « fenêtre d'archives PARTIELLEMENT AVEUGLE » est rendue,
+sortie **1** par le fail-closed existant (la sonnerie reste annulée sur mesure
+partielle, W3 #4655) — une mesure partielle rendue en temps borné plutôt qu'un
+organe muet.
+
+**#4951 — ce budget compte le temps IMMOBILE, pas la durée (27/11).** #4661
+bornait la passe par son temps **mural** ; sur un siège à proxy distant une
+passe **saine** le dépasse — **765 lectures, p50 1141 ms, p95 1844 ms**
+relevées sur `po-2026:CoursIA-3` (**873 s** au p50, 1411 s au p95 partout) — et
+l'organe rendait exit 1 à chaque cycle sur une passe qui **progressait**, donc
+la sonnerie ne partait jamais. Le budget ne compte plus que les lectures qui ne
+rendent **rien** (transport muet, relance comprise) : une lecture qui rend du
+contenu ne consomme rien, quelle que soit sa durée. `--archive-time-budget`
+(défaut **900 s**, `0` = illimité) couvre toujours la mesure #4661
+(68 × 10 s = 680 s de temps immobile). Un plafond **mural** de secours,
+`--archive-hard-ceiling` (défaut **3600 s**, 2,6× le pire cas mesuré au p95
+partout, `0` = pas de plafond), garantit qu'une passe qui progresse mais lit
+lentement finit : il ne juge jamais une passe lente, il l'empêche seulement de
+ne pas finir.
+
+**#4951 × #4958 — une lecture LOGIQUE compte pour une (27/11).** Depuis la
+seconde relance espacée (#4958), une lecture muette peut coûter **trois appels
+physiques** (essai, relance, pause de 30 s puis 2ᵉ relance). Le budget charge
+donc **la lecture entière** : un `read_archive` qui ne rend rien consomme sa
+durée réelle, pause et 2ᵉ relance comprises — sans quoi ~95 s d'immobilisation
+n'en comptaient que ~55 (mesure po-2024 sur l'arbre fusionné des deux PR).
+Corollaire pour les témoins : le compteur d'archives lit des **lectures
+logiques** (une par clé), et un compteur physique séparé atteste les trois
+essais — comparer des appels physiques à des archives faisait rougir le
+selftest à la fusion (40 s mesurées au lieu de 60 s sur le témoin d'horloge
+pilotée).
 
 **#4643 — coques vides et timeouts clients (dispatch ai-01 12/11 ; reprise
 c.6823202164).** Une lecture d'archive **muette** (le transport rend `None`)

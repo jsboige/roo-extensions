@@ -41,9 +41,12 @@ Sources, dans l'ordre (review #4519 point c) :
                            fenetre des 200 dernieres entrees par dashboard,
                            PLUS les archives de condensation recentes (#4643,
                            --archive-window-hours, defaut 48 h) ; la passe
-                           d'archives est bornee par --archive-time-budget
-                           (defaut 900 s, #4661/#4643 — couvre la passe saine
-                           mesuree a 669 s) : au-dela, archives restantes
+                           d'archives est bornee par son TEMPS IMMOBILISE
+                           (--archive-time-budget, defaut 900 s, #4661/#4951 —
+                           une lecture qui rend du contenu ne consomme rien,
+                           une lecture muette consomme sa duree) et par un
+                           plafond mural de secours (--archive-hard-ceiling,
+                           defaut 3600 s) : au-dela, archives restantes
                            sautees et signalees, sortie 1
     3. miroir G:           repli seulement, et seulement vers un repertoire
                            EXPLICITE (--dashboard-dir) ou avec bearer ; la
@@ -117,18 +120,40 @@ DEFAULT_CYCLE_HOURS = 4.0
 # couvre l'horizon reel d'une escalade saine (2 cycles d'echeance + la
 # re-sonnerie quotidienne de build_ring_id) ; 0 desactive la lecture.
 DEFAULT_ARCHIVE_WINDOW_HOURS = 48.0
-# #4661 : budget de temps GLOBAL de la passe d'archives (secondes). Mesure
-# motivante (ai-01, 12/11, G: gele en profondeur) : 929 s dont 68 timeouts
-# read_archive de 10 s SEQUENTIELS — la passe n'etait pas bornee. Au-dela du
-# budget, les archives restantes sont sautees et signalees (fenetre
+# #4661 -> #4951 : budget du temps IMMOBILISE de la passe d'archives
+# (secondes). #4661 bornait la passe par son temps MURAL TOTAL ; sur un siege
+# a proxy distant, une passe SAINE depasse ce plafond — 765 lectures,
+# p50 1141 ms, p95 1844 ms relevees sur po-2026:CoursIA-3 le 27/11 (873 s au
+# p50, 1411 s si tout tombe au p95) — donc le budget sautait des archives
+# d'une passe qui PROGRESSAIT : l'organe rendait exit 1 (mesure partielle) et
+# la sonnerie etait annulee A CHAQUE CYCLE. Le remede au blocage etait devenu
+# le blocage (#4951).
+#
+# La passe doit distinguer « ca progresse lentement » de « ca n'avance plus » :
+#   - une lecture `read_archive` qui REND du contenu ne consomme RIEN, quelle
+#     que soit sa duree — une passe saine et lente ne saute rien ;
+#   - une lecture qui ne rend RIEN (transport muet) consomme sa duree reelle,
+#     relance comprise — la passe BLOQUEE de #4661 (68 timeouts read_archive de
+#     10 s SEQUENTIELS, 929 s au total sur un G: gele en profondeur) reste
+#     bornee.
+# Au-dela, les archives restantes sont sautees et signalees (fenetre
 # partiellement aveugle -> erreur d'instrument -> sortie 1 par le fail-closed
 # existant) ; les lectures VIVANTES des dashboards restants continuent.
 # 0 ou negatif = illimite (comportement d'avant #4661).
-# #4643 (dispatch ai-01 12/11) : le defaut doit COUVRIR une passe saine
-# mesuree — 669 s releves le 12/11. L'ancien 120 s epuisait le budget au
-# bout de 3 min d'une passe SAINE : l'organe ne rendait jamais 0/2/3.
-# 900 s = 669 s + la marge des relances de coques vides ci-dessous.
+# 900 s couvre encore la mesure #4661 en temps immobile ; dans le cas muet,
+# chaque archive morte coute deux tentatives (timeout + relance a
+# STORE_READ_RETRY_TIMEOUT_S), donc le budget s'epuise en moins de lectures
+# qu'avant — chaque lecture morte portait deja sa propre erreur.
 DEFAULT_ARCHIVE_TIME_BUDGET_S = 900.0
+# #4951 : plafond MURAL de dernier recours de la passe d'archives (secondes).
+# Il ne sert QU'A garantir qu'une passe finit : une passe qui progresse mais
+# dont chaque lecture est lente (transport qui repond en 10 s au lieu de
+# 30 ms) n'a pas de temps immobile a opposer, et resterait sinon sans borne.
+# 3600 s = 2,6x le pire cas mesure sur un siege a proxy distant quand TOUTES
+# les lectures tombent au p95 (1411 s) : il ne juge jamais une passe lente,
+# et une passe qui l'atteint est un store qui ne repond plus vraiment.
+# 0 ou negatif = pas de plafond mural (seul le temps immobile borne).
+DEFAULT_ARCHIVE_HARD_CEILING_S = 3600.0
 # #4643 -> #4729 : relance d'une lecture MUETTE (le transport rend None —
 # timeout client sporadique ; 5 releves #4643 sur des archives saines de
 # 32-39 Ko). #4729 generalise la relance a TOUTES les lectures du store :
@@ -916,8 +941,73 @@ def lane_workspace_keys(lane, keys):
     return chosen
 
 
+class ArchivePassBudget:
+    """Budget de la passe d'archives : temps IMMOBILISE, plus un plafond mural.
+
+    #4951 — la distinction que la passe doit faire n'est pas « combien de temps
+    a-t-elle pris » mais « avance-t-elle ». Un siege a proxy distant lit 765
+    archives en 873 s sans rien perdre ; un G: gele lit 68 archives mortes en
+    680 s de timeouts. Le temps mural ne distingue pas les deux, le temps
+    immobile le fait :
+
+      - `charge_stall()` ne recoit QUE les tentatives qui n'ont pas rendu de
+        contenu (transport muet) — une lecture saine ne consomme rien ;
+      - `ceiling_s` est un dernier recours : une passe qui progresse mais dont
+        chaque lecture est lente n'a pas de temps immobile a opposer, elle
+        doit quand meme finir.
+
+    Le premier motif atteint est FIGE (`exhausted_reason`) : les archives
+    sautees portent la raison reelle de leur saut, et deux appels successifs
+    rendent le meme texte.
+
+    0 ou negatif sur l'un des deux plafonds = celui-la est desactive.
+    """
+
+    def __init__(self, stall_budget_s=None, ceiling_s=None):
+        self.stall_budget_s = (stall_budget_s
+                               if stall_budget_s and stall_budget_s > 0
+                               else None)
+        self.ceiling_s = (ceiling_s
+                          if ceiling_s and ceiling_s > 0 else None)
+        self.stalled_s = 0.0
+        self.started_at = None      # monotonic ; pose au premier appel d'archive
+        self.exhausted_reason = None
+
+    def start(self):
+        """Pose le chronometre mural au PREMIER appel d'archive de la passe.
+
+        Les lectures vivantes qui precedent ne le consomment pas, et une
+        execution sans archives ne construit aucun chronometre (#4661).
+        """
+        if self.started_at is None:
+            self.started_at = time.monotonic()
+
+    def charge_stall(self, elapsed_s):
+        """Ajoute le temps d'une tentative MUETTE au temps immobile."""
+        if self.started_at is None or not elapsed_s or elapsed_s <= 0:
+            return
+        self.stalled_s += elapsed_s
+
+    def check(self):
+        """None si la passe peut continuer, sinon la raison (texte court)."""
+        if self.exhausted_reason is not None:
+            return self.exhausted_reason
+        if (self.stall_budget_s is not None
+                and self.stalled_s > self.stall_budget_s):
+            self.exhausted_reason = (
+                f"temps immobile {self.stalled_s:.0f} s au-dela du budget "
+                f"{self.stall_budget_s:.0f} s")
+            return self.exhausted_reason
+        if (self.ceiling_s is not None and self.started_at is not None
+                and time.monotonic() - self.started_at > self.ceiling_s):
+            self.exhausted_reason = (
+                f"plafond mural {self.ceiling_s:.0f} s depasse")
+            return self.exhausted_reason
+        return None
+
+
 def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
-                             timeout, archive_deadline):
+                             timeout, archive_budget):
     """#4643 (rouverte 14/11) : relit les archives ANTERIEURES a la fenetre.
 
     Le defaut mesure par ai-01 le 14/11 : une escalade crossPostee survit dans
@@ -932,7 +1022,8 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
     archive creee apres elle, donc dans la fenetre — seule une escalade
     anterieure a la coupure peut avoir une fermeture hors champ.
 
-    Seconde passe, bornee par le MEME budget que la fenetre (#4661) : pour
+    Seconde passe, bornee par le MEME budget que la fenetre (#4661/#4951 :
+    temps immobile + plafond mural) : pour
     chaque escalade encore ouverte dont la pose precede `archive_cutoff`, on
     relit les archives du workspace de sa lane, de la plus recente a la plus
     ancienne, jusqu'a sa date de pose. On ne retient que les FERMETURES de ces
@@ -978,11 +1069,12 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
     live_closures = [entry for entry in ordered if is_repaired(entry)]
     closures = []
     for key, posts in sorted(by_key.items()):
-        if archive_deadline is not None and time.monotonic() > archive_deadline:
+        reason = archive_budget.check()
+        if reason is not None:
             errors.append(
-                f"{key}: budget d'archives epuise AVANT la seconde passe — "
-                f"fermetures archivees au-dela de la fenetre non relues ; "
-                f"mesure partielle")
+                f"{key}: budget d'archives epuise AVANT la seconde passe "
+                f"({reason}) — fermetures archivees au-dela de la fenetre non "
+                f"relues ; mesure partielle")
             continue
         listing = call(read_archive_arguments_for_key(key), url, bearer,
                        timeout=timeout)
@@ -1005,11 +1097,12 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
         for _stamp, name in reversed(older):
             if not remaining:
                 break
-            if (archive_deadline is not None
-                    and time.monotonic() > archive_deadline):
+            reason = archive_budget.check()
+            if reason is not None:
                 errors.append(
                     f"{key}/{name}: budget d'archives epuise pendant la "
-                    f"seconde passe — {len(remaining)} fermeture(s) archivee(s) "
+                    f"seconde passe ({reason}) — {len(remaining)} "
+                    f"fermeture(s) archivee(s) "
                     f"non verifiee(s) ; mesure partielle")
                 break
             # #4729 : la relance muette vit dans le `call` recu (read_store
@@ -1540,6 +1633,7 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                             now=None, window_hours=None,
                             archive_window_hours=DEFAULT_ARCHIVE_WINDOW_HOURS,
                             archive_time_budget=DEFAULT_ARCHIVE_TIME_BUDGET_S,
+                            archive_hard_ceiling=DEFAULT_ARCHIVE_HARD_CEILING_S,
                             telemetry=None):
     """Dashboards servis par le STORE (PG), meme transport que la sonnerie
     (review #4519 point c : les dashboards sont servis par PG ; le miroir G:
@@ -1575,15 +1669,22 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     jusqu'a la date de pose de toute escalade encore ouverte et anterieure a
     la fenetre ; un budget epuise y est une erreur d'instrument (exit 1).
 
-    #4661 : la passe d'archives est bornee par `archive_time_budget`
-    (defaut 900 s — couvre la passe saine mesuree a 669 s, #4643 ;
-    0/negatif = illimite). Le budget est GLOBAL a la passe,
-    initialise au premier appel d'archive — les lectures vivantes ne le
-    consomment pas. Au-dela, les archives restantes sont SAUTEES et la
-    fenetre est declaree partiellement aveugle (erreur d'instrument, sortie 1
-    par le fail-closed) : mieux vaut une mesure partielle rendue en temps
-    borne qu'un organe muet pendant 15 minutes de lectures sequentielles
-    (mesure motivante : 68 timeouts x 10 s sur un G: gele).
+    #4661 -> #4951 : la passe d'archives est bornee par son TEMPS IMMOBILISE
+    (`archive_time_budget`, defaut 900 s — couvre les 680 s de timeouts de la
+    passe bloquee de #4661) et par un plafond mural de secours
+    (`archive_hard_ceiling`, defaut 3600 s) ; 0/negatif desactive le plafond
+    correspondant. Une lecture qui rend du contenu ne consomme RIEN : une
+    passe saine et lente — 765 lectures, p50 1141 ms, 873 s mesurees sur un
+    siege a proxy distant le 27/11 — ne saute plus aucune archive (#4951).
+    Une lecture LOGIQUE compte pour UN : ses relances (#4643/#4729) et la
+    2e relance espacee avec sa pause (#4958) font partie de sa duree.
+    Le budget est GLOBAL a la passe, initialise au premier appel d'archive —
+    les lectures vivantes ne le consomment pas. Au-dela, les archives
+    restantes sont SAUTEES et la fenetre est declaree partiellement aveugle
+    (erreur d'instrument, sortie 1 par le fail-closed) : mieux vaut une
+    mesure partielle rendue en temps borne qu'un organe muet pendant 15
+    minutes de lectures sequentielles (mesure motivante : 68 timeouts x 10 s
+    sur un G: gele).
 
     #4643 (coques vides + timeouts clients) : une lecture d'archive MUETTE
     (transport None) est relancee UNE fois a timeout etendu — timeout client
@@ -1614,6 +1715,24 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     """
     call = _load_transport()
     tel = telemetry if telemetry is not None else ReadTelemetry()
+    # #4951 : budget de la passe d'archives — temps immobile seulement. La
+    # charge est posee ICI, au seul entonnoir de TOUTES les lectures : une
+    # tentative `read_archive` qui n'a rien rendu (transport muet) consomme sa
+    # duree reelle, une lecture qui rend du contenu ne consomme rien. Une
+    # lecture LOGIQUE muette vaut donc essai + relance + pause + 2e relance
+    # (#4958) : ce qui ne rend rien consomme sa duree reelle ENTIERE. La
+    # seconde passe recoit `read_store` comme `call` et beneficie donc de la
+    # meme mesure sans le savoir.
+    archive_budget = ArchivePassBudget(archive_time_budget, archive_hard_ceiling)
+
+    def _charge_archive_stall(action, elapsed, result):
+        # Le chronometre mural part au PREMIER appel d'archive, qu'il reussisse
+        # ou non ; le temps immobile ne compte que les tentatives sans contenu.
+        if action != "read_archive":
+            return
+        archive_budget.start()
+        if result is None:
+            archive_budget.charge_stall(elapsed)
 
     # #4729 : TOUTES les lectures passent par la meme garde — mesure de
     # latence + relance UNE fois a timeout etendu sur echec MUET (transport
@@ -1621,13 +1740,16 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     # `read_store` comme `call`, sans savoir qu'elle est gardee.
     def read_store(arguments, _url=None, _bearer=None, timeout_s=None,
                    return_rejected_text=False, **_ignored):
+        action = arguments.get("action")
         first_s = timeout_s if timeout_s is not None else timeout
         call_telemetry = {}
         t0 = time.monotonic()
         result = call(arguments, url, bearer, timeout=first_s,
                       return_rejected_text=return_rejected_text,
                       telemetry=call_telemetry)
-        tel.observe(time.monotonic() - t0, result, call_telemetry)
+        elapsed = time.monotonic() - t0
+        tel.observe(elapsed, result, call_telemetry)
+        _charge_archive_stall(action, elapsed, result)
         if result is None:
             tel.mark_retry()
             call_telemetry = {}
@@ -1636,7 +1758,9 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                           timeout=STORE_READ_RETRY_TIMEOUT_S,
                           return_rejected_text=return_rejected_text,
                           telemetry=call_telemetry)
-            tel.observe(time.monotonic() - t0, result, call_telemetry)
+            elapsed = time.monotonic() - t0
+            tel.observe(elapsed, result, call_telemetry)
+            _charge_archive_stall(action, elapsed, result)
             if result is not None:
                 tel.mark_recovered()
             elif tel.allows_second_retry(STORE_SECOND_RETRY_PAUSE_S):
@@ -1653,7 +1777,15 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                               return_rejected_text=return_rejected_text,
                               telemetry=call_telemetry)
                 tel.observe(time.monotonic() - t0, result, call_telemetry)
-                tel.charge_second_retry(time.monotonic() - t_second)
+                second_elapsed = time.monotonic() - t_second
+                tel.charge_second_retry(second_elapsed)
+                # #4951 x #4958 : la 2e relance fait partie de la MEME lecture
+                # logique — sa pause et son essai sont du temps immobile comme
+                # les deux premiers essais. Sans cette charge, une lecture
+                # muette de bout en bout immobilisait ~95 s muraux dont ~55 s
+                # seulement comptes (mesure po-2024 sur l'arbre fusionne des
+                # deux PR) : le budget ne mesurait plus la duree reelle.
+                _charge_archive_stall(action, second_elapsed, result)
                 if result is not None:
                     tel.mark_second_recovered()
             else:
@@ -1667,9 +1799,6 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     errors = []
     window_start = (now - timedelta(hours=window_hours)
                     if now is not None and window_hours else None)
-    # #4661 : echeance du budget d'archives, construite paresseusement au
-    # premier appel d'archive (None = illimite ou passe non encore entamee).
-    archive_deadline = None
     for key in keys:
         result = read_store(read_arguments_for_key(key, intercom_limit))
         text = tool_result_text(result)
@@ -1714,23 +1843,19 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     f"invisible")
         # #4643 : le vif condense n'est qu'une PARTIE de la verite — les
         # archives recentes portent les declarations evacuees.
-        # #4661 : la passe d'archives est BORNEE. Le budget est initialise au
-        # PREMIER appel d'archive de la passe (pas a l'entree de la fonction) :
-        # les lectures vivantes qui precedent ne le consomment pas, et une
-        # execution sans archives ne construit aucun chronometre.
+        # #4661 -> #4951 : la passe d'archives est BORNEE par son temps
+        # immobile (et un plafond mural de secours). Le chronometre est pose
+        # au PREMIER appel d'archive de la passe (pas a l'entree de la
+        # fonction) : les lectures vivantes qui precedent ne le consomment
+        # pas, et une execution sans archives ne construit aucun chronometre.
         if archive_window_hours:
-            if archive_deadline is None:
-                archive_deadline = (
-                    time.monotonic() + archive_time_budget
-                    if archive_time_budget and archive_time_budget > 0
-                    else None)
-            if (archive_deadline is not None
-                    and time.monotonic() > archive_deadline):
+            reason = archive_budget.check()
+            if reason is not None:
                 errors.append(
-                    f"{key}: budget d'archives epuise "
-                    f"({archive_time_budget:.0f} s) — archives sautees ; la "
-                    f"fenetre d'archives est PARTIELLEMENT AVEUGLE, un "
-                    f"[REPAIRED] ou une escalade archivee serait invisible")
+                    f"{key}: budget d'archives epuise ({reason}) — archives "
+                    f"sautees ; la fenetre d'archives est PARTIELLEMENT "
+                    f"AVEUGLE, un [REPAIRED] ou une escalade archivee serait "
+                    f"invisible")
                 continue
             listing = read_store(read_archive_arguments_for_key(key))
             names = archive_names_from_listing(listing)
@@ -1742,15 +1867,14 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
             recent_archives = select_recent_archives(names, now,
                                                      archive_window_hours)
             for index, name in enumerate(recent_archives):
-                if (archive_deadline is not None
-                        and time.monotonic() > archive_deadline):
+                reason = archive_budget.check()
+                if reason is not None:
                     skipped = len(recent_archives) - index
                     errors.append(
-                        f"{key}: budget d'archives epuise "
-                        f"({archive_time_budget:.0f} s) — {skipped} archive(s) "
-                        f"restante(s) sauteee(s) ; la fenetre d'archives est "
-                        f"PARTIELLEMENT AVEUGLE, un [REPAIRED] ou une escalade "
-                        f"archivee serait invisible")
+                        f"{key}: budget d'archives epuise ({reason}) — "
+                        f"{skipped} archive(s) restante(s) sautee(s) ; la "
+                        f"fenetre d'archives est PARTIELLEMENT AVEUGLE, un "
+                        f"[REPAIRED] ou une escalade archivee serait invisible")
                     break
                 # #4643 -> #4729 : la relance muette vit dans read_store —
                 # meme contrat (UNE relance a timeout etendu sur None, un
@@ -1814,7 +1938,7 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     if archive_cutoff is not None:
         extra_closures, pass_errors = second_pass_old_closures(
             entries, keys, archive_cutoff, read_store, url, bearer, timeout,
-            archive_deadline)
+            archive_budget)
         entries.extend(extra_closures)
         errors.extend(pass_errors)
     return entries, errors, keys
@@ -2726,12 +2850,19 @@ le harnais au motif que Git resoudrait hors isolation
             "action": "read_archive", "type": "workspace", "workspace": "y",
             "archiveFile": "workspace-y-2026-11-03T04-00-00.md"}
 
-        # #4661 — budget GLOBAL de la passe d'archives : un transport dont
-        # chaque lecture d'archive depasse le budget laisse (a) les entrees
-        # VIVANTES intactes, (b) une erreur nommant le budget (fenetre
-        # partiellement aveugle), (c) moins d'appels d'archives que
-        # d'archives disponibles. Le transport est injecte comme en
-        # production (aucun reseau).
+        # #4951 — le budget d'archives est un budget de TEMPS IMMOBILISE, plus
+        # un plafond mural de secours. Trois passes sur le meme transport
+        # injecte (aucun reseau), seul le resultat des lectures change :
+        #   (A) pass saine LENTE (chaque lecture rend son contenu apres 20 ms) :
+        #       rien n'est saute, aucune erreur de budget — 765 lectures a
+        #       p50 1141 ms sur un siege a proxy distant ne doivent plus faire
+        #       rendre exit 1 a une passe qui progresse ;
+        #   (B) passe BLOQUEE (#4661 : lectures muettes de 10 s sequentielles,
+        #       transposees en 20 ms) : le budget s'epuise, archives sautees,
+        #       erreur nommant le budget ;
+        #   (C) passe qui PROGRESSE mais dont chaque lecture est lente, sans
+        #       temps immobile a opposer : le plafond mural garantit qu'elle
+        #       finit, et l'erreur le nomme.
         live_envelope = json.dumps({
             "success": True,
             "data": {"intercom": {"messages": [{
@@ -2740,43 +2871,104 @@ le harnais au motif que Git resoudrait hors isolation
                 "content": "[DONE] cycle normal", "tags": []}]}}})
         budget_names = [f"workspace-x-2026-11-03T04-0{i}-00.md"
                         for i in range(3)]
-        budget_calls = {"archive_files": 0}
 
-        def budget_fake_call(arguments, url, bearer, timeout=10.0,
-                             client="x", return_rejected_text=False,
-                             telemetry=None):
-            action = arguments.get("action")
-            if action == "list":
-                return {"content": [{"type": "text", "text": json.dumps(
-                    {"success": True,
-                     "dashboards": [{"key": "workspace-x"}]})}]}
-            if action == "read":
-                return {"content": [{"type": "text", "text": live_envelope}]}
-            if "archiveFile" not in arguments:
-                return {"content": [{"type": "text", "text": json.dumps(
-                    {"success": True, "archives": budget_names})}]}
-            time.sleep(0.05)  # chaque lecture d'archive depasse le budget
-            budget_calls["archive_files"] += 1
-            return {"content": [{"type": "text", "text": json.dumps({
-                "success": True, "archiveData": {"messages": []}})}]}
+        def make_budget_call(muted=False):
+            # #4951 x #4958 : depuis la 2e relance espacee, une lecture
+            # LOGIQUE peut produire jusqu'a 3 appels physiques (essai,
+            # relance, 2e relance). Les deux compteurs sont donc distincts :
+            # compter les appels physiques comparait 3 appels a 3 archives et
+            # faisait rougir ce selftest a la fusion des deux PR (mesure
+            # po-2024 sur l'arbre fusionne). `archive_files` = lectures
+            # logiques, une par cle d'archive demandee.
+            calls = {"archive_files": 0, "archive_calls": 0}
+            seen = set()
+
+            def budget_fake_call(arguments, url, bearer, timeout=10.0,
+                                 client="x", return_rejected_text=False,
+                                 telemetry=None):
+                action = arguments.get("action")
+                if action == "list":
+                    return {"content": [{"type": "text", "text": json.dumps(
+                        {"success": True,
+                         "dashboards": [{"key": "workspace-x"}]})}]}
+                if action == "read":
+                    return {"content": [{"type": "text",
+                                         "text": live_envelope}]}
+                if "archiveFile" not in arguments:
+                    return {"content": [{"type": "text", "text": json.dumps(
+                        {"success": True, "archives": budget_names})}]}
+                time.sleep(0.02)  # duree reelle de la lecture
+                calls["archive_calls"] += 1
+                ident = (arguments.get("type"), arguments.get("workspace"),
+                         arguments.get("machineId"),
+                         arguments.get("archiveFile"))
+                if ident not in seen:
+                    seen.add(ident)
+                    calls["archive_files"] += 1
+                if muted:
+                    return None
+                return {"content": [{"type": "text", "text": json.dumps({
+                    "success": True, "archiveData": {"messages": []}})}]}
+            return budget_fake_call, calls
 
         saved_transport = _load_transport
+        # #4958 : la pause de la 2e relance vaut 30 s en production. Le
+        # selftest l'annule pour rester rapide, sans annuler la 3e TENTATIVE —
+        # c'est elle que le budget #4951 doit charger.
+        saved_second_retry_pause = STORE_SECOND_RETRY_PAUSE_S
         try:
+            globals()["STORE_SECOND_RETRY_PAUSE_S"] = 0.0
+            # (A) saine et lente : RIEN n'est saute malgre le budget minuscule.
+            healthy_call, healthy_calls = make_budget_call()
             # Injecte la FABRIQUE (load_entries_from_store appelle
             # `_load_transport()` pour obtenir `call`), pas la fonction.
-            globals()["_load_transport"] = lambda: budget_fake_call
+            globals()["_load_transport"] = lambda: healthy_call
             budget_entries, budget_errors, _ = load_entries_from_store(
                 None, "bearer", timeout=1.0, now=now, window_hours=8.0,
-                archive_window_hours=48.0, archive_time_budget=0.01)
+                archive_window_hours=48.0, archive_time_budget=0.01,
+                archive_hard_ceiling=0)
+            assert (len(budget_entries) == 1
+                    and budget_entries[0]["body"] == "[DONE] cycle normal"), \
+                budget_entries
+            assert healthy_calls["archive_files"] == len(budget_names), \
+                healthy_calls
+            assert not any("budget d'archives" in err
+                           for err in budget_errors), budget_errors
+
+            # (B) bloquee : le temps immobile epuise le budget.
+            muted_call, muted_calls = make_budget_call(muted=True)
+            globals()["_load_transport"] = lambda: muted_call
+            muted_entries, muted_errors, _ = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0,
+                archive_window_hours=48.0, archive_time_budget=0.01,
+                archive_hard_ceiling=0)
+            assert (len(muted_entries) == 1
+                    and muted_entries[0]["body"] == "[DONE] cycle normal"), \
+                muted_entries
+            assert any("budget d'archives" in err for err in muted_errors), \
+                muted_errors
+            assert muted_calls["archive_files"] < len(budget_names), \
+                muted_calls
+            # ...et la lecture muette est passee par les TROIS essais : sans
+            # cette assertion, le selftest ne dirait rien de #4958 et la
+            # charge du 3e essai pourrait disparaitre sans temoin.
+            assert muted_calls["archive_calls"] == \
+                3 * muted_calls["archive_files"], muted_calls
+
+            # (C) lente qui progresse : le plafond mural la termine.
+            ceiling_call, ceiling_calls = make_budget_call()
+            globals()["_load_transport"] = lambda: ceiling_call
+            _c_entries, ceiling_errors, _ = load_entries_from_store(
+                None, "bearer", timeout=1.0, now=now, window_hours=8.0,
+                archive_window_hours=48.0, archive_time_budget=0,
+                archive_hard_ceiling=0.01)
+            assert any("plafond mural" in err for err in ceiling_errors), \
+                ceiling_errors
+            assert ceiling_calls["archive_files"] < len(budget_names), \
+                ceiling_calls
         finally:
+            globals()["STORE_SECOND_RETRY_PAUSE_S"] = saved_second_retry_pause
             globals()["_load_transport"] = saved_transport
-        assert (len(budget_entries) == 1
-                and budget_entries[0]["body"] == "[DONE] cycle normal"), \
-            budget_entries
-        assert any("budget d'archives" in err for err in budget_errors), \
-            budget_errors
-        assert budget_calls["archive_files"] < len(budget_names), \
-            budget_calls
 
         # #4643 (c.6823202164) -> #4796 — rejet serveur isError VERBATIM,
         # texte rendu par le transport (opt-in return_rejected_text) au
@@ -3008,9 +3200,16 @@ le harnais au motif que Git resoudrait hors isolation
         assert recover_errors == [], recover_errors
         repaired = [e for e in recover_entries if is_repaired(e)]
         assert len(repaired) == 1, recover_entries
-        # Le defaut du budget couvre la passe saine mesuree (669 s, ai-01
-        # 12/11) : l'ancien 120 s epuisait le budget sur une passe SAINE.
+        # #4951 : le defaut du budget couvre le TEMPS IMMOBILISE de la passe
+        # bloquee de #4661 (68 timeouts read_archive de 10 s = 680 s) ; il ne
+        # mesure plus la duree totale, donc il n'a plus a couvrir une passe
+        # saine (765 lectures a p50 1141 ms = 873 s le 27/11) — c'est la
+        # lecture qui rend du contenu qui ne consomme rien.
         assert DEFAULT_ARCHIVE_TIME_BUDGET_S >= 669.0
+        # Le plafond mural doit couvrir le pire cas mesure d'un siege a proxy
+        # distant quand TOUTES les lectures tombent au p95 (765 x 1844 ms =
+        # 1411 s), sinon il rejouerait le defaut #4951 sous un autre nom.
+        assert DEFAULT_ARCHIVE_HARD_CEILING_S >= 2 * 1411.0
 
     print("selftest OK: [DEGRADED] ouvert/depasse/repare, [DONE] ne ferme rien, "
           "forme voisine ignoree, echeance derivee du poste, erreur d'instrument "
@@ -3023,9 +3222,10 @@ le harnais au motif que Git resoudrait hors isolation
           "d'archive = celle du read vivant, rejet husk isError (enveloppe "
           "verbatim) classee lecture partielle sans relance (#4796), autre "
           "rejet isError = erreur, "
-          "timeout client sporadique recouvre par la relance ; #4661 : "
-          "budget d'archives global — saut signale, "
-          "entrees vivantes intactes, appels bornes ; #4730 : defaut connu de "
+          "timeout client sporadique recouvre par la relance ; #4661 -> #4951 : "
+          "budget d'archives = temps IMMOBILISE (pass saine lente : rien de "
+          "saute ; pass muette : saut signale, appels bornes) + plafond mural "
+          "de secours, entrees vivantes intactes ; #4730 : defaut connu de "
           "l'hote classe A-PART (sonnerie separee, verdict explicite, "
           "idempotence sur le lot reparable, statut et sortie inchanges) ; "
           "#4729 : panne du lecteur de l'organe (exit 1) rangee a part -- "
@@ -3069,11 +3269,22 @@ def main(argv=None):
                              f"0 desactive)")
     parser.add_argument("--archive-time-budget", type=float,
                         default=DEFAULT_ARCHIVE_TIME_BUDGET_S, metavar="SECONDS",
-                        help=f"budget GLOBAL (s) de la passe d'archives : au-dela, "
-                             f"les archives restantes sont sautees et signalees "
-                             f"(fenetre partiellement aveugle, sortie 1) ; les "
-                             f"lectures vivantes continuent. Defaut "
-                             f"{DEFAULT_ARCHIVE_TIME_BUDGET_S:g} s, 0 = illimite (#4661)")
+                        help=f"budget de TEMPS IMMOBILISE (s) de la passe "
+                             f"d'archives : seules les lectures qui ne rendent "
+                             f"rien le consomment, une passe saine et lente ne "
+                             f"saute rien (#4951). Au-dela, les archives "
+                             f"restantes sont sautees et signalees (fenetre "
+                             f"partiellement aveugle, sortie 1) ; les lectures "
+                             f"vivantes continuent. Defaut "
+                             f"{DEFAULT_ARCHIVE_TIME_BUDGET_S:g} s, 0 = illimite "
+                             f"(#4661)")
+    parser.add_argument("--archive-hard-ceiling", type=float,
+                        default=DEFAULT_ARCHIVE_HARD_CEILING_S, metavar="SECONDS",
+                        help=f"plafond MURAL (s) de secours de la passe "
+                             f"d'archives : garantit qu'une passe qui progresse "
+                             f"mais lit lentement finit (#4951). Defaut "
+                             f"{DEFAULT_ARCHIVE_HARD_CEILING_S:g} s, "
+                             f"0 = pas de plafond")
     parser.add_argument("--now", default=None, metavar="ISO8601",
                         help="instant de reference (rejeu) ; defaut : maintenant")
     parser.add_argument("--json", action="store_true", help="sortie machine")
@@ -3142,6 +3353,7 @@ def main(argv=None):
                         window_hours=args.cycles * args.cycle_hours,
                         archive_window_hours=args.archive_window_hours,
                         archive_time_budget=args.archive_time_budget,
+                        archive_hard_ceiling=args.archive_hard_ceiling,
                         telemetry=read_tel)
                  if args.ring_bearer else None)
         if store is not None:
