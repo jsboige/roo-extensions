@@ -38,6 +38,14 @@
     is absent outright reports SERVER-MISSING rather than a misleading
     PARSE-ERROR (review follow-up on #4743).
 
+    The timeout predicate is applied to BOTH relay entries. #4718 gave
+    sk-agent its own 900 s timeout and, until this change, nothing pinned it:
+    a second field no guard reads is a value the next edit can delete in
+    silence (point 3 of the review of #4718). Each entry carries its own
+    floor -- roo-state-manager must outlast the 720 s inner budget, sk-agent
+    must honour #1357's 5 min chain budget -- and a relay entry that is
+    absent outright reports SERVER-MISSING, like the transport predicate.
+
     Static (JSON in, verdict out), so ubuntu-latest is fine.
 #>
 
@@ -46,6 +54,10 @@ $ErrorActionPreference = 'Stop'
 $TemplateRel = 'docker/mcp-proxy/config.template.json'
 $TemplatePath = Join-Path $PSScriptRoot "../../../$TemplateRel"
 $InnerBudgetNs = 720000000000   # roosync_dashboard 720 s (registry.ts), the innermost guard
+$ChainBudgetNs = 300000000000   # #1357: 5 min across the chain (default, not a hard cap)
+# Every relay entry MUST declare a timeout, and must clear its own floor.
+$RelayTimeoutFloors = @{ 'roo-state-manager' = $InnerBudgetNs; 'sk-agent' = $ChainBudgetNs }
+$RelayTimeoutServers = [string[]]@('sk-agent', 'roo-state-manager')
 
 $TestsPassed = 0
 $TestsFailed = 0
@@ -63,17 +75,20 @@ function Assert-Equal {
 
 # ============================================================================
 # The predicate under test: read a template file, return a verdict string.
-# OK | MISSING | NOT-A-NUMBER | NOT-POSITIVE | BELOW-INNER-BUDGET | PARSE-ERROR
+# OK | SERVER-MISSING | MISSING | NOT-A-NUMBER | NOT-POSITIVE | BELOW-BUDGET
+# | PARSE-ERROR
 # ============================================================================
 function Get-TimeoutVerdict {
-    param([string]$Path)
+    param([string]$Path, [string]$ServerName)
     if (-not (Test-Path $Path)) { return 'PARSE-ERROR' }
     $raw = [System.IO.File]::ReadAllText((Resolve-Path $Path))
     $obj = $null
     try { $obj = $raw | ConvertFrom-Json } catch { return 'PARSE-ERROR' }
     if ($null -eq $obj.mcpServers) { return 'PARSE-ERROR' }
-    $entry = $obj.mcpServers.'roo-state-manager'
-    if ($null -eq $entry) { return 'MISSING' }
+    # An absent entry is not a parse failure -- same verdict as the transport
+    # predicate, so a deleted relay is never reported as a malformed file.
+    $entry = $obj.mcpServers.$ServerName
+    if ($null -eq $entry) { return 'SERVER-MISSING' }
 
     # ConvertFrom-Json maps a JSON number to Int64/Double/Decimal and a JSON
     # string to String -- so the type IS the check the Go decoder makes.
@@ -83,7 +98,8 @@ function Get-TimeoutVerdict {
         return 'NOT-A-NUMBER'
     }
     if ($v -le 0) { return 'NOT-POSITIVE' }
-    if ($v -lt $InnerBudgetNs) { return 'BELOW-INNER-BUDGET' }
+    $floor = $script:RelayTimeoutFloors[$ServerName]
+    if ($null -ne $floor -and $v -lt $floor) { return 'BELOW-BUDGET' }
     return 'OK'
 }
 
@@ -96,16 +112,22 @@ if (-not (Test-Path $TemplatePath)) {
     Write-Host "  FAIL: template not found at $TemplatePath -- moved or renamed?" -ForegroundColor Red
     exit 1
 }
-Assert-Equal 'shipped template verdict' 'OK' (Get-TimeoutVerdict $TemplatePath)
+foreach ($relay in $RelayTimeoutServers) {
+    Assert-Equal "shipped template timeout [$relay]" 'OK' (Get-TimeoutVerdict $TemplatePath $relay)
+}
 
-# Report the live value so a legitimate ladder change is visible in the log.
+# Report the live values so a legitimate ladder change is visible in the log.
 # Guarded: on a defective template the field is a string, and an unguarded
 # [math]::Round would throw and abort before the mutation cases below run.
-$live = (Get-Content $TemplatePath -Raw | ConvertFrom-Json).mcpServers.'roo-state-manager'.timeout
-if ($live -is [long] -or $live -is [int] -or $live -is [double] -or $live -is [decimal]) {
-    Write-Host "  info: roo-state-manager timeout = $live ns ($([math]::Round([double]$live / 1e9, 1)) s)"
-} else {
-    Write-Host "  info: roo-state-manager timeout = '$live' (non-numeric -- the #3083 defect)" -ForegroundColor Yellow
+$parsed = Get-Content $TemplatePath -Raw | ConvertFrom-Json
+foreach ($relay in $RelayTimeoutServers) {
+    $live = $parsed.mcpServers.$relay.timeout
+    if ($live -is [long] -or $live -is [int] -or $live -is [double] -or $live -is [decimal]) {
+        Write-Host ("  info: {0} timeout = {1} ns ({2} s, floor {3} s)" -f `
+            $relay, $live, [math]::Round([double]$live / 1e9, 1), [math]::Round([double]$RelayTimeoutFloors[$relay] / 1e9, 0))
+    } else {
+        Write-Host "  info: $relay timeout = '$live' (non-numeric -- the #3083 defect)" -ForegroundColor Yellow
+    }
 }
 
 # ============================================================================
@@ -123,36 +145,87 @@ $tmpDir = [System.IO.Path]::GetTempPath()
 $canonical = @'
 {
   "mcpServers": {
+    "searxng": { "command": "npx", "args": ["-y", "searxng-mcp"] },
+    "sk-agent": {
+      "url": "http://host.docker.internal:8100/mcp",
+      "transportType": "streamable-http",
+      "timeout": 900000000000
+    },
     "roo-state-manager": {
       "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
+      "transportType": "streamable-http",
       "timeout": 780000000000
     }
   }
 }
 '@
 
-# Build the "field removed" mutant by re-serializing, so no dangling comma is
-# left behind (a string-replace would produce invalid JSON -- PARSE-ERROR, not
-# the MISSING verdict this case is meant to exercise).
-$noField = $canonical | ConvertFrom-Json
-$noField.mcpServers.'roo-state-manager'.PSObject.Properties.Remove('timeout')
-$noFieldDoc = $noField | ConvertTo-Json -Depth 10
+# Mutants are built by re-serialization, so no dangling comma can turn a
+# semantic case into PARSE-ERROR (the #4743 review lesson). -Value keeps its
+# PowerShell type: passing 0 (int) and '15m' (string) exercises two different
+# verdicts, which is the point of the table.
+function New-MutantDoc {
+    param(
+        [Parameter(Mandatory = $true)][string]$ServerName,
+        [string]$Prop,
+        $Value,
+        [switch]$RemoveProp,
+        [switch]$RemoveEntry
+    )
+    $doc = $canonical | ConvertFrom-Json
+    if ($RemoveEntry) {
+        $doc.mcpServers.PSObject.Properties.Remove($ServerName)
+    } elseif ($RemoveProp) {
+        $doc.mcpServers.$ServerName.PSObject.Properties.Remove($Prop)
+    } else {
+        $doc.mcpServers.$ServerName.$Prop = $Value
+    }
+    return ($doc | ConvertTo-Json -Depth 10)
+}
 
 $cases = @(
-    @{ Name = 'string form "5m"  (#3083 defect)';   Verdict = 'NOT-A-NUMBER'; Doc = $canonical.Replace('780000000000', '"5m"') },
-    @{ Name = 'string form "13m" (#3839 symptom)';  Verdict = 'NOT-A-NUMBER'; Doc = $canonical.Replace('780000000000', '"13m"') },
-    @{ Name = 'zero';                               Verdict = 'NOT-POSITIVE'; Doc = $canonical.Replace('780000000000', '0') },
-    @{ Name = 'below inner 720 s budget';           Verdict = 'BELOW-INNER-BUDGET'; Doc = $canonical.Replace('780000000000', '600000000000') },
-    @{ Name = 'field removed';                      Verdict = 'MISSING';      Doc = $noFieldDoc },
-    @{ Name = 'truncated JSON';                     Verdict = 'PARSE-ERROR';  Doc = $canonical.Substring(0, [math]::Floor($canonical.Length / 2)) }
+    @{ Name = 'sk-agent timeout "15m" (#4718 follow-up)'; Server = 'sk-agent'; Verdict = 'NOT-A-NUMBER';   Doc = (New-MutantDoc -ServerName 'sk-agent' -Prop 'timeout' -Value '15m') },
+    @{ Name = 'sk-agent timeout 0';                       Server = 'sk-agent'; Verdict = 'NOT-POSITIVE';   Doc = (New-MutantDoc -ServerName 'sk-agent' -Prop 'timeout' -Value 0) },
+    @{ Name = 'sk-agent timeout 240 s (< 5 min chain)';   Server = 'sk-agent'; Verdict = 'BELOW-BUDGET';   Doc = (New-MutantDoc -ServerName 'sk-agent' -Prop 'timeout' -Value 240000000000) },
+    @{ Name = 'sk-agent timeout removed';                 Server = 'sk-agent'; Verdict = 'MISSING';        Doc = (New-MutantDoc -ServerName 'sk-agent' -Prop 'timeout' -RemoveProp) },
+    @{ Name = 'sk-agent entry removed';                   Server = 'sk-agent'; Verdict = 'SERVER-MISSING'; Doc = (New-MutantDoc -ServerName 'sk-agent' -RemoveEntry) },
+    @{ Name = 'rsm timeout "5m" (#3083 defect)';          Server = 'roo-state-manager'; Verdict = 'NOT-A-NUMBER';   Doc = (New-MutantDoc -ServerName 'roo-state-manager' -Prop 'timeout' -Value '5m') },
+    @{ Name = 'rsm timeout "13m" (#3839 symptom)';        Server = 'roo-state-manager'; Verdict = 'NOT-A-NUMBER';   Doc = (New-MutantDoc -ServerName 'roo-state-manager' -Prop 'timeout' -Value '13m') },
+    @{ Name = 'rsm timeout 0';                            Server = 'roo-state-manager'; Verdict = 'NOT-POSITIVE';   Doc = (New-MutantDoc -ServerName 'roo-state-manager' -Prop 'timeout' -Value 0) },
+    @{ Name = 'rsm timeout 600 s (< 720 s inner)';        Server = 'roo-state-manager'; Verdict = 'BELOW-BUDGET';   Doc = (New-MutantDoc -ServerName 'roo-state-manager' -Prop 'timeout' -Value 600000000000) },
+    @{ Name = 'rsm timeout removed';                      Server = 'roo-state-manager'; Verdict = 'MISSING';        Doc = (New-MutantDoc -ServerName 'roo-state-manager' -Prop 'timeout' -RemoveProp) },
+    @{ Name = 'rsm entry removed';                        Server = 'roo-state-manager'; Verdict = 'SERVER-MISSING'; Doc = (New-MutantDoc -ServerName 'roo-state-manager' -RemoveEntry) },
+    @{ Name = 'truncated JSON';                           Server = 'roo-state-manager'; Verdict = 'PARSE-ERROR';    Doc = $canonical.Substring(0, [math]::Floor($canonical.Length / 2)) }
 )
 
 $mutPath = Join-Path $tmpDir 'mcp-proxy-template-timeout.mutant.json'
 foreach ($c in $cases) {
     [System.IO.File]::WriteAllText($mutPath, $c.Doc, [System.Text.UTF8Encoding]::new($false))
-    Assert-Equal $c.Name $c.Verdict (Get-TimeoutVerdict $mutPath)
+    Assert-Equal ("{0} [{1}]" -f $c.Name, $c.Server) $c.Verdict (Get-TimeoutVerdict $mutPath $c.Server)
 }
 [System.IO.File]::Delete($mutPath)
+
+# ============================================================================
+# Test 2b: the predicate must react to a mutation of the SHIPPED template, not
+# only to mutants written from a canonical snippet. Deleting sk-agent's
+# timeout from the real file is exactly the regression this guard exists for,
+# and until this change the guard reported 16/16 PASS on that mutant. The
+# template on disk is only READ here (its mtime is printed as the witness).
+# ============================================================================
+Write-Host "`n=== Test 2b: mutation of the shipped template itself ===" -ForegroundColor Cyan
+
+$shippedNoSk = Get-Content $TemplatePath -Raw | ConvertFrom-Json
+$shippedNoSk.mcpServers.'sk-agent'.PSObject.Properties.Remove('timeout')
+[System.IO.File]::WriteAllText($mutPath, ($shippedNoSk | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+Assert-Equal 'shipped template minus sk-agent timeout [sk-agent]' 'MISSING' (Get-TimeoutVerdict $mutPath 'sk-agent')
+
+$shippedNoRsm = Get-Content $TemplatePath -Raw | ConvertFrom-Json
+$shippedNoRsm.mcpServers.'roo-state-manager'.PSObject.Properties.Remove('timeout')
+[System.IO.File]::WriteAllText($mutPath, ($shippedNoRsm | ConvertTo-Json -Depth 10), [System.Text.UTF8Encoding]::new($false))
+Assert-Equal 'shipped template minus rsm timeout [roo-state-manager]' 'MISSING' (Get-TimeoutVerdict $mutPath 'roo-state-manager')
+[System.IO.File]::Delete($mutPath)
+
+Write-Host ("  info: shipped template untouched on disk (LastWriteTimeUtc {0:o})" -f (Get-Item $TemplatePath).LastWriteTimeUtc)
 
 # ============================================================================
 # Test 3: both relay entries declare transportType "streamable-http"
