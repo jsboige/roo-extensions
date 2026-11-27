@@ -201,4 +201,20 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         # above bites on regression to it.
         ([regex]::Matches('Restart VS Code before continuing the executor cycle."', [regex]::Escape('Restart VS Code before continuing the executor cycle. $killHint'))).Count | Should -Be 0
     }
+
+    It 'Does not call the wrappers "legacy hosts on the frozen build/" on the FRESH vintage path' {
+        # Measured ai-01 2026-11-27 (d3cfda2f): the FRESH re-run printed "22 legacy host(s) alive
+        # on the frozen build/" while every RSM child ran build-ad4c46a5c32ebcc7. $liveHosts is
+        # $indexHosts + $wrapperHosts: the 22 were mcp-wrapper.cjs processes, not frozen-build
+        # children. The line now names both counts, as the rebuild path's "live host(s)" does.
+        $freshIdx = $content.IndexOf("Write-Result 'FRESH' `"vintage `$vintageName was built")
+        $freshIdx | Should -BeGreaterThan 0
+        $skipLine = $content.Substring($freshIdx, $content.IndexOf('exit 0', $freshIdx) - $freshIdx)
+        $skipLine | Should -Match '\$\(\$liveHosts\.Count\) live host\(s\)'
+        $skipLine | Should -Match '\$\(\$wrapperHosts\.Count\) wrapper\(s\)'
+        $skipLine | Should -Match '\$\(\$indexHosts\.Count\) child\(ren\) on the frozen build/'
+        # Positive control: the pre-fix line carries the label this test forbids.
+        '"$($liveHosts.Count) legacy host(s) alive on the frozen build/ — they take"' | Should -Match 'legacy host\(s\) alive on the frozen build/'
+        $skipLine | Should -Not -Match 'legacy host\(s\) alive on the frozen build/'
+    }
 }

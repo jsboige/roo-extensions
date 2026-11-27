@@ -890,7 +890,7 @@ if (Test-Path $markerFile) {
             if (Test-BuildMatchesSource -BuildPath $vintageDir -McpServerPath $McpServerPath -RepoRoot $RepoRoot) {
                 Write-Result 'FRESH' "vintage $vintageName was built from the checked-out source (build-current marker)."
                 if ($liveHosts.Count -gt 0) {
-                    Write-Result 'SKIP' "$($liveHosts.Count) legacy host(s) alive on the frozen build/ — they take the new vintage at their next session spawn; v5 wrappers hot-swap on publish. No restart is owed (#3713)."
+                    Write-Result 'SKIP' "$($liveHosts.Count) live host(s) ($($wrapperHosts.Count) wrapper(s), $($indexHosts.Count) child(ren) on the frozen build/) — v5 wrappers hot-swap on publish, frozen-build children take the vintage at their next session spawn. No restart is owed (#3713)."
                 }
                 exit 0
             }
