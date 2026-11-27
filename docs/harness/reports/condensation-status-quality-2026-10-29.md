@@ -1,7 +1,7 @@
 # Qualité des statuts condensés — corpus historique et mécanismes identifiés (#4434)
 
 **Date :** 2026-10-29 · **Lane :** myia-po-2024:roo-extensions · **Périmètre :** volets 1-3 de #4434 (corpus, journal des changements, hypothèse auto-feedback — première passe)
-**MAJ :** 2026-11-18 — append « G4 : essai des petits modèles payants, verdicts et coûts » (volet G5, lane myia-po-2024:roo-extensions) ; 2026-11-15 — append « Suite de campagne 01/11 → 15/11 » (volet G5, lane myia-po-2023:roo-extensions) ; le corps du 29/10 ci-dessous reste celui de po-2024, inchangé.
+**MAJ :** 2026-11-26 — append « G8a — fidélité des résumés publiés » (322 paires de production + 24 relectures aveugles, lane myia-po-2024:roo-extensions) ; 2026-11-18 — append « G4 : essai des petits modèles payants, verdicts et coûts » (volet G5, lane myia-po-2024:roo-extensions) ; 2026-11-15 — append « Suite de campagne 01/11 → 15/11 » (volet G5, lane myia-po-2023:roo-extensions) ; le corps du 29/10 ci-dessous reste celui de po-2024, inchangé.
 
 ## Résumé exécutif
 
@@ -167,6 +167,117 @@ Mesure dédiée (les 5 mêmes paires, prompt **résumé** de production, instrum
 - **Critère 24 h post-déploiement** (c.6947828962, à compter du déploiement effectif par siège) : `summaryPrimaryTokens` servi par `glm-4.7` sur ≥ 90 % des passes ; 0 résumé rejeté par `validateSummaryCompleteness` ; coût réel sur 24 h publié et comparé à la projection ; compte des passes « cloud-first échoué → primaire échoué → sauvetage cloud » (facture deux fois la même jambe, borné par `passDeadlineMs`).
 - **Garde-fou qualité** : une lane autre que l'auteur relit 3 résumés post-bascule contre leurs messages (omissions comptées) ; plus d'omissions que sur 3 résumés swift relus de la même façon → retour arrière par variable d'env, pas de revert de code.
 
+## G8a — fidélité des résumés publiés : 322 paires de production (26/11, po-2024)
+
+**Question.** G7a a livré la 4e section « États transverses » (prompt ms#1840 + garde de forme). Les résumés **publiés en production** conservent-ils mieux les états ? Mesure sur archives réelles, sans rejeu ni appel modèle : chaque `CONDENSATION-SUMMARY` posté est apparié à l'archive des messages qu'il résume.
+
+**Protocole.**
+- **Appariement** = la notice système de la passe elle-même (`N messages archivés dans archive/<fichier>`) ; repli = archive de même clé à ≤ 300 s. **322 résumés appariés, 79 non appariés** (ni notice ni voisin — non mesurés). Fenêtre 20-26/11.
+- **Bras** : POST = le résumé porte `### États transverses` (n = 247) ; PRE = il ne le porte pas (n = 75). **Modèle lu dans le frontmatter de la passe productrice**, pas du transporteur.
+- **Couche 1** (déterministe, 322) : rappel lexical des identifiants, des nombres, des auteurs, et de 12 familles de marqueurs d'états (UAC, registre, ASK-USER, exit 1, URGENT, pause, handoff, DENY, claim, DEGRADED/REPAIRED, identifiants de question `Q`, fenêtre user).
+- **Couche 2** (sémantique, aveugle) : 24 résumés, 2 par cellule (clé × modèle, 6 cellules), paires PRE/POST les plus proches en temps — règle fixée sur les horodatages seuls. 12 lecteurs `sonnet` qui ne voient ni les métriques ni le bras ; sorties vérifiées mécaniquement par la lane, puis arbitrées par elle (producteur ≠ vérificateur).
+- Instruments versionnés : `scripts/analysis/condensation-g8a/` (§ Instruments).
+
+### Couche 1 — rappel lexical
+
+| Moyenne | PRE (n = 75) | POST (n = 247) |
+|---|---|---|
+| `st_recall` — familles d'états présentes et retrouvées | 0,486 | **0,684** |
+| `st_all_kept` — toutes les familles retrouvées | 0,067 | **0,201** |
+| `id_recall` — identifiants d'issues/PR | 0,486 | 0,518 |
+| `num_recall` — nombres saillants | 0,432 | 0,436 |
+| `author_recall` — auteurs nommés | 0,913 | 0,957 |
+| corps du résumé (octets) | 3 923 | 4 829 |
+| messages par lot | 20,6 | 18,4 |
+
+Sur les 17 cellules (clé × modèle) qui portent les deux bras : `st_recall` monte dans **15/17** (Δ pondéré par n +0,189, non pondéré +0,155) ; `st_all_kept` 8 ↑ / 2 ↓ / 7 = ; `id_recall` 9 ↑ / 8 ↓ (+0,038) ; `num_recall` 6 ↑ / 11 ↓ (−0,017). **Le gain porte sur les états, pas sur les identifiants ni les nombres.**
+
+| Famille (présente → retrouvée) | PRE | POST |
+|---|---|---|
+| `pause` | 0,45 (38) | **0,83** (145) |
+| `claim` | 0,63 (62) | **0,83** (153) |
+| `question_id` | 0,66 (53) | **0,86** (194) |
+| `exit1` | 0,44 (25) | **0,77** (75) |
+| `registre` | 0,43 (65) | **0,61** (209) |
+| `uac` | 0,33 (15) | **0,59** (39) |
+| `fenetre_user` | 0,22 (9) | **0,68** (25) |
+| `handoff` | 0,00 (1) | 0,67 (21) |
+| `deny` | 0,50 (4) | 0,80 (15) |
+| `ask_user` | 0,38 (26) | 0,40 (115) |
+| `urgent` | 0,24 (41) | 0,21 (63) |
+| `degraded` | 0,68 (50) | 0,68 (151) |
+
+**Trois familles ne bougent pas** : `ask_user`, `urgent`, `degraded` — la question user ouverte, le risque vif et l'organe dégradé ne sont pas mieux conservés qu'avant la garde, alors qu'ils sont les classes 2, 3 et 4 de G7a-1.
+
+### Le plafond de 5 Ko — trouvé dominant
+
+`MAX_SUMMARY_SIZE_BYTES = 5 * 1024` (`dashboard.ts:223`), appliqué après génération (`dashboard.ts:7861`) ; au-delà, `truncateWithOmissionMarker` (`dashboard.ts:6839`) retire des lignes **sans LLM** et préfixe `… N lignes omises`.
+
+| | PRE | POST |
+|---|---|---|
+| résumés portant le marqueur | 7/75 (9,3 %) | **175/247 (70,9 %)** |
+| lignes retirées — médiane / moyenne / max | 3 / 6,0 / 19 | 6 / 7,1 / 27 |
+| plus gros corps publié | — | 5 133 o |
+
+- Le marqueur dit que le résumé **publié** a été amputé ; l'archive garde les messages entiers. Ce n'est pas un artefact d'archive.
+- **La taille mesurée est censurée** : le gain de longueur (+23 %) est une borne basse, et le plafond est atteint sur 7 résumés POST sur 10.
+- Coût dans le bras POST : non tronqués (n = 72) `st_recall` 0,710 / `st_all_kept` 0,246 ; tronqués (n = 175) 0,673 / 0,183. Écart brut 3,7 points ; **stratifié sur la densité d'états (7 strates de familles présentes) : +2,4 points, 6 strates sur 7 dans le même sens.** Les lots tronqués sont plus denses en états (5,11 familles présentes contre 4,31) à volume de messages égal — l'écart brut surestime légèrement le coût du plafond. `num_recall` : 0,473 → 0,420. En PRE, 7 tronqués seulement : non concluant.
+
+### Couche 2 — relecture aveugle de 24 résumés
+
+Chaque lecteur (sous-agent `sonnet`) reçoit les messages originaux d'un lot et le résumé publié qui les condense, **sans le bras**, et rend les états transverses qu'il identifie (les 8 classes de G7a-1), ceux que le résumé porte ou omet (extrait cité), les lignes fausses ou non sourcées, les nombres vérifiés, les contradictions non signalées. Un lecteur = deux résumés voisins du tirage (S01-S02, …, S23-S24) ; aucun n'a vu les métriques ni le bras.
+
+| Couche 2 | PRE (n = 12) | POST (n = 12) |
+|---|---|---|
+| états transverses identifiés dans les originaux | 239 | 256 |
+| omis / portés | 70 / 169 | **58 / 198** |
+| **part d'omission (poolée)** | **0,293** | **0,227** |
+| portés par résumé (moyenne) | 0,724 | **0,810** |
+| résumés sans aucune omission | 0/12 | 1/12 |
+| lignes fausses | 1 | 0 |
+| lignes non sourcées, après traçage sur le résumé antérieur | 3 | 2 |
+| lignes tracées au résumé antérieur (légitimes) | 3 | 22 |
+| lignes « non sourcées » partielles / non testables | 5 / 3 | 8 / 2 |
+| contradictions non signalées | 7 | 7 |
+| nombres faux / vérifiés | 3 / 180 | 1 / 181 |
+
+**Le sens ne vient pas d'un lecteur indulgent.** La sévérité mesurée varie de 0,07 (S05-S06) à 0,52 (S01-S02) de part d'omission — un lecteur qui n'aurait lu que du POST déplacerait le résultat. Sur les **8 lecteurs qui ont lu un PRE et un POST** : POST meilleur dans **6/8** (écart moyen −0,088 ; poolé 0,316 → 0,256). L'appariement par cellule et voisinage temporel (12 paires, 8 en faveur de POST, écart moyen −0,086) donne le même ordre de grandeur. Les deux comparaisons écartent un confondant différent — le lecteur pour l'une, la cellule pour l'autre — et concordent ; aucune n'est un essai randomisé (les deux bras coexistent du 21 au 23/11, siège par siège).
+
+**Par classe** (part d'omission, PRE → POST) :
+
+| Classe G7a-1 | PRE | POST |
+|---|---|---|
+| 1 — fenêtre UAC / contrainte user planifiée | 0/5 = 0,00 | 2/5 = 0,29 |
+| 2 — question user ouverte | 10/16 = 0,38 | **2/15 = 0,12** |
+| 3 — organe dégradé / incomplet | 7/26 = 0,21 | 7/31 = 0,18 |
+| 4 — risque vif | 12/52 = 0,19 | **5/45 = 0,10** |
+| 5 — pause datée / claim actif | 6/11 = 0,35 | 4/9 = 0,31 |
+| 6 — handoff en attente | 26/31 = 0,46 | **23/64 = 0,26** |
+| 7 — capacité bloquée | 7/8 = 0,47 | 5/10 = 0,33 |
+| 8 — changement de config en vigueur | 2/20 = 0,09 | **10/19 = 0,34** |
+
+Le gain se concentre sur les classes 2, 6 et 4 ; 3, 5 et 7 baissent légèrement. **La classe 8 recule nettement** : trois fois plus omise en POST (10/19 contre 2/20), répartie sur 7 résumés (S02, S07, S09, S14, S15, S16, S22) dont deux tronqués seulement (S07, S16) — un changement de config en vigueur n'est donc pas, en soi, un état que la section « États transverses » fait remonter. La classe 1 ne porte que 5 états : non concluant.
+
+Deux réserves sur ce tableau. **La classe 2 s'améliore ici alors que la couche 1 ne voit pas bouger `ask_user`** (0,38 → 0,40, mieux instrumenté : 141 états) : les deux ne portent pas sur le même objet — marqueur lexical dans le texte pour la couche 1, état reconstitué par un lecteur pour la couche 2 — mais **31 états ne renversent pas une mesure mieux instrumentée** ; c'est le gain le moins solide de la couche 2. Et aucune des 12 familles lexicales de la couche 1 ne cible la classe 8 : celle-ci n'est visible que par la relecture.
+
+### Trois corrections d'instrument, appliquées avant d'écrire les chiffres
+
+1. **Le résumé voit le résumé antérieur.** Le résumé publié est reposté dans l'intercom comme message `system|system` (`dashboard.ts:8066-8076`), archivé par la passe suivante et redonné au modèle : **24/24 archives portent un résumé antérieur, 4,2 Ko en moyenne**. Un lecteur à qui on donne le lot **sans** ces blocs compte comme « non sourcée » toute ligne reprise de la passe précédente — POST : 34 lignes signalées, dont **22 tracées** au résumé antérieur (PRE : 15 signalées, dont 3 tracées). Sans cette correction, le bras POST paraissait produire plus de deux fois plus de lignes non sourcées (34 contre 15) ; après traçage, il en reste 2 (3 en PRE).
+2. **`messageCount` du frontmatter = messages non système + 2** (les deux notices de condensation) — vérifié 24/24. Les 30 « divergences » de compte relevées par les lecteurs sont des artefacts de convention.
+3. **Arbitrage des jetons citations** : contrôle mécanique des 24 sorties (`verify_quotes.py`) — **2 défauts de citation** (un caractère, `4 d` pour `4 j`, S10 ; une ligne préfixée d'une glose autour d'une citation exacte, S10) et **1 défaut de jeton** (S24, jeton absent de l'extrait). Les 51 jetons retrouvés dans le résumé couvrent 44 omissions candidates : **2 sur-comptées**, 42 confirmées. Règle fixée avant lecture : une omission est sur-comptée quand le résumé porte **le même état (même objet, même prédicat)** en d'autres mots ; un prédicat différent sur le même objet (PR ouverte vs revue due, chiffre disque vs copie hors-site absente) reste une omission.
+
+### Limites de la couche 2
+
+- **24 résumés sur 322**, les paires les plus proches en temps par cellule ; **2 tronqués sur 24 contre 56,5 % dans la population** — la couche 2 sous-représente le plafond, que la couche 1 mesure (70,9 % des POST).
+- **12 lecteurs non calibrés**, un seul passage, sans mesure de répétabilité ; la dispersion de sévérité (0,07-0,52) est traitée par les comparaisons appariées, pas éliminée.
+- « Non sourcée » est un **proxy lexical** (recouvrement ≥ 0,8 des mots de contenu avec les blocs système de l'archive ; 0,5-0,8 = « partielle ») : une reformulation qui change le vocabulaire reste « non testable » (5 lignes).
+- **79 résumés non appariés** ne sont pas mesurés — rien ne dit qu'ils ressemblent aux 322.
+
+### Suite proposée (non tranchée ici)
+
+Le plafond de 5 Ko touche **7 résumés POST sur 10** et ampute sans LLM : c'est le défaut le plus large mesuré. Trois options, à arbitrer dans le fil (#4434) — aucune n'est appliquée par cette mesure : (a) relever `MAX_SUMMARY_SIZE_BYTES` (coût : un résumé plus long à chaque passe, la fenêtre du lecteur) ; (b) rendre la troncature section-aware en préservant « États transverses » en dernier (le plafond reste, il ne coupe plus l'état) ; (c) statu quo, en sachant que les classes 8, 7, 5 et 1 restent omises environ une fois sur trois en POST (effectifs faibles pour 1, 5 et 7). La mesure ne dit pas laquelle : elle dit que (c) a un coût mesuré et que la classe 8 n'est pas couverte par la garde actuelle.
+
+
 ## Décisions
 
 - **Seuil refs/Ko 4,0 : gardé** (G3, 15/11) — le seuil est passé sous le P25 actuel (flague la vraie queue, plus conservateur qu'à l'activation) ; monter = bruit (CoursIA-3/claudish légitimes) ; descendre ferme le signal `global` (16/16 statuts sous 4,0 — genre prose, 2,03 P25). Report-only : si le WARN devient bloquant, `global` exige une décision de genre. Trouvaille pour le template-statut : les vues [ASK-USER] deviennent invisibles dès la condensation (2/2 omissions du relecture global).
@@ -188,3 +299,10 @@ Mesure dédiée (les 5 mêmes paires, prompt **résumé** de production, instrum
 - `scripts/analysis/condensation_corpus_scan.py` — inchangé (fragilités ci-dessus toujours d'actualité).
 - `scripts/analysis/replay-4434.py` — le rejeu du 02/11 (po-2025) : paires réelles, prompts de production extraits mécaniquement de `dashboard.ts`, paramètres de production, séquentiel. **Versionné le 16/11 sous forme de reconstruction étiquetée** (PR #4793, §1.3 de #4434) : l'original de po-2025 vivait sur un scratchpad de session et son transfert (`msg-20261115T150322-vl3zv0`, demandé le 15/11) n'a pas atterri. Si l'original atterrit, il remplace la reconstruction. **Étendu le 17/11** : option `--leg summary` (PR #4811, mergée `7cec82b9`) avec test de parité du prompt résumé — instrument de la mesure G4 jambe résumé.
 - **Appariement statut ↔ messages** (G3, vérifié à la seconde près) : le statut produit par la passe T est horodaté ~T (26-31 s avant l'écriture de l'archive) et se lit dans l'archive T+1 au bloc « Statut avant condensation » ; une passe peut archiver **sans** produire de statut (cas CoursIA 06:49:55 — le premier statut consommant le feed est cloud-first, 09:06:03).
+- **Chaîne G8a** (`scripts/analysis/condensation-g8a/`, versionnée le 26/11 avec le § G8a) — cinq étapes, chacune idempotente, sorties en compteurs/tailles/noms de sections, jamais le texte des dashboards :
+  1. `scan.py <archive_dir> <scan.json> [since]` — un enregistrement par archive (sections présentes, taille, en-tête du résumé).
+  2. `pair.py <archive_dir> <scan.json> <pairs.json> <since>` — apparie chaque résumé à l'archive qu'il résume par la notice système de la passe ; repli = même clé à ≤ 300 s ; lit `summaryFallbackModel`/`summaryOutcome`/`messageCount` dans le frontmatter **de la passe productrice**.
+  3. `metrics.py <archive_dir> <pairs.json> <metrics.json>` — couche 1 lexicale (12 familles d'états, identifiants, nombres, auteurs).
+  4. `sample.py <archive_dir> <pairs.json> <samples_dir>` — tirage aveugle déterministe (`seed` 4434) : paires PRE/POST les plus proches en temps par cellule (clé × modèle).
+  5. `verify_quotes.py <samples_dir> <findings_dir> <checked.json>` puis `aggregate.py <samples_dir> <findings_dir> <archive_dir> <adjudication.json> <truncation.json> <out.json>` — contrôle mécanique des citations produites par les lecteurs (extrait ⊆ originaux, ligne ⊆ résumé, repli d'accents sur tout le jeu de voyelles latin-1) et agrégation finale avec les corrections de la couche 2 : traçage des lignes sur le résumé antérieur de l'archive, convention `messageCount` n+2, arbitrage des sur-comptes (`adjudication.json`), blocs par lecteur et intra-lecteur.
+  **Les sorties 1 à 4 contiennent des extraits de dashboards** (l'étape 4 écrit les 24 paires dans `<samples_dir>`), et les entrées 4-5 aussi (`adjudication.json`, sorties des lecteurs) : écrire dans un répertoire gitignoré, ne jamais committer — seuls les comptes et les instruments sont versionnés.
