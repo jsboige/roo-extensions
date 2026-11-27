@@ -88,3 +88,32 @@ function Get-MeteredWatchCreateSettingsSwitches {
     foreach ($field in $script:MeteredWatchBatteryFields) { $splat[$field.Switch] = $true }
     return $splat
 }
+
+function Select-MeteredWatchTask {
+    <#
+    .SYNOPSIS
+        The one task the installer may touch -- or a refusal when the name is ambiguous.
+    .DESCRIPTION
+        A scheduled-task NAME is not unique: Get-ScheduledTask -TaskName searches
+        every folder, so the same name can match twice (a seat-wide task here, a
+        personal one there). Reading .Settings off that array yields nothing
+        usable, so the repair plan would invent a Before value and
+        Set-ScheduledTask would receive the whole collection (#4927).
+
+        One match is returned untouched; no match returns $null, which is the
+        installer's create path; more than one throws and names the folders.
+        Guessing which task the operator meant is not this function's job.
+    #>
+    [CmdletBinding()]
+    param([object[]]$Candidate)
+
+    $tasks = @($Candidate | Where-Object { $null -ne $_ })
+    if ($tasks.Count -gt 1) {
+        $paths = @($tasks | ForEach-Object {
+            if ($_.PSObject.Properties['TaskPath'] -and $_.TaskPath) { $_.TaskPath } else { '<folder unknown>' }
+        })
+        throw ("task name is ambiguous: {0} tasks match, in folders {1} -- refusing to guess. Remove or rename the duplicates, or pass the -TaskName of the one you mean." -f $tasks.Count, ($paths -join ', '))
+    }
+    if ($tasks.Count -eq 0) { return $null }
+    return $tasks[0]
+}

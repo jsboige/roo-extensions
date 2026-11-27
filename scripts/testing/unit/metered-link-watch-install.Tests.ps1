@@ -127,3 +127,57 @@ Describe 'Metered-link watch task - installer wiring (text guard)' {
         }
     }
 }
+
+Describe 'Metered-link watch task - ambiguous task name (#4927)' {
+    # A scheduled-task NAME is not unique: the same name can live in two folders,
+    # and Get-ScheduledTask -TaskName then returns an ARRAY. Reading .Settings off
+    # it yields nothing usable -- the repair plan would invent a Before value and
+    # Set-ScheduledTask would receive the whole collection. The installer must
+    # refuse instead of guessing which task the operator meant.
+    It 'refuses two matches and names both folders' {
+        $two = @(
+            [pscustomobject]@{ TaskName = 'RooMeteredLinkWatch'; TaskPath = '\' },
+            [pscustomobject]@{ TaskName = 'RooMeteredLinkWatch'; TaskPath = '\Personal\' }
+        )
+
+        { Select-MeteredWatchTask -Candidate $two } | Should -Throw -ExpectedMessage '*ambiguous*'
+
+        $message = $null
+        try { Select-MeteredWatchTask -Candidate $two } catch { $message = $_.Exception.Message }
+        $message | Should -BeLike '*\Personal\*'
+    }
+
+    It 'returns the single match untouched -- the repair keeps targeting that one task' {
+        $one = [pscustomobject]@{ TaskName = 'RooMeteredLinkWatch'; TaskPath = '\Personal\' }
+
+        (Select-MeteredWatchTask -Candidate @($one)).TaskPath | Should -Be '\Personal\'
+    }
+
+    It 'returns $null on no match -- the create path is unchanged' {
+        Select-MeteredWatchTask -Candidate @() | Should -BeNullOrEmpty
+    }
+
+    It 'ignores null entries a SilentlyContinue lookup can leave in the pipeline' {
+        $one = [pscustomobject]@{ TaskName = 'RooMeteredLinkWatch'; TaskPath = '\' }
+
+        (Select-MeteredWatchTask -Candidate @($null, $one)).TaskPath | Should -Be '\'
+    }
+
+    It 'is wired into the installer before any repair write' {
+        $text = Get-Content -LiteralPath $script:installer -Raw
+
+        $text.Contains('Select-MeteredWatchTask -Candidate') | Should -BeTrue
+        $text.IndexOf('Select-MeteredWatchTask -Candidate') | Should -BeLessThan $text.IndexOf('Set-ScheduledTask -TaskName')
+    }
+
+    It 'names the task folder on both the write and the verification read (review ai-01 27/11)' {
+        # Without -TaskPath, Set-ScheduledTask resolves the name in the ROOT
+        # folder: a single task living in a subfolder would be left untouched and
+        # a copy written at the root. The read after the write needs it too, or it
+        # compares a task that is not the one just written and reports success.
+        $text = Get-Content -LiteralPath $script:installer -Raw
+
+        ([regex]::Matches($text, '-TaskPath \$existing\.TaskPath')).Count | Should -Be 2
+        $text.IndexOf('-TaskPath $existing.TaskPath') | Should -BeGreaterThan $text.IndexOf('Set-ScheduledTask -TaskName')
+    }
+}
