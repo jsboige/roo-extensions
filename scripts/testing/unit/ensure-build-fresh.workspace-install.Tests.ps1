@@ -77,6 +77,13 @@ Describe 'ensure-build-fresh workspace install + core build (#4886, PR #4893 rev
         . ([scriptblock]::Create((Get-ScriptFunctionText 'Test-WorkspaceInstallCurrent')))
         # Read-only like the two above, so dot-sourced the same way (#4918).
         . ([scriptblock]::Create((Get-ScriptFunctionText 'Test-WorkspaceInstallReconcileSafe')))
+        # Both guards ask the lockfile what npm leaves out on this platform (#4918, npm 11.11).
+        . ([scriptblock]::Create((Get-ScriptFunctionText 'Get-LockfileInertKeys')))
+        # The platform comes from node through Get-NpmPlatform. A stub stands in for it, so the
+        # verdicts do not depend on the engine running this suite (Linux pwsh in CI); the real
+        # function is exercised on its own, in a child scope, by the context that tests it.
+        $script:npmPlatform = @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+        function Get-NpmPlatform { return $script:npmPlatform }
         # The exit helper calls `exit`, which would end this very run: its body is handed to a
         # child engine by the context below, never dot-sourced here.
         $script:exitHelperText = Get-ScriptFunctionText 'Exit-WorkspaceStepFailed'
@@ -350,6 +357,102 @@ Describe 'ensure-build-fresh workspace install + core build (#4886, PR #4893 rev
             # Control: both packages present, both versions equal -> current.
             '{"packages":{"node_modules/A":{"version":"1.0.0"},"node_modules/a":{"version":"1.0.0"}}}' | Set-Content -LiteralPath (Join-Path $modules '.package-lock.json') -Encoding utf8 -NoNewline
             Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeTrue
+        }
+
+        It 'Returns true for the npm 11.11 shape: the stamp leaves out only a package npm skips on this platform (#4918)' {
+            # Measured on ai-01 (npm 11.11.0, 2026-11-27): the stamp holds no entry, ideallyInert or
+            # not, for an optional package of another platform. Here a Linux-only binary on win32.
+            '{"packages":{"":{"name":"root"},"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"},"node_modules/@esbuild/linux-x64":{"version":"0.1.0","optional":true,"os":["linux"],"cpu":["x64"]}}}' | Set-Content -LiteralPath $lock -Encoding utf8 -NoNewline
+            '{"packages":{"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"}}}' | Set-Content -LiteralPath (Join-Path $modules '.package-lock.json') -Encoding utf8 -NoNewline
+            $script:npmPlatform = @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+            Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeTrue
+            # The same absence on the platform the binary is for is a package npm would install.
+            $script:npmPlatform = @{ Os = 'linux'; Cpu = 'x64'; Libc = 'glibc' }
+            Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeFalse
+            $script:npmPlatform = @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+        }
+
+        It 'Returns false when the stamp lacks an optional package npm installs here, or when the platform cannot be read' {
+            '{"packages":{"":{"name":"root"},"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"},"node_modules/opt":{"version":"1.0.0","optional":true}}}' | Set-Content -LiteralPath $lock -Encoding utf8 -NoNewline
+            '{"packages":{"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"}}}' | Set-Content -LiteralPath (Join-Path $modules '.package-lock.json') -Encoding utf8 -NoNewline
+            Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeFalse
+            # Unknown platform: nothing is known to be left out, so any gap reads as stale.
+            '{"packages":{"":{"name":"root"},"node_modules/a":{"version":"1.0.0"},"node_modules/b":{"version":"2.0.0"},"node_modules/@esbuild/linux-x64":{"version":"0.1.0","optional":true,"os":["linux"],"cpu":["x64"]}}}' | Set-Content -LiteralPath $lock -Encoding utf8 -NoNewline
+            $script:npmPlatform = $null
+            Test-WorkspaceInstallCurrent -LockPath $lock -ModulesPath $modules -ServerPath $server | Should -BeFalse
+            $script:npmPlatform = @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+        }
+    }
+
+    Context 'Behaviour: Get-LockfileInertKeys (what npm leaves out on this platform, read from the lockfile -- #4918)' {
+
+        BeforeAll {
+            # One lockfile, each rule npm applies (arborist optionalSet + gatherDepSet, npm-install-checks
+            # checkList): a cpu-excluded binding and the chain only it needs, a dependency it shares with
+            # an installed package, an os pair, a libc-only package, a negated os, a REQUIRED package
+            # with a foreign cpu, and a skipped binding nested under a workspace tree whose dependency
+            # resolves there (node's lookup) while a package of the same name at the root is required.
+            $json = '{"packages":{' +
+                '"":{"name":"ws","devDependencies":{"host":"1","helper":"2"}},' +
+                '"node_modules/host":{"version":"1.0.0","dependencies":{"shared":"1","required-foreign":"1"},"optionalDependencies":{"@scope/binding-wasm":"1","@esbuild/linux-x64":"1","@esbuild/win32-x64":"1","glibc-only":"1","not-on-windows":"1"}},' +
+                '"node_modules/@scope/binding-wasm":{"version":"1.0.0","optional":true,"cpu":["wasm32"],"dependencies":{"runtime":"1","shared":"1"}},' +
+                '"node_modules/runtime":{"version":"1.0.0","optional":true,"dependencies":{"leaf":"1"}},' +
+                '"node_modules/leaf":{"version":"1.0.0","optional":true},' +
+                '"node_modules/shared":{"version":"1.0.0"},' +
+                '"node_modules/@esbuild/linux-x64":{"version":"1.0.0","optional":true,"os":["linux"],"cpu":["x64"]},' +
+                '"node_modules/@esbuild/win32-x64":{"version":"1.0.0","optional":true,"os":["win32"],"cpu":["x64"]},' +
+                '"node_modules/glibc-only":{"version":"1.0.0","optional":true,"libc":["glibc"]},' +
+                '"node_modules/not-on-windows":{"version":"1.0.0","optional":true,"os":["!win32"]},' +
+                '"node_modules/required-foreign":{"version":"1.0.0","cpu":["arm"]},' +
+                '"node_modules/helper":{"version":"2.0.0"},' +
+                '"node_modules/ws-server":{"resolved":"server","link":true},' +
+                '"server":{"name":"server","version":"0.0.0","dependencies":{"thing":"1"}},' +
+                '"server/node_modules/thing":{"version":"1.0.0","optionalDependencies":{"bin-arm64":"1"}},' +
+                '"server/node_modules/bin-arm64":{"version":"1.0.0","optional":true,"cpu":["arm64"],"dependencies":{"helper":"1"}},' +
+                '"server/node_modules/helper":{"version":"1.0.0","optional":true}' +
+                '}}'
+            $script:inertPackages = (ConvertFrom-JsonToDictionary -Json $json)['packages']
+            function Get-SortedInert($Platform) {
+                # The function returns the set as ONE pipeline object; enumerate it before sorting.
+                $set = Get-LockfileInertKeys -Packages $script:inertPackages -Platform $Platform
+                return ((@($set) | Sort-Object) -join ',')
+            }
+        }
+
+        It 'On win32 x64, marks exactly what npm leaves out: foreign os, cpu and libc, a negated os, and the chain only a skipped binding needs' {
+            $expected = @('node_modules/@scope/binding-wasm', 'node_modules/runtime', 'node_modules/leaf', 'node_modules/@esbuild/linux-x64',
+                'node_modules/glibc-only', 'node_modules/not-on-windows', 'server/node_modules/bin-arm64', 'server/node_modules/helper')
+            Get-SortedInert @{ Os = 'win32'; Cpu = 'x64'; Libc = '' } | Should -Be (($expected | Sort-Object) -join ',')
+        }
+
+        It 'Follows the platform: on linux x64 glibc the same lockfile skips the Windows binary and keeps the Linux ones' {
+            $expected = @('node_modules/@scope/binding-wasm', 'node_modules/runtime', 'node_modules/leaf', 'node_modules/@esbuild/win32-x64',
+                'server/node_modules/bin-arm64', 'server/node_modules/helper')
+            Get-SortedInert @{ Os = 'linux'; Cpu = 'x64'; Libc = 'glibc' } | Should -Be (($expected | Sort-Object) -join ',')
+        }
+
+        It 'Keeps what an installed package needs: the shared dependency, a required package whatever its cpu, the root package of a nested name' {
+            $inert = Get-LockfileInertKeys -Packages $script:inertPackages -Platform @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+            $inert.Contains('node_modules/shared') | Should -BeFalse
+            $inert.Contains('node_modules/required-foreign') | Should -BeFalse
+            $inert.Contains('node_modules/helper') | Should -BeFalse
+            $inert.Contains('node_modules/@esbuild/win32-x64') | Should -BeFalse
+        }
+
+        It 'Returns the set itself, never its unrolled items, and an empty one when the platform is unknown' {
+            $one = Get-LockfileInertKeys -Packages ((ConvertFrom-JsonToDictionary -Json '{"packages":{"node_modules/x":{"version":"1.0.0","optional":true,"os":["aix"]}}}')['packages']) -Platform @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+            ($one -is [System.Collections.Generic.HashSet[string]]) | Should -BeTrue
+            $one.Count | Should -Be 1
+            $none = Get-LockfileInertKeys -Packages $script:inertPackages -Platform $null
+            ($none -is [System.Collections.Generic.HashSet[string]]) | Should -BeTrue
+            $none.Count | Should -Be 0
+        }
+
+        It 'Get-NpmPlatform names the os and cpu as node does' -Skip:(-not (Get-Command node -ErrorAction SilentlyContinue)) {
+            # The real function, in a child scope: the stub of this suite keeps its own name.
+            $platform = & ([scriptblock]::Create((Get-ScriptFunctionText 'Get-NpmPlatform') + "`nGet-NpmPlatform"))
+            $platform.Os | Should -Be ([string](& node -p process.platform)).Trim()
+            $platform.Cpu | Should -Be ([string](& node -p process.arch)).Trim()
         }
     }
 
@@ -702,6 +805,32 @@ function Write-Result {
                 $verdict[0] | Should -BeFalse -Because $case.Name
                 $script:reason | Should -Be $case.Reason -Because $case.Name
             }
+        }
+
+        It 'Accepts, as npm 11.11 records it, a package npm leaves out on this platform: in the lockfile under the server tree, in no stamp, on no disk (#4918)' {
+            # Measured on ai-01 (2026-11-27): 119 such entries under the server tree, none in its stamp.
+            Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key '' -With '"server/node_modules/@scope/binding-wasm":{"version":"1.0.0","optional":true,"cpu":["wasm32"]}'))
+            $verdict = Get-ReconcileVerdict
+            $verdict.Count | Should -Be 1
+            $verdict[0] | Should -BeTrue
+            $script:reason | Should -Be ''
+        }
+
+        It 'Still refuses an optional package npm installs here, and a skipped one when the platform cannot be read' {
+            $outside = ' outside the root node_modules tree.'
+            Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key '' -With '"server/node_modules/optional-here":{"version":"1.0.0","optional":true}'))
+            $verdict = Get-ReconcileVerdict
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Be ('npm would ADD server/node_modules/optional-here' + $outside)
+            Write-FixtureJson $script:lock (New-ReconcileLock @(Get-LockEntries -Key '' -With '"server/node_modules/@scope/binding-wasm":{"version":"1.0.0","optional":true,"cpu":["wasm32"]}'))
+            $script:npmPlatform = $null
+            try {
+                $verdict = Get-ReconcileVerdict
+            } finally {
+                $script:npmPlatform = @{ Os = 'win32'; Cpu = 'x64'; Libc = '' }
+            }
+            $verdict[0] | Should -BeFalse
+            $script:reason | Should -Be ('npm would ADD server/node_modules/@scope/binding-wasm' + $outside)
         }
 
         It 'Refuses when the disk disagrees with the records, in every tree' {

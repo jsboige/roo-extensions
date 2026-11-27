@@ -370,6 +370,162 @@ function ConvertFrom-JsonToDictionary {
     return $serializer.DeserializeObject($Json)
 }
 
+# The platform npm installs for: node's own process.platform and process.arch, plus the
+# libc family npm-install-checks detects on Linux (empty elsewhere). $null when node does
+# not answer: the callers then know of no package npm leaves out, which keeps the stricter
+# verdict.
+function Get-NpmPlatform {
+    $probe = "var p=process.platform,l='';if(p==='linux'){try{var r=process.report.getReport();l=r.header.glibcVersionRuntime?'glibc':((r.sharedObjects||[]).some(function(f){return f.indexOf('libc.musl-')>=0||f.indexOf('ld-musl-')>=0})?'musl':'')}catch(e){}}console.log(p+' '+process.arch+' '+l)"
+    try { $answer = & node -e $probe 2>$null } catch { return $null }
+    if ($LASTEXITCODE -ne 0) { return $null }
+    $fields = @(([string]$answer).Trim().Split(' '))
+    if ($fields.Count -lt 2 -or [string]::IsNullOrEmpty($fields[0]) -or [string]::IsNullOrEmpty($fields[1])) { return $null }
+    $libc = ''
+    if ($fields.Count -gt 2) { $libc = $fields[2] }
+    return @{ Os = $fields[0]; Cpu = $fields[1]; Libc = $libc }
+}
+
+# Which lockfile entries does npm leave out on this platform? (#4918, first deployment on ai-01)
+# npm marks an optional package it cannot install here INERT, together with every package
+# reachable only through it, and installs none of them (arborist build-ideal-tree: optionalSet
+# + gatherDepSet). What its hidden stamp then says depends on npm: 11.5.1 keeps the entry,
+# marked ideallyInert (po-204, 2026-11-24); 11.11.0 (arborist 9.4.0) leaves it out of the stamp
+# altogether (ai-01, 2026-11-27: the server stamp holds 898 entries, none ideallyInert, where the
+# lockfile has 1017 under the server tree). The stamp cannot be asked what was skipped; the
+# lockfile can. Only the platform rule is computed (os, cpu, libc -- npm-install-checks
+# checkList): an optional package npm leaves out for its engines is not, so it stays missing
+# and the caller's stricter verdict holds.
+# Measured on ai-01 (lockfile of d3cfda2f, win32 x64): 169 keys, 119 under the server tree and
+# 50 at the root -- exactly the lockfile entries that no stamp records and that
+# `npm install --dry-run --json` does not add (it adds 578, all under the root node_modules,
+# changes 0 and removes 0).
+function Get-LockfileInertKeys {
+    param([System.Collections.IDictionary]$Packages, [System.Collections.IDictionary]$Platform)
+    $inert = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    if ($null -eq $Packages -or $null -eq $Platform) { return ,$inert }
+    # npm-install-checks checkList: none of the negated values, and one of the others if any.
+    function Test-PlatformList {
+        param([string]$Value, $List)
+        $items = @($List)
+        if ($items.Count -eq 1 -and [string]$items[0] -eq 'any') { return $true }
+        $negated = 0
+        $match = $false
+        foreach ($raw in $items) {
+            $item = [string]$raw
+            if ($item.StartsWith('!')) {
+                $negated++
+                if ($Value -ceq $item.Substring(1)) { return $false }
+            } elseif ($Value -ceq $item) {
+                $match = $true
+            }
+        }
+        return ($match -or $negated -eq $items.Count)
+    }
+    function Test-InstallableHere {
+        param($Entry)
+        if ($null -ne $Entry['os'] -and -not (Test-PlatformList ([string]$Platform['Os']) $Entry['os'])) { return $false }
+        if ($null -ne $Entry['cpu'] -and -not (Test-PlatformList ([string]$Platform['Cpu']) $Entry['cpu'])) { return $false }
+        if ($null -ne $Entry['libc']) {
+            # npm: a package that names a libc is not installable where none is detected.
+            if ([string]::IsNullOrEmpty([string]$Platform['Libc'])) { return $false }
+            if (-not (Test-PlatformList ([string]$Platform['Libc']) $Entry['libc'])) { return $false }
+        }
+        return $true
+    }
+    $keys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($name in $Packages.Keys) { [void]$keys.Add([string]$name) }
+    # Where a dependency named $Name of the package at $From resolves: node's lookup, from the
+    # package's own node_modules up to the workspace root's. A workspace link stands for the
+    # folder it names.
+    function Resolve-LockKey {
+        param([string]$From, [string]$Name)
+        $location = $From
+        while ($true) {
+            if ($location -eq '') { $candidate = 'node_modules/' + $Name } else { $candidate = $location + '/node_modules/' + $Name }
+            if ($keys.Contains($candidate)) {
+                $target = $Packages[$candidate]
+                if ($target -is [System.Collections.IDictionary] -and $target['link'] -eq $true) { return [string]$target['resolved'] }
+                return $candidate
+            }
+            if ($location -eq '') { return $null }
+            $slash = $location.LastIndexOf('/')
+            if ($slash -lt 0) { $location = '' } else { $location = $location.Substring(0, $slash) }
+        }
+    }
+    # The dependency graph, one edge per dependency name as arborist keeps it: the type loaded
+    # last wins (peer, peerOptional, prod, optional, dev). Only a top -- the root and each
+    # workspace -- carries devDependencies in a lockfile.
+    $edgesOut   = [System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]]::new([System.StringComparer]::Ordinal)
+    $edgesIn    = [System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]]::new([System.StringComparer]::Ordinal)
+    $requiredIn = [System.Collections.Generic.Dictionary[string,System.Collections.Generic.List[string]]]::new([System.StringComparer]::Ordinal)
+    foreach ($name in $keys) {
+        $entry = $Packages[$name]
+        if (-not ($entry -is [System.Collections.IDictionary])) { continue }
+        if ($entry['link'] -eq $true) { continue }
+        $optionalByName = [System.Collections.Generic.Dictionary[string,bool]]::new([System.StringComparer]::Ordinal)
+        $peerMeta = $entry['peerDependenciesMeta']
+        if ($entry['peerDependencies'] -is [System.Collections.IDictionary]) {
+            foreach ($dep in $entry['peerDependencies'].Keys) {
+                $isOptional = $false
+                if ($peerMeta -is [System.Collections.IDictionary] -and $peerMeta[$dep] -is [System.Collections.IDictionary] -and $peerMeta[$dep]['optional'] -eq $true) { $isOptional = $true }
+                $optionalByName[[string]$dep] = $isOptional
+            }
+        }
+        foreach ($field in @('dependencies', 'optionalDependencies', 'devDependencies')) {
+            if (-not ($entry[$field] -is [System.Collections.IDictionary])) { continue }
+            foreach ($dep in $entry[$field].Keys) { $optionalByName[[string]$dep] = ($field -eq 'optionalDependencies') }
+        }
+        foreach ($dep in $optionalByName.Keys) {
+            $to = Resolve-LockKey -From $name -Name $dep
+            if ($null -eq $to) { continue }
+            if (-not $edgesOut.ContainsKey($name)) { $edgesOut[$name] = [System.Collections.Generic.List[string]]::new() }
+            $edgesOut[$name].Add($to)
+            if (-not $edgesIn.ContainsKey($to)) { $edgesIn[$to] = [System.Collections.Generic.List[string]]::new() }
+            $edgesIn[$to].Add($name)
+            if (-not $optionalByName[$dep]) {
+                if (-not $requiredIn.ContainsKey($to)) { $requiredIn[$to] = [System.Collections.Generic.List[string]]::new() }
+                $requiredIn[$to].Add($name)
+            }
+        }
+    }
+    foreach ($name in $keys) {
+        $entry = $Packages[$name]
+        if (-not ($entry -is [System.Collections.IDictionary])) { continue }
+        if ($entry['optional'] -ne $true -or $inert.Contains($name)) { continue }
+        if (Test-InstallableHere $entry) { continue }
+        # optionalSet: up the required edges to the optional boundary...
+        $set = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+        $walk = [System.Collections.Generic.List[string]]::new()
+        [void]$set.Add($name)
+        $walk.Add($name)
+        for ($i = 0; $i -lt $walk.Count; $i++) {
+            if (-not $requiredIn.ContainsKey($walk[$i])) { continue }
+            foreach ($from in $requiredIn[$walk[$i]]) { if ($set.Add($from)) { $walk.Add($from) } }
+        }
+        # ...then gatherDepSet: what the set reaches, less whatever a package outside it needs.
+        $deps = [System.Collections.Generic.HashSet[string]]::new([string[]]@($set), [System.StringComparer]::Ordinal)
+        $walk = [System.Collections.Generic.List[string]]::new([string[]]@($set))
+        for ($i = 0; $i -lt $walk.Count; $i++) {
+            if (-not $edgesOut.ContainsKey($walk[$i])) { continue }
+            foreach ($to in $edgesOut[$walk[$i]]) {
+                if (-not $set.Contains($to) -and $deps.Add($to)) { $walk.Add($to) }
+            }
+        }
+        $changed = $true
+        while ($changed -and $deps.Count -gt 0) {
+            $changed = $false
+            foreach ($dep in @($deps)) {
+                if ($set.Contains($dep) -or -not $deps.Contains($dep) -or -not $edgesIn.ContainsKey($dep)) { continue }
+                foreach ($from in $edgesIn[$dep]) {
+                    if (-not $deps.Contains($from)) { [void]$deps.Remove($dep); $changed = $true; break }
+                }
+            }
+        }
+        foreach ($dep in $deps) { [void]$inert.Add($dep) }
+    }
+    return ,$inert
+}
+
 # Is the installed tree current with the workspace lockfile? Content question, not an
 # mtime one (#4886 review: a checkout that rewrites an identical package-lock.json
 # must not re-run `npm ci`).
@@ -425,8 +581,19 @@ function Test-WorkspaceInstallCurrent {
         if ($want[$n] -ne $have[$n]) { return $false }
     }
     # 2. the reverse direction: same package count plus the key/version loop above
-    #    proves exact set equality, so an added or removed package cannot hide.
-    if ($want.Count -ne $have.Count) { return $false }
+    #    proves exact set equality, so an added or removed package cannot hide. A stamp
+    #    written by npm 11.11 leaves out what npm skips on this platform (#4918): a lockfile
+    #    entry missing from the stamp is accepted only when npm itself leaves it out here.
+    if ($want.Count -ne $have.Count) {
+        $inert = $null
+        try {
+            $lockRoot = ConvertFrom-JsonToDictionary -Json ([System.IO.File]::ReadAllText($LockPath))
+            $inert = Get-LockfileInertKeys -Packages $lockRoot['packages'] -Platform (Get-NpmPlatform)
+        } catch { return $false }
+        foreach ($n in $want.Keys) {
+            if (-not $have.ContainsKey($n) -and -not $inert.Contains($n)) { return $false }
+        }
+    }
     # 3. the toolchain the rebuild consumes must exist, whatever the stamps say.
     if (-not (Test-Path -LiteralPath (Join-Path $ServerPath 'node_modules/typescript/bin/tsc')) -and
         -not (Test-Path -LiteralPath (Join-Path $ModulesPath 'typescript/bin/tsc'))) {
@@ -465,7 +632,10 @@ function Test-WorkspaceInstallCurrent {
 #      be REPLACED. One gap is tolerated, the one npm tolerates itself: a package the
 #      stamp marks ideallyInert, left out by the last install on this platform (119 of
 #      the 1017 server entries on po-204, measured 2026-11-24, exactly the 119 without a
-#      directory). A link is accepted only where a stamp records it as a link to the same
+#      directory). npm 11.11 writes no stamp entry for those at all (ai-01, 2026-11-27):
+#      rule 2 then reads them from the lockfile (Get-LockfileInertKeys), and they are
+#      neither recorded nor on disk, so rule 3 has nothing to compare. A link is accepted
+#      only where a stamp records it as a link to the same
 #      target -- npm makes exactly two, the workspace links of the root tree -- and is
 #      never followed.
 # A later lockfile that removes or changes an installed package keeps the refusal below:
@@ -598,11 +768,16 @@ function Test-WorkspaceInstallReconcileSafe {
             if ($null -eq $wanted -or $wanted -cne $recorded[$key]) { return (Deny-Reconcile "npm would REPLACE ${key}: the installed entry and the lockfile entry differ.") }
         }
         # 2. The lockfile may only add to the ROOT tree. A key that names no node_modules
-        #    directory is a workspace source entry, not an installed package.
+        #    directory is a workspace source entry, not an installed package. A package npm
+        #    leaves out on this platform is added nowhere: npm 11.11 records it in no stamp
+        #    (#4918, ai-01 2026-11-27), so it is told apart from the lockfile, not the stamp.
+        $inert = $null
         foreach ($key in $lockKeys) {
             if ($recorded.ContainsKey($key)) { continue }
             if ($key.StartsWith('node_modules/', [System.StringComparison]::Ordinal)) { continue }
             if ($key.IndexOf('node_modules/', [System.StringComparison]::Ordinal) -lt 0) { continue }
+            if ($null -eq $inert) { $inert = Get-LockfileInertKeys -Packages $lockPackages -Platform (Get-NpmPlatform) }
+            if ($inert.Contains($key)) { continue }
             return (Deny-Reconcile "npm would ADD $key outside the root node_modules tree.")
         }
         # 3. The disk, in every workspace tree: the workspace folder itself, the server,
