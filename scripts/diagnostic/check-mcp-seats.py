@@ -20,14 +20,18 @@ est `projects[<ws>].disabledMcpServers` ; un `"disabled": true` dans une entree
 
 Verdicts par serveur :
 
-  LIVE      handshake `initialize` -> `tools/list` reussi, N outils
-  DEAD      declare et actif, mais le handshake echoue (cause nommee)
-  DISABLED  present dans `disabledMcpServers` du siege (l'intention est explicite)
-  UNKNOWN   `--no-handshake` : declaration lue, presence non mesuree
+  LIVE               handshake `initialize` -> `tools/list` reussi, N outils
+  DEAD               declare et actif, mais le handshake echoue (cause nommee)
+  DISABLED           present dans `disabledMcpServers` de TOUTES les ecritures du
+                     chemin du siege trouvees dans `~/.claude.json`
+  AMBIGUOUS-DISABLE  desactive sous certaines ecritures du chemin seulement :
+                     Claude Code ne lit qu'une cle, la sonde ne sait pas laquelle
+                     (#4963) -- jamais rendu comme `DISABLED`
+  UNKNOWN            `--no-handshake` : declaration lue, presence non mesuree
 
 Sortie (revue ai-01 04/11 — l'automate qui lit `$?` ne lit pas le docstring) :
 
-  0  mesure reelle, tous LIVE/DISABLED (aucune erreur de lecture)
+  0  mesure reelle, aucune absence MESUREE (LIVE/DISABLED/AMBIGUOUS-DISABLE)
   2  au moins un DEAD — une absence MESUREE se signale, meme si une autre
      surface a echoue a se lire
   1  erreur d'instrument : au moins une surface n'a pas pu etre lue. JAMAIS 0
@@ -44,8 +48,9 @@ Precedence : erreur de lecture (1) et absence MESUREE (2) > nom non trouve
 (3) > sain (0). Une erreur de lecture n'est jamais un 0 ; et quand un `DEAD`
 est mesure, il sort 2 meme si une autre surface etait illisible -- l'automate
 doit voir l'absence avant la cecite de l'instrument.
-`STALE-DISABLE` sort 0 (une desactivation perimee n'est pas un serveur mort)
-mais reste affiche comme « a purger ».
+`STALE-DISABLE` et `AMBIGUOUS-DISABLE` sortent 0 (aucune absence MESUREE) mais
+restent affiches : le premier comme « a purger », le second avec les ecritures du
+chemin qui divergent -- c'est une lecture non tranchable, pas un serveur mort.
 
 Ce que cet organe ne peut pas faire : mesurer un siege distant. Depuis un siege,
 on ne prouve la presence que LOCALEMENT ; pour les autres postes, la seule
@@ -94,21 +99,56 @@ def user_config_path():
     return Path(os.path.expanduser("~")) / ".claude.json"
 
 
-def project_entry(user_config, workspace):
-    """Entree `projects[<ws>]` du siege, insensible a la casse du chemin.
+def project_entries(user_config, workspace):
+    """Toutes les entrees `projects[<ws>]` dont la cle designe `workspace`.
 
     Les cles de `~/.claude.json` sont des chaines litterales ; sous Windows le
     chemin d'un meme siege s'ecrit `d:/dev/CoursIA` ou `D:/dev/CoursIA` selon
     l'appelant. Une correspondance exacte rate alors `disabledMcpServers` et
     rend un serveur desactive comme s'il etait actif (faux positif mesure le
     2026-11-03 : `sk-agent` declare DISABLED sous `d:/...`, sonde sous `D:/...`).
+
+    Claude Code, lui, ne lit qu'UNE cle -- celle qu'il a ecrite depuis le cwd de
+    la session -- et ce cwd echappe a la sonde (mesures 27/11 : cles en `d:/...`
+    sur deux sieges ; `Path.resolve()` en `D:\\...`, mesure po-2024). Deux
+    ecritures du meme chemin peuvent donc cohabiter et diverger ; retenir la
+    premiere rencontree revient a tirer au sort laquelle fait foi (#4963 : un
+    serveur rendu DISABLED par une entree que la session ne lit pas). On rend
+    donc toutes les correspondances, et le verdict traduit leur accord ou leur
+    divergence.
     """
     projects = (user_config or {}).get("projects") or {}
     wanted = os.path.normcase(os.path.normpath(str(workspace)))
-    for key, value in projects.items():
-        if os.path.normcase(os.path.normpath(str(key))) == wanted:
-            return value if isinstance(value, dict) else {}
-    return {}
+    return [
+        {"key": str(key), "entry": value if isinstance(value, dict) else {}}
+        for key, value in projects.items()
+        if os.path.normcase(os.path.normpath(str(key))) == wanted
+    ]
+
+
+def disables_by_server(entries):
+    """`{serveur: (cles qui le desactivent, cles qui ne le desactivent pas)}`."""
+    result = {}
+    for item in entries:
+        for name in item["entry"].get("disabledMcpServers") or []:
+            if isinstance(name, str):
+                disabling = result.setdefault(name, ([], []))[0]
+                if item["key"] not in disabling:
+                    disabling.append(item["key"])
+    for disabling, silent in result.values():
+        silent.extend(item["key"] for item in entries if item["key"] not in disabling)
+    return result
+
+
+def _shown(keys):
+    """Les cles telles qu'ecrites, le repertoire personnel abrege en `~`."""
+    home = os.path.expanduser("~")
+    shown = []
+    for key in keys:
+        under_home = (os.path.normcase(key).startswith(os.path.normcase(home))
+                      and key[len(home):len(home) + 1] in (os.sep, "/"))
+        shown.append("~" + key[len(home):] if under_home else key)
+    return ", ".join(shown)
 
 
 def normalize_entry(entry, workspace):
@@ -153,21 +193,23 @@ def collect(workspace, user_config, errors):
     for name, entry in global_servers.items():
         add(name, entry, "~/.claude.json mcpServers")
 
-    project = project_entry(user_config, workspace)
-    for name, entry in (project.get("mcpServers") or {}).items():
-        add(name, entry, f"~/.claude.json projects[{workspace}].mcpServers")
+    project = project_entries(user_config, workspace)
+    for item in project:
+        for name, entry in (item["entry"].get("mcpServers") or {}).items():
+            add(name, entry, f"~/.claude.json projects[{item['key']}].mcpServers")
 
     ws_mcp = load_json_or_none(Path(workspace) / ".mcp.json", errors)
     if isinstance(ws_mcp, dict):
         for name, entry in (ws_mcp.get("mcpServers") or {}).items():
             add(name, entry, ".mcp.json")
 
-    disabled = [d for d in (project.get("disabledMcpServers") or []) if isinstance(d, str)]
-    for name in disabled:
+    listed = disables_by_server(project)
+    for name, (disabling, silent) in listed.items():
         slot = servers.setdefault(name, {"entry": None, "sources": [], "disabled": False})
         slot["disabled"] = True
+        slot["disable_keys"], slot["silent_keys"] = disabling, silent
 
-    return servers, disabled
+    return servers, list(listed)
 
 
 def probe(servers, timeout, do_handshake, workspace):
@@ -185,6 +227,10 @@ def probe(servers, timeout, do_handshake, workspace):
         if slot["disabled"] and entry is None:
             record["verdict"] = "STALE-DISABLE"
             record["detail"] = "desactive mais declare nulle part (configuration perimee)"
+        elif slot["disabled"] and slot["silent_keys"]:
+            record["verdict"] = "AMBIGUOUS-DISABLE"
+            record["detail"] = (f"desactive sous {_shown(slot['disable_keys'])}, "
+                                f"pas sous {_shown(slot['silent_keys'])}")
         elif slot["disabled"]:
             record["verdict"] = "DISABLED"
             record["detail"] = "projects[].disabledMcpServers"
@@ -230,6 +276,7 @@ def main(argv=None):
     dead = [r["server"] for r in records if r["verdict"] == "DEAD"]
     live = [r["server"] for r in records if r["verdict"] == "LIVE"]
     off = [r["server"] for r in records if r["verdict"] == "DISABLED"]
+    ambiguous = [r["server"] for r in records if r["verdict"] == "AMBIGUOUS-DISABLE"]
 
     if args.json:
         print(json.dumps({
@@ -237,6 +284,7 @@ def main(argv=None):
             "handshake": not args.no_handshake,
             "records": records,
             "live": live, "dead": dead, "disabled": off, "stale_disables": stale,
+            "ambiguous_disables": ambiguous,
             "disabled_declared": disabled,
             "requested_unmatched": unmatched,
             "errors": errors,
@@ -247,12 +295,14 @@ def main(argv=None):
               f"  timeout={args.timeout:g}s")
         print("")
         width = max([len(r["server"]) for r in records] + [6])
+        verdict_width = max([len(r["verdict"]) for r in records] + [12])
         for r in records:
-            print(f"  {r['verdict']:<12} {r['server']:<{width}}  {r['detail']}")
+            print(f"  {r['verdict']:<{verdict_width}} {r['server']:<{width}}  {r['detail']}")
             if r["sources"]:
-                print(f"  {'':<12} {'':<{width}}  declare: {', '.join(r['sources'])}")
+                print(f"  {'':<{verdict_width}} {'':<{width}}  declare: {', '.join(r['sources'])}")
         print("")
-        print(f"LIVE={len(live)} DEAD={len(dead)} DISABLED={len(off)} STALE-DISABLE={len(stale)}")
+        print(f"LIVE={len(live)} DEAD={len(dead)} DISABLED={len(off)}"
+              f" AMBIGUOUS-DISABLE={len(ambiguous)} STALE-DISABLE={len(stale)}")
         if stale:
             print(f"desactivations perimees (a purger) : {', '.join(stale)}")
         if unmatched:

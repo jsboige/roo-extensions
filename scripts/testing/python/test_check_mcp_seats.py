@@ -12,8 +12,11 @@ machine rendrait la CI rouge pour une raison d'environnement — c'est
 precisement ce que le docstring de `test_check_deny_fallback.py` interdit.
 """
 
+import contextlib
 import importlib.util
+import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -159,6 +162,88 @@ class SeatContract(unittest.TestCase):
                 str(self.ws): {"disabledMcpServers": ["ghost"]}}},
         )
         self.assertEqual(self.run_main(), 0)
+
+    # --- plusieurs ecritures du meme chemin (#4963) -----------------------
+
+    def spellings(self):
+        """Deux écritures du chemin du siège, égales après normalisation.
+
+        Windows : la casse du lecteur (`C:\\…` et `c:/…`), l'écart mesuré le
+        2026-11-03 et sur les deux sièges de #4963 — la sonde résout en
+        majuscule, Claude Code écrit en minuscule. Ailleurs `normcase` ne plie
+        rien : un segment `.` joue le même rôle pour `normpath`.
+        """
+        base = str(self.ws)
+        if os.name == "nt":
+            return base, base[0].lower() + base[1:].replace("\\", "/")
+        return base, base + "/./"
+
+    def run_probe(self, projects, *extra):
+        """Sonde sur un `off-one` déclaré, avec ces entrées `projects`."""
+        self.install(
+            workspace_servers={"off-one": {"command": "node", "args": []}},
+            user_config={"projects": projects},
+            handshake=lambda entry, timeout: (True, "18 outil(s)"),
+        )
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = self.run_main(*extra)
+        return code, out.getvalue()
+
+    def test_two_spellings_that_disagree_are_never_disabled(self):
+        # #4963 : Claude Code ne lit qu'UNE des deux clés, et la sonde ne sait
+        # pas laquelle. Rendre DISABLED tenait pour autoritaire une entrée que
+        # la session peut ne pas lire.
+        probe_key, other = self.spellings()
+        code, out = self.run_probe(
+            {probe_key: {}, other: {"disabledMcpServers": ["off-one"]}}, "--json")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["disabled"], [])
+        self.assertEqual(report["ambiguous_disables"], ["off-one"])
+        record = report["records"][0]
+        self.assertEqual(record["verdict"], "AMBIGUOUS-DISABLE")
+        # Les deux écritures sont nommées, chacune telle qu'elle est écrite.
+        self.assertIn(cms._shown([probe_key]), record["detail"])
+        self.assertIn(cms._shown([other]), record["detail"])
+
+    def test_reported_keys_abbreviate_the_home_directory(self):
+        # ai-01 : lister les clés « with `~` for the home path ».
+        home = os.path.expanduser("~")
+        under = os.path.join(home, "Projects", "x")
+        self.assertEqual(cms._shown([under]), "~" + under[len(home):])
+        self.assertEqual(cms._shown([os.path.join(os.sep, "elsewhere", "x")]),
+                         os.path.join(os.sep, "elsewhere", "x"))
+
+    def test_an_ambiguous_disable_is_shown_in_the_tally(self):
+        probe_key, other = self.spellings()
+        code, out = self.run_probe(
+            {probe_key: {}, other: {"disabledMcpServers": ["off-one"]}})
+        self.assertEqual(code, 0)
+        self.assertIn("DISABLED=0 AMBIGUOUS-DISABLE=1", out)
+        self.assertIn("AMBIGUOUS-DISABLE off-one", out)
+
+    def test_two_spellings_that_agree_are_disabled(self):
+        # Quelle que soit la clé lue, la désactivation tient : pas d'ambiguïté.
+        first, second = self.spellings()
+        code, out = self.run_probe({
+            first: {"disabledMcpServers": ["off-one"]},
+            second: {"disabledMcpServers": ["off-one"]},
+        }, "--json")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["disabled"], ["off-one"])
+        self.assertEqual(report["ambiguous_disables"], [])
+
+    def test_a_single_spelling_disables_whichever_way_it_is_written(self):
+        # Témoin du 2026-11-03 : la correspondance normalisée ne recule pas.
+        # Une seule écriture, même autrement que la sonde ne résout, est lue.
+        _, other = self.spellings()
+        code, out = self.run_probe({other: {"disabledMcpServers": ["off-one"]}}, "--json")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        self.assertEqual(report["disabled"], ["off-one"])
+        self.assertEqual(report["ambiguous_disables"], [])
 
 
 if __name__ == "__main__":
