@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -558,6 +559,13 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     def entry(self, ts, lane="a|ws", body="[DONE] rien de degrade"):
         return f"### [{ts}] {lane}\n\n{body}\n"
+
+    def exhausted_budget(self):
+        """#4951 : budget dont le temps immobile depasse deja le plafond."""
+        budget = cde.ArchivePassBudget(0.5, 0)
+        budget.start()
+        budget.stalled_s = 1.0
+        return budget
 
     def test_store_read_addresses_each_dashboard_by_id(self):
         # Reserve Hermes (trouvee en implementant) : un read type=workspace
@@ -1639,7 +1647,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
         closures, errors = cde.second_pass_old_closures(
             entries, ["workspace-ws"], cde.parse_ts("2026-11-01T09:00:00Z"),
-            call, "u", "b", 1.0, archive_deadline=0.0)
+            call, "u", "b", 1.0, archive_budget=self.exhausted_budget())
         self.assertEqual(closures, [])
         self.assertEqual(calls, [])
         self.assertTrue(any("budget" in error for error in errors), errors)
@@ -1655,7 +1663,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
         closures, errors = cde.second_pass_old_closures(
             entries, ["workspace-ws"], cde.parse_ts("2026-11-01T09:00:00Z"),
-            call, "u", "b", 1.0, archive_deadline=None)
+            call, "u", "b", 1.0, archive_budget=cde.ArchivePassBudget(0, 0))
         self.assertEqual((closures, errors), ([], []))
 
     def test_lane_workspace_path_resolves_to_its_leaf(self):
@@ -1671,11 +1679,110 @@ environnement degrade : jupyter-papermill muet depuis le preflight
 
     # --- #4643 (dispatch ai-01 12/11) : budget, coques vides, denominateur --
 
+    # --- #4951 : le budget d'archives mesure le TEMPS IMMOBILISE ------------
+
+    def _timed_store(self, names, sleep_s=0.02, muted_names=()):
+        """Transport store minimal : chaque lecture d'archive DORT `sleep_s`.
+
+        C'est la DUREE de la passe que ces tests mesurent, pas son resultat —
+        `fake_store` ne dort pas, il ne peut donc pas distinguer un budget
+        mural d'un budget de temps immobile. Rend le journal des lectures.
+        """
+        calls = {"files": []}
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False, telemetry=None):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                payload = {"success": True, "action": "read",
+                           "data": {"intercom": {"messages": [
+                               self.message("2026-11-03T08:00:00.000Z",
+                                            content="[DONE] cycle normal")]}}}
+                return {"content": [{"type": "text",
+                                     "text": json.dumps(payload)}]}
+            name = arguments.get("archiveFile")
+            if name is None:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True, "action": "read_archive", "key": "x",
+                     "archives": names})}]}
+            time.sleep(sleep_s)
+            calls["files"].append(name)
+            if name in muted_names:
+                return None
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": True, "action": "read_archive",
+                "archiveData": {"key": "x", "messages": []}})}]}
+
+        original = cde._load_transport
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", original)
+        return calls
+
+    def test_healthy_slow_archive_pass_skips_nothing(self):
+        # #4951 critere 1. Mesure motivante : 765 lectures, p50 1141 ms,
+        # p95 1844 ms sur po-2026:CoursIA-3 le 27/11 — une passe SAINE prend
+        # 873 s et depassait le budget mural de 900 s en fin de course. Transpose
+        # ici : 4 lectures de 20 ms avec un budget de 10 ms. Tueur : sur le code
+        # d'avant #4951 (budget mural), la 1re lecture consomme le budget et les
+        # 3 suivantes sont sautees -> `errors` non vide. Apres, une lecture qui
+        # rend du contenu ne consomme RIEN : les 4 sont lues, zero erreur.
+        names = [f"workspace-x-2026-11-03T04-0{i}-00.md" for i in range(4)]
+        calls = self._timed_store(names)
+        _entries, errors, _keys = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW), window_hours=8.0,
+            archive_window_hours=48.0, archive_time_budget=0.01,
+            archive_hard_ceiling=0)
+        self.assertEqual(errors, [], errors)
+        self.assertEqual(calls["files"], names)
+
+    def test_muted_archive_reads_still_hit_the_budget(self):
+        # #4951 critere 2 / #4661 : la passe BLOQUEE reste bornee. 68 timeouts
+        # read_archive de 10 s sequentiels sur un G: gele (929 s) sont
+        # transposes en lectures muettes de 20 ms (+ relance). Le temps immobile
+        # epuise le budget, les archives restantes sont sautees, la fenetre est
+        # declaree partiellement aveugle — erreur d'instrument, jamais un
+        # verdict confiant sur une mesure partielle.
+        names = [f"workspace-x-2026-11-03T04-0{i}-00.md" for i in range(6)]
+        calls = self._timed_store(names, muted_names=names)
+        _entries, errors, _keys = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW), window_hours=8.0,
+            archive_window_hours=48.0, archive_time_budget=0.01,
+            archive_hard_ceiling=0)
+        self.assertTrue(any("budget d'archives" in err for err in errors),
+                        errors)
+        self.assertLess(len(calls["files"]), len(names), calls["files"])
+
+    def test_hard_ceiling_terminates_a_slow_but_progressing_pass(self):
+        # Le plafond mural est le dernier recours : une passe qui PROGRESSE
+        # (aucun temps immobile a opposer) mais dont chaque lecture est lente
+        # finit quand meme. Il ne doit jamais juger une passe lente — son defaut
+        # est large (3600 s, 2,6x le pire cas mesure au p95 partout) — mais il
+        # est le seul frein quand le budget de temps immobile est desactive.
+        names = [f"workspace-x-2026-11-03T04-0{i}-00.md" for i in range(6)]
+        calls = self._timed_store(names)
+        _entries, errors, _keys = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW), window_hours=8.0,
+            archive_window_hours=48.0, archive_time_budget=0,
+            archive_hard_ceiling=0.01)
+        self.assertTrue(any("plafond mural" in err for err in errors), errors)
+        self.assertLess(len(calls["files"]), len(names), calls["files"])
+
     def test_default_archive_budget_covers_measured_healthy_pass(self):
-        # Item 1 du dispatch : 120 s epuisait le budget au bout de 3 min d'une
-        # passe SAINE ; une passe complete mesuree prend 669 s. Le defaut doit
-        # couvrir la mesure, sinon l'organe ne rend jamais 0/2/3.
+        # Item 1 du dispatch #4643 : 120 s epuisait le budget au bout de 3 min
+        # d'une passe SAINE ; une passe complete mesuree prend 669 s. Depuis
+        # #4951 le budget ne mesure plus que le TEMPS IMMOBILISE, qui est
+        # exactement ce que #4661 a mesure (68 timeouts x 10 s = 680 s) : le
+        # defaut doit toujours le couvrir, sinon la passe bloquee n'est plus
+        # bornee au bon endroit.
         self.assertGreaterEqual(cde.DEFAULT_ARCHIVE_TIME_BUDGET_S, 669.0)
+        # Et le plafond mural doit couvrir le pire cas mesure d'une passe saine
+        # sur siege distant quand TOUTES les lectures tombent au p95 (765 x
+        # 1844 ms = 1411 s), sinon il rejouerait #4951 sous un autre nom.
+        self.assertGreaterEqual(cde.DEFAULT_ARCHIVE_HARD_CEILING_S, 2 * 1411.0)
 
     def test_fresh_archive_husk_rejection_is_a_partial_measure(self):
         # #4796 (incident po-2024 16/11 16:22Z) : l'archive fraiche de 16:16Z
