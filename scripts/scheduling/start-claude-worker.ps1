@@ -1683,8 +1683,20 @@ function Test-IssueClaimBlocksResume {
     }
 
     try {
-        $Output = & $PythonCmd.Source $ClaimScript $IssueNumber --repo jsboige/roo-extensions --agent $script:ClaimLane 2>&1
-        $ExitCode = $LASTEXITCODE
+        # $ErrorActionPreference vaut "Stop" au niveau du script (L69) : sous cette
+        # preference, une commande native qui ecrit sur stderr est fusionnee par 2>&1
+        # en une NativeCommandError TERMINANTE, MEME quand le garde a repondu exit 0
+        # -- le catch rendait alors "bloque" un claim pourtant clair (#4955, revue
+        # ai-01). Continue le temps de l'appel, Stop restaure en finally.
+        $PrevPref = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $Output = & $PythonCmd.Source $ClaimScript $IssueNumber --repo jsboige/roo-extensions --agent $script:ClaimLane 2>&1
+            $ExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $PrevPref
+        }
         if (ConvertTo-ClaimGuardBlocked -ExitCode $ExitCode) {
             $Detail = (@($Output) | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^BLOCKED' } | Select-Object -First 1)
             if (-not $Detail) { $Detail = (@($Output) | Where-Object { $_ } | Select-Object -First 1) }

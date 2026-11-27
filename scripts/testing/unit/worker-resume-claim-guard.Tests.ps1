@@ -14,9 +14,12 @@
     These tests extract the REAL Test-WaitStateReady (and the claim verdict
     helpers) via AST -- no worker dot-source (which would run its top-level
     code and need gh/Claude), no real gh/Claude CLI -- and stub its
-    dependencies. The claim guard itself is stubbed here: the contract under
-    test is that Test-WaitStateReady CONSULTS it and honours its verdict. The
-    real exit-code semantics are tested separately (ConvertTo-ClaimGuardBlocked).
+    dependencies. For Test-WaitStateReady the claim guard is stubbed: the
+    contract under test is that it CONSULTS the guard and honours its verdict.
+    The real exit-code semantics are tested separately (ConvertTo-ClaimGuardBlocked),
+    and the REAL invoker (Test-IssueClaimBlocksResume) is exercised first-hand
+    with a fake `python` on PATH: a guard that answers exit 0 must clear the
+    resume even when it writes to stderr (review ai-01 on #4955).
 
     `dashboard_message` and the foreign-claim block are RED on main (e2801827)
     and GREEN after the fix; the positive control proves a clear issue still
@@ -63,6 +66,16 @@ Describe 'Worker resume honours the issue claim (#4953)' {
             if ($text) { . ([scriptblock]::Create($text)) }
         }
         $script:HasWaitStateReady = [bool](Get-FnText 'Test-WaitStateReady')
+
+        # The REAL claim invoker, under a distinct name: the stub below shadows
+        # it on purpose for Test-WaitStateReady, but the invoker itself has to be
+        # exercised first-hand (review ai-01 on #4955). Only the definition is
+        # renamed; the body is the worker's text, unchanged.
+        $realInvoker = Get-FnText 'Test-IssueClaimBlocksResume'
+        if ($realInvoker) {
+            . ([scriptblock]::Create(($realInvoker -replace '^function Test-IssueClaimBlocksResume', 'function Invoke-RealClaimInvoker')))
+        }
+        $script:HasRealInvoker = [bool]$realInvoker
 
         # Isolated wait-states directory: Test-WaitStateReady reads
         # "$RepoRoot\.claude\scheduler\wait-states\$TaskId.json".
@@ -180,6 +193,84 @@ Describe 'Worker resume honours the issue claim (#4953)' {
 
         It 'ConvertTo-ClaimGuardBlocked maps <label> to blocked=<blocked>' -ForEach $script:ExitCases {
             ConvertTo-ClaimGuardBlocked -ExitCode $_.code | Should -Be $_.blocked
+        }
+    }
+
+    Context 'The REAL invoker, under the worker''s own Stop preference (#4955 review)' {
+
+        BeforeAll {
+            # A fake `python` ahead on PATH, answering like check_issue_claim.py
+            # does: a verdict line on stderr and an exit code. No real python,
+            # no real gh -- and the stderr line is the whole point. A .cmd on
+            # Windows (the worker's engine is powershell.exe 5.1), a sh script
+            # elsewhere (this suite also runs under pwsh on ubuntu).
+            $script:IsWin = ($env:OS -eq 'Windows_NT')
+            $script:SavedPath = $env:PATH
+            $script:FakeBin = Join-Path $script:RepoRoot 'fake-bin'
+            New-Item -ItemType Directory -Path $script:FakeBin -Force | Out-Null
+            $script:FakePython = Join-Path $script:FakeBin $(if ($script:IsWin) { 'python.cmd' } else { 'python' })
+            $env:PATH = "$($script:FakeBin)$([System.IO.Path]::PathSeparator)$($script:SavedPath)"
+
+            # The guard script the invoker joins to $RepoRoot -- built with the
+            # worker's OWN expression, so the placeholder sits exactly where it
+            # looks (the fake never reads it).
+            $guardScript = Join-Path $script:RepoRoot "scripts\github\check_issue_claim.py"
+            $guardDir = Split-Path -Parent $guardScript
+            if (-not (Test-Path $guardDir)) { New-Item -ItemType Directory -Path $guardDir -Force | Out-Null }
+            [System.IO.File]::WriteAllText($guardScript, "# placeholder`n", [System.Text.UTF8Encoding]::new($false))
+
+            # What the real invoker reads from the worker's script scope.
+            $script:ClaimLane = 'myia-po-2024:roo-extensions'
+
+            function Set-FakePythonGuard {
+                param([Parameter(Mandatory)][ValidateSet('Clear', 'Blocked')][string]$Verdict)
+                $line = if ($Verdict -eq 'Clear') { 'CLEAR -- no active claim on this issue' } else { 'BLOCKED -- another lane holds an active claim' }
+                $code = if ($Verdict -eq 'Clear') { 0 } else { 1 }
+                $text = if ($script:IsWin) { "@echo off`r`necho $line 1>&2`r`nexit /b $code`r`n" }
+                        else                   { "#!/bin/sh`necho '$line' >&2`nexit $code`n" }
+                [System.IO.File]::WriteAllText($script:FakePython, $text, [System.Text.UTF8Encoding]::new($false))
+                if (-not $script:IsWin) { & chmod +x $script:FakePython }
+            }
+
+            # The fake must EXIST before the resolution test below: Get-Command
+            # only finds what is on disk.
+            Set-FakePythonGuard -Verdict Clear
+        }
+
+        AfterAll {
+            $env:PATH = $script:SavedPath
+        }
+
+        It 'Extracts and defines the real invoker' {
+            $script:HasRealInvoker | Should -BeTrue
+        }
+
+        It 'Resolves the fake python ahead of any real one (the tests below would be vacuous otherwise)' {
+            $python = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+            $python.Source | Should -Be $script:FakePython
+        }
+
+        It 'A guard that exits 0 and writes to stderr does NOT block (red without the Continue guard)' {
+            Set-FakePythonGuard -Verdict Clear
+            $ErrorActionPreference = 'Stop'   # the worker's script-level preference (L69)
+
+            # Red on 0d5f9c14 under Windows PowerShell 5.1: there, the stderr line
+            # of the native call is a TERMINATING NativeCommandError -> the catch
+            # -> blocked ($true).
+            (Invoke-RealClaimInvoker -TaskId 'github-4953') | Should -Be $false
+        }
+
+        It 'Fail-closed control: a non-zero exit still blocks, stderr or not' {
+            Set-FakePythonGuard -Verdict Blocked
+            $ErrorActionPreference = 'Stop'
+
+            (Invoke-RealClaimInvoker -TaskId 'github-4953') | Should -Be $true
+        }
+
+        It 'A non-issue wait-state never shells out (no issue number)' {
+            Set-FakePythonGuard -Verdict Blocked
+
+            (Invoke-RealClaimInvoker -TaskId 'dashboard-xyz') | Should -Be $false
         }
     }
 
