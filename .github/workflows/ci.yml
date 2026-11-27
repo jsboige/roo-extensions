@@ -173,6 +173,9 @@ on:
       # scripts/testing/python/ runs its selftest — a change to the probe
       # landing on main must re-run both (same gap as every entry above).
       - 'scripts/diagnostic/check-deny-fallback.py'
+      # #4937: test_audit_stale_mcp_disables.py drives the #4195 audit; the
+      # script alone must re-run it on main pushes (same rule as above).
+      - 'scripts/diagnostic/audit-stale-mcp-disables.py'
       # #4352 g6 (ai-01 review 29/10): test_g6_pass_bound.py (static python job) runs the
       # probe's selftest and pins its exit-2 INSTRUMENT contract. Without this path a
       # change to the probe landing on main re-ran nothing — the same gap as the entries
