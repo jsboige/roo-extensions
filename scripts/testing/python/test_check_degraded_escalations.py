@@ -2204,8 +2204,38 @@ environnement degrade : jupyter-papermill muet depuis le preflight
                          {"workspace-y-2026-11-03T04-00-00.md": [
                              10.0, cde.STORE_READ_RETRY_TIMEOUT_S]})
         self.assertEqual(state["sleeps"], [])
-        self.assertIn("2e relance 0 (0 recuperee(s), 1 sans budget",
+        self.assertIn("2e relance 0 (0 recuperee(s), 1 desactivee",
                       err.getvalue())
+
+    def test_second_retry_budget_option_disables_the_second_retry(self):
+        # #4961 : l'interrupteur d'exploitation, sans editer le script.
+        state = self.twice_muted_store()
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                             "--env-file", "", "--json",
+                             "--second-retry-budget", "0"])
+        self.assertEqual(code, 1)
+        self.assertEqual(state["sleeps"], [])
+        tel = json.loads(out.getvalue())["read_telemetry"]
+        self.assertEqual(tel["second_retried"], 0)
+        self.assertEqual(tel["second_skipped"], 1)
+        self.assertEqual(tel["second_disabled"], 1)
+        self.assertEqual(tel["second_exhausted"], 0)
+        self.assertIn("1 desactivee", err.getvalue())
+
+    def test_second_retry_budget_exhausted_is_not_counted_as_disabled(self):
+        state = self.twice_muted_store(
+            two_archives=True, clock_step=1.0,
+            budget_s=cde.STORE_SECOND_RETRY_PAUSE_S + 2.0)
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            cde.main(["--now", NOW, "--ring-bearer", "test-bearer",
+                      "--env-file", "", "--json"])
+        tel = json.loads(out.getvalue())["read_telemetry"]
+        self.assertEqual(tel["second_exhausted"], 1)
+        self.assertEqual(tel["second_disabled"], 0)
+        self.assertIn("1 budget epuise", err.getvalue())
 
     def test_second_retry_budget_is_charged_at_its_real_cost(self):
         # Le budget se paie d'AVANCE et se consomme au REEL (pause + essai).
@@ -2223,7 +2253,7 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         tries = sorted(len(v) for v in state["archive_timeouts"].values())
         self.assertEqual(tries, [2, 3])
         self.assertEqual(state["sleeps"], [cde.STORE_SECOND_RETRY_PAUSE_S])
-        self.assertIn("2e relance 1 (1 recuperee(s), 1 sans budget",
+        self.assertIn("2e relance 1 (1 recuperee(s), 1 budget epuise",
                       err.getvalue())
 
     def test_a_budget_refusal_never_sleeps(self):

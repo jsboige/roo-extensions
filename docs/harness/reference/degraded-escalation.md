@@ -458,10 +458,14 @@ compte. Trois protections :
    panne) ; ai-01 18/11, idem, servies en 154 ms juste après ; po-2027, 2
    relances sur 7 récupérées. Le coût est **borné** : pause et essai sont
    comptés dans un budget **global au tir** (`STORE_SECOND_RETRY_BUDGET_S`,
-   150 s — trois secondes relances au plus ; `0` = désactivée), sous le
+   150 s, réglable par `--second-retry-budget` ; `0` = désactivée). La borne
+   est une durée, pas un nombre : le prédicat strict `dépensé + pause < budget`
+   donne 4 relances quand l'essai échoue aussitôt et 3 quand il dure ses 10 s,
+   sous le
    budget d'archives de #4661 qui reste le plafond dur. Au-delà, la lecture
    reste muette et le refus est **compté**. Compteurs `second_retried`,
-   `second_recovered`, `second_skipped`, `second_spent_s` dans
+   `second_recovered`, `second_skipped` (= `second_disabled` +
+   `second_exhausted`), `second_spent_s` dans
    `read_telemetry` ; la ligne stderr porte « 2e relance N (M récupérée(s),
    K sans budget, S s) » **seulement quand il y a eu une seconde relance ou
    un refus** — la ligne d'un tir sain reste byte-à-byte celle d'avant. La
