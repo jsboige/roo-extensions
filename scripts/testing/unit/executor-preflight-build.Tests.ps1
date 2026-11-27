@@ -48,7 +48,9 @@ Describe 'Executor transactional build pre-flight' {
     It 'orders pull, submodule materialization, then the strict freshness helper' {
         $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase', '--autostash')")
         $submodule = $preflight.IndexOf("@('submodule', 'update', '--init', 'mcps/internal')")
-        $helper = $preflight.IndexOf('-RequireFresh')
+        # Anchored on the invocation itself: a bare '-RequireFresh' also occurs in comments
+        # that describe the switch (the #4918 classifier names it), which is not the call.
+        $helper = $preflight.IndexOf('-RepoRoot ""$RepoRoot"" -RequireFresh')
         $pull | Should -BeGreaterThan -1
         $submodule | Should -BeGreaterThan $pull
         $helper | Should -BeGreaterThan $submodule

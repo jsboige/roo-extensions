@@ -35,6 +35,32 @@ function Invoke-GitChecked {
     }
 }
 
+# The one helper line that explains a failed run (#4918): its first [ERROR] line or, when
+# there is none, the WARN line of a failed server build. That failure is a WARN in the
+# helper (the previous build stays usable; only -RequireFresh turns it into exit 1), and it
+# is a failed build step all the same.
+function Get-FreshnessHelperLine {
+    param([string[]]$HelperOutput)
+    $errors = @($HelperOutput | Where-Object { $_ -match '^\[ensure-build-fresh\]\[ERROR\] ' })
+    if ($errors.Count -gt 0) { return $errors[0] }
+    $buildWarns = @($HelperOutput | Where-Object { $_ -match '^\[ensure-build-fresh\]\[WARN\] ' -and $_ -match 'Build FAILED \(exit \d+\)|Build invocation threw' })
+    if ($buildWarns.Count -gt 0) { return $buildWarns[0] }
+    return $null
+}
+
+# Names what a failed freshness run was, from the helper's own lines (#4918). The helper
+# exits 1 for two situations with two different remedies: it REFUSED the workspace install
+# because live RSM hosts are there (nothing was built; the hosts have to go first), or a
+# step of the build chain failed (workspace install, shared package build, server build).
+# A reader told only "exit 1" cannot tell which, and asks for the wrong one.
+function Get-FreshnessFailure {
+    param([string[]]$HelperOutput)
+    $refusals = @($HelperOutput | Where-Object { $_ -match '^\[ensure-build-fresh\]\[ERROR\] ' -and $_ -match 'REFUSED while \d+ RSM host process' })
+    if ($refusals.Count -gt 0) { return 'install-refused' }
+    if ($null -ne (Get-FreshnessHelperLine -HelperOutput $HelperOutput)) { return 'step-failed' }
+    return 'unexplained'
+}
+
 # #3169: a real API auth error carries isApiErrorMessage":true on the same JSONL
 # line as the OAuth message; dashboard quotes of the string do not (measured
 # 2026-08-27: 28 raw hits = 26 citations + 2 real errors). Both orders covered.
@@ -207,6 +233,17 @@ try {
     # streak and the short-cycle flag reset with it (#3605).
     Clear-BlockageState -StatePath (Get-BlockageStatePath)
     if ($freshExit -ne 0) {
+        # The helper's own words travel with the verdict: a reader of this line alone
+        # gets the step, the package at fault and the tail of the failing command.
+        $helperError = @(Get-FreshnessHelperLine -HelperOutput $helperOutput)
+        $failure = Get-FreshnessFailure -HelperOutput $helperOutput
+        if ($failure -eq 'install-refused') {
+            # Not a build failure: nothing was built, and no fix to the source will change it.
+            throw "[WS-INSTALL-REFUSED] No build was attempted: ensure-build-fresh.ps1 REFUSED the workspace install in mcps/internal, because live RSM hosts are running and 'npm ci' would remove the dependency trees they use (roo-extensions #4918). Remedy: full-quit VS Code on an interactive seat to stop the RSM hosts, run scripts/claude/executor-preflight.ps1 again, or run 'npm ci' in mcps/internal yourself with VS Code closed. Helper said: $($helperError -join ' ')"
+        }
+        if ($failure -eq 'step-failed') {
+            throw "[BUILD-FAILED] A step of the build chain failed (exit $freshExit): the workspace install, the @vibesync/core build or the server build in ensure-build-fresh.ps1. No server vintage was published. Remedy: fix the cause the quoted line names (a failing npm install, a failing build), then run scripts/claude/executor-preflight.ps1 again. Helper said: $($helperError -join ' ')"
+        }
         throw "ensure-build-fresh.ps1 could not guarantee freshness (exit $freshExit)."
     }
 
