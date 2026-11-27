@@ -1630,6 +1630,88 @@ function Save-WaitState {
     }
 }
 
+function Get-WaitStateIssueNumber {
+    <#
+    .SYNOPSIS
+    Extrait le numéro d'issue porté par un TaskId de wait-state.
+    #>
+    param([string]$TaskId)
+    if ($TaskId -match 'github-(\d+)') { return [int]$Matches[1] }
+    if ($TaskId -match 'issue-(\d+)')  { return [int]$Matches[1] }
+    return $null
+}
+
+function ConvertTo-ClaimGuardBlocked {
+    <#
+    .SYNOPSIS
+    Traduit le code de sortie de check_issue_claim.py en verdict de reprise.
+    .DESCRIPTION
+    Fail-closed : SEUL l'exit 0 autorise une reprise. 1 = claim étranger actif
+    ou issue fermée, 2 = état de claim illisible, 3 = ambiguïté de dépôt — aucun
+    n'est un feu vert (#4953).
+    #>
+    param([int]$ExitCode)
+    return ($ExitCode -ne 0)
+}
+
+function Test-IssueClaimBlocksResume {
+    <#
+    .SYNOPSIS
+    $true quand l'issue du wait-state n'est PAS claire pour ce siège.
+
+    .DESCRIPTION
+    La reprise passait avant toute vérification de claim : un wait-state sur une
+    issue tenue par une AUTRE lane reprenait quand même (#4953). check_issue_claim.py
+    est l'autorité de claim (ADR 017) ; seul l'exit 0 dégage. Un TaskId sans issue
+    (maintenance, dashboard) n'est pas concerné.
+    #>
+    param([string]$TaskId)
+
+    $IssueNumber = Get-WaitStateIssueNumber -TaskId $TaskId
+    if (-not $IssueNumber) { return $false }
+
+    $ClaimScript = Join-Path $RepoRoot "scripts\github\check_issue_claim.py"
+    if (-not (Test-Path $ClaimScript)) {
+        Write-Log "Guard claim: $ClaimScript introuvable — reprise bloquée (fail-closed)" "WARN"
+        return $true
+    }
+
+    $PythonCmd = Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $PythonCmd) {
+        Write-Log "Guard claim: python introuvable — reprise bloquée (fail-closed)" "WARN"
+        return $true
+    }
+
+    try {
+        # $ErrorActionPreference vaut "Stop" au niveau du script (L69) : sous cette
+        # preference, une commande native qui ecrit sur stderr est fusionnee par 2>&1
+        # en une NativeCommandError TERMINANTE, MEME quand le garde a repondu exit 0
+        # -- le catch rendait alors "bloque" un claim pourtant clair (#4955, revue
+        # ai-01). Continue le temps de l'appel, Stop restaure en finally.
+        $PrevPref = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = "Continue"
+            $Output = & $PythonCmd.Source $ClaimScript $IssueNumber --repo jsboige/roo-extensions --agent $script:ClaimLane 2>&1
+            $ExitCode = $LASTEXITCODE
+        }
+        finally {
+            $ErrorActionPreference = $PrevPref
+        }
+        if (ConvertTo-ClaimGuardBlocked -ExitCode $ExitCode) {
+            $Detail = (@($Output) | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^BLOCKED' } | Select-Object -First 1)
+            if (-not $Detail) { $Detail = (@($Output) | Where-Object { $_ } | Select-Object -First 1) }
+            Write-Log "Guard claim: issue #$IssueNumber non claire (exit $ExitCode) — reprise sautée : $Detail" "WARN"
+            return $true
+        }
+        Write-Log "Guard claim: issue #$IssueNumber claire pour $script:ClaimLane (exit 0)"
+        return $false
+    }
+    catch {
+        Write-Log "Guard claim: erreur d'exécution (fail-closed) : $_" "WARN"
+        return $true
+    }
+}
+
 function Test-WaitStateReady {
     <#
     .SYNOPSIS
@@ -1637,7 +1719,8 @@ function Test-WaitStateReady {
 
     .DESCRIPTION
     Lit le fichier wait state et vérifie si la condition resumeWhen est remplie.
-    Retourne l'état si prêt, $null sinon.
+    Retourne l'état si prêt, $null sinon. Un signal prêt est ensuite soumis au
+    garde de claim : une issue tenue par une autre lane ne reprend pas (#4953).
 
     .OUTPUTS
     Hashtable avec l'état complet si ready, $null sinon
@@ -1686,6 +1769,7 @@ function Test-WaitStateReady {
 
         # Vérifier condition resumeWhen
         $ResumeCondition = $State.resumeWhen.ToLower() -replace '[_\s]+', '_'
+        $Ready = $false
 
         switch -Regex ($ResumeCondition) {
             "timeout_hours:?\s*(\d+)" {
@@ -1693,7 +1777,8 @@ function Test-WaitStateReady {
                 Write-Log "  Vérification timeout ($TimeoutHours heures)..."
                 if ($WaitAge.TotalHours -ge $TimeoutHours) {
                     Write-Log "  Timeout expiré ($([math]::Round($WaitAge.TotalHours))h >= ${TimeoutHours}h) - signal de reprise candidate (un timeout ne vaut pas autorisation)"
-                    return $State
+                    $Ready = $true
+                    break
                 } else {
                     Write-Log "  ⏳ Timeout pas encore atteint ($([math]::Round($WaitAge.TotalHours,1))h / ${TimeoutHours}h)"
                 }
@@ -1702,33 +1787,48 @@ function Test-WaitStateReady {
                 Write-Log "  Vérification user approval (Dashboard + GitHub)..."
                 if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
                     Write-Log "  Forme d'approbation détectée (heuristique) - signal de reprise candidate (à confirmer, un commentaire ne vaut pas autorisation)"
-                    return $State
+                    $Ready = $true
+                    break
                 }
             }
             "roosync_response|roosync response" {
                 Write-Log "  Vérification RooSync response (inbox)..."
                 if (Test-RooSyncResponse -TaskId $TaskId -WaitState $State) {
                     Write-Log "  RooSync response détectée - signal de reprise candidate (à confirmer)"
-                    return $State
+                    $Ready = $true
+                    break
                 }
             }
             "github_decision|github decision|github_status|github status|github_comment|github comment" {
                 Write-Log "  Vérification GitHub decision/comment (issue status)..."
                 if (Test-GitHubDecision -TaskId $TaskId -WaitState $State) {
                     Write-Log "  GitHub decision/comment détectée - signal de reprise candidate (à confirmer, un commentaire ne vaut pas autorisation)"
-                    return $State
+                    $Ready = $true
+                    break
                 }
             }
-            "intercom_message|intercom message" {
+            "intercom_message|intercom message|dashboard_message|dashboard message" {
                 Write-Log "  Vérification Dashboard message..."
                 if (Test-DashboardMessage -TaskId $TaskId -WaitState $State) {
                     Write-Log "  Dashboard message détecté - signal de reprise candidate (à confirmer)"
-                    return $State
+                    $Ready = $true
+                    break
                 }
             }
             default {
                 Write-Log "⚠️ Condition resumeWhen inconnue: $($State.resumeWhen)" "WARN"
             }
+        }
+
+        if ($Ready) {
+            # #4953 : une reprise ne passe pas avant le claim de l'issue. Un claim
+            # étranger actif (exit 1) ou un instrument muet (exit 2/3) ne relance
+            # pas : le wait-state est conservé et le worker pioche une autre tâche.
+            if (Test-IssueClaimBlocksResume -TaskId $TaskId) {
+                Write-Log "⏸️ Reprise SAUTÉE : issue de '$TaskId' non claire pour ce siège — wait-state conservé, sélection normale"
+                return $null
+            }
+            return $State
         }
 
         Write-Log "⏸️ Condition pas encore remplie - skip pour cette exécution"
