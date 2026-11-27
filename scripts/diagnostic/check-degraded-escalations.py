@@ -139,6 +139,30 @@ DEFAULT_ARCHIVE_TIME_BUDGET_S = 900.0
 # isError ne se relance PAS : deterministe (7 ms mesures post-gel,
 # c.6823202164 — les ~35 s venaient du gel de G:, pas du rejet).
 STORE_READ_RETRY_TIMEOUT_S = 45.0
+# 2e relance ESPACEE (escalade `web2-degraded-organ-20261125`, mesures
+# 25/11) : la relance unique ci-dessus ne suffit pas quand le mur est cote
+# SERVEUR et dure une minute. Chaque appel ouvre une session MCP neuve
+# (`initialize` par appel, aucun reuse de connexion) : une lecture muette a
+# travers premier essai ET relance n'est donc pas une session cliente figee,
+# mais une panne de la source — elle se rattrape en ESPACANT, pas en
+# insistant, et insister en continu ne fait que consommer le budget.
+# Mesures : web2 25/11 20:2xZ, 2 muets `tools-call` a travers 10 s puis 45 s,
+# le MEME fichier relu 3/3 en 213-240 ms deux minutes plus tard (sonde
+# `.tmp/probe-archive-read-c207.py`, chemin exact de l'organe) ; ai-01
+# 18/11, deux archives muettes a travers essai + relance, servies en 154 ms
+# juste apres ; po-2027, 2 relances sur 7 recuperees. Les runs COMPLETS
+# (web2 25/11 : c.205, c.206) sont ceux ou la fenetre de panne tombe entre
+# deux lectures — la relance espacee transforme une partie de ces fenetres
+# en recuperations.
+# Cout borne : la pause ET l'essai sont comptes dans un budget GLOBAL de
+# passe ; au-dela, plus aucune 2e relance (chaque lecture reste mesuree et
+# une mesure partielle reste un exit 1 honnete, #4796). Le budget
+# d'archives (#4661, 900 s pour une passe saine a 669 s) reste le plafond
+# dur : ce budget-ci vit DESSOUS.
+# 0 ou negatif = 2e relance desactivee (comportement d'avant).
+STORE_SECOND_RETRY_PAUSE_S = 30.0
+STORE_SECOND_RETRY_TIMEOUT_S = 10.0
+STORE_SECOND_RETRY_BUDGET_S = 150.0
 # #4729 (piste 2) : seuil SLOW de la telemetrie de lecture. Distinguer
 # « store lent » de « store mort » par des CHIFFRES (p50/p95/max), pas
 # seulement OK/FAILED : la lenteur est le signal precoce du timeout sous
@@ -1389,6 +1413,15 @@ class ReadTelemetry:
         self._muted_phase_exc = {}    # "phase:Exception" -> nb
         self._muted_phase_max_ms = {}  # phase -> elapsed_ms max du defaut
         self._muted_no_phase = 0      # muettes sans telemetrie de phase
+        # 2e relance espacee : compteurs PROPRES (la relance unique garde
+        # son sens : « posee » puis « recuperee »). `second_skipped` dit
+        # pourquoi une lecture est restee muette — sans lui, l'exit 1 qui
+        # suit serait indechiffrable : « budget epuise » et « desactive »
+        # ne se devinent pas du verdict.
+        self.second_retried = 0
+        self.second_recovered = 0
+        self.second_skipped = 0
+        self._second_spent_s = 0.0
 
     def observe(self, seconds, result, telemetry=None):
         """Un appel transport termine : sa duree, et None s'il a echoue.
@@ -1423,6 +1456,30 @@ class ReadTelemetry:
     def mark_recovered(self):
         self.recovered += 1
 
+    def allows_second_retry(self, pause_s):
+        """2e relance espacee : le budget se paie d'AVANCE.
+
+        La telemetrie est l'objet du run (partage par la passe vivante, la
+        passe d'archives et la seconde passe) : le budget est donc GLOBAL au
+        run. Une pause qui ne tiendrait plus dedans est refusee — jamais un
+        essai entame que le budget ne couvre pas."""
+        if STORE_SECOND_RETRY_BUDGET_S <= 0:
+            return False
+        return self._second_spent_s + pause_s < STORE_SECOND_RETRY_BUDGET_S
+
+    def mark_second_retry(self):
+        self.second_retried += 1
+
+    def charge_second_retry(self, seconds):
+        """Pause + essai, tels que mesures : le budget se consomme au reel."""
+        self._second_spent_s += max(0.0, seconds)
+
+    def mark_second_recovered(self):
+        self.second_recovered += 1
+
+    def mark_second_skipped(self):
+        self.second_skipped += 1
+
     def _pct_ms(self, p):
         if not self._latencies:
             return None
@@ -1440,6 +1497,11 @@ class ReadTelemetry:
             "failed": self.failed,
             "retried": self.retried,
             "recovered": self.recovered,
+            # 2e relance espacee
+            "second_retried": self.second_retried,
+            "second_recovered": self.second_recovered,
+            "second_skipped": self.second_skipped,
+            "second_spent_s": round(self._second_spent_s, 1),
             "slow_threshold_s": self.slow_s,
             "p50_ms": self._pct_ms(0.50),
             "p95_ms": self._pct_ms(0.95),
@@ -1464,6 +1526,13 @@ class ReadTelemetry:
             detail = ", ".join(f"{p}x{n}"
                                for p, n in sorted(s["muted_by_phase"].items()))
             line += f" ; muets par phase : {detail}"
+        if s["second_retried"] or s["second_skipped"]:
+            # Rendu seulement quand il y a quelque chose : la ligne d'un run
+            # sans 2e relance reste byte-a-byte celle d'avant.
+            line += (f" ; 2e relance {s['second_retried']} "
+                     f"({s['second_recovered']} recuperee(s), "
+                     f"{s['second_skipped']} sans budget, "
+                     f"{s['second_spent_s']} s)")
         return line
 
 
@@ -1532,6 +1601,16 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     store repond (appends MCP de la meme fenetre). Chaque lecture est en
     plus MESUREE (ReadTelemetry) : l'appelant rend les chiffres, un exit 1
     sous charge se diagnostique sans rejouer la passe.
+
+    2e relance ESPACEE (escalade web2-degraded-organ-20261125) : quand la
+    relance unique reste MUETTE, un troisieme essai est pose apres une pause
+    (`STORE_SECOND_RETRY_PAUSE_S`) — un appel = une session MCP neuve, donc
+    un echec a travers essai ET relance designe la source, pas le client, et
+    une panne de source d'une minute se rattrape en espaçant. Le tout est
+    borne par `STORE_SECOND_RETRY_BUDGET_S` (global au run, pause + essai
+    comptes au reel, 0/negatif = desactive) : au-dela, la lecture reste
+    muette et `second_skipped` le dit. Le budget d'archives (#4661) reste le
+    plafond dur ; ce budget-ci vit dessous.
     """
     call = _load_transport()
     tel = telemetry if telemetry is not None else ReadTelemetry()
@@ -1560,6 +1639,25 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
             tel.observe(time.monotonic() - t0, result, call_telemetry)
             if result is not None:
                 tel.mark_recovered()
+            elif tel.allows_second_retry(STORE_SECOND_RETRY_PAUSE_S):
+                # 2e relance ESPACEE : le defaut mesure survit a 10 s + 45 s
+                # puis disparait (le meme fichier relu 3/3 en 213-240 ms a
+                # +2 min) — on espace, on n'insiste pas.
+                tel.mark_second_retry()
+                t_second = time.monotonic()
+                time.sleep(STORE_SECOND_RETRY_PAUSE_S)
+                call_telemetry = {}
+                t0 = time.monotonic()
+                result = call(arguments, url, bearer,
+                              timeout=STORE_SECOND_RETRY_TIMEOUT_S,
+                              return_rejected_text=return_rejected_text,
+                              telemetry=call_telemetry)
+                tel.observe(time.monotonic() - t0, result, call_telemetry)
+                tel.charge_second_retry(time.monotonic() - t_second)
+                if result is not None:
+                    tel.mark_second_recovered()
+            else:
+                tel.mark_second_skipped()
         return result
 
     keys = store_keys_from_listing(read_store({"action": "list"}))
