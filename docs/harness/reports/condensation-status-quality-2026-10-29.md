@@ -223,6 +223,20 @@ Sur les 17 cellules (clé × modèle) qui portent les deux bras : `st_recall` mo
 - **La taille mesurée est censurée** : le gain de longueur (+23 %) est une borne basse, et le plafond est atteint sur 7 résumés POST sur 10.
 - Coût dans le bras POST : non tronqués (n = 72) `st_recall` 0,710 / `st_all_kept` 0,246 ; tronqués (n = 175) 0,673 / 0,183. Écart brut 3,7 points ; **stratifié sur la densité d'états (7 strates de familles présentes) : +2,4 points, 6 strates sur 7 dans le même sens.** Les lots tronqués sont plus denses en états (5,11 familles présentes contre 4,31) à volume de messages égal — l'écart brut surestime légèrement le coût du plafond. `num_recall` : 0,473 → 0,420. En PRE, 7 tronqués seulement : non concluant.
 
+#### Amendement du 27/11 — l'ordre du plafond (suivi #4930, mesuré sur `9dc4e9ef`)
+
+Le plafond n'est pas la dernière opération de la passe, et **les deux corps ne se comportent pas pareil** (lu dans `dashboard.ts` sur `9dc4e9ef` ; aucun chiffre de ce rapport n'est recomputé ici) :
+
+- **Statut** — plafonné à `MAX_STATUS_SIZE_BYTES` (15 Ko, `dashboard.ts:213`) en :7895, **puis** la même passe ajoute les marqueurs `<!-- #1502 CONTRADICTION … -->` (:7974), `<!-- #3803 RECONCILED … -->` (:7977) et la ligne de recensement durable (`appendFallbackCensusLine`, :7996). Aucun plafond n'est ré-appliqué ensuite. ⇒ **le statut publié peut dépasser son propre plafond**, du volume de ces ajouts.
+- **Résumé** — plafonné à 5 Ko (:223, appliqué :7899) ; la seule mutation ultérieure est `scrubFabricatedGitHubStates` (:7918), qui **retire** des lignes. Le plancher est une garantie dure : `truncateToMaxSize` s'arrête avant de dépasser et `truncateWithOmissionMarker` **réserve les octets du marqueur** dans le budget (:6877 et suivants). ⇒ dans le code actuel, **le corps du résumé est ≤ 5 120 o par construction** ; il n'existe aucun ajout post-plafond sur ce chemin.
+
+Deux lignes ci-dessus se lisent donc avec cette nuance :
+
+- **:220 « plus gros corps publié 5 133 o »** — les 13 octets au-delà de 5 120 ne sont **pas** expliqués par un ajout post-plafond du chemin résumé. Trois candidats, **aucun établi** : (i) le corps mesuré est l'**artefact publié** (enveloppe / notice hors du résumé plafonné), (ii) le code du 29/10 précède la réservation du marqueur, (iii) c'est un **statut** mesuré contre le chiffre de 5 Ko. La mesure tient ; c'est sa lecture « le plafond du résumé fuit » qui n'est pas soutenue.
+- **:223 « la taille mesurée est censurée »** — vrai du corps **généré** ; à préciser : un recensement qui met statut et résumé dans le même seau mélange **deux régimes** (le statut peut croître après son plafond, le résumé non).
+
+Le dénominateur que cet ordre déplace est celui de **:218** (`175/247`, 70,9 %) : il compte les corps passés au plafond, mesurés **avant** les ajouts éventuels. Les dénominateurs de la couche 2 (:257, `2/20` et `10/19`) comptent des états présents dans les **originaux**, que les lecteurs reçoivent tels quels (voir § Couche 2) — l'ordre du plafond ne les touche pas.
+
 ### Couche 2 — relecture aveugle de 24 résumés
 
 Chaque lecteur (sous-agent `sonnet`) reçoit les messages originaux d'un lot et le résumé publié qui les condense, **sans le bras**, et rend les états transverses qu'il identifie (les 8 classes de G7a-1), ceux que le résumé porte ou omet (extrait cité), les lignes fausses ou non sourcées, les nombres vérifiés, les contradictions non signalées. Un lecteur = deux résumés voisins du tirage (S01-S02, …, S23-S24) ; aucun n'a vu les métriques ni le bras.
@@ -275,7 +289,7 @@ Deux réserves sur ce tableau. **La classe 2 s'améliore ici alors que la couche
 
 ### Suite proposée (non tranchée ici)
 
-Le plafond de 5 Ko touche **7 résumés POST sur 10** et ampute sans LLM : c'est le défaut le plus large mesuré. Trois options, à arbitrer dans le fil (#4434) — aucune n'est appliquée par cette mesure : (a) relever `MAX_SUMMARY_SIZE_BYTES` (coût : un résumé plus long à chaque passe, la fenêtre du lecteur) ; (b) rendre la troncature section-aware en préservant « États transverses » en dernier (le plafond reste, il ne coupe plus l'état) ; (c) statu quo, en sachant que les classes 8, 7, 5 et 1 restent omises environ une fois sur trois en POST (effectifs faibles pour 1, 5 et 7). La mesure ne dit pas laquelle : elle dit que (c) a un coût mesuré et que la classe 8 n'est pas couverte par la garde actuelle.
+Le plafond de 5 Ko touche **7 résumés POST sur 10** et ampute sans LLM : c'est le défaut le plus large mesuré. Quatre options, à arbitrer dans le fil (#4434) — aucune n'est appliquée par cette mesure : (a) relever `MAX_SUMMARY_SIZE_BYTES` (coût : un résumé plus long à chaque passe, la fenêtre du lecteur) ; (b) rendre la troncature section-aware en préservant « États transverses » en dernier (le plafond reste, il ne coupe plus l'état) ; (c) statu quo, en sachant que les classes 8, 7, 5 et 1 restent omises environ une fois sur trois en POST (effectifs faibles pour 1, 5 et 7) ; (d) **nettoyer avant le plafond** — émettre les marqueurs #1502/#3803 et la ligne de recensement *avant* `condenseTextIfTooLarge` (ou ré-appliquer le plafond après eux), pour que le statut publié soit borné comme le résumé l'est déjà (voir l'amendement du 27/11, § « Le plafond de 5 Ko »). La mesure ne dit pas laquelle : elle dit que (c) a un coût mesuré et que la classe 8 n'est pas couverte par la garde actuelle.
 
 
 ## Décisions
