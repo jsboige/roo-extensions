@@ -1748,13 +1748,98 @@ environnement degrade : jupyter-papermill muet depuis le preflight
         # verdict confiant sur une mesure partielle.
         names = [f"workspace-x-2026-11-03T04-0{i}-00.md" for i in range(6)]
         calls = self._timed_store(names, muted_names=names)
+        # #4958 : la pause de la 2e relance (30 s) est annulee ici ; la 3e
+        # tentative reste jouee — elle est temoignee juste apres.
+        pause_patch = mock.patch.object(cde, "STORE_SECOND_RETRY_PAUSE_S", 0.0)
+        pause_patch.start()
+        self.addCleanup(pause_patch.stop)
         _entries, errors, _keys = cde.load_entries_from_store(
             "http://x", "b", now=cde.parse_ts(NOW), window_hours=8.0,
             archive_window_hours=48.0, archive_time_budget=0.01,
             archive_hard_ceiling=0)
         self.assertTrue(any("budget d'archives" in err for err in errors),
                         errors)
-        self.assertLess(len(calls["files"]), len(names), calls["files"])
+        # Lectures LOGIQUES, pas appels physiques : depuis #4958 une lecture
+        # muette vaut 3 appels (essai, relance, 2e relance). Comparer les
+        # appels au nombre d'archives ne dit plus rien (mesure po-2024).
+        logical = set(calls["files"])
+        self.assertLess(len(logical), len(names), calls["files"])
+        self.assertEqual(len(calls["files"]), 3 * len(logical), calls["files"])
+
+    def test_second_spaced_retry_is_charged_to_the_archive_stall(self):
+        # #4951 x #4958 (mesure po-2024 sur l'arbre fusionne des deux PR) : la
+        # 2e relance fait partie de la lecture logique muette — pause et essai
+        # compris. Sans cette charge, une lecture muette de bout en bout
+        # immobilisait ~95 s muraux dont ~55 s seuls comptes. Horloge PILOTEE
+        # (comme `twice_muted_store`) : chaque essai muet « dure » 10 s, la
+        # pause vaut sa constante — UNE lecture logique immobilise donc
+        # 10 + 10 + PAUSE + 10 s. Budget 40 s : il tient les deux premiers
+        # essais (20 s), pas la lecture entiere (60 s).
+        names = [f"workspace-x-2026-11-03T04-0{i}-00.md" for i in range(2)]
+        reads = []
+        real_monotonic = cde.time.monotonic
+        clock = {"extra": 0.0}
+
+        def monotonic():
+            return real_monotonic() + clock["extra"]
+
+        def sleep(seconds):
+            clock["extra"] += seconds
+
+        def call(arguments, url, bearer, timeout=10.0, client="x",
+                 return_rejected_text=False, telemetry=None):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                payload = {"success": True, "action": "read",
+                           "data": {"intercom": {"messages": [
+                               self.message("2026-11-03T08:00:00.000Z",
+                                            content="[DONE] cycle normal")]}}}
+                return {"content": [{"type": "text",
+                                     "text": json.dumps(payload)}]}
+            name = arguments.get("archiveFile")
+            if name is None:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True, "action": "read_archive", "key": "x",
+                     "archives": names})}]}
+            reads.append(name)
+            cde.time.sleep(10.0)  # essai muet : 10 s sur l'horloge pilotee
+            return None
+
+        created = []
+        real_budget = cde.ArchivePassBudget
+
+        class RecordingBudget(real_budget):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        clock_patch = mock.patch.object(cde, "time", mock.Mock(
+            wraps=cde.time, monotonic=monotonic, sleep=sleep))
+        clock_patch.start()
+        self.addCleanup(clock_patch.stop)
+        budget_patch = mock.patch.object(
+            cde, "ArchivePassBudget", RecordingBudget)
+        budget_patch.start()
+        self.addCleanup(budget_patch.stop)
+        original = cde._load_transport
+        cde._load_transport = lambda: call
+        self.addCleanup(setattr, cde, "_load_transport", original)
+        _entries, errors, _keys = cde.load_entries_from_store(
+            "http://x", "b", now=cde.parse_ts(NOW), window_hours=8.0,
+            archive_window_hours=48.0, archive_time_budget=40.0,
+            archive_hard_ceiling=0)
+        self.assertEqual(len(created), 1)
+        self.assertAlmostEqual(created[0].stalled_s, 60.0, delta=1.0)
+        # La lecture ENTIERE (60 s) depasse le budget : la 2e archive est
+        # sautee et l'erreur d'instrument le dit.
+        self.assertEqual(sorted(set(reads)), [names[0]], reads)
+        self.assertEqual(len(reads), 3, reads)  # essai + relance + 2e relance
+        self.assertTrue(any("budget d'archives" in err for err in errors),
+                        errors)
 
     def test_hard_ceiling_terminates_a_slow_but_progressing_pass(self):
         # Le plafond mural est le dernier recours : une passe qui PROGRESSE

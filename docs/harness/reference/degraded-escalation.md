@@ -208,6 +208,18 @@ partout, `0` = pas de plafond), garantit qu'une passe qui progresse mais lit
 lentement finit : il ne juge jamais une passe lente, il l'empêche seulement de
 ne pas finir.
 
+**#4951 × #4958 — une lecture LOGIQUE compte pour une (27/11).** Depuis la
+seconde relance espacée (#4958), une lecture muette peut coûter **trois appels
+physiques** (essai, relance, pause de 30 s puis 2ᵉ relance). Le budget charge
+donc **la lecture entière** : un `read_archive` qui ne rend rien consomme sa
+durée réelle, pause et 2ᵉ relance comprises — sans quoi ~95 s d'immobilisation
+n'en comptaient que ~55 (mesure po-2024 sur l'arbre fusionné des deux PR).
+Corollaire pour les témoins : le compteur d'archives lit des **lectures
+logiques** (une par clé), et un compteur physique séparé atteste les trois
+essais — comparer des appels physiques à des archives faisait rougir le
+selftest à la fusion (40 s mesurées au lieu de 60 s sur le témoin d'horloge
+pilotée).
+
 **#4643 — coques vides et timeouts clients (dispatch ai-01 12/11 ; reprise
 c.6823202164).** Une lecture d'archive **muette** (le transport rend `None`)
 est relancée **une fois** à timeout étendu (45 s) — un timeout client

@@ -1676,6 +1676,8 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     correspondant. Une lecture qui rend du contenu ne consomme RIEN : une
     passe saine et lente — 765 lectures, p50 1141 ms, 873 s mesurees sur un
     siege a proxy distant le 27/11 — ne saute plus aucune archive (#4951).
+    Une lecture LOGIQUE compte pour UN : ses relances (#4643/#4729) et la
+    2e relance espacee avec sa pause (#4958) font partie de sa duree.
     Le budget est GLOBAL a la passe, initialise au premier appel d'archive —
     les lectures vivantes ne le consomment pas. Au-dela, les archives
     restantes sont SAUTEES et la fenetre est declaree partiellement aveugle
@@ -1716,7 +1718,9 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
     # #4951 : budget de la passe d'archives — temps immobile seulement. La
     # charge est posee ICI, au seul entonnoir de TOUTES les lectures : une
     # tentative `read_archive` qui n'a rien rendu (transport muet) consomme sa
-    # duree reelle, une lecture qui rend du contenu ne consomme rien. La
+    # duree reelle, une lecture qui rend du contenu ne consomme rien. Une
+    # lecture LOGIQUE muette vaut donc essai + relance + pause + 2e relance
+    # (#4958) : ce qui ne rend rien consomme sa duree reelle ENTIERE. La
     # seconde passe recoit `read_store` comme `call` et beneficie donc de la
     # meme mesure sans le savoir.
     archive_budget = ArchivePassBudget(archive_time_budget, archive_hard_ceiling)
@@ -1773,7 +1777,15 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                               return_rejected_text=return_rejected_text,
                               telemetry=call_telemetry)
                 tel.observe(time.monotonic() - t0, result, call_telemetry)
-                tel.charge_second_retry(time.monotonic() - t_second)
+                second_elapsed = time.monotonic() - t_second
+                tel.charge_second_retry(second_elapsed)
+                # #4951 x #4958 : la 2e relance fait partie de la MEME lecture
+                # logique — sa pause et son essai sont du temps immobile comme
+                # les deux premiers essais. Sans cette charge, une lecture
+                # muette de bout en bout immobilisait ~95 s muraux dont ~55 s
+                # seulement comptes (mesure po-2024 sur l'arbre fusionne des
+                # deux PR) : le budget ne mesurait plus la duree reelle.
+                _charge_archive_stall(action, second_elapsed, result)
                 if result is not None:
                     tel.mark_second_recovered()
             else:
@@ -2861,7 +2873,15 @@ le harnais au motif que Git resoudrait hors isolation
                         for i in range(3)]
 
         def make_budget_call(muted=False):
-            calls = {"archive_files": 0}
+            # #4951 x #4958 : depuis la 2e relance espacee, une lecture
+            # LOGIQUE peut produire jusqu'a 3 appels physiques (essai,
+            # relance, 2e relance). Les deux compteurs sont donc distincts :
+            # compter les appels physiques comparait 3 appels a 3 archives et
+            # faisait rougir ce selftest a la fusion des deux PR (mesure
+            # po-2024 sur l'arbre fusionne). `archive_files` = lectures
+            # logiques, une par cle d'archive demandee.
+            calls = {"archive_files": 0, "archive_calls": 0}
+            seen = set()
 
             def budget_fake_call(arguments, url, bearer, timeout=10.0,
                                  client="x", return_rejected_text=False,
@@ -2878,7 +2898,13 @@ le harnais au motif que Git resoudrait hors isolation
                     return {"content": [{"type": "text", "text": json.dumps(
                         {"success": True, "archives": budget_names})}]}
                 time.sleep(0.02)  # duree reelle de la lecture
-                calls["archive_files"] += 1
+                calls["archive_calls"] += 1
+                ident = (arguments.get("type"), arguments.get("workspace"),
+                         arguments.get("machineId"),
+                         arguments.get("archiveFile"))
+                if ident not in seen:
+                    seen.add(ident)
+                    calls["archive_files"] += 1
                 if muted:
                     return None
                 return {"content": [{"type": "text", "text": json.dumps({
@@ -2886,7 +2912,12 @@ le harnais au motif que Git resoudrait hors isolation
             return budget_fake_call, calls
 
         saved_transport = _load_transport
+        # #4958 : la pause de la 2e relance vaut 30 s en production. Le
+        # selftest l'annule pour rester rapide, sans annuler la 3e TENTATIVE —
+        # c'est elle que le budget #4951 doit charger.
+        saved_second_retry_pause = STORE_SECOND_RETRY_PAUSE_S
         try:
+            globals()["STORE_SECOND_RETRY_PAUSE_S"] = 0.0
             # (A) saine et lente : RIEN n'est saute malgre le budget minuscule.
             healthy_call, healthy_calls = make_budget_call()
             # Injecte la FABRIQUE (load_entries_from_store appelle
@@ -2918,6 +2949,11 @@ le harnais au motif que Git resoudrait hors isolation
                 muted_errors
             assert muted_calls["archive_files"] < len(budget_names), \
                 muted_calls
+            # ...et la lecture muette est passee par les TROIS essais : sans
+            # cette assertion, le selftest ne dirait rien de #4958 et la
+            # charge du 3e essai pourrait disparaitre sans temoin.
+            assert muted_calls["archive_calls"] == \
+                3 * muted_calls["archive_files"], muted_calls
 
             # (C) lente qui progresse : le plafond mural la termine.
             ceiling_call, ceiling_calls = make_budget_call()
@@ -2931,6 +2967,7 @@ le harnais au motif que Git resoudrait hors isolation
             assert ceiling_calls["archive_files"] < len(budget_names), \
                 ceiling_calls
         finally:
+            globals()["STORE_SECOND_RETRY_PAUSE_S"] = saved_second_retry_pause
             globals()["_load_transport"] = saved_transport
 
         # #4643 (c.6823202164) -> #4796 — rejet serveur isError VERBATIM,
