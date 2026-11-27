@@ -683,10 +683,22 @@ Describe 'classify-machine-usability (#4327)' {
             New-Item -ItemType Directory -Path $script:FakeCliDir -Force | Out-Null
             $script:CliLog = Join-Path $script:Tmp 'cli-argv.log'
             $env:CLASSIFIER_TEST_CLI_LOG = $script:CliLog
+            # The double enforces the ONE rule of the real parser that the cross-post
+            # broke (follow-up of #4327): parseAppendArgs refuses a call without
+            # --machine in EVERY mode, --dashboard included (rsm-dashboard-append.mjs
+            # l. 318). Measured on
+            # the real CLI 2026-11-27: the classifier's exact cross-post argv exits 2
+            # ("ERREUR: --machine <id> requis") before any I/O. A double that accepted
+            # it hid the defect, so the double now refuses it too.
             $cliBody = @(
                 'import { appendFileSync, existsSync, writeFileSync } from "fs";',
                 'const argv = process.argv.slice(2);',
                 'appendFileSync(process.env.CLASSIFIER_TEST_CLI_LOG, JSON.stringify(argv) + "\n");',
+                'const machine = argv[argv.indexOf("--machine") + 1];',
+                'if (argv.indexOf("--machine") < 0 || !machine) {',
+                '  process.stderr.write("ERREUR: --machine <id> requis\n");',
+                '  process.exit(2);',
+                '}',
                 'const once = process.env.CLASSIFIER_TEST_FAIL_ONCE_FILE;',
                 'if (once && argv.indexOf("workspace:Maintenance") >= 0 && !existsSync(once)) {',
                 '  writeFileSync(once, "failed-once");',
@@ -711,8 +723,10 @@ Describe 'classify-machine-usability (#4327)' {
             $script:PrevStateDir = $env:CLASSIFIER_STATE_DIR
             $env:ROOSYNC_SHARED_PATH = $script:FakeShared
 
-            # Trace des appels au CLI : le post primaire (--machine) et le
-            # cross-post (--dashboard workspace:Maintenance) sont distingues.
+            # Trace des appels au CLI : les DEUX appels portent --machine (l auteur
+            # du cross-post est le siege detecteur), donc le discriminant est
+            # --dashboard. Tester --machine en premier compterait le cross-post
+            # comme un post primaire.
             function Get-CliTrace {
                 $primary = @()
                 $cross = @()
@@ -723,8 +737,8 @@ Describe 'classify-machine-usability (#4327)' {
                         # PS 5.1 ne dereference pas un tableau JSON de premier
                         # niveau a l affectation : on enumere explicitement.
                         foreach ($a in (ConvertFrom-Json $line)) { $argv += $a }
-                        if ($argv -contains '--machine') { $primary += ,$argv }
-                        elseif ($argv -contains '--dashboard') { $cross += ,$argv }
+                        if ($argv -contains '--dashboard') { $cross += ,$argv }
+                        elseif ($argv -contains '--machine') { $primary += ,$argv }
                     }
                 }
                 return [PSCustomObject]@{ Primary = $primary; Cross = $cross }
@@ -764,6 +778,16 @@ Describe 'classify-machine-usability (#4327)' {
             }
             $crossIds[0] | Should -Be "$id-maint"
             $crossIds[1] | Should -Be "$id-maint" -Because 'le meme id porte les deux tentatives : la ligne existe une fois sur le dashboard'
+
+            # --dashboard exige --machine dans TOUS les modes du CLI
+            # (rsm-dashboard-append.mjs l. 318). Sans lui le cross-post sortait en
+            # exit 2 (mesure du 27/11 sur le CLI reel) : il n a jamais ete ecrit en
+            # service, et ce temoin le dit desormais.
+            foreach ($argv in $trace.Cross) {
+                $m = [array]::IndexOf($argv, '--machine')
+                $m | Should -BeGreaterThan -1 -Because 'parseAppendArgs refuse --dashboard sans --machine'
+                $argv[$m + 1] | Should -Not -BeNullOrEmpty -Because 'l auteur du cross-post est le siege detecteur, jamais une chaine vide'
+            }
 
             $statePath = Join-Path $script:StateDir 'classifier-incidents.json'
             Test-Path -LiteralPath $statePath | Should -BeTrue -Because 'l incident annonce est memorise localement'

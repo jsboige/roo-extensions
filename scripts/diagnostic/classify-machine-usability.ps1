@@ -1164,9 +1164,14 @@ function Write-MachineDashboardAlert {
     # (not per UTC hour): the RSM CLI dedups on --message-id in --dashboard mode
     # (#4090), so the whole wedge - every 5-minute fire on the same boot and
     # burst - converges on ONE cross-post, and a new incident opens a new one.
+    # --machine is the AUTHOR seat (this detector), not the machine the alert is
+    # about: the CLI's parser requires it in every mode, --dashboard included, and
+    # refuses the call with exit 2 without it. Measured on the real CLI
+    # 2026-11-27: without it this cross-post had never been written - every fire
+    # fell to "not written" and the line never reached workspace:Maintenance.
     $crossBody = "[FLEET-ALERT] $target - reachable-but-unusable (#4327): details and the answer thread on the machine dashboard of $target. Hard lever decision belongs to this lane."
     $crossId = "$MessageId-maint"
-    $cross = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--dashboard', 'workspace:Maintenance', '--message-id', $crossId, '--author-workspace', 'classifier', '--content', $crossBody)
+    $cross = Invoke-RsmCliJson "rsm-dashboard-append.mjs" @('--dashboard', 'workspace:Maintenance', '--machine', [System.Environment]::MachineName, '--message-id', $crossId, '--author-workspace', 'classifier', '--content', $crossBody)
     if ($null -ne $cross -and $cross.ok -eq $true) {
         Write-Output "[FLEET-ALERT] Cross-posted to workspace:Maintenance (messageId $($cross.messageId))"
     } else {
