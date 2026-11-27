@@ -8,12 +8,15 @@ description: Reprise après redémarrage — finaliser le cycle interrompu, bala
 2026-11-27) et ses variantes (« après un reboot », « après un crash », « après un pb d'auth »).
 
 *Corpus, pour que le motif se reproduise* : le journal des paroles user est **par workspace**
-(`memory/user-words-journal.jsonl` sous `~/.claude/projects/<hash>/`), motif `cron`, fenêtre 7 j.
-Mesuré sur po-2027 le 27/11/2026 : **67 des 83 messages** de 4 journaux, dont **3 seulement**
-portent la phrase exacte — le reste est des variantes.
+(`memory/user-words-journal.jsonl` sous `~/.claude/projects/<hash>/`). Mesuré sur po-2027 le
+27/11/2026, fenêtre 20/11 → 27/11, 5 journaux, 87 messages : **71 contiennent `cron`**
+(sous-chaîne, insensible à la casse) et **35 sont la phrase seule** ; le reste est des variantes
+(« après un reboot », « après un crash », « après un pb d'auth », « Continue et vérifie… »).
 
-Un redémarrage de machine, de VS Code ou de la session Claude tue **tous** les crons de session
-(récurrents *et* one-shots) et laisse le cycle précédent à moitié fait. `/continue` ne démarre
+Un redémarrage de machine, de VS Code ou de la session Claude peut emporter **tous** les crons de
+session (récurrents *et* one-shots) et laisse le cycle précédent à moitié fait. Mesuré le 27/11 sur
+le même siège : disparus après un redémarrage ; encore listés après un autre, mais le créneau n'a
+pas tiré. D'où le double contrôle de l'étape 1 (le job **et** le créneau). `/continue` ne démarre
 **pas** un cycle neuf : il **termine** le précédent, balaie les canaux, et rend le **delta** de
 l'état du système depuis le dernier post de la lane.
 
