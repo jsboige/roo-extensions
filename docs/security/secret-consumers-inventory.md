@@ -78,8 +78,9 @@
 | ai-01 (propriétaire) | `<proxy>/run-proxy.cmd` | jeton d'authentification du proxy | lanceur non tracké | swap | **redémarrage du proxy** (préavis flotte) |
 | ai-01 (lane nanoclaw) | `<nanoclaw>/.env` | `MCP_PROXY_BEARER` (+ `MCP_PROXY_BASE_URL` interne Docker) | `.env` non tracké | swap | conteneur NanoClaw ; la tâche `Claude-ApprovalStallDetector` relit à chaque tick |
 | po-2023, po-2024, po-2025, po-2027, po-2028, web1, web2 | `%USERPROFILE%\.roo-state-manager\stall-detector.env` | `MCP_PROXY_BEARER` + `MCP_PROXY_BASE_URL=https://mcp-tools.myia.io` | fichier hors dépôt | swap | aucun (relu à chaque tick) — **copie envoyée le 20/10, pose à confirmer par chaque siège** sur le fil `ai01-c31bis-dispatch-20261020` |
+| po-2026 (lane CoursIA-3, siège physique) | `%USERPROFILE%\.roo-state-manager\stall-detector.env` (emplacement par défaut ; `ORGAN_ENV_FILE` non posé) | `MCP_PROXY_BEARER` + `MCP_PROXY_BASE_URL` | fichier hors dépôt | swap | aucun (relu par `check-degraded-escalations.py` à chaque passe) — **copie envoyée le 27/11** (RX110 a, étendu au siège revenu en service, #4729), pièce jointe RooSync auto-détruite après 1 j ; **pose confirmée 27/11 05:48Z** par la lane, puis par mesure : l'organe y lit le magasin (765 appels, 0 erreur de jeton) |
 
-**Négatifs:** po-2026 hors service, non destinataire.
+**Négatifs:** aucun. Depuis le 27/11, les 9 sièges de `.claude/configs/fleet-manifest.json` figurent dans la table ci-dessus. Avant cette date, po-2026, alors hors service, n'était pas destinataire.
 
 ---
 
