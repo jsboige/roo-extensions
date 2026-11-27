@@ -41,8 +41,11 @@
 .NOTES
     Exit codes: 0 quiet or baseline, 3 alert, 2 WinRT unavailable (wrong engine).
     Install (user task, no elevation), from the checkout that holds this script:
-      schtasks /create /tn "RooMeteredLinkWatch" /sc minute /mo 15 /f /tr
-        "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File <checkout>\scripts\monitoring\metered-link-watch.ps1"
+      powershell -ExecutionPolicy Bypass -File scripts\monitoring\install-metered-link-watch-schtask.ps1
+    Re-running it repairs the task in place and leaves its action alone. Do NOT
+    install with a bare `schtasks /create`: Task Scheduler's defaults (no start
+    on battery, stop on switch to battery, no catch-up of a missed run) make
+    this watch blind away from mains power (measured 2026-11-25 on po-2027).
 #>
 param(
     [int]$ThresholdMB = 500,
