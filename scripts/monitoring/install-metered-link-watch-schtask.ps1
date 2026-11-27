@@ -10,7 +10,10 @@
       - Task present: changes ONLY the settings fields returned by
         Get-MeteredWatchBatteryPlan, nothing else. Action, trigger and principal are
         not re-registered, so a launcher hardened locally (a hidden VBS, for
-        instance) survives the repair.
+        instance) survives the repair. The other side of that same rule: a task
+        registered by hand with `schtasks /sc once` (no repetition) keeps its
+        one-shot trigger through a repair -- remove it and re-run this installer
+        without -RepairOnly to get the repeating trigger back.
 
     Why this installer exists (measured on myia-po-2027 on 2026-11-25, from a DM of
     myia-po-2027:Maintenance): the recipe formerly documented in
@@ -65,10 +68,14 @@ if (-not (Test-Path -LiteralPath $watch)) { throw "watch not found next to this 
 . (Join-Path $PSScriptRoot 'metered-link-watch-task.lib.ps1')
 $switches = Get-MeteredWatchCreateSettingsSwitches
 
-$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($existing) {
+# -TaskName is not unique across folders, and Get-ScheduledTask then returns an
+# ARRAY: Select-MeteredWatchTask refuses that case rather than let the repair
+# plan a Before value off an array and hand the whole collection to
+# Set-ScheduledTask (#4927). $null is still the create path.
+$existing = Select-MeteredWatchTask -Candidate @(Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
+if ($null -ne $existing) {
     $plan = @(Get-MeteredWatchBatteryPlan -Current $existing.Settings)
-    "task     : $TaskName (exists, state $($existing.State))"
+    "task     : $($existing.TaskPath)$TaskName (exists, state $($existing.State))"
     'mode     : repair settings only -- action, trigger and principal untouched'
     "action   : $(($existing.Actions | ForEach-Object { $_.Execute }) -join ',')"
     if ($plan.Count -eq 0) {
@@ -81,12 +88,15 @@ if ($existing) {
     if ($DryRun) { 'DRY-RUN: nothing written'; return }
 
     # Only the planned fields are assigned, on the task's own settings object:
-    # the 20 other fields travel unchanged.
+    # the 20 other fields travel unchanged. -TaskPath is mandatory here: without
+    # it Set-ScheduledTask resolves the name in the ROOT folder, so a single task
+    # sitting in a subfolder would be left untouched and a fresh copy written at
+    # the root (review ai-01 27/11, reported from the docs, not measured).
     $settings = $existing.Settings
     foreach ($change in $plan) { $settings.($change.Property) = $change.After }
-    Set-ScheduledTask -TaskName $TaskName -Settings $settings | Out-Null
+    Set-ScheduledTask -TaskName $TaskName -TaskPath $existing.TaskPath -Settings $settings | Out-Null
 
-    $after = (Get-ScheduledTask -TaskName $TaskName).Settings
+    $after = (Get-ScheduledTask -TaskName $TaskName -TaskPath $existing.TaskPath).Settings
     foreach ($change in $plan) {
         if ([bool]$after.($change.Property) -ne $change.After) {
             throw "repair did not take: $($change.Property) is $($after.($change.Property)), wanted $($change.After)"
