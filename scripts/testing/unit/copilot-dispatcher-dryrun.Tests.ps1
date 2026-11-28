@@ -94,6 +94,17 @@ Describe 'Copilot dispatcher DryRun invariants' {
                 Copy-Item -LiteralPath $moduleSrc -Destination $moduleDst -Force
             }
 
+            # Billed-link guard (28/11, po-2027): the dispatcher probes
+            # ..\monitoring\test-link-billed.ps1 before ANY external call and
+            # parks on anything but UNBILLED. The sandbox carries a STUB pinned
+            # to UNBILLED -- the real probe reads the HOST's live link, so a
+            # seat on a metered link (or a Linux runner without the Windows
+            # cmdlets) would park the child and turn these controls red for a
+            # reason that is not the code under test.
+            $probeDir = Join-Path (Join-Path $repo 'scripts') 'monitoring'
+            New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $probeDir 'test-link-billed.ps1'), $script:probeStubUnbilled, $script:utf8Bom)
+
             # State fixture at the exact path the script computes
             # (Join-Path $repoRoot ".claude\scheduler"): on Linux the literal
             # backslash yields a single oddly-named directory -- mirroring the
@@ -268,6 +279,13 @@ exit 0
                 Output = ((@($output) | ForEach-Object { [string]$_ }) -join "`n")
             }
         }
+
+        # Stub link probe (28/11): one line whose FIRST WORD is the verdict, then
+        # the exit code the shipped contract uses. ASCII only -- it runs as a
+        # child of either engine. Printed through Write-Output like the real
+        # probe (a bare line is a COMMAND in PowerShell: its text never reaches
+        # stdout, and the guard then reads UNKNOWN and parks the child).
+        $script:probeStubUnbilled = "Write-Output 'UNBILLED profile=harness adapter=none cost=Unrestricted'`nexit 0`n"
 
         # Fixture written by the harness; also the exact bytes the untouched
         # state file must still show after a DryRun run.

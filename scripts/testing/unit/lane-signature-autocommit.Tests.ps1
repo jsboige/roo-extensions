@@ -46,6 +46,15 @@ Describe 'Automatic-commit producers carry the Lane: trailer (#4827 3b)' {
         $copilotSrc | Should -Match 'The commit MUST carry the trailer: Lane: \$laneId'
     }
 
+    It 'copilot commit mandate: the Lane line is the LAST paragraph, in ONE trailer block, committed with -F <file>' {
+        # Measured 28/11: `git commit -m subject -m "Lane: x"` stops being a
+        # trailer as soon as another trailer follows the Lane paragraph — the
+        # mandate used to allow exactly that shape ("a separate -m flag").
+        $copilotSrc | Should -Match 'It MUST be the LAST paragraph of the message, as ONE trailer block with no blank line inside it'
+        $copilotSrc | Should -Match 'commit with git commit -F <file>'
+        $copilotSrc | Should -Match 'never pass several -m flags'
+    }
+
     It 'copilot commit mandate: machine is lowercased and workspace comes from the MAIN checkout ($MainRepositoryRoot <- $queueRepoRoot), not the worktree leaf' {
         $copilotSrc | Should -Match '\$laneWorkspaceRoot\s*=\s*if \(-not \[string\]::IsNullOrWhiteSpace\(\$MainRepositoryRoot\)\) \{ \$MainRepositoryRoot \} else \{ \$RepositoryRoot \}'
         $copilotSrc | Should -Match '\$laneMachine\s*=\s*"\$\{env:COMPUTERNAME\}"\.ToLower\(\)'
@@ -77,8 +86,9 @@ Describe 'Automatic-commit producers carry the Lane: trailer (#4827 3b)' {
     }
 
     It 'positive control: stripping the copilot trailer makes the copilot pins fail' {
-        $mutant = $copilotSrc -replace ' The commit MUST carry the trailer: Lane: \$laneId \(as a separate -m flag or final body line\)\.', ''
+        $mutant = $copilotSrc -replace ' The commit MUST carry the trailer: Lane: \$laneId[^\r\n]*', ''
         $mutant | Should -Not -Match 'The commit MUST carry the trailer: Lane: \$laneId'
+        $mutant | Should -Not -Match 'as ONE trailer block'
         $mutant = $mutant -replace '\$laneId\s*=\s*"[^\r\n]*', ''
         $mutant | Should -Not -Match '\$laneId\s*=\s*"\$\{laneMachine\}'
     }

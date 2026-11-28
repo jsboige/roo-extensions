@@ -6,6 +6,12 @@
     Scheduled worker that validates prerequisites, executes a real non-interactive
     Copilot request through `copilot -p`, and records usage evidence.
 
+    Since 28/11 a billed or unclassifiable link parks the tick before any external
+    call (probe: scripts/monitoring/test-link-billed.ps1). One Copilot run is
+    unbounded in volume, and the 2026-10-26 leak measured what a scheduled task
+    that relaunches heavy work on a metered link does. The park writes no run
+    state - same contract as the known-bad CLI park below.
+
 .PARAMETER DryRun
     Print actions only.
 #>
@@ -979,7 +985,7 @@ function Get-WorkPrompt {
     $laneId = "${laneMachine}:$(Split-Path $laneWorkspaceRoot -Leaf)"
 
     $deliveryMandate = if ($CanDeliver) {
-@("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue). The commit MUST carry the trailer: Lane: $laneId (as a separate -m flag or final body line).",
+@("- After the local action, commit it on the CURRENT branch only (git add <changed files>, then git commit with a short conventional-commit subject referencing the target issue). The commit MUST carry the trailer: Lane: $laneId. It MUST be the LAST paragraph of the message, as ONE trailer block with no blank line inside it - the Lane: line together with any Co-authored-by line. Write the whole message to a file and commit with git commit -F <file>; never pass several -m flags, because a Lane: paragraph followed by a later trailer stops being a trailer and the lane-signature check rejects the commit.",
 "- Then open a pull request from that branch: write the PR body to a file first, then gh pr create with a short title and --body-file <path> (never an inline body) describing the change and the issue it addresses.",
 "- The PR body MUST end with a closing line for the target issue: Closes #$targetIssueNumber (not a bare Refs mention) when #$targetIssueNumber is not zero, so the merge retires the grain.",
 "- Never push to, rebase onto, or mutate a default branch directly. If the pull request command fails, keep the commit and report the exact error in next_action.") -join "`n"
@@ -1087,6 +1093,68 @@ function Test-CopilotCliBlocked {
         return $true
     }
     return $false
+}
+
+function ConvertTo-LinkVerdict {
+    # Decision core of the billed-link gate (28/11, po-2027). Pure: no I/O, so the
+    # Pester suite drives the SHIPPED text. The probe prints one line whose first
+    # word is the verdict AND sets 0/3/4; its own doc warns that "exit 0 alone is
+    # not enough to mean go". Both signals are read and the STRICTER one wins
+    # (BILLED > UNKNOWN > UNBILLED), so a line/code disagreement can only park a
+    # tick, never spend on an unclassified link. An ABSENT or unparseable word
+    # counts as UNKNOWN: a silent probe must never read as a go.
+    param(
+        [string]$ProbeLine = '',
+        [int]$ProbeExitCode = -1
+    )
+    $rank = @{ 'UNBILLED' = 0; 'UNKNOWN' = 1; 'BILLED' = 2 }
+    $verdict = switch ($ProbeExitCode) {
+        0 { 'UNBILLED' }
+        3 { 'BILLED' }
+        default { 'UNKNOWN' }
+    }
+    $word = 'UNKNOWN'
+    if (-not [string]::IsNullOrWhiteSpace($ProbeLine)) {
+        $word = (($ProbeLine.Trim() -split '\s+')[0]).ToUpperInvariant()
+        if (-not $rank.ContainsKey($word)) { $word = 'UNKNOWN' }
+    }
+    if ($rank[$word] -gt $rank[$verdict]) { $verdict = $word }
+    $detail = (($ProbeLine -split "`r?`n")[0]).Trim() -replace '^\S+\s*', ''
+    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = "probe-exit=$ProbeExitCode" }
+    return [pscustomobject]@{ Verdict = $verdict; Detail = $detail }
+}
+
+function Get-LinkGuardVerdict {
+    # Runs the probe as a CHILD process: the probe is a CLI by contract (it sets
+    # exit codes 0/3/4), and a child keeps its stderr and preference quirks out
+    # of this script's Stop EAP. Every failure (probe missing, crash, empty
+    # answer, unclassifiable output) lands on UNKNOWN and the caller parks on
+    # anything but UNBILLED - a gate that protects a budget fails closed, by
+    # construction.
+    param([string]$ProbePath)
+    if ([string]::IsNullOrWhiteSpace($ProbePath) -or -not (Test-Path -LiteralPath $ProbePath)) {
+        return [pscustomobject]@{ Verdict = 'UNKNOWN'; Detail = 'probe-missing' }
+    }
+    # Host: the probe's PROVEN engine is Windows PowerShell 5.1 (its WinRT
+    # connectivity casts are 5.1-only, and the fleet's Keep guard has always run
+    # it under powershell.exe). Off Windows - the ubuntu CI runner - that host
+    # does not exist, and -ExecutionPolicy is not a pwsh argument there, so the
+    # current runner's pwsh is the fallback. Never assume either one.
+    $probeHost = if (Get-Command powershell.exe -ErrorAction SilentlyContinue) { 'powershell.exe' } else { Join-Path $PSHOME 'pwsh' }
+    $hostArgs = @('-NoProfile')
+    if ($env:OS -eq 'Windows_NT') { $hostArgs += @('-ExecutionPolicy', 'Bypass') }
+    $hostArgs += @('-File', $ProbePath)
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $line = (& $probeHost @hostArgs 2>$null | Out-String).Trim()
+        $code = $LASTEXITCODE
+    } catch {
+        return [pscustomobject]@{ Verdict = 'UNKNOWN'; Detail = "probe-failed: $($_.Exception.Message)" }
+    } finally {
+        $ErrorActionPreference = $prevEap
+    }
+    return ConvertTo-LinkVerdict -ProbeLine $line -ProbeExitCode $code
 }
 
 function Get-RepoSlug {
@@ -1348,6 +1416,23 @@ if ($DryRun) {
     Write-Log "DryRun mode: exiting before any CLI call (no copilot, no gh, no state write)"
     exit 0
 }
+
+# Billed-link park (28/11, po-2027): the 12h tick used to start whatever the link
+# was, and one Copilot run is unbounded in volume (shim download, git work,
+# pushes). The 2026-10-26 leak is the measured counter-example: a task that
+# relaunches heavy work without asking about the link IS the leak. Same contract
+# as the CLI park below - exit BEFORE any external call and write no run state
+# (a parked lane is not an idle streak, so it must not feed the escalation
+# counter). Fail-closed: BILLED and UNKNOWN both park, and the log line names the
+# verdict on every tick, so a seat stuck on a broken probe stays visible instead
+# of silently starving the Copilot mandate.
+$linkProbePath = Join-Path (Join-Path (Split-Path -Parent $scriptDir) 'monitoring') 'test-link-billed.ps1'
+$linkVerdict = Get-LinkGuardVerdict -ProbePath $linkProbePath
+if ($linkVerdict.Verdict -ne 'UNBILLED') {
+    Write-Log "Dispatcher parked this tick - link $($linkVerdict.Verdict) ($($linkVerdict.Detail)): no Copilot call, no download, no premium. Heavy work waits for an unmetered link."
+    exit 0
+}
+Write-Log "Link guard: UNBILLED ($($linkVerdict.Detail))"
 
 # Known-bad CLI park: exit BEFORE any Copilot call, without touching the run
 # state (a parked lane is not an idle streak — no escalation accounting).
