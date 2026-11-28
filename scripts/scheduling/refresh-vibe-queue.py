@@ -1196,6 +1196,8 @@ def main():
             # une nouvelle base (Update-StaleGrainBase et balayage stale :
             # wtHead = origin/main) ; tant qu'il est vide, le garde d'eviction
             # de vibe-feeder.ps1 (`-and $g.wtHead`) ne s'arme pas.
+            # Ceci ne vaut que pour les grains NOUVEAUX : un grain reporte
+            # (keepable) garde son objet tel quel, wtHead rempli compris.
             # FAMINE_BIN est un grain plan par plan(), pas un nom libre : le
             # marqueur "famine" porte la provenance jusqu'au relais (note dans
             # le payload, drapeau lisible dans la file).
