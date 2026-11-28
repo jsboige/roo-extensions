@@ -34,7 +34,10 @@ BeforeAll {
     $script:Ast = [System.Management.Automation.Language.Parser]::ParseFile($script:WorkerPath, [ref]$tokens, [ref]$errors)
     $script:ParseErrors = @($errors)
 
+    # Get-WaitStateIssueNumber (#4953) : Test-GitHubDecision le consulte quand ni le
+    # TaskId ni le waitFor ne portent de "#" -- la forme "github-N" du worker.
     foreach ($name in @('ConvertTo-UtcDateTime', 'Test-IssueAlreadyProcessed', 'Test-GitHubIssueLock',
+                        'Get-WaitStateIssueNumber',
                         'Test-UserApproval', 'Test-GitHubDecision', 'Get-StaleReviewers', 'Request-StaleReview')) {
         $fn = $script:Ast.FindAll({
             param($node)
@@ -311,6 +314,55 @@ Describe 'Test-GitHubDecision (lot 8 : Get-IssueDetail + Get-IssueComments)' {
             # Timestamp plus récent -> le commentaire est ignoré, pas de reprise.
             $waitNew = @{ waitFor = '#501'; timestamp = ((Get-Date).ToUniversalTime().AddMinutes(-30)).ToString('yyyy-MM-ddTHH:mm:ssZ') }
             Invoke-WithShim $shim.Dir { Test-GitHubDecision -TaskId '#501' -WaitState $waitNew } | Should -BeFalse
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+    }
+
+    # #4953 (suite) : le worker nomme lui-meme ses wait-states "github-N" (l.1135,
+    # id = "github-$($Issue.number)") et Save-WaitState ecrit ce nom tel quel. Les
+    # deux tests ci-dessus utilisent "#500"/"#501", une forme que le worker ne
+    # produit jamais. Mesure po-204, passages du 27/11 21:07, 28/11 03:07 et 09:07 :
+    # "Pas d'issue number trouvée dans TaskId ou waitFor" pour github-4736 et
+    # github-4731 (resumeWhen github_comment, waitFor sans "#") -- jamais prêts.
+
+    It 'TaskId "github-500" et waitFor sans diese : issue CLOSED -> $true, et c est bien l issue 500 qui est lue' {
+        $detail = '{"number": 500, "title": "T", "body": "", "state": "closed", "url": "https://github.com/jsboige/roo-extensions/issues/500", "updatedAt": "2026-11-10T10:00:00Z", "labels": [], "assignees": [], "is_pr": false}' + "`n"
+        $dir = Join-Path $script:TmpRoot ('worker-gh-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-WorkerGhShim -Dir $dir -DetailJson $detail -CommentsJson ''
+        try {
+            $wait = @{ waitFor = 'the writer bail is released, then coverage is re-measured'; timestamp = '2026-11-10T00:00:00Z' }
+            $r = Invoke-WithShim $shim.Dir { Test-GitHubDecision -TaskId 'github-500' -WaitState $wait }
+            $r | Should -BeTrue
+            (Get-CallLog $shim.Log) -match '/issues/500' | Should -Not -BeNullOrEmpty
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+    }
+
+    It 'TaskId "github-501" et waitFor sans diese : commentaire de relance plus recent -> $true ; plus vieux -> $false' {
+        $detail = '{"number": 501, "title": "T", "body": "", "state": "open", "url": "https://github.com/jsboige/roo-extensions/issues/501", "updatedAt": "2026-11-10T10:00:00Z", "labels": [], "assignees": [], "is_pr": false}' + "`n"
+        $recent = New-CommentJson @('lgtm, proceed') @([timespan]::FromHours(-1))
+        $dir = Join-Path $script:TmpRoot ('worker-gh-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-WorkerGhShim -Dir $dir -DetailJson $detail -CommentsJson $recent
+        try {
+            $waitOld = @{ waitFor = 'a reply from the other lane, then a GO'; timestamp = ((Get-Date).ToUniversalTime().AddHours(-2)).ToString('yyyy-MM-ddTHH:mm:ssZ') }
+            Invoke-WithShim $shim.Dir { Test-GitHubDecision -TaskId 'github-501' -WaitState $waitOld } | Should -BeTrue
+
+            $waitNew = @{ waitFor = 'a reply from the other lane, then a GO'; timestamp = ((Get-Date).ToUniversalTime().AddMinutes(-30)).ToString('yyyy-MM-ddTHH:mm:ssZ') }
+            Invoke-WithShim $shim.Dir { Test-GitHubDecision -TaskId 'github-501' -WaitState $waitNew } | Should -BeFalse
+        }
+        finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
+    }
+
+    It 'precedence inchangee : un "#501" dans le waitFor l emporte sur le numero du TaskId "github-500" (meme objet lu qu avant)' {
+        $detail = '{"number": 501, "title": "T", "body": "", "state": "closed", "url": "https://github.com/jsboige/roo-extensions/issues/501", "updatedAt": "2026-11-10T10:00:00Z", "labels": [], "assignees": [], "is_pr": false}' + "`n"
+        $dir = Join-Path $script:TmpRoot ('worker-gh-shim-' + [guid]::NewGuid().ToString('N'))
+        $shim = New-WorkerGhShim -Dir $dir -DetailJson $detail -CommentsJson ''
+        try {
+            $wait = @{ waitFor = 'APPROVE of #501'; timestamp = '2026-11-10T00:00:00Z' }
+            Invoke-WithShim $shim.Dir { Test-GitHubDecision -TaskId 'github-500' -WaitState $wait } | Should -BeTrue
+            $log = @(Get-CallLog $shim.Log)
+            $log -match '/issues/501' | Should -Not -BeNullOrEmpty
+            @($log | Where-Object { $_ -match '/issues/500' }).Count | Should -Be 0
         }
         finally { Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue }
     }
