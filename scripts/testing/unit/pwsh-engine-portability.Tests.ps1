@@ -90,8 +90,15 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         foreach ($c in @($listener, $poll, $meta)) {
             $c | Should -Match "Get-Command pwsh -ErrorAction SilentlyContinue"
             $c | Should -Match "else \{ 'powershell' \}"
+        }
+        foreach ($c in @($poll, $meta)) {
             $c | Should -Match '& \$psHost '
         }
+        # The listener passes the resolved host into its nonblocking worker;
+        # the child resolves that application and invokes its Source, not pwsh.
+        $listener | Should -Match 'Start-WakeWorker \$psHost \$effectiveSpawnScript \$spawnArgs'
+        $listener | Should -Match 'Get-Command \$HostExecutable -CommandType Application -ErrorAction Stop'
+        $listener | Should -Match '& \$hostCommand.Source -File \$ScriptPath @ScriptArguments'
     }
 
     It 'The five remaining scripts define the portable helper' {

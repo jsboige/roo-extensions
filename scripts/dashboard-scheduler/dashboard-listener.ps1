@@ -1074,7 +1074,10 @@ function Invoke-ProcessWorkspace($ws) {
     }
 
     # Cooldown check
-    if (-not (Test-CooldownOk $ws)) { return }
+    if (-not (Test-CooldownOk $ws)) {
+        if (-not $Once) { $pending[$ws] = [DateTime]::UtcNow }
+        return
+    }
 
     # #2004 Phase 2: Push the triggering message into spawn-claude instead of
     # asking the spawned agent to re-read the dashboard. We pick the OLDEST
@@ -1165,12 +1168,80 @@ function Invoke-ProcessWorkspace($ws) {
         # PowerShell 5.1, present everywhere. Safe only because the spawn target is now
         # engine-portable (ConvertFrom-JsonToDictionary above + in spawn-claude.ps1).
         $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-        & $psHost -File $effectiveSpawnScript @spawnArgs
-        $exitCode = $LASTEXITCODE
+        $job = Start-WakeWorker $psHost $effectiveSpawnScript $spawnArgs
+        $script:ActiveWake = @{
+            Job = $job; Workspace = $ws; Timestamp = $triggerMsg.timestamp
+            IsVibe = $isVibeWake; Remaining = $actionable.Count - 1
+            ExitCode = $null
+        }
+        Write-Log "INFO" "[$ws] Worker queued; detection continues while completion is pending."
+        return
     } catch {
         Write-Log "ERROR" "[$ws] Spawn failed: $_"
         return
     }
+
+}
+
+# One outstanding worker globally preserves the old concurrency ceiling. Pending
+# workspaces remain coalesced in $pending while polling and heartbeats continue.
+$script:ActiveWake = $null
+function Start-WakeWorker {
+    param([string]$HostExecutable, [string]$ScriptPath, [string[]]$ScriptArguments)
+    Start-Job -ScriptBlock {
+        param($HostExecutable, $ScriptPath, $ScriptArguments)
+        $ErrorActionPreference = 'Stop'
+        # Resolve before invocation: failure here proves no child was started.
+        try {
+            $hostCommand = Get-Command $HostExecutable -CommandType Application -ErrorAction Stop
+            if (-not (Test-Path -LiteralPath $ScriptPath -PathType Leaf)) { throw 'Worker script missing' }
+        } catch {
+            [pscustomobject]@{ WakeWorkerExitCode = -2 }
+            return
+        }
+        & $hostCommand.Source -File $ScriptPath @ScriptArguments
+        if ($null -ne $LASTEXITCODE) {
+            [pscustomobject]@{ WakeWorkerExitCode = $LASTEXITCODE }
+        }
+    } -ArgumentList $HostExecutable, $ScriptPath, $ScriptArguments
+}
+
+function Receive-WakeCompletion {
+    if ($null -eq $script:ActiveWake) { return }
+    $active = $script:ActiveWake
+    $job = $active.Job
+    # Snapshot terminal state BEFORE draining: completion can race Receive-Job.
+    # A marker arriving after a running snapshot is collected on the next tick.
+    $terminal = $job.State -in @('Completed', 'Failed', 'Stopped')
+    Receive-Job $job -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($null -ne $_.PSObject.Properties['WakeWorkerExitCode']) {
+            $parsedExit = 0
+            if ($null -ne $_.WakeWorkerExitCode -and [int]::TryParse([string]$_.WakeWorkerExitCode, [ref]$parsedExit)) {
+                $active.ExitCode = $parsedExit
+            }
+        } else {
+            Write-Host $_
+        }
+    }
+    if (-not $terminal) { return }
+    # A dead wrapper does not prove its native child exited. Keep exclusion
+    # fail-closed when completion evidence is missing; never launch a replacement.
+    if ($null -eq $active.ExitCode -or $job.State -ne 'Completed') {
+        if (-not $active.ContainsKey('CompletionUnknown')) {
+            $active.CompletionUnknown = $true
+            Write-Log "ERROR" "[$($active.Workspace)] Worker completion unknown (job=$($job.State)); exclusion retained, no ACK or replacement."
+        }
+        return
+    }
+    $exitCode = $active.ExitCode
+    $ws = $active.Workspace
+    $isVibeWake = $active.IsVibe
+    $triggerMsg = @{ timestamp = $active.Timestamp }
+    $remainingCount = $active.Remaining
+    Remove-Job $job
+    $script:ActiveWake = $null
+    # Retry/re-read even if the dashboard did not change during execution.
+    if (-not $Once) { $pending[$ws] = [DateTime]::UtcNow.AddSeconds(-$DebounceSeconds - 1) }
 
     # #3277 fix 3 : exit 75 = SKIP du worker (un worker vivant détient le lock). Le
     # dispatch n'est PAS consommé (pas d'ack) ET la tentative est retirée — le travail
@@ -1192,8 +1263,7 @@ function Invoke-ProcessWorkspace($ws) {
         # swallowed. Acking the handled message keeps the rest actionable, which is
         # exactly what the FIFO comment at $triggerMsg already promises.
         Set-LastAck $ws $triggerMsg.timestamp
-        $pending = $actionable.Count - 1
-        Write-Log "INFO" "[$ws] Spawn completed. lastAck advanced to $($triggerMsg.timestamp) (FIFO head). $pending other actionable message(s) stay pending for the next trigger."
+        Write-Log "INFO" "[$ws] Spawn completed. lastAck advanced to $($triggerMsg.timestamp) (FIFO head). $remainingCount other actionable message(s) stay pending for the next trigger."
     } else {
         Write-Log "WARN" "[$ws] Spawn exited with code $exitCode. lastAck NOT advanced."
     }
@@ -1373,6 +1443,19 @@ Write-Log "INFO" "Heartbeat: local=$LocalHeartbeatFile | shared=$SharedHeartbeat
 
 # ========== MAIN LOOP ==========
 
+function Invoke-PendingWakeWorkspaces {
+    param([string[]]$Workspaces)
+    foreach ($workspace in $Workspaces) {
+        if ($null -ne $script:ActiveWake) { break }
+        $pending.Remove($workspace)
+        try {
+            Invoke-ProcessWorkspace $workspace
+        } catch {
+            Write-Log "ERROR" "[$workspace] Unhandled error: $_"
+        }
+    }
+}
+
 $running = $true
 
 try {
@@ -1386,6 +1469,7 @@ try {
     while ($running) {
         $now = [DateTime]::UtcNow
         $toProcess = @()
+        Receive-WakeCompletion
 
         # Find workspaces whose debounce has expired
         foreach ($ws in @($pending.Keys)) {
@@ -1401,16 +1485,9 @@ try {
         }
 
         # Process expired workspaces
-        foreach ($ws in $toProcess) {
-            $pending.Remove($ws)
-            try {
-                Invoke-ProcessWorkspace $ws
-            } catch {
-                Write-Log "ERROR" "[$ws] Unhandled error: $_"
-            }
-        }
+        Invoke-PendingWakeWorkspaces $toProcess
 
-        if ($Once) {
+        if ($Once -and $null -eq $script:ActiveWake -and $pending.Count -eq 0) {
             Write-Log "INFO" "-Once mode: exiting after processing pending."
             break
         }
@@ -1447,6 +1524,14 @@ try {
         Start-Sleep -Seconds 1
     }
 } finally {
+    # Do not release the listener exclusion while its worker is still alive.
+    if ($null -ne $script:ActiveWake) {
+        Write-Log "WARN" "Waiting for outstanding worker before releasing listener exclusion."
+        while ($null -ne $script:ActiveWake) {
+            Receive-WakeCompletion
+            if ($null -ne $script:ActiveWake) { Start-Sleep -Seconds 1 }
+        }
+    }
     Write-Log "INFO" "Dashboard Listener shutting down."
     $watcher.EnableRaisingEvents = $false
     $watcher.Dispose()
