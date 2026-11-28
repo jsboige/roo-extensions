@@ -299,6 +299,14 @@ function Prepare-Worktree {
     # refuse apres squash-merge) : sans repli, `worktree add -b` echoue a CHAQUE
     # tick et le grain est SKIP indefiniment (review #3518 W2).
     $branchExists = (git -C $runtimeDir branch --list $branch) 2>$null
+    # Une branche qui survit n'est pas forcement CELLE du grain : les ids sont
+    # recycles, et la rattacher telle quelle donnait a Vibe un arbre perime
+    # (#4847, mesure 28/11). Resolve-GrainBranch la verifie avant le rattachement.
+    if ($branchExists) {
+        $resolved = Resolve-GrainBranch -Branch $branch -Base $base -GrainId $Grain.id
+        if (-not $resolved) { return $false }
+        if ($resolved -eq 'create') { $branchExists = $null }
+    }
     if ($branchExists) {
         git -C $runtimeDir worktree add $wt $branch 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -375,6 +383,56 @@ function Update-StaleGrainBase {
     Write-Queue -Queue $q
     Write-FeederLog -Level 'INFO' -Text ("{0}: baseSha recalee dans le tick vers {1}" -f $Grain.id, $OriginMain)
     return $true
+}
+
+# ---------- branche de grain perimee (#4847, mesure 28/11) ----------
+# Les ids de grain sont RECYCLES (g4..g40 existaient deja en septembre) et la
+# branche wt/vibe-<id> survit au `worktree remove`. Prepare-Worktree la
+# rattachait telle quelle : mesure 28/11, 28 grains sur 113 en file auraient
+# lance Vibe sur un arbre de septembre ou du 23/11 alors que la file annonce la
+# base fraiche -- le run edite des notebooks perimes et son relais est refuse.
+# Definie APRES Update-StaleGrainBase : le contexte C3-bis des tests extrait la
+# PREMIERE ligne `merge-base --is-ancestor` du script, celle de cette fonction-la.
+# Retourne 'attach' (branche saine ou realignee sur la base), 'create' (branche
+# archivee, a recreer a la base) ou $null (refus journalise, grain SKIP).
+function Resolve-GrainBranch {
+    param([string]$Branch, [string]$Base, [string]$GrainId)
+    # Contient la base : branche de CETTE generation, travail eventuel a reprendre.
+    git -C $runtimeDir merge-base --is-ancestor $Base $Branch 2>$null
+    if ($LASTEXITCODE -eq 0) { return 'attach' }
+    $tip = "$((git -C $runtimeDir rev-parse --verify -q $Branch) 2>$null)".Trim()
+    if ($tip -notmatch '^[0-9a-f]{40}$') {
+        Write-FeederLog -Level 'ERROR' -Text ("{0}: branche {1} illisible — rattachement refuse" -f $GrainId, $Branch)
+        return $null
+    }
+    # Sortie dans un autre worktree : la deplacer ou la renommer changerait la
+    # tete de CET arbre (`branch -m` suit les worktrees). On ne touche a rien.
+    $checkedOut = @((git -C $runtimeDir worktree list --porcelain) 2>$null) -contains "branch refs/heads/$Branch"
+    if ($checkedOut) {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: branche perimee {1} sortie dans un autre worktree — rattachement refuse" -f $GrainId, $Branch)
+        return $null
+    }
+    git -C $runtimeDir merge-base --is-ancestor $Branch $Base 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        # Rien que la base n'ait deja : la realigner ne perd aucun commit.
+        git -C $runtimeDir branch -f $Branch $Base 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-FeederLog -Level 'INFO' -Text ("{0}: branche perimee {1} realignee {2} -> {3}" -f $GrainId, $Branch, $tip.Substring(0,10), $Base)
+            return 'attach'
+        }
+        Write-FeederLog -Level 'ERROR' -Text ("{0}: realignement de {1} echoue (exit {2})" -f $GrainId, $Branch, $LASTEXITCODE)
+        return $null
+    }
+    # Commits propres : jamais de suppression, archivage reversible
+    # (annulation : git branch -m <archive> <branche>).
+    $archive = "archive/$Branch-$($tip.Substring(0,10))"
+    git -C $runtimeDir branch -m $Branch $archive 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-FeederLog -Level 'INFO' -Text ("{0}: branche perimee {1} archivee en {2} (commits propres preserves)" -f $GrainId, $Branch, $archive)
+        return 'create'
+    }
+    Write-FeederLog -Level 'ERROR' -Text ("{0}: archivage de {1} echoue (exit {2})" -f $GrainId, $Branch, $LASTEXITCODE)
+    return $null
 }
 
 # ---------- auto-guerison all-SKIP-stale (deadlock 03/10, annonce c.148) ----------
