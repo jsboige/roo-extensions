@@ -178,11 +178,17 @@ function Read-Queue {
 
 function Write-Queue {
     param([object]$Queue)
-    [System.IO.File]::WriteAllText(
-        $QueuePath,
-        ($Queue | ConvertTo-Json -Depth 8),
-        (New-Object System.Text.UTF8Encoding $false)
-    )
+    # Write alongside the queue so a reader never observes a truncated file.
+    # This does not serialize competing read-modify-write operations.
+    $target = [IO.Path]::GetFullPath($QueuePath)
+    $temp = Join-Path ([IO.Path]::GetDirectoryName($target)) ('.queue-' + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        $json = $Queue | ConvertTo-Json -Depth 8 -ErrorAction Stop
+        [IO.File]::WriteAllText($temp, $json, (New-Object System.Text.UTF8Encoding $false))
+        [IO.File]::Replace($temp, $target, [NullString]::Value)
+    } finally {
+        if ([IO.File]::Exists($temp)) { [IO.File]::Delete($temp) }
+    }
 }
 
 # ---------- cooldown gisements (rotation bornee des relances sans progres) ----------
