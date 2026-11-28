@@ -295,6 +295,80 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
         }
     }
 
+    Context "W3 - branche survivante perimee, ids de grain recycles (#4847)" {
+
+        # Mesure 28/11 : 28 grains sur 113 auraient rattache une branche de
+        # septembre ou du 23/11. Ce contexte EXECUTE Resolve-GrainBranch, extraite
+        # du drainer, contre un depot jetable -- comme C3-bis.
+
+        It "Prepare-Worktree consulte Resolve-GrainBranch avant le rattachement" {
+            $iResolve = $content.IndexOf('Resolve-GrainBranch -Branch $branch')
+            $iAttach  = $content.IndexOf('worktree add $wt $branch')
+            $iResolve | Should -BeGreaterThan 0
+            $iAttach  | Should -BeGreaterThan $iResolve
+        }
+
+        It "rattache, realigne, archive ou refuse selon ce que porte la branche" {
+            $savedEap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-stale-" + [guid]::NewGuid().ToString('N').Substring(0,8))
+            try {
+                New-Item -ItemType Directory -Path $root -Force | Out-Null
+                $repo = Join-Path $root 'runtime'
+                & git init -q --initial-branch=main $repo
+                & git -C $repo config user.email 't@t'
+                & git -C $repo config user.name 't'
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'september'
+                & git -C $repo add f.txt
+                & git -C $repo commit -qm september
+                $old = (& git -C $repo rev-parse HEAD).Trim()
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'fresh-main'
+                & git -C $repo commit -qam fresh
+                $base = (& git -C $repo rev-parse HEAD).Trim()
+
+                $start = $content.IndexOf('function Resolve-GrainBranch')
+                $start | Should -BeGreaterThan 0
+                $end = $content.IndexOf("`n}", $start)
+                $end | Should -BeGreaterThan $start
+                function Write-FeederLog { param($Level, $Text) }
+                Invoke-Expression $content.Substring($start, $end - $start + 2)
+                $runtimeDir = $repo
+
+                # (1) la branche contient la base : rattachee, tete inchangee.
+                & git -C $repo branch fresh $base
+                Resolve-GrainBranch -Branch fresh -Base $base -GrainId t1 | Should -Be 'attach'
+                (& git -C $repo rev-parse fresh).Trim() | Should -Be $base
+
+                # (2) en retard, sans commit propre : realignee sur la base.
+                & git -C $repo branch behind $old
+                Resolve-GrainBranch -Branch behind -Base $base -GrainId t2 | Should -Be 'attach'
+                (& git -C $repo rev-parse behind).Trim() | Should -Be $base
+
+                # (3) commit propre hors de la base : archivee, aucun commit perdu.
+                & git -C $repo checkout -q -b own $old
+                Set-Content -Path (Join-Path $repo 'g.txt') -Value 'grain-work'
+                & git -C $repo add g.txt
+                & git -C $repo commit -qm own
+                $ownTip = (& git -C $repo rev-parse HEAD).Trim()
+                & git -C $repo checkout -q main
+                Resolve-GrainBranch -Branch own -Base $base -GrainId t3 | Should -Be 'create'
+                (& git -C $repo branch --list own) | Should -BeNullOrEmpty
+                (& git -C $repo rev-parse ("archive/own-" + $ownTip.Substring(0,10))).Trim() | Should -Be $ownTip
+
+                # (4) perimee mais sortie dans un autre worktree : refus, rien ne bouge.
+                & git -C $repo branch busy $old
+                & git -C $repo worktree add -q (Join-Path $root 'busy') busy
+                $r = Resolve-GrainBranch -Branch busy -Base $base -GrainId t4
+                [string]::IsNullOrEmpty($r) | Should -Be $true
+                (& git -C $repo rev-parse busy).Trim() | Should -Be $old
+            }
+            finally {
+                $ErrorActionPreference = $savedEap
+                if (Test-Path $root) { Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue }
+            }
+        }
+    }
+
     Context "Verdict de post a 3 jambes (durci apres le faux succes 08/09 01:02Z)" {
 
         It "exige success:true dans le texte de la reponse" {
