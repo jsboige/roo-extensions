@@ -98,7 +98,7 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 
 - `start-vibe-worker.ps1` — worker d'un tick Vibe : lock anti-chevauchement **atomique** (`CreateNew` + `FileShare.None`, #3277 — deux invocations same-seconde → un seul worker, l'autre `exit 75` sans consommer le dispatch), heartbeat (pattern `Write-WorkerHeartbeat`), injection du payload `[WAKE-VIBE]` via la variable d'environnement `VIBE_WAKE_PAYLOAD`, logs horodatés UTC dans `outputs/scheduling/logs/vibe-worker-*.log`.
 - `setup-vibe-scheduler.ps1` — install/remove/list/test de la tâche planifiée `Vibe-Worker` (launcher VBS caché, garde d'appropriation via marker `Vibe worker (#3202)`).
-- `vibe-acp-driver.py` — client ACP headless pour `vibe-acp.exe` (extension VS Code Mistral) : initialize → session/new → session/prompt ; exit codes 0 `PROMPT_OK`, 2 `INITIALIZE_FAILED`, 3 `SESSION_NEW_FAILED`, 4 `PROMPT_ERROR`, 5 `PROMPT_TIMEOUT`, 6 `BAD_ARGS`/`NO_EXE`.
+- `vibe-acp-driver.py` — client ACP headless pour `vibe-acp.exe` (extension VS Code Mistral) : initialize → session/new → session/prompt ; exit codes 0 `PROMPT_OK`, 2 `INITIALIZE_FAILED`, 3 `SESSION_NEW_FAILED`, 4 `PROMPT_ERROR`, 5 `PROMPT_TIMEOUT`, 6 `BAD_ARGS`/`NO_EXE`, 7 `AGENT_EXITED` (l'agent est mort pendant le prompt : le driver s'arrête aussitôt au lieu d'attendre la fin du budget).
 - `vibe-profiles/coursia.json` — profil workspace (workspace, harnessCommand, intervalHours) consommé par le worker via `-ConfigPath`.
 
 ### Infrastructure & Système
