@@ -285,8 +285,10 @@ def main() -> int:
         for line in proc.stderr:
             stderr_tail.append(line.rstrip())
 
-    threading.Thread(target=reader, daemon=True).start()
+    reader_thread = threading.Thread(target=reader, daemon=True)
+    reader_thread.start()
     threading.Thread(target=stderr_reader, daemon=True).start()
+    agent_exit = {}
 
     def send(obj):
         proc.stdin.write(json.dumps(obj) + "\n")
@@ -405,7 +407,23 @@ def main() -> int:
             try:
                 line = lines.get(timeout=0.3)
             except queue.Empty:
-                continue
+                # A dead agent never answers. Without this check the driver sat
+                # out the whole budget -- 6000 s for a prompt -- holding the
+                # feeder's single worker slot (po-2025 2026-11-28, g4-gametheory-2:
+                # vibe-acp gone, driver alive until killed by hand).
+                if proc.poll() is None:
+                    continue
+                # Let the reader hand over what it read before EOF, then stop
+                # once the queue is really empty. Bounded: a descendant holding
+                # stdout open keeps the reader alive (see stderr_tail above).
+                reader_thread.join(timeout=2)
+                if not lines.empty():
+                    continue
+                agent_exit["rc"] = proc.returncode
+                agent_exit["at"] = time.time()
+                print(f"agent exited rc={proc.returncode} while waiting for id={rid}",
+                      file=sys.stderr)
+                break
             try:
                 msg = json.loads(line)
             except json.JSONDecodeError:
@@ -531,6 +549,13 @@ def main() -> int:
         pass
     proc.kill()
 
+    if resp is None and agent_exit:
+        print(f"AGENT_EXITED rc={agent_exit['rc']} "
+              f"after {agent_exit['at'] - t_prompt:.1f}s of a {args.timeout}s prompt budget",
+              file=sys.stderr)
+        for line in list(stderr_tail):
+            print(f"stderr: {line[:200]}", file=sys.stderr)
+        return 7
     if resp is None:
         print(f"PROMPT_TIMEOUT after {args.timeout}s", file=sys.stderr)
         print(timeout_diagnostics(notifications, t_prompt, args.timeout), file=sys.stderr)
