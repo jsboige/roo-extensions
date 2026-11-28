@@ -221,6 +221,12 @@ ARCHIVE_HUSK_SIGNATURE = "frontmatter manquant"
 # l'escalade archivee dans ce lot est invisible d'ici.
 ARCHIVE_ABSENT_SIGNATURE = "introuvable"
 
+# #4981 (ai-01, 28/11) : le fichier EST la, son contenu n'est pas servi (stat
+# et ouverture ok, lecture ENOENT). Le serveur garde la tete « introuvable »
+# et ajoute cette note (jsboige-mcp-servers#1983, ARCHIVE_UNREADABLE_NOTE de
+# dashboard.ts) : a tester AVANT la signature d'absence, qu'elle contient.
+ARCHIVE_UNREADABLE_SIGNATURE = "illisible sur ce siège"
+
 # Entete d'un message intercom : `### [2026-11-03T12:51:09.673Z] myia-web1|roo-extensions`.
 # Trois dieses + un horodatage ISO : la section Status utilise deux dieses et ne
 # peut pas matcher.
@@ -1129,13 +1135,23 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             try:
                 archived = entries_from_archive_json(archive_text)
             except ValueError as exc:
-                if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
+                lowered = str(exc).lower()
+                if ARCHIVE_HUSK_SIGNATURE in lowered:
                     print(f"WARNING: {key}/{name}: coque d'archive vide "
                           f"ignoree (seconde passe) ({exc}) — sans contenu, "
                           f"rien a lire : non bloquant", file=sys.stderr)
                     continue
-                errors.append(f"{key}/{name}: enveloppe archive "
-                              f"inexploitable (seconde passe) ({exc})")
+                # #4981 : meme diagnostic que la fenetre — illisible sur le
+                # miroir du serveur, ou absent ; meme verdict (erreur).
+                if ARCHIVE_UNREADABLE_SIGNATURE in lowered:
+                    errors.append(archive_window_unreadable_error(
+                        key, name, str(exc), second_pass=True))
+                elif ARCHIVE_ABSENT_SIGNATURE in lowered:
+                    errors.append(archive_window_absent_error(
+                        key, name, str(exc), second_pass=True))
+                else:
+                    errors.append(f"{key}/{name}: enveloppe archive "
+                                  f"inexploitable (seconde passe) ({exc})")
                 continue
             found = [entry for entry in archived if is_repaired(entry)]
             closures.extend(found)
@@ -1438,7 +1454,7 @@ def archive_window_husk_error(key, name, detail):
             f"une escalade archivee serait invisible ; mesure partielle")
 
 
-def archive_window_absent_error(key, name, detail):
+def archive_window_absent_error(key, name, detail, second_pass=False):
     """c.458 (po-2024, 26/11) : nom servi par le listing, fichier ABSENT du
     miroir de CE siege — troisieme issue, distincte de la coque (#4796) et de
     « lecture sans contenu ».
@@ -1453,13 +1469,50 @@ def archive_window_absent_error(key, name, detail):
     dans ce lot est invisible d'ici. Verdict inchange — lecture partielle,
     exit 1, sonnerie annulee ; seul le DIAGNOSTIC devient exact, pour arreter
     d'envoyer les sieges reparer un transport sain.
+
+    #4981 (po-2024, 28/11) : `read_archive` s'execute sur le SERVEUR qui
+    repond — via le proxy, c'est le hub, pas le siege qui lance l'organe.
+    Mesure : les 103 noms « absents » etaient presents et lisibles sur le
+    miroir de po-2024, illisibles sur celui du hub. Le libelle nomme donc le
+    miroir du serveur qui a repondu.
+
+    `second_pass` : la seconde passe (#4643, archives anterieures a la
+    fenetre) emploie le meme diagnostic — mesure po-2023/po-2028 28/11 : 88
+    des 103 erreurs venaient d'elle, sous le libelle « enveloppe archive
+    inexploitable ».
     """
-    return (f"{key}/{name}: archive declaree par le listing mais ABSENTE du "
-            f"miroir de ce siege ({detail[:120]}) — nom liste sans fichier : "
-            f"la condensation ecrit le .md sur le siege qui la fait, "
-            f"read_archive ne lit que le miroir local ; un [REPAIRED] ou une "
-            f"escalade archivee serait invisible ; mesure partielle, "
-            f"transport non en cause")
+    where = " (seconde passe)" if second_pass else ""
+    return (f"{key}/{name}: archive declaree par le listing{where} mais "
+            f"ABSENTE du miroir du serveur qui a repondu ({detail[:120]}) — nom liste "
+            f"sans fichier : la condensation ecrit le .md sur le siege qui la "
+            f"fait, read_archive ne lit que le miroir de son serveur ; un "
+            f"[REPAIRED] ou une escalade archivee serait invisible ; mesure "
+            f"partielle, transport non en cause")
+
+
+def archive_window_unreadable_error(key, name, detail, second_pass=False):
+    """#4981 (ai-01, 28/11) : nom liste, fichier PRESENT sur le miroir du
+    serveur qui repond, contenu NON SERVI — `stat` et l'ouverture passent, la
+    lecture rend ENOENT (client de synchronisation qui liste un nom sans son
+    contenu). Mesure ai-01 12:29Z puis 12:56Z : 1 215 archives sur 2 698, 49
+    dashboards vivants sur 91, memes comptes. Le serveur le dit depuis
+    jsboige-mcp-servers#1983 (note `illisible sur ce siège`, champ
+    `localFile`).
+
+    Ce n'est pas une absence : chercher l'archive ailleurs ou reparer le
+    transport ne sert a rien, c'est le client de synchronisation du serveur
+    qui ne rend pas le contenu. Verdict inchange — une fenetre non lue reste
+    une lecture partielle (exit 1, sonnerie annulee) : un [REPAIRED] dans ce
+    lot serait invisible d'ici. `second_pass` : voir
+    `archive_window_absent_error`.
+    """
+    where = " (seconde passe)" if second_pass else ""
+    return (f"{key}/{name}: archive listee{where} mais ILLISIBLE sur le "
+            f"miroir du serveur qui a repondu ({detail[:120]}) — fichier present, "
+            f"contenu non servi par son client de synchronisation (stat ok, "
+            f"lecture ENOENT), pas une absence ; un [REPAIRED] ou une escalade "
+            f"archivee serait invisible ; mesure partielle, transport non en "
+            f"cause")
 
 
 def store_keys_from_listing(result):
@@ -1934,7 +1987,13 @@ def load_entries_from_store(url, bearer, timeout=10.0, intercom_limit=200,
                     structured = entries_from_archive_json(archive_text)
                 except ValueError as exc:
                     lowered = str(exc).lower()
-                    if ARCHIVE_ABSENT_SIGNATURE in lowered:
+                    if ARCHIVE_UNREADABLE_SIGNATURE in lowered:
+                        # #4981 : fichier present, contenu non servi par le
+                        # client de synchronisation du serveur — pas une
+                        # absence. Meme verdict (lecture partielle).
+                        errors.append(archive_window_unreadable_error(
+                            key, name, str(exc)))
+                    elif ARCHIVE_ABSENT_SIGNATURE in lowered:
                         # c.458 : nom listé, fichier absent du miroir de ce
                         # siege — le transport a repondu et a nomme le motif.
                         # Lecture partielle (exit 1), diagnostics distincts.
@@ -3113,6 +3172,57 @@ le harnais au motif que Git resoudrait hors isolation
             absent_entries
         assert absent_reads == ["workspace-x-2026-11-03T04-00-00.md"], \
             absent_reads
+
+        # #4981 (ai-01, 28/11) — fichier PRESENT sur le miroir du serveur,
+        # contenu non servi (stat ok, lecture ENOENT). Le serveur garde la tete
+        # « introuvable » et ajoute sa note (jsboige-mcp-servers#1983) : le
+        # diagnostic dit ILLISIBLE, jamais ABSENTE ; meme verdict partiel.
+        unreadable_reads = []
+
+        def unreadable_fake_call(arguments, url, bearer, timeout=10.0,
+                                 client="x", return_rejected_text=False,
+                                 telemetry=None):
+            action = arguments.get("action")
+            if action == "list":
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "dashboards": [{"key": "workspace-x"}]})}]}
+            if action == "read":
+                return {"content": [{"type": "text", "text": live_envelope}]}
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True,
+                     "archives": ["workspace-x-2026-11-03T04-00-00.md"]})}]}
+            unreadable_reads.append(arguments["archiveFile"])
+            # Forme EXACTE de dashboard.ts apres jsboige-mcp-servers#1983.
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False, "action": "read_archive", "key": "workspace-x",
+                "type": "workspace", "localFile": "unreadable",
+                "message": (f"Archive '{arguments['archiveFile']}' introuvable"
+                            " [fichier listé mais illisible sur ce siège : "
+                            "stat ok, lecture ENOENT — contenu non servi par "
+                            "le client de synchronisation, pas une absence]")})}]}
+
+        try:
+            globals()["_load_transport"] = lambda: unreadable_fake_call
+            unreadable_entries, unreadable_errors, unreadable_keys = \
+                load_entries_from_store(None, "bearer", timeout=1.0, now=now,
+                                        window_hours=8.0)
+        finally:
+            globals()["_load_transport"] = saved_transport
+        assert unreadable_keys == ["workspace-x"], unreadable_keys
+        assert len(unreadable_errors) == 1, unreadable_errors
+        assert ("ILLISIBLE sur le miroir du serveur" in unreadable_errors[0]
+                and "pas une absence" in unreadable_errors[0]
+                and "ABSENTE" not in unreadable_errors[0]
+                and "mesure partielle" in unreadable_errors[0]
+                and "workspace-x-2026-11-03T04-00-00.md"
+                in unreadable_errors[0]), unreadable_errors
+        assert (len(unreadable_entries) == 1
+                and unreadable_entries[0]["body"] == "[DONE] cycle normal"), \
+            unreadable_entries
+        assert unreadable_reads == ["workspace-x-2026-11-03T04-00-00.md"], \
+            unreadable_reads
 
         # #4954 (ai-01, 27/11) — le jumeau ACTIF du cas precedent. `handleRead`
         # porte le motif de ses enveloppes d'echec dans `message` et ne remplit

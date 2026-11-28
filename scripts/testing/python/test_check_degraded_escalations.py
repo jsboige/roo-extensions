@@ -1666,6 +1666,52 @@ environnement degrade : jupyter-papermill muet depuis le preflight
             call, "u", "b", 1.0, archive_budget=cde.ArchivePassBudget(0, 0))
         self.assertEqual((closures, errors), ([], []))
 
+    def _second_pass_rejecting(self, message):
+        """Seconde passe sur UNE archive anterieure a la fenetre, que le
+        serveur rejette avec `message` (forme exacte de handleReadArchive)."""
+        entries = cde.parse_entries(self.entry(
+            "2026-10-30T00:30:00.000Z", "a|ws", "[DEGRADED] store injoignable"))
+        name = "workspace-ws-2026-10-31T04-00-00.md"
+
+        def call(arguments, url, bearer, timeout=10.0, **kwargs):
+            if "archiveFile" not in arguments:
+                return {"content": [{"type": "text", "text": json.dumps(
+                    {"success": True, "archives": [name]})}]}
+            return {"content": [{"type": "text", "text": json.dumps({
+                "success": False, "action": "read_archive",
+                "key": "workspace-ws", "type": "workspace",
+                "message": message.format(name=name)})}]}
+
+        return cde.second_pass_old_closures(
+            entries, ["workspace-ws"], cde.parse_ts("2026-11-01T09:00:00Z"),
+            call, "u", "b", 1.0, archive_budget=cde.ArchivePassBudget(0, 0))
+
+    def test_second_pass_names_an_unreadable_archive_as_unreadable(self):
+        # #4981 : 88 des 103 erreurs du 28/11 venaient de la seconde passe,
+        # libellees « enveloppe archive inexploitable » alors que le serveur
+        # disait « illisible sur ce siège » (jsboige-mcp-servers#1983).
+        closures, errors = self._second_pass_rejecting(
+            "Archive '{name}' introuvable [fichier listé mais illisible sur "
+            "ce siège : stat ok, lecture ENOENT — contenu non servi par le "
+            "client de synchronisation, pas une absence]")
+        self.assertEqual(closures, [])
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("ILLISIBLE sur le miroir du serveur", errors[0])
+        self.assertIn("(seconde passe)", errors[0])
+        self.assertIn("pas une absence", errors[0])
+        self.assertNotIn("ABSENTE", errors[0])
+        self.assertNotIn("inexploitable", errors[0])
+
+    def test_second_pass_names_an_absent_archive_as_absent(self):
+        closures, errors = self._second_pass_rejecting(
+            "Archive '{name}' introuvable")
+        self.assertEqual(closures, [])
+        self.assertEqual(len(errors), 1, errors)
+        self.assertIn("ABSENTE du miroir du serveur", errors[0])
+        self.assertIn("(seconde passe)", errors[0])
+        self.assertNotIn("ILLISIBLE", errors[0])
+        self.assertNotIn("inexploitable", errors[0])
+
     def test_lane_workspace_path_resolves_to_its_leaf(self):
         # Le champ workspace d'une lane est tantot un nom, tantot un chemin.
         self.assertEqual(
