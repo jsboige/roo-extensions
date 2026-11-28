@@ -1135,13 +1135,23 @@ def second_pass_old_closures(entries, keys, archive_cutoff, call, url, bearer,
             try:
                 archived = entries_from_archive_json(archive_text)
             except ValueError as exc:
-                if ARCHIVE_HUSK_SIGNATURE in str(exc).lower():
+                lowered = str(exc).lower()
+                if ARCHIVE_HUSK_SIGNATURE in lowered:
                     print(f"WARNING: {key}/{name}: coque d'archive vide "
                           f"ignoree (seconde passe) ({exc}) — sans contenu, "
                           f"rien a lire : non bloquant", file=sys.stderr)
                     continue
-                errors.append(f"{key}/{name}: enveloppe archive "
-                              f"inexploitable (seconde passe) ({exc})")
+                # #4981 : meme diagnostic que la fenetre — illisible sur le
+                # miroir du serveur, ou absent ; meme verdict (erreur).
+                if ARCHIVE_UNREADABLE_SIGNATURE in lowered:
+                    errors.append(archive_window_unreadable_error(
+                        key, name, str(exc), second_pass=True))
+                elif ARCHIVE_ABSENT_SIGNATURE in lowered:
+                    errors.append(archive_window_absent_error(
+                        key, name, str(exc), second_pass=True))
+                else:
+                    errors.append(f"{key}/{name}: enveloppe archive "
+                                  f"inexploitable (seconde passe) ({exc})")
                 continue
             found = [entry for entry in archived if is_repaired(entry)]
             closures.extend(found)
@@ -1444,7 +1454,7 @@ def archive_window_husk_error(key, name, detail):
             f"une escalade archivee serait invisible ; mesure partielle")
 
 
-def archive_window_absent_error(key, name, detail):
+def archive_window_absent_error(key, name, detail, second_pass=False):
     """c.458 (po-2024, 26/11) : nom servi par le listing, fichier ABSENT du
     miroir de CE siege — troisieme issue, distincte de la coque (#4796) et de
     « lecture sans contenu ».
@@ -1465,16 +1475,22 @@ def archive_window_absent_error(key, name, detail):
     Mesure : les 103 noms « absents » etaient presents et lisibles sur le
     miroir de po-2024, illisibles sur celui du hub. Le libelle nomme donc le
     miroir du serveur qui a repondu.
+
+    `second_pass` : la seconde passe (#4643, archives anterieures a la
+    fenetre) emploie le meme diagnostic — mesure po-2023/po-2028 28/11 : 88
+    des 103 erreurs venaient d'elle, sous le libelle « enveloppe archive
+    inexploitable ».
     """
-    return (f"{key}/{name}: archive declaree par le listing mais ABSENTE du "
-            f"miroir du serveur qui a repondu ({detail[:120]}) — nom liste "
+    where = " (seconde passe)" if second_pass else ""
+    return (f"{key}/{name}: archive declaree par le listing{where} mais "
+            f"ABSENTE du miroir du serveur qui a repondu ({detail[:120]}) — nom liste "
             f"sans fichier : la condensation ecrit le .md sur le siege qui la "
             f"fait, read_archive ne lit que le miroir de son serveur ; un "
             f"[REPAIRED] ou une escalade archivee serait invisible ; mesure "
             f"partielle, transport non en cause")
 
 
-def archive_window_unreadable_error(key, name, detail):
+def archive_window_unreadable_error(key, name, detail, second_pass=False):
     """#4981 (ai-01, 28/11) : nom liste, fichier PRESENT sur le miroir du
     serveur qui repond, contenu NON SERVI — `stat` et l'ouverture passent, la
     lecture rend ENOENT (client de synchronisation qui liste un nom sans son
@@ -1487,10 +1503,12 @@ def archive_window_unreadable_error(key, name, detail):
     transport ne sert a rien, c'est le client de synchronisation du serveur
     qui ne rend pas le contenu. Verdict inchange — une fenetre non lue reste
     une lecture partielle (exit 1, sonnerie annulee) : un [REPAIRED] dans ce
-    lot serait invisible d'ici.
+    lot serait invisible d'ici. `second_pass` : voir
+    `archive_window_absent_error`.
     """
-    return (f"{key}/{name}: archive listee mais ILLISIBLE sur le miroir du "
-            f"serveur qui a repondu ({detail[:120]}) — fichier present, "
+    where = " (seconde passe)" if second_pass else ""
+    return (f"{key}/{name}: archive listee{where} mais ILLISIBLE sur le "
+            f"miroir du serveur qui a repondu ({detail[:120]}) — fichier present, "
             f"contenu non servi par son client de synchronisation (stat ok, "
             f"lecture ENOENT), pas une absence ; un [REPAIRED] ou une escalade "
             f"archivee serait invisible ; mesure partielle, transport non en "
