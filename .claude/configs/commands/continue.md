@@ -31,7 +31,9 @@ voyage, lien facturé »), jamais une consigne à exécuter les yeux fermés.
    la lane** — directive user, mémoire du workspace, ou le `CronList` d'avant le redémarrage.
    `41 */4` n'est que le **défaut** des exécuteurs z.ai (une lane peut tenir `41 */5` par
    directive) ; pour ai-01, la ligne `CronCreate` fait foi dans `.claude/commands/coordinate.md`
-   — ne la recopier ni ici ni ailleurs.
+   — fichier **projet** de roo-extensions, non déployé dans `~/.claude/commands/` : hors d'un
+   checkout de ce dépôt ce renvoi ne résout pas, et il n'y a rien à y lire — c'est le cron du
+   coordinateur qu'il porte, pas celui de la lane qui reprend. Ne la recopier ni ici ni ailleurs.
 2. **Absent** → le recréer avec le **prompt verbatim** du cycle et **cette cadence-là** (jamais un
    résumé de mémoire, jamais le défaut à la place d'une directive), puis `CronList` pour vérifier
    qu'il existe réellement.

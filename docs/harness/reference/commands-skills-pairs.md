@@ -1,8 +1,8 @@
 # Commands ↔ Skills — allowlist explicite de parité
 
-**Version:** 1.1.0
-**Issue :** #3381 (mission D9 — prescription ai-01 03/09, dispatch 05/10)
-**MAJ :** 2026-10-16
+**Version:** 1.2.0
+**Issue :** #3381 (mission D9 — prescription ai-01 03/09, dispatch 05/10) · #4962 (command « configs-only »)
+**MAJ :** 2026-11-28
 
 ---
 
@@ -44,6 +44,15 @@ la présence des deux noms.
 | `/coordinate` | Session coordinateur ai-01 — invoquée par son cron de session (cadence : ligne canonique de `coordinate.md` § « Wakeup Cycle Cadence »), jamais par auto-trigger (un auto-trigger coordinator serait une régression d'intention) |
 | `/switch-provider` | Bascule explicite de provider — geste utilisateur deliberé, aucun contexte à matcher |
 | `/team` | Pipeline team-… explicite — l'auto-invocation d'un orchestrateur multi-étapes n'est pas voulue |
+
+**Cas particulier — `/continue` : première command « configs-only » (#4962, mesuré 28/11).** Sa
+source vit dans `.claude/configs/commands/continue.md`, déployée au niveau user par
+`Deploy-GlobalConfig.ps1 -Target commands` (donc présente sur tout siège, y compris sans checkout
+du dépôt) : **aucun jumeau dans `.claude/commands/`**. C'est la première command dans ce cas —
+`debrief` et `switch-provider`, aussi présents dans `configs/commands/`, ont chacun leur jumeau.
+Elle ne compte ni dans les « 5 commands » ci-dessus ni dans la recette, qui ne lisent que
+`.claude/commands/`. Sans skill, comme les trois command de la table : reprise explicite après
+redémarrage, rien à auto-invoquer.
 
 ### Skills sans command (7) — INTENTIONNEL
 
