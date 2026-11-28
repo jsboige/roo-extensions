@@ -1945,10 +1945,17 @@ function Test-GitHubDecision {
     #>
     param([string]$TaskId, $WaitState)
 
-    # Extraire issue number du TaskId ou du waitFor
+    # Extraire issue number du TaskId ou du waitFor.
+    # 3e branche (#4953) : le worker nomme lui-meme ses wait-states "github-N"
+    # (id = "github-$($Issue.number)") et Save-WaitState garde ce nom. Un waitFor
+    # libre sans "#" ne résolvait rien : "Pas d'issue number", donc jamais prêt
+    # (mesure po-204 : github-4736 et github-4731, 3 passages). Les deux branches
+    # historiques restent en tête : un wait-state qui résolvait déjà un numéro
+    # résout le MÊME (un waitFor qui cite "#M" désigne toujours M).
     $IssueNumber = $null
     if ($TaskId -match '#(\d+)') { $IssueNumber = $Matches[1] }
     elseif ($WaitState.waitFor -match '#(\d+)') { $IssueNumber = $Matches[1] }
+    else { $IssueNumber = Get-WaitStateIssueNumber -TaskId $TaskId }
 
     if (-not $IssueNumber) {
         Write-Log "  Pas d'issue number trouvée dans TaskId ou waitFor"

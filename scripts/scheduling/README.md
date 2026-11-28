@@ -238,6 +238,8 @@ Accordingly, `Build-ResumePrompt` and the resume logs describe the observed sign
 
 One technical lock does sit in front of a resume since #4953, on a different question — *may this lane touch the issue*: `Test-IssueClaimBlocksResume` asks `check_issue_claim.py` (ADR 017) for the issue carried by the wait-state id, and any exit but 0 (foreign active claim, closed issue, unreadable instrument, repository ambiguity) skips the resume and keeps the wait-state. A foreign claim older than the 24 h stale threshold (`check_issue_claim.py --stale-threshold`) no longer blocks. It says nothing about human approval. Guarded by `scripts/testing/unit/worker-resume-claim-guard.Tests.ps1`.
 
+Which object `Test-GitHubDecision` reads: a `#N` in the wait-state id, else a `#N` in `waitFor`, else — since the #4953 follow-up — the issue carried by the id (`github-N`, `issue-N`). Before that third branch, a `github-N` wait-state whose `waitFor` carried no `#N` logged `Pas d'issue number trouvée dans TaskId ou waitFor` and was never ready, so the lock above was never consulted for it (measured on po-204, 27–28/11: `github-4736`, `github-4731`). A wait-state that already resolved a number still reads the same one. Guarded by `scripts/testing/unit/worker-gh-rest.Tests.ps1`.
+
 ---
 
 ## Logs
