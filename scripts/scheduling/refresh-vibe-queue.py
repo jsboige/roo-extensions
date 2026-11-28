@@ -52,10 +52,78 @@ import argparse
 import collections
 import io
 import json
+import ntpath
 import os
 import re
 import subprocess
 import sys
+import tempfile
+
+
+def load_queue(queue_path):
+    """Require a readable queue: reservations cannot be safely reconstructed empty."""
+    with io.open(queue_path, encoding="utf-8") as fh:
+        loaded = json.load(fh)
+    if (not isinstance(loaded, dict) or not isinstance(loaded.get("grains"), list)
+            or any(not isinstance(g, dict) for g in loaded["grains"])):
+        raise ValueError("Invalid queue: expected an object containing a list of grain objects")
+    return loaded
+
+
+def load_or_bootstrap_queue(queue_path):
+    """Start empty only on a fresh seat: neither the queue nor its .bak exists.
+
+    No file and no backup means no reservation can be lost, so an empty start
+    is legitimate (behaviour of main before the fail-closed loader). A queue
+    absent beside a .bak is a lost queue, not a fresh seat: refuse, like an
+    empty or invalid queue (load_queue).
+    """
+    if not os.path.exists(queue_path):
+        if os.path.exists(queue_path + ".bak"):
+            raise FileNotFoundError(
+                "Queue absent beside its .bak: %s -- refusing an empty restart "
+                "that would drop the backed-up reservations" % queue_path)
+        return {"grains": []}
+    return load_queue(queue_path)
+
+
+def publish_text(path, text):
+    """Replace a file only once the complete new content is on disk."""
+    fd, temp_path = tempfile.mkstemp(prefix=os.path.basename(path) + ".",
+                                     suffix=".tmp", dir=os.path.dirname(path))
+    try:
+        with io.open(fd, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+        os.replace(temp_path, path)
+    finally:
+        active_error = sys.exc_info()[0] is not None
+        if os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except OSError as exc:
+                if not active_error:
+                    raise
+                print("WARN: nettoyage du temporaire echoue: %s" % exc, file=sys.stderr)
+
+
+def preserve_previous(queue_path, previous):
+    """Rotate the previous content into .bak, never erasing a good backup.
+
+    A blank previous file carries no information: copying it over .bak would
+    destroy the last known-good queue at the exact moment it is worth the
+    most (incident po-2025 26/11 -- 0-byte queue beside a 307 247-byte .bak
+    that a naive rotation would have overwritten with nothing).
+    """
+    try:
+        parsed = json.loads(previous)
+    except ValueError:
+        return False
+    if (not isinstance(parsed, dict) or not isinstance(parsed.get("grains"), list)
+            or any(not isinstance(g, dict) for g in parsed["grains"])):
+        return False
+    publish_text(queue_path + ".bak", previous)
+    return True
+
 
 FLOOR = 10          # fournee floor: confirmed findings per grain (contract #15719)
 MAX_FILES = 15      # anti-composite cap: files per PR
@@ -280,7 +348,7 @@ def fresh_base(repo, base):
 
 
 def ensure_scan_wt(repo, base, path):
-    out = sh(["git", "-C", repo, "worktree", "list"], check=False)
+    out = sh(["git", "-C", repo, "worktree", "list"])
     known = {os.path.normcase(os.path.normpath(l.split()[0]))
              for l in out.splitlines() if l.strip()}
     target = os.path.normcase(os.path.normpath(path))
@@ -551,6 +619,13 @@ def _open_prs_rest(slug, pats):
     while True:
         chunk = json.loads(sh(["gh", "api",
                                "repos/%s/pulls?state=open&per_page=100&page=%d" % (slug, page)]))
+        if not isinstance(chunk, list) or any(
+                not isinstance(p, dict) or not isinstance(p.get("number"), int)
+                or not isinstance(p.get("title"), str)
+                or not isinstance(p.get("head"), dict)
+                or not isinstance(p["head"].get("ref"), str)
+                or not p["head"]["ref"] for p in chunk):
+            raise ValueError("Invalid open PR listing on page %s" % page)
         listed.extend(chunk)
         if len(chunk) < 100:
             break
@@ -566,6 +641,10 @@ def _open_prs_rest(slug, pats):
             while True:
                 fchunk = json.loads(sh(["gh", "api", "repos/%s/pulls/%d/files"
                                         "?per_page=100&page=%d" % (slug, number, fpage)]))
+                if not isinstance(fchunk, list) or any(
+                        not isinstance(f, dict) or not isinstance(f.get("filename"), str)
+                        or not f["filename"] for f in fchunk):
+                    raise ValueError("Invalid files for PR %s page %s" % (number, fpage))
                 # REST renvoie "filename" (pas "path", forme GraphQL —
                 # KeyError prouve en live par Hermes, review #4239).
                 files.extend(f["filename"].replace("\\", "/") for f in fchunk)
@@ -605,23 +684,23 @@ def issue_claims(slug, issues):
     Remplace `gh issue view N --json comments` (GraphQL) : l'endpoint de
     commentaires pagine a 30 par defaut et l'ancienne forme plafonnait les
     longues files — per_page=100 + boucle rendent tout, structurellement.
-    check=False : une issue illisible est SKIPPEE (parite de l'ancienne
-    jambe, qui `continue` sur sortie non-JSON) — la deconfliction perd au
-    pire ces claims-la, elle n'en fabrique pas.
+    Une reponse illisible ou incomplete interdit la deconfliction : un claim
+    inconnu ne doit jamais etre traite comme absent.
     """
     paths = set()
     for issue in issues:
         page = 1
         while True:
             out = sh(["gh", "api",
-                      "repos/%s/issues/%s/comments?per_page=100&page=%d" % (slug, issue, page)],
-                     check=False)
+                      "repos/%s/issues/%s/comments?per_page=100&page=%d" % (slug, issue, page)])
             try:
-                comments = json.loads(out) if out.strip() else []
-            except ValueError:
-                break
-            if not isinstance(comments, list):
-                break
+                comments = json.loads(out)
+            except ValueError as exc:
+                raise ValueError("Cannot read claims for issue %s page %s" % (issue, page)) from exc
+            if not isinstance(comments, list) or any(
+                    not isinstance(c, dict) or not isinstance(c.get("body"), str)
+                    for c in comments):
+                raise ValueError("Invalid claims for issue %s page %s" % (issue, page))
             for c in comments:
                 paths |= claimed_paths([c.get("body") or ""])
             if len(comments) < 100:
@@ -651,9 +730,8 @@ def merged_branches(slug, branches):
     review; reliquat of #3643). One call per queued branch (the queue holds a handful), with no
     dependence on how fast history scrolls.
 
-    check=False: a gh failure must leave the queue as it is, never crash the
-    refresh. A failed or unreadable lookup says so on stdout and leaves that
-    branch undelivered -- it drops nothing and never widens the drop.
+    An unreadable lookup aborts refresh: an unknown delivery state must not
+    be mistaken for an undelivered branch and used to regenerate work.
     """
     delivered = set()
     for b in sorted(branches):
@@ -668,20 +746,17 @@ def merged_branches(slug, branches):
         page = 1
         while True:
             out = sh(["gh", "api",
-                      "repos/%s/pulls?state=closed&head=%s&per_page=100&page=%d" % (slug, b, page)],
-                     check=False)
-            if not out.strip():
-                print("WARN: lookup merged sans reponse pour %s — branche traitee non livree" % b)
-                break
+                      "repos/%s/pulls?state=closed&head=%s&per_page=100&page=%d" % (slug, b, page)])
             try:
                 prs = json.loads(out)
-            except ValueError:
-                print("WARN: lookup merged illisible pour %s — branche traitee non livree" % b)
-                break
-            if not isinstance(prs, list):
-                print("WARN: lookup merged inattendu pour %s — branche traitee non livree" % b)
-                break
-            if any(isinstance(p, dict) and p.get("merged_at") for p in prs):
+            except ValueError as exc:
+                raise ValueError("Cannot read merged PRs for branch %s page %s" % (b, page)) from exc
+            if not isinstance(prs, list) or any(
+                    not isinstance(p, dict) or "merged_at" not in p or
+                    (p["merged_at"] is not None and not isinstance(p["merged_at"], str))
+                    for p in prs):
+                raise ValueError("Invalid merged PRs for branch %s page %s" % (b, page))
+            if any(p["merged_at"] for p in prs):
                 delivered.add(b)
                 break
             if len(prs) < 100:
@@ -815,9 +890,11 @@ def keepable(queue, base, delivered_branches):
         branch = g.get("branch") or ""
         in_flight = False
         if os.path.isdir(wt):
-            ahead = sh(["git", "-C", wt, "rev-list", "--count", "%s..HEAD" % base], check=False).strip()
-            dirty = sh(["git", "-C", wt, "status", "--porcelain"], check=False).strip()
-            in_flight = (ahead.isdigit() and int(ahead) > 0) or bool(dirty)
+            ahead = sh(["git", "-C", wt, "rev-list", "--count", "%s..HEAD" % base]).strip()
+            if not ahead.isdigit():
+                raise ValueError("Cannot determine worktree state: %s" % wt)
+            dirty = sh(["git", "-C", wt, "status", "--porcelain"]).strip()
+            in_flight = int(ahead) > 0 or bool(dirty)
         if branch in delivered_branches:
             if in_flight:
                 print("WARN: branche livree %s reutilisee par un worktree en vol — grain %s conserve (generation en cours)"
@@ -841,9 +918,124 @@ def payload_paths(g):
             continue
         if inside and (s.startswith("worktree:") or s.startswith("branch:")):
             break
-        if inside and s.startswith("- "):
-            out.add(s[2:].strip())
+        if inside and (s == "-" or s.startswith("- ")):
+            out.add(s[1:].strip())
     return out
+
+
+def recovery_reservations(queue):
+    """Build a conservative manifest; never infer that a backup grain is free."""
+    grains = queue.get("grains")
+    if not isinstance(grains, list):
+        raise ValueError("Invalid recovery queue")
+    paths = set()
+    ids, branches, worktrees = set(), set(), set()
+    for grain in grains:
+        if not isinstance(grain, dict) or any(
+                not isinstance(grain.get(key), str) or not grain[key].strip()
+                for key in ("id", "branch", "worktree", "payload")):
+            raise ValueError("Recovery grain lacks reservation identity")
+        wt = ntpath.normcase(ntpath.normpath(grain["worktree"]))
+        if grain["id"] in ids or grain["branch"] in branches or wt in worktrees:
+            raise ValueError("Duplicate recovery reservation identity")
+        ids.add(grain["id"])
+        branches.add(grain["branch"])
+        worktrees.add(wt)
+        lines = grain["payload"].splitlines()
+        payload_worktrees = [line.strip().split(":", 1)[1].strip() for line in lines
+                             if line.strip().startswith("worktree:")]
+        payload_branches = [line.strip().split(":", 1)[1].strip() for line in lines
+                            if line.strip().startswith("branch:")]
+        if (len(payload_worktrees) != 1 or len(payload_branches) != 1
+                or ntpath.normcase(ntpath.normpath(payload_worktrees[0])) != wt
+                or payload_branches[0] != grain["branch"]):
+            raise ValueError("Recovery payload identity does not match grain")
+        headers = [i for i, line in enumerate(lines) if line.strip() == "targetPath:"]
+        if len(headers) != 1:
+            raise ValueError("Recovery grain has ambiguous target block")
+        targets = []
+        for line in lines[headers[0] + 1:]:
+            item = line.strip()
+            if item.startswith("worktree:"):
+                break
+            if not item.startswith("- ") or not item[2:].strip():
+                raise ValueError("Recovery grain has invalid target block")
+            target = item[2:].strip()
+            normalized = ntpath.normpath(target)
+            if (ntpath.splitdrive(target)[0] or target.startswith(('/', '\\'))
+                    or normalized in ('.', '..') or normalized.startswith('..\\')):
+                raise ValueError("Recovery grain has invalid target path")
+            targets.append(target)
+        else:
+            raise ValueError("Recovery grain has unterminated target block")
+        if not targets:
+            raise ValueError("Recovery grain lacks target paths")
+        paths.update(targets)
+    return {"version": 1, "grains": grains, "paths": sorted(paths)}
+
+
+def create_recovery_manifest(path, queue):
+    """Publish a complete manifest once, without replacing an existing one."""
+    manifest = recovery_reservations(queue)
+    fd, temporary = tempfile.mkstemp(prefix=os.path.basename(path) + ".", suffix=".tmp",
+                                     dir=os.path.dirname(os.path.abspath(path)))
+    try:
+        with io.open(fd, "w", encoding="utf-8", newline="\n") as fh:
+            json.dump(manifest, fh, ensure_ascii=False, indent=2)
+            fh.write("\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        # A hard link publishes the completed file without overwriting a rival.
+        os.link(temporary, path)
+    finally:
+        os.unlink(temporary)
+
+
+def read_recovery_manifest(path):
+    """Reject incomplete or inconsistent manifests rather than freeing work."""
+    with open(path, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+    if not isinstance(manifest, dict) or manifest.get("version") != 1:
+        raise ValueError("Invalid recovery manifest version")
+    expected = recovery_reservations(manifest)
+    if manifest.get("paths") != expected["paths"]:
+        raise ValueError("Inconsistent recovery manifest paths")
+    return manifest
+
+
+def recovery_conflicts(grain, manifest):
+    """Fail closed on malformed candidates and compare Windows path aliases."""
+    candidate = recovery_reservations({"grains": [grain]})
+    norm = lambda path: ntpath.normcase(ntpath.normpath(path))
+    targets = {norm(p) for p in candidate["paths"]}
+    for reserved in manifest["grains"]:
+        if (grain["id"] == reserved["id"] or grain["branch"] == reserved["branch"]
+                or norm(grain["worktree"]) == norm(reserved["worktree"])):
+            return True
+    return bool(targets & {norm(p) for p in manifest["paths"]})
+
+
+def exclude_recovery_targets(free, manifest):
+    """Exclude every quarantined target, including Windows path aliases."""
+    reserved = {ntpath.normcase(ntpath.normpath(p)) for p in manifest["paths"]}
+    return {p: value for p, value in free.items()
+            if ntpath.normcase(ntpath.normpath(p)) not in reserved}
+
+
+def available_grain_name(index, slug, prefix, wt_root, reserved_ids, reserved_branches,
+                         reserved_worktrees=()):
+    """Do not assign a new grain an existing reservation or worktree."""
+    normalized_worktrees = {ntpath.normcase(ntpath.normpath(p)) for p in reserved_worktrees}
+    suffix = 1
+    while True:
+        gid = "g%d-%s%s" % (index, slug, "" if suffix == 1 else "-%d" % suffix)
+        branch = prefix + gid
+        wt = "%s/%s" % (wt_root.rstrip("/"), gid)
+        if (gid not in reserved_ids and branch not in reserved_branches
+                and ntpath.normcase(ntpath.normpath(wt)) not in normalized_worktrees
+                and not os.path.lexists(wt)):
+            return gid, branch, wt
+        suffix += 1
 
 
 def subtract_concluded_families(free, contract):
@@ -871,6 +1063,11 @@ def main():
     ap.add_argument("--scan-wt", default="D:/dev/CoursIA-vibe/_scan-queue")
     ap.add_argument("--wt-root", default="D:/dev/CoursIA-vibe")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--recovery-manifest", help="experimental quarantine manifest (dry-run only)")
+    ap.add_argument("--simulate-backup", action="store_true",
+                    help="simulate from backup, reserving every grain (dry-run only)")
+    ap.add_argument("--inspect-backup", action="store_true",
+                    help="read and validate backup only; no scan, network or writes")
     ap.add_argument("--famine", action="store_true",
                     help="accepte le residu sous plancher comme grain voie legere "
                          "(levier de lane sur la metrique du mandat vibe-burn ; "
@@ -882,6 +1079,13 @@ def main():
                          "PRs tenues a la main et a duplique #21032 ; tout semis "
                          "soustrait cet export, jamais une liste manuelle")
     args = ap.parse_args()
+
+    if args.inspect_backup:
+        if args.simulate_backup or args.recovery_manifest or args.print_conflicts:
+            raise ValueError("Backup inspection cannot be combined with other recovery modes")
+        manifest = recovery_reservations(load_queue(os.path.abspath(args.queue) + ".bak"))
+        print(json.dumps({"grains": len(manifest["grains"]), "paths": len(manifest["paths"])}))
+        return
 
     issues = args.issue or default_issues()
 
@@ -901,6 +1105,18 @@ def main():
         }, ensure_ascii=False))
         return
 
+    if (args.recovery_manifest or args.simulate_backup) and not args.dry_run:
+        raise ValueError("Recovery integration is experimental: dry-run only")
+    if args.recovery_manifest and args.simulate_backup:
+        raise ValueError("Choose one recovery source")
+    queue_path = os.path.join(os.getcwd(), args.queue)
+    if args.simulate_backup:
+        old = load_queue(queue_path + ".bak")
+        manifest = recovery_reservations(old)
+    else:
+        manifest = (read_recovery_manifest(args.recovery_manifest) if args.recovery_manifest
+                    else {"version": 1, "grains": [], "paths": []})
+        old = load_or_bootstrap_queue(queue_path)
     base = fresh_base(args.repo, args.base)
     print("base: %s | contrats: %s" % (base, ", ".join("#%d" % i for i in issues)))
 
@@ -910,15 +1126,11 @@ def main():
     print("deconfliction: %d tenus par une PR ouverte (%s) | %d claims sans PR"
           % (len(held), ", ".join("#%d" % i for i in issues), len(claims)))
 
-    queue_path = os.path.join(os.getcwd(), args.queue)
-    old = {}
-    if os.path.isfile(queue_path):
-        with io.open(queue_path, encoding="utf-8") as fh:
-            old = json.load(fh)
     queue_branches = {g.get("branch") for g in (old.get("grains") or []) if g.get("branch")}
     delivered = open_branches | merged_branches(args.slug, queue_branches)
     print("branches livrees (ouvertes + merged au lookup exact par branche): %d" % len(delivered))
     keep, dropped = keepable(old, base, delivered)
+    keep = [g for g in keep if not recovery_conflicts(g, manifest)] if manifest["grains"] else keep
     if dropped:
         print("livres -> retires de la file: %s" % ", ".join(dropped))
     kept_paths = set()
@@ -926,12 +1138,17 @@ def main():
         kept_paths |= payload_paths(g)
 
     grains = list(keep)
+    reserved_ids = {g.get("id") for g in old.get("grains", []) if g.get("id")}
+    reserved_ids.update(g["id"] for g in manifest["grains"])
+    reserved_branches = {g["branch"] for g in manifest["grains"]}
+    reserved_worktrees = {g["worktree"] for g in manifest["grains"]}
     total, n_planned = 0, 0
     for issue in issues:
         contract = CONTRACTS[issue]
         found = contract["scan"](scan_wt)
         free = {p: f for p, f in found.items()
                 if p not in held and p not in kept_paths and p not in claims}
+        free = exclude_recovery_targets(free, manifest)
         # Familles CONCLUES (end-of-life, 08/10) : soustraites APRES la
         # deconfliction, pour que le compte imprime distingue « plus rien de
         # libre » de « libre mais famille close ». Le filtre ne touche que les
@@ -963,15 +1180,11 @@ def main():
             # branche d'une PR du 15/09, deja mergee -> grain neuf jamais parti).
             # Le generateur connait deja les noms pris : il decale la generation
             # au lieu d'emettre un nom brule.
-            gid = "g%d-%s" % (i, slug)
-            branch = "%s%s" % (prefix, gid)
-            bump = 2
-            while branch in delivered:
-                gid = "g%d-%s-%d" % (i, slug, bump)
-                branch = "%s%s" % (prefix, gid)
-                bump += 1
+            gid, branch, wt = available_grain_name(
+                i, slug, prefix, args.wt_root, reserved_ids,
+                delivered | queue_branches | reserved_branches, reserved_worktrees)
+            reserved_ids.add(gid)
             delivered.add(branch)
-            wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
             targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
             # Discriminant de generation (#3755) : on capture la SHA de tete du
             # worktree au moment ou le grain est pose en file. Le feeder
@@ -1022,13 +1235,17 @@ def main():
         print("\n[DRY-RUN] %d grain(s) au total, %d findings planifies — file non ecrite"
               % (len(grains), total))
         return
-    if os.path.isfile(queue_path):
-        with io.open(queue_path, encoding="utf-8") as fh:
+    if os.path.exists(queue_path):
+        with io.open(queue_path, encoding="utf-8", newline="") as fh:
             previous = fh.read()
-        with io.open(queue_path + ".bak", "w", encoding="utf-8", newline="\n") as fh:
-            fh.write(previous)
-    with io.open(queue_path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(json.dumps(out, ensure_ascii=False, indent=2) + "\n")
+        if not preserve_previous(queue_path, previous):
+            raise ValueError("Queue became invalid; refusing publication")
+    elif os.path.exists(queue_path + ".bak"):
+        raise FileNotFoundError("Queue vanished beside its .bak; refusing publication")
+    # else: fresh seat (load_or_bootstrap_queue) -- nothing to rotate.
+    # Publish a complete file by replacement: an interrupted write must not
+    # truncate the previous queue (the 0-byte file of 23/11 is exactly that).
+    publish_text(queue_path, json.dumps(out, ensure_ascii=False, indent=2) + "\n")
     print("\nfile ecrite: %s (%d grains, %d findings, precedent conserve en .bak)"
           % (queue_path, len(grains), total))
 
