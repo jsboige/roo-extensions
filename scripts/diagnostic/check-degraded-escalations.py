@@ -1492,8 +1492,11 @@ class ReadTelemetry:
     par les nombres seuls, sans relire le code ni rejouer la passe.
     """
 
-    def __init__(self, slow_s=SLOW_READ_S):
+    def __init__(self, slow_s=SLOW_READ_S, second_retry_budget=None):
         self.slow_s = slow_s
+        # #4961 : None = defaut STORE_SECOND_RETRY_BUDGET_S (lu a l'appel) ;
+        # <= 0 desactive la 2e relance (--second-retry-budget).
+        self.second_retry_budget = second_retry_budget
         self.calls = 0
         self.failed = 0
         self.retried = 0
@@ -1514,6 +1517,8 @@ class ReadTelemetry:
         self.second_retried = 0
         self.second_recovered = 0
         self.second_skipped = 0
+        self.second_disabled = 0
+        self.second_exhausted = 0
         self._second_spent_s = 0.0
 
     def observe(self, seconds, result, telemetry=None):
@@ -1556,9 +1561,15 @@ class ReadTelemetry:
         passe d'archives et la seconde passe) : le budget est donc GLOBAL au
         run. Une pause qui ne tiendrait plus dedans est refusee — jamais un
         essai entame que le budget ne couvre pas."""
-        if STORE_SECOND_RETRY_BUDGET_S <= 0:
+        budget = self._second_budget()
+        if budget <= 0:
             return False
-        return self._second_spent_s + pause_s < STORE_SECOND_RETRY_BUDGET_S
+        return self._second_spent_s + pause_s < budget
+
+    def _second_budget(self):
+        if self.second_retry_budget is None:
+            return STORE_SECOND_RETRY_BUDGET_S
+        return self.second_retry_budget
 
     def mark_second_retry(self):
         self.second_retried += 1
@@ -1571,7 +1582,13 @@ class ReadTelemetry:
         self.second_recovered += 1
 
     def mark_second_skipped(self):
+        """Refus de la 2e relance, motif distingue : desactivee (budget <= 0)
+        ou budget epuise. `second_skipped` reste le total."""
         self.second_skipped += 1
+        if self._second_budget() <= 0:
+            self.second_disabled += 1
+        else:
+            self.second_exhausted += 1
 
     def _pct_ms(self, p):
         if not self._latencies:
@@ -1594,6 +1611,8 @@ class ReadTelemetry:
             "second_retried": self.second_retried,
             "second_recovered": self.second_recovered,
             "second_skipped": self.second_skipped,
+            "second_disabled": self.second_disabled,
+            "second_exhausted": self.second_exhausted,
             "second_spent_s": round(self._second_spent_s, 1),
             "slow_threshold_s": self.slow_s,
             "p50_ms": self._pct_ms(0.50),
@@ -1622,9 +1641,15 @@ class ReadTelemetry:
         if s["second_retried"] or s["second_skipped"]:
             # Rendu seulement quand il y a quelque chose : la ligne d'un run
             # sans 2e relance reste byte-a-byte celle d'avant.
+            skipped = []
+            if s["second_exhausted"]:
+                skipped.append(f"{s['second_exhausted']} budget epuise")
+            if s["second_disabled"]:
+                skipped.append(f"{s['second_disabled']} desactivee")
+            skipped_txt = ", ".join(skipped) if skipped else "0 sans budget"
             line += (f" ; 2e relance {s['second_retried']} "
                      f"({s['second_recovered']} recuperee(s), "
-                     f"{s['second_skipped']} sans budget, "
+                     f"{skipped_txt}, "
                      f"{s['second_spent_s']} s)")
         return line
 
@@ -3278,6 +3303,13 @@ def main(argv=None):
                              f"vivantes continuent. Defaut "
                              f"{DEFAULT_ARCHIVE_TIME_BUDGET_S:g} s, 0 = illimite "
                              f"(#4661)")
+    parser.add_argument("--second-retry-budget", type=float,
+                        default=STORE_SECOND_RETRY_BUDGET_S, metavar="SECONDS",
+                        help=f"budget (s) de la 2e relance espacee d'une "
+                             f"lecture muette du store, global au run, pause + "
+                             f"essai comptes au reel (#4958/#4961). Defaut "
+                             f"{STORE_SECOND_RETRY_BUDGET_S:g} s, 0 = "
+                             f"2e relance desactivee")
     parser.add_argument("--archive-hard-ceiling", type=float,
                         default=DEFAULT_ARCHIVE_HARD_CEILING_S, metavar="SECONDS",
                         help=f"plafond MURAL (s) de secours de la passe "
@@ -3347,7 +3379,7 @@ def main(argv=None):
         entries, errors = load_entries(paths)
     else:
         loader = _store_loader or load_entries_from_store
-        read_tel = ReadTelemetry()
+        read_tel = ReadTelemetry(second_retry_budget=args.second_retry_budget)
         store = (loader(args.ring_url, args.ring_bearer,
                         timeout=args.ring_timeout, now=now,
                         window_hours=args.cycles * args.cycle_hours,
