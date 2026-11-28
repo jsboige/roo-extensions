@@ -52,9 +52,12 @@ la ligne du parseur prouve ce qu'il en a *gardé*. Une valeur qu'il dégrade en 
 `drift` — pas `aligned`. **Une lecture de conteneur seule n'est jamais une confirmation** :
 consommateur muet ⇒ `no-snapshot` ⇒ verdict `non-covered`.
 
-Mesuré sur ai-01 le 29/10 : le sidecar émet cette ligne **~1,6 s après le démarrage** — la
-fenêtre de confirmation suit donc un recreate de très près. En dehors de cette fenêtre
-transitoire, une absence de ligne signifie un build qui ne la produit pas.
+Mesuré sur ai-01 le 29/10 : le sidecar émet cette ligne **~1,6 s après le démarrage**, et
+**une seule fois**. L'instrument la lit dans la **fenêtre de démarrage** (`--since`/
+`--until` sur `StartedAt`), jamais dans la queue : sur un siège occupé — le hub écrit
+~500 lignes/min — `--tail 400` la perd en moins d'une minute, et `confirm` rendait alors
+un `consumer-muted` **faux**, sur un consommateur qui avait parlé (#4968). Une absence de
+ligne dans cette fenêtre signifie un build qui ne la produit pas.
 
 Un `.env` correct avec un conteneur périmé vaut **`needs-recreate`**, pas « drift ». C'est la distinction qui justifie l'outil : docker compose **fige** `environment:` au `create`, donc écrire le fichier ne déploie rien.
 
@@ -62,10 +65,15 @@ Sources de vérité live, toutes gratuites :
 
 ```bash
 docker exec <ct> cat /proc/1/environ | tr '\0' '\n' | grep CLAUDISH_FAILOVER   # RUNNING (reçu)
-docker inspect --format '{{.State.StartedAt}}' <ct>                            # péremption
-docker logs --tail 400 <ct> | grep '\[Failover\] configured='                  # CONSUMER (accepté)
+STARTED=$(docker inspect --format '{{.State.StartedAt}}' <ct>)                  # péremption
+docker logs --since "$STARTED" <ct> | grep '\[Failover\] configured='            # CONSUMER (accepté)
 curl -s http://127.0.0.1:3002/health   # gratuit — /v1/messages est PAYANT, ne jamais sonder
 ```
+
+**Jamais `--tail` pour cette ligne** : elle n'est émise qu'au boot, et un siège occupé la
+fait sortir des 400 dernières lignes en moins d'une minute. L'instrument lit la fenêtre
+`[StartedAt, StartedAt + 120 s]` ; la commande ci-dessus relit tout le journal depuis le
+démarrage (`grep` ne garde que la ligne qui compte).
 
 ---
 
