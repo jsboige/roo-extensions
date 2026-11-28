@@ -263,4 +263,25 @@ Describe 'measure-gdrive-write-freeze (Phase D #4131)' {
         Assert-That ($r.Output -match 'PHASE-D\] NOT-MET') "ligne NOT-MET absente: $($r.Output)"
         Assert-That ($r.Output -match [regex]::Escape('inventories (2)')) "le jumeau chaud n'est pas nomme dans la sortie: $($r.Output)"
     }
+
+    It '(m) une tete de dashboard ILLISIBLE rend NOT-MET en la nommant comme INCONNUE, jamais comme export justifiee' {
+        $fx = New-FrozenStore
+        # Tete illisible = le contenu n'est pas servi (DriveFS) ou le fichier est
+        # tenu en ecriture : la justification de l'ecriture ne peut NI etre prouvee
+        # NI etre infirmee. Le fichier passe INCONNU -- il ne doit PAS compter comme
+        # export justifiee (sinon un residu masqué), et le verdict reste NOT-MET
+        # (un critere de gel ne se prouve pas sur une mesure incomplete).
+        $locked = Join-Path $fx 'dashboards\workspace-locked.md'
+        New-DashboardFile -Path $locked -AgeHours 1
+        $handle = [System.IO.File]::Open($locked, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        try {
+            $r = Invoke-Measure -Store $fx
+            Assert-That ($r.ExitCode -eq 1) "exit 1 attendu (justification inconnue = critere non prouve), obtenu $($r.ExitCode) -- sortie: $($r.Output)"
+            Assert-That ($r.Output -match [regex]::Escape('workspace-locked.md')) "le fichier a tete illisible n'est pas nomme: $($r.Output)"
+            Assert-That ($r.Output -match 'head illisible') "la sortie ne distingue pas l'inconnue du residu: $($r.Output)"
+            Assert-That ($r.Output -notmatch [regex]::Escape('1 export-justified')) "le fichier illisible a ete compte comme export justifie: $($r.Output)"
+        } finally {
+            $handle.Dispose()
+        }
+    }
 }

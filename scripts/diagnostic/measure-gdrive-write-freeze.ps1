@@ -32,6 +32,17 @@ export is masked; the metric samples last-writer state, run it repeatedly to cov
 window. Top level only (*.md): the archive/ subdir (condensation archives, written on
 their own cadence) and staging tmp files are excluded by construction.
 
+The head of each dashboard file is read through .NET (FileShare.ReadWrite), not through
+Get-Content: on the DriveFS reader, a file held open for writing by a local writer fails
+with ERROR_FILE_NOT_FOUND under the PowerShell provider while the .NET open succeeds
+(measured 28/11 -- same file, same instant, 6 readings in a row). The verdict must not
+depend on the reader's share mode.
+
+A head that stays unreadable is NOT an instrument error: the file is counted UNKNOWN --
+its justification is neither proved nor disproved, never counted as export-justified --
+it is named in the output, and the family stays ACTIVE. A freeze criterion is not proved
+on an incomplete measurement.
+
 Writes nothing. Exit 0 = FROZEN (criterion met), 1 = ACTIVE (criterion not met),
 2 = instrument error (shared path unreadable, a family produced no instances,
 or an enumeration errored).
@@ -66,6 +77,37 @@ if (-not (Test-Path -LiteralPath $SharedPath)) {
 $now = (Get-Date).ToUniversalTime()
 $families = @('inventories', 'messages', '.machine-registry', 'dashboards')
 
+function Read-DashboardHead {
+    # Lecture de tete par .NET, PAS par Get-Content : sur le lecteur DriveFS (G:),
+    # un fichier tenu en ecriture par un ecrivain local s'ouvre par le fournisseur
+    # PowerShell en FileShare.Read et echoue en ERROR_FILE_NOT_FOUND (DriveFS rend
+    # ce code la ou Windows rendrait un conflit de partage), la ou un FileStream en
+    # FileShare.ReadWrite reussit. Mesure 28/11 (ai-01, #4915) : meme fichier, meme
+    # instant -- Get-Content FAIL et File.Open OK, 6 fois de suite. Un verdict
+    # Phase D ne doit pas dependre du mode de partage du lecteur.
+    # 3 tentatives : un fichier remplace entre l'enumeration et la lecture
+    # (reecriture locale concurrente) disparait brievement.
+    param([Parameter(Mandatory=$true)][string]$Path, [int]$Lines = 20)
+    $last = $null
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        try {
+            $fs = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+            try {
+                $sr = New-Object System.IO.StreamReader($fs)
+                try {
+                    $out = New-Object System.Collections.Generic.List[string]
+                    while ($out.Count -lt $Lines -and -not $sr.EndOfStream) { [void]$out.Add($sr.ReadLine()) }
+                    return $out.ToArray()
+                } finally { $sr.Dispose() }
+            } finally { $fs.Dispose() }
+        } catch {
+            $last = $_
+            if ($attempt -lt 3) { Start-Sleep -Milliseconds 200 }
+        }
+    }
+    throw $last
+}
+
 $rows = @()
 foreach ($family in $families) {
     $famErr = $null
@@ -96,20 +138,31 @@ foreach ($family in $families) {
                 exit 2
             }
             $residual = @()
+            $unknown = @()
             $exportedRecent = 0
             $frozenFiles = 0
             foreach ($f in $mdFiles) {
                 $ageF = ($now - $f.LastWriteTimeUtc).TotalHours
                 if ($ageF -ge $FreezeHours) { $frozenFiles++; continue }
                 $stampUtc = $null
+                $headRead = $true
                 try {
-                    $head = (Get-Content -LiteralPath $f.FullName -TotalCount 20 -ErrorAction Stop) -join "`n"
+                    $head = (Read-DashboardHead -Path $f.FullName -Lines 20) -join "`n"
                     if ($head -match "(?m)^mirrorExportAt:\s*'?([^'\r\n]+)'?") {
                         $stampUtc = [DateTimeOffset]::Parse($Matches[1], [System.Globalization.CultureInfo]::InvariantCulture).UtcDateTime
                     }
                 } catch {
-                    Write-Output ("[INSTRUMENT] unreadable dashboard file {0}: {1}" -f $f.FullName, $_.Exception.Message)
-                    exit 2
+                    # Tete illisible : le contenu n'est pas servi (DriveFS : contenu
+                    # indisponible). Le verdict ne peut NI confirmer NI infirmer la
+                    # justification de cette ecriture -- elle passe en INCONNUE,
+                    # nommee, et n'est JAMAIS comptee comme export justifiee. Un
+                    # critere de gel ne se prouve pas sur une mesure incomplete :
+                    # la famille reste ACTIVE.
+                    $headRead = $false
+                }
+                if (-not $headRead) {
+                    $unknown += [pscustomobject]@{ Name = $f.Name; AgeH = [math]::Round($ageF, 1) }
+                    continue
                 }
                 if ($null -ne $stampUtc) {
                     $gapMin = [math]::Abs(($f.LastWriteTimeUtc - $stampUtc).TotalMinutes)
@@ -117,8 +170,14 @@ foreach ($family in $families) {
                 }
                 $residual += [pscustomobject]@{ Name = $f.Name; AgeH = [math]::Round($ageF, 1) }
             }
-            if ($residual.Count -gt 0) {
-                $worst = $residual | Sort-Object AgeH | Select-Object -First 1
+            $unknownNames = (($unknown | ForEach-Object { $_.Name } | Sort-Object) -join ', ')
+            if ($residual.Count -gt 0 -or $unknown.Count -gt 0) {
+                $worst = (@($residual) + @($unknown)) | Sort-Object AgeH | Select-Object -First 1
+                $named = @($residual | ForEach-Object { $_.Name } | Sort-Object)
+                if ($unknown.Count -gt 0) {
+                    $named += ("{0} head illisible ({1})" -f $unknown.Count, $unknownNames)
+                }
+                $names = ($named -join ', ')
                 $rows += [pscustomobject]@{
                     Family      = 'dashboards'
                     Instance    = $entry.Name
@@ -127,7 +186,10 @@ foreach ($family in $families) {
                     NewestUtc   = $now.AddHours(-$worst.AgeH).ToString('yyyy-MM-dd HH:mm:ss')
                     AgeHours    = $worst.AgeH
                     Verdict     = 'ACTIVE'
-                    NewestEntry = ('{0} (+ {1} export-justified, {2} older than {3} h)' -f (($residual | ForEach-Object { $_.Name } | Sort-Object) -join ', '), $exportedRecent, $frozenFiles, $FreezeHours)
+                    NewestEntry = ('{0} (+ {1} export-justified, {2} older than {3} h)' -f $names, $exportedRecent, $frozenFiles, $FreezeHours)
+                    Exported    = $exportedRecent
+                    Unknown     = $unknown.Count
+                    Residual    = $residual.Count
                 }
             } else {
                 $newestAll = $mdFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
@@ -140,6 +202,9 @@ foreach ($family in $families) {
                     AgeHours    = [math]::Round(($now - $newestAll.LastWriteTimeUtc).TotalHours, 1)
                     Verdict     = 'FROZEN'
                     NewestEntry = ("export-aware: 0 residual ({0} export-justified, {1} older than {2} h)" -f $exportedRecent, $frozenFiles, $FreezeHours)
+                    Exported    = $exportedRecent
+                    Unknown     = $unknown.Count
+                    Residual    = 0
                 }
             }
         }
@@ -215,6 +280,22 @@ if ($invDirs.Count -gt 1) {
 }
 
 $active = @($rows | Where-Object { $_.Verdict -eq 'ACTIVE' })
+
+# Le detail dashboards (export-aware) est imprime dans les DEUX branches : c'est
+# lui qui porte le compte des ecritures justifiees par un tampon frais, et ce
+# compte se lit aussi quand le verdict global reste NOT-MET.
+$dashRows = @($rows | Where-Object { $_.Family -eq 'dashboards' })
+if ($dashRows.Count -gt 0) {
+    $dashExported = ($dashRows | Measure-Object -Property Exported -Sum).Sum
+    $dashUnknown = ($dashRows | Measure-Object -Property Unknown -Sum).Sum
+    $dashResidual = ($dashRows | Measure-Object -Property Residual -Sum).Sum
+    if ($dashResidual -eq 0 -and $dashUnknown -eq 0) {
+        Write-Output ("[PHASE-D] dashboards detail: export-aware -- every recent write carries a fresh mirrorExportAt stamp (tolerance {0} min). mtime only proves the LAST write per file: sample repeatedly to cover a window." -f $ExportToleranceMinutes)
+    } else {
+        Write-Output ("[PHASE-D] dashboards detail: export-aware -- {0} recent write(s) justified by a fresh mirrorExportAt stamp (tolerance {1} min), {2} residual (recent write without a fresh stamp), {3} head(s) unreadable (justification UNKNOWN, never counted as justified). mtime only proves the LAST write per file: sample repeatedly to cover a window." -f $dashExported, $ExportToleranceMinutes, $dashResidual, $dashUnknown)
+    }
+}
+
 if ($active.Count -gt 0) {
     Write-Output ("[PHASE-D] NOT-MET -- {0}/{1} family instance(s) written within the last {2} h:" -f $active.Count, $rows.Count, $FreezeHours)
     foreach ($a in ($active | Sort-Object AgeHours)) {
@@ -224,8 +305,4 @@ if ($active.Count -gt 0) {
 }
 
 Write-Output ("[PHASE-D] MET -- all {0} instance(s) across {1} frozen for at least {2} h" -f $rows.Count, ($seen -join ', '), $FreezeHours)
-$dashMet = @($rows | Where-Object { $_.Family -eq 'dashboards' })
-if ($dashMet.Count -gt 0) {
-    Write-Output ("[PHASE-D] dashboards detail: export-aware -- every recent write carries a fresh mirrorExportAt stamp (tolerance {0} min). mtime only proves the LAST write per file: sample repeatedly to cover a window." -f $ExportToleranceMinutes)
-}
 exit 0
