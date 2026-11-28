@@ -8,8 +8,8 @@
     on g1-genai: 0.56 $ of NOOP.
 
     The fix in #3755 adds a feeder-level eviction, BEFORE Update-StaleGrainBase
-    and BEFORE Prepare-Worktree, keyed on the `wtHead` field that
-    refresh-vibe-queue.py now records at grain-creation time:
+    and BEFORE Prepare-Worktree, keyed on the `wtHead` field (written empty
+    by refresh-vibe-queue.py, filled by the feeder when it re-bases a grain):
 
       if recorded wtHead != actual worktree HEAD
           -> evict (remove grain from queue, move to next)
@@ -123,17 +123,20 @@ Assert-Equal 'guard refuses (returns false) before any git'    $true ($emptyGuar
 Assert-Equal 'guard sits before the first worktree read'       $true ($iEmptyWt -gt 0 -and $src.IndexOf('worktree list') -gt $iEmptyWt)
 
 # ============================================================================
-# Test 2: refresh-vibe-queue.py now writes the wtHead field on each grain.
-# Without this, the feeder's discriminator has nothing to compare against and
-# the guard is silent. This is the schema half of #3755.
+# Test 2: the wtHead schema half of #3755. refresh-vibe-queue.py writes the
+# field EMPTY on each new grain: a new grain never has a worktree yet
+# (available_grain_name refuses any existing path), so there is no head to
+# capture -- a capture there was dead code (#4946). The feeder fills wtHead
+# when it re-bases the grain, which is what arms the eviction guard.
 # ============================================================================
-Write-Host "`n=== Test 2: refresh-vibe-queue.py records wtHead at grain creation ===" -ForegroundColor Cyan
+Write-Host "`n=== Test 2: wtHead written empty by the refresh, filled by the feeder on re-base ===" -ForegroundColor Cyan
 
 $refreshPath = Join-Path $repoRoot 'scripts/scheduling/refresh-vibe-queue.py'
 $refreshSrc = Get-Content $refreshPath -Raw
 
-Assert-Equal 'refresh captures wtHead'        $true ($refreshSrc -match 'wt_head\s*=\s*sh\(\[.*"rev-parse",\s*"HEAD"')
-Assert-Equal 'refresh persists wtHead on grain' $true ($refreshSrc -match '"wtHead":\s*wt_head')
+Assert-Equal 'refresh writes the wtHead field, empty'      $true  ($refreshSrc -match '"wtHead":\s*""')
+Assert-Equal 'refresh reads no worktree HEAD for a grain'  $false ($refreshSrc -match '"rev-parse",\s*"HEAD"')
+Assert-Equal 'feeder fills wtHead when it re-bases'        $true  ($src -match '\$Grain\.wtHead\s*=\s*\$OriginMain')
 
 # ============================================================================
 # Test 3: the eviction logic, exercised against a real git worktree. We
