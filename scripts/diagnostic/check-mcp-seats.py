@@ -51,6 +51,8 @@ doit voir l'absence avant la cecite de l'instrument.
 `STALE-DISABLE` et `AMBIGUOUS-DISABLE` sortent 0 (aucune absence MESUREE) mais
 restent affiches : le premier comme « a purger », le second avec les ecritures du
 chemin qui divergent -- c'est une lecture non tranchable, pas un serveur mort.
+Un nom a la fois introuvable et divergent reste `STALE-DISABLE` : a purger, ET
+avec les ecritures du chemin qui divergent nommees dans son detail.
 
 Ce que cet organe ne peut pas faire : mesurer un siege distant. Depuis un siege,
 on ne prouve la presence que LOCALEMENT ; pour les autres postes, la seule
@@ -227,6 +229,14 @@ def probe(servers, timeout, do_handshake, workspace):
         if slot["disabled"] and entry is None:
             record["verdict"] = "STALE-DISABLE"
             record["detail"] = "desactive mais declare nulle part (configuration perimee)"
+            if slot["silent_keys"]:
+                # Introuvable ET divergent (revue ai-01 27/11) : le verdict reste
+                # « a purger » -- purger une entree perimee et trancher une
+                # divergence ne sont pas le meme geste. Mais la sonde SAIT que
+                # les ecritures du chemin divergent : le dire au lieu de garder
+                # l'information pour un message plus pauvre.
+                record["detail"] += (f" ; desactive sous {_shown(slot['disable_keys'])}, "
+                                     f"pas sous {_shown(slot['silent_keys'])}")
         elif slot["disabled"] and slot["silent_keys"]:
             record["verdict"] = "AMBIGUOUS-DISABLE"
             record["detail"] = (f"desactive sous {_shown(slot['disable_keys'])}, "

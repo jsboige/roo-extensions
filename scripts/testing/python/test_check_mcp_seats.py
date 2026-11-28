@@ -235,6 +235,41 @@ class SeatContract(unittest.TestCase):
         self.assertEqual(report["disabled"], ["off-one"])
         self.assertEqual(report["ambiguous_disables"], [])
 
+    def test_a_stale_disable_still_names_the_writings_that_diverge(self):
+        # Revue ai-01 27/11 : divergent ET déclaré nulle part. Les deux faits
+        # tiennent ensemble — un seul verdict ne peut pas les porter, mais le
+        # détail le peut. Sans lui, l'opérateur purge une entrée périmée sans
+        # apprendre qu'une autre écriture du siège prétend désactiver ce nom.
+        silent, disabling = self.spellings()
+        code, out = self.run_probe(
+            {silent: {}, disabling: {"disabledMcpServers": ["ghost"]}}, "--json")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        # Le geste principal ne change pas : le nom est à purger, et ce n'est
+        # pas une ambiguïté sur un serveur déclaré.
+        self.assertEqual(report["stale_disables"], ["ghost"])
+        self.assertEqual(report["ambiguous_disables"], [])
+        record = next(r for r in report["records"] if r["server"] == "ghost")
+        self.assertEqual(record["verdict"], "STALE-DISABLE")
+        # Chaîne exacte : chaque écriture dans SON camp. Un détail qui échangerait
+        # « désactivé sous » et « pas sous » dirait l'inverse du siège.
+        self.assertEqual(
+            record["detail"],
+            "desactive mais declare nulle part (configuration perimee)"
+            f" ; desactive sous {cms._shown([disabling])}, "
+            f"pas sous {cms._shown([silent])}")
+
+    def test_a_stale_disable_without_divergence_keeps_its_plain_detail(self):
+        # Témoin inverse : une seule écriture du chemin, rien à signaler — le
+        # détail d'origine doit rester mot pour mot.
+        _, single = self.spellings()
+        code, out = self.run_probe({single: {"disabledMcpServers": ["ghost"]}}, "--json")
+        report = json.loads(out)
+        self.assertEqual(code, 0)
+        record = next(r for r in report["records"] if r["server"] == "ghost")
+        self.assertEqual(record["detail"],
+                         "desactive mais declare nulle part (configuration perimee)")
+
     def test_a_single_spelling_disables_whichever_way_it_is_written(self):
         # Témoin du 2026-11-03 : la correspondance normalisée ne recule pas.
         # Une seule écriture, même autrement que la sonde ne résout, est lue.
