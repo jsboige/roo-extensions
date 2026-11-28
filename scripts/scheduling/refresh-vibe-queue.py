@@ -1110,6 +1110,9 @@ def main():
     if args.recovery_manifest and args.simulate_backup:
         raise ValueError("Choose one recovery source")
     queue_path = os.path.join(os.getcwd(), args.queue)
+    # Remembered for publication (#4946): a queue loaded at start and gone
+    # after the scan is a lost queue, even with no .bak beside it.
+    queue_existed = os.path.exists(queue_path)
     if args.simulate_backup:
         old = load_queue(queue_path + ".bak")
         manifest = recovery_reservations(old)
@@ -1186,22 +1189,21 @@ def main():
             reserved_ids.add(gid)
             delivered.add(branch)
             targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
-            # Discriminant de generation (#3755) : on capture la SHA de tete du
-            # worktree au moment ou le grain est pose en file. Le feeder
-            # comparera cette valeur au HEAD reel du worktree AVANT chaque
-            # repost : si elle diverge, le worktree a ete reutilise pour une
-            # nouvelle generation et le grain porte un nom mais pas la bonne
-            # tete — eviction sans appel a gh.
-            wt_head = ""
-            if os.path.isdir(wt):
-                wt_head = sh(["git", "-C", wt, "rev-parse", "HEAD"],
-                             check=False).strip()
+            # Discriminant de generation (#3755) : wtHead part VIDE. Un grain
+            # neuf n'a jamais de worktree ici -- available_grain_name refuse
+            # tout chemin existant (os.path.lexists) -- donc aucune tete a
+            # capturer. Le feeder le renseigne quand il recale le grain sur
+            # une nouvelle base (Update-StaleGrainBase et balayage stale :
+            # wtHead = origin/main) ; tant qu'il est vide, le garde d'eviction
+            # de vibe-feeder.ps1 (`-and $g.wtHead`) ne s'arme pas.
+            # Ceci ne vaut que pour les grains NOUVEAUX : un grain reporte
+            # (keepable) garde son objet tel quel, wtHead rempli compris.
             # FAMINE_BIN est un grain plan par plan(), pas un nom libre : le
             # marqueur "famine" porte la provenance jusqu'au relais (note dans
             # le payload, drapeau lisible dans la file).
             is_famine = (name == FAMINE_BIN)
             grains.append({
-                "id": gid, "issue": issue, "baseSha": base, "wtHead": wt_head,
+                "id": gid, "issue": issue, "baseSha": base, "wtHead": "",
                 "worktree": wt, "branch": branch,
                 "payload": contract["payload"].format(
                     gid=gid, base=base, targets=targets, worktree=wt, branch=branch)
@@ -1235,19 +1237,25 @@ def main():
         print("\n[DRY-RUN] %d grain(s) au total, %d findings planifies — file non ecrite"
               % (len(grains), total))
         return
+    rotated = False
     if os.path.exists(queue_path):
         with io.open(queue_path, encoding="utf-8", newline="") as fh:
             previous = fh.read()
         if not preserve_previous(queue_path, previous):
             raise ValueError("Queue became invalid; refusing publication")
+        rotated = True
+    elif queue_existed:
+        raise FileNotFoundError("Queue loaded at start vanished during the scan; "
+                                "refusing publication")
     elif os.path.exists(queue_path + ".bak"):
         raise FileNotFoundError("Queue vanished beside its .bak; refusing publication")
     # else: fresh seat (load_or_bootstrap_queue) -- nothing to rotate.
     # Publish a complete file by replacement: an interrupted write must not
     # truncate the previous queue (the 0-byte file of 23/11 is exactly that).
     publish_text(queue_path, json.dumps(out, ensure_ascii=False, indent=2) + "\n")
-    print("\nfile ecrite: %s (%d grains, %d findings, precedent conserve en .bak)"
-          % (queue_path, len(grains), total))
+    print("\nfile ecrite: %s (%d grains, %d findings, %s)"
+          % (queue_path, len(grains), total,
+             "precedent conserve en .bak" if rotated else "siege neuf, aucun precedent"))
 
 
 if __name__ == "__main__":

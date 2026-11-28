@@ -829,6 +829,89 @@ class TestQueueBootstrap(unittest.TestCase):
         with open(self.path + '.bak', 'rb') as fh:
             self.assertEqual(fh.read(), backup)
 
+    # -- Publication guards (#4946): the queue changes DURING the scan. --------
+
+    RESERVED = b'{"grains":[{"id":"reserved","branch":"wt/reserved"}]}'
+
+    def _main_with_scan_hook(self, during_scan):
+        """Run main() on one free finding; `during_scan` fires inside the scan."""
+        contract = {'scan': lambda _: {'free.ipynb': ['x']}, 'branch_prefix': 'wt/',
+                    'payload': 'targetPath:\n{targets}\nworktree: {worktree}\nbranch: {branch}\n'}
+
+        def planning(*_args, **_kwargs):
+            during_scan()
+            return [('x', {'free.ipynb': ['x']})]
+
+        out = io.StringIO()
+        with mock.patch.object(sys, 'argv', ['refresh-vibe-queue', '--queue', self.path,
+                                            '--issue', '1', '--wt-root', os.path.join(self.dir, 'wt')]), \
+             mock.patch.object(rvq, 'CONTRACTS', {1: contract}), \
+             mock.patch.object(rvq, 'fresh_base', return_value='base'), \
+             mock.patch.object(rvq, 'ensure_scan_wt', return_value='scan'), \
+             mock.patch.object(rvq, 'open_prs', return_value=({}, set())), \
+             mock.patch.object(rvq, 'issue_claims', return_value=set()), \
+             mock.patch.object(rvq, 'merged_branches', return_value=set()), \
+             mock.patch.object(rvq, 'plan', side_effect=planning), \
+             redirect_stdout(out):
+            rvq.main()
+        return out.getvalue()
+
+    def test_main_refuses_queue_loaded_then_vanished_without_backup(self):
+        """A seat that published once has a queue and no .bak: losing the queue
+        mid-scan must not pass for a fresh seat and drop its reservations."""
+        with open(self.path, 'wb') as fh:
+            fh.write(self.RESERVED)
+        with self.assertRaisesRegex(FileNotFoundError, 'vanished during the scan'):
+            self._main_with_scan_hook(lambda: os.remove(self.path))
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_main_refuses_queue_vanished_beside_backup_at_publication(self):
+        with open(self.path, 'wb') as fh:
+            fh.write(self.RESERVED)
+        with open(self.path + '.bak', 'wb') as fh:
+            fh.write(self.RESERVED)
+        with self.assertRaises(FileNotFoundError):
+            self._main_with_scan_hook(lambda: os.remove(self.path))
+        self.assertFalse(os.path.exists(self.path))
+        with open(self.path + '.bak', 'rb') as fh:
+            self.assertEqual(fh.read(), self.RESERVED)
+
+    def test_main_refuses_backup_appearing_beside_a_fresh_seat(self):
+        """Fresh seat at load, then a .bak shows up mid-scan: another writer
+        published -- the empty start is no longer safe."""
+        def another_writer():
+            with open(self.path + '.bak', 'wb') as fh:
+                fh.write(self.RESERVED)
+        with self.assertRaisesRegex(FileNotFoundError, 'beside its .bak'):
+            self._main_with_scan_hook(another_writer)
+        self.assertFalse(os.path.exists(self.path))
+
+    def test_main_refuses_queue_turned_invalid_keeping_backup_bytes(self):
+        with open(self.path, 'wb') as fh:
+            fh.write(self.RESERVED)
+        with open(self.path + '.bak', 'wb') as fh:
+            fh.write(self.RESERVED)
+        for torn in ('', '{"grains":[', '{"grains":[null]}'):
+            with self.subTest(torn=torn):
+                def tear(text=torn):
+                    self._write(text)
+                with self.assertRaisesRegex(ValueError, 'became invalid'):
+                    self._main_with_scan_hook(tear)
+                with open(self.path + '.bak', 'rb') as fh:
+                    self.assertEqual(fh.read(), self.RESERVED)
+                with io.open(self.path, encoding='utf-8', newline='') as fh:
+                    self.assertEqual(fh.read(), torn)
+                self._write(self.RESERVED.decode('utf-8'))
+
+    def test_publication_message_names_the_backup_only_when_rotated(self):
+        fresh = self._main_with_scan_hook(lambda: None)
+        self.assertNotIn('precedent conserve en .bak', fresh)
+        self.assertIn('siege neuf, aucun precedent', fresh)
+        self.assertFalse(os.path.exists(self.path + '.bak'))
+        rotated = self._main_with_scan_hook(lambda: None)
+        self.assertIn('precedent conserve en .bak', rotated)
+        self.assertTrue(os.path.exists(self.path + '.bak'))
+
     def test_invalid_queues_fail_closed_preserving_backup(self):
         backup = b'{"grains":[{"id":"reserved","branch":"wt/reserved"}]}'
         with open(self.path + ".bak", "wb") as fh:

@@ -1,14 +1,28 @@
 # -*- coding: utf-8 -*-
 """Refresh queued Vibe grains against the current CoursIA origin/main."""
 
+import importlib.util
 import io
 import json
+import os
 import re
 import subprocess
 import sys
 
 QUEUE_PATH = r"D:\dev\roo-extensions\outputs\vibe\feeder-queue.json"
 COURSIA_REPO = r"D:\dev\CoursIA"
+
+
+def _load_queue_organ():
+    """The refresher owns the queue publication (publish_text, preserve_previous)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "refresh-vibe-queue.py")
+    spec = importlib.util.spec_from_file_location("refresh_vibe_queue", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+QUEUE_ORGAN = _load_queue_organ()
 
 
 def git(*args: str, text: bool = True) -> subprocess.CompletedProcess:
@@ -57,8 +71,9 @@ def main() -> int:
         print("ERREUR rev-parse:", rev.stderr.strip())
         return 1
 
-    with io.open(QUEUE_PATH, encoding="utf-8-sig") as handle:
-        queue = json.load(handle)
+    with io.open(QUEUE_PATH, encoding="utf-8-sig", newline="") as handle:
+        previous = handle.read()
+    queue = json.loads(previous)
 
     grains = queue.get("grains", [])
     if not grains:
@@ -95,8 +110,14 @@ def main() -> int:
             dropped.append(grain["id"])
 
     queue["grains"] = keep
-    with io.open(QUEUE_PATH, "w", encoding="utf-8", newline="") as handle:
-        handle.write(json.dumps(queue, indent=4, ensure_ascii=False))
+    # Second writer of the queue (#4946): same publication as the refresher.
+    # The loaded queue rotates into .bak, then the file is replaced only once
+    # the new content is complete -- a torn write here would lock the
+    # refresher at every tick (load_queue fails closed).
+    if not QUEUE_ORGAN.preserve_previous(QUEUE_PATH, previous):
+        print("ERREUR: file invalide, publication refusee (.bak intact)")
+        return 1
+    QUEUE_ORGAN.publish_text(QUEUE_PATH, json.dumps(queue, indent=4, ensure_ascii=False))
 
     rebased: list[str] = []
     for grain in keep:
