@@ -405,3 +405,120 @@ Describe 'start-copilot-dispatcher.ps1 — 17/11 #4806: a delivered grain is nev
         $msg2 | Should -Not -Match 'already-delivered'
     }
 }
+
+Describe 'start-copilot-dispatcher.ps1 — 28/11 billed-link park (behavioral decision core)' {
+    # The 26/10 leak measured what an unguarded scheduled task does on a metered
+    # link, and the dispatcher had no link guard at all (grep metered|billed|link-
+    # = 0). ConvertTo-LinkVerdict is the pure core: the probe's first word and its
+    # exit code are two signals, and the STRICTER one wins — so a disagreement can
+    # only park a tick, never spend on an unclassified link.
+    BeforeAll {
+        foreach ($fn in 'ConvertTo-LinkVerdict', 'Get-LinkGuardVerdict') {
+            $m = [regex]::Match($script:src, "(?s)(function $fn \{.*?\r?\n\})")
+            if (-not $m.Success) { throw "$fn not found in start-copilot-dispatcher.ps1" }
+            Invoke-Expression $m.Groups[1].Value
+        }
+    }
+
+    It 'UNBILLED line + exit 0 → UNBILLED, and the detail keeps the probe payload' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'UNBILLED profile=Jesse_Wifi adapter=Ethernet cost=Unrestricted' -ProbeExitCode 0
+        $v.Verdict | Should -Be 'UNBILLED'
+        $v.Detail | Should -Match 'profile=Jesse_Wifi'
+    }
+
+    It 'BILLED line + exit 3 → BILLED' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'BILLED reason=tether adapter=Ethernet 3 cost=Fixed' -ProbeExitCode 3
+        $v.Verdict | Should -Be 'BILLED'
+    }
+
+    It 'UNKNOWN line + exit 4 → UNKNOWN' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'UNKNOWN reason=helper-missing' -ProbeExitCode 4
+        $v.Verdict | Should -Be 'UNKNOWN'
+    }
+
+    It 'disagreement resolves STRICTER: exit 0 but a BILLED line still parks' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'BILLED reason=metered-profile' -ProbeExitCode 0
+        $v.Verdict | Should -Be 'BILLED'
+    }
+
+    It 'disagreement resolves STRICTER: exit 3 but an UNBILLED line still parks' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'UNBILLED profile=x adapter=y cost=Unrestricted' -ProbeExitCode 3
+        $v.Verdict | Should -Be 'BILLED'
+    }
+
+    It 'exit 0 with no output at all is NOT a go (UNKNOWN, fail-closed)' {
+        $v = ConvertTo-LinkVerdict -ProbeLine '' -ProbeExitCode 0
+        $v.Verdict | Should -Be 'UNKNOWN'
+        $v.Detail | Should -Be 'probe-exit=0'
+    }
+
+    It 'an unparseable first word folds to UNKNOWN and never relaxes the verdict' {
+        $v = ConvertTo-LinkVerdict -ProbeLine 'something else entirely' -ProbeExitCode 0
+        $v.Verdict | Should -Be 'UNKNOWN'
+        $v = ConvertTo-LinkVerdict -ProbeLine 'garbage' -ProbeExitCode 3
+        $v.Verdict | Should -Be 'BILLED'
+    }
+
+    It 'lowercase and padded verdict words are normalised' {
+        $v = ConvertTo-LinkVerdict -ProbeLine '  unbilled profile=a' -ProbeExitCode 0
+        $v.Verdict | Should -Be 'UNBILLED'
+    }
+
+    It 'behavioral: a missing probe path is UNKNOWN probe-missing (no child spawn, never a go)' {
+        $v = Get-LinkGuardVerdict -ProbePath 'C:\definitely\not\here\test-link-billed.ps1'
+        $v.Verdict | Should -Be 'UNKNOWN'
+        $v.Detail | Should -Be 'probe-missing'
+    }
+}
+
+Describe 'start-copilot-dispatcher.ps1 — 28/11 billed-link park (wiring: parked before any external call)' {
+    # Same contract as the known-bad CLI park: exit BEFORE any external call and
+    # write no run state (a parked lane is not an idle streak, so it must not feed
+    # the escalation counter).
+    BeforeAll {
+        $script:lines = $script:src -split '\r?\n'
+        function Get-LineIndex([string]$Pattern) {
+            [array]::IndexOf(@($script:lines | ForEach-Object { [bool]($_ -match $Pattern) }), $true)
+        }
+    }
+
+    It 'the guard runs AFTER the DryRun exit and BEFORE the first external call (Test-CopilotCliBlocked)' {
+        $dryRunIdx = Get-LineIndex 'if \(\$DryRun\) \{'
+        $guardIdx = Get-LineIndex '\$linkVerdict = Get-LinkGuardVerdict -ProbePath \$linkProbePath'
+        $cliIdx = Get-LineIndex 'if \(Test-CopilotCliBlocked\) \{'
+        $dryRunIdx | Should -BeGreaterOrEqual 0
+        $guardIdx | Should -BeGreaterThan $dryRunIdx
+        $cliIdx | Should -BeGreaterThan $guardIdx
+    }
+
+    It 'the probe path is derived from $scriptDir (scripts/monitoring), never from the cwd' {
+        # Two-step Join-Path: a literal backslash child is one odd FILENAME on
+        # Linux, where the child-executing harnesses run (CI ubuntu / pwsh).
+        $script:src | Should -Match '\$linkProbePath = Join-Path \(Join-Path \(Split-Path -Parent \$scriptDir\) ''monitoring''\)'
+        $script:src | Should -Match "'test-link-billed\.ps1'"
+    }
+
+    It 'the probe host is resolved, never assumed: powershell.exe if present, else the runner pwsh' {
+        # The probe's proven engine is 5.1 (WinRT casts); on the ubuntu runner
+        # powershell.exe does not exist and -ExecutionPolicy is not a pwsh arg.
+        $script:src | Should -Match 'Get-Command powershell\.exe -ErrorAction SilentlyContinue'
+        $script:src | Should -Match "Join-Path \`$PSHOME 'pwsh'"
+        $script:src | Should -Match "if \(\`$env:OS -eq 'Windows_NT'\) \{ \`$hostArgs \+= @\('-ExecutionPolicy', 'Bypass'\) \}"
+        $script:src | Should -Not -Match '& powershell\.exe '
+    }
+
+    It 'park is fail-closed on anything but UNBILLED, logs the verdict, exits 0 without touching run state' {
+        $script:src | Should -Match "if \(\`$linkVerdict\.Verdict -ne 'UNBILLED'\) \{"
+        $script:src | Should -Match 'Dispatcher parked this tick - link \$\(\$linkVerdict\.Verdict\)'
+        $m = [regex]::Match($script:src, "(?s)if \(\`$linkVerdict\.Verdict -ne 'UNBILLED'\) \{(.*?)\r?\n\}")
+        $m.Success | Should -BeTrue
+        $m.Groups[1].Value | Should -Match 'Write-Log'
+        $m.Groups[1].Value | Should -Match 'exit 0'
+        $m.Groups[1].Value | Should -Not -Match 'Set-Content|ConvertTo-Json|Save-'
+    }
+
+    It 'positive control: deleting the guard call makes the ordering pin fail' {
+        $mutant = $script:src -replace '(?m)^\s*\$linkVerdict = Get-LinkGuardVerdict[^\r\n]*\r?\n', ''
+        $mutant | Should -Not -Match '\$linkVerdict = Get-LinkGuardVerdict'
+    }
+}
